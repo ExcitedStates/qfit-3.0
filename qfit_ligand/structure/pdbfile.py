@@ -11,14 +11,13 @@ class PDBFile:
         cls.resolution = None
         if fname.endswith('.gz'):
             fopen = gzip.open
-            mode = 'rb'
+            mode = 'rt'
         else:
             fopen = open
             mode = 'r'
 
         with fopen(fname, mode) as f:
             for line in f:
-                line = line.decode('utf-8')
                 if line.startswith(('ATOM', 'HETATM')):
                     values = CoorRecord.parse_line(line)
                     for field in CoorRecord.fields:
