@@ -2,7 +2,6 @@ from collections import defaultdict, Iterable
 from operator import eq, gt, ge, le, lt
 
 import numpy as np
-np.seterr(all='raise')
 
 from .elements import ELEMENTS
 from .math import dihedral_angle
@@ -16,8 +15,6 @@ class _BaseStructure:
     _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
     _selector = _Selector()
     _COMPARISON_DICT = {'==': eq, '!=': eq, '>': gt, '>=': ge, '<=': le, '<': lt}
-    #_COMPARISON_DICT = {'==': np.equal, '!=': np.equal, '>': np.greater,
-    #                    '>=': np.greater_equal, '<=': np.less_equal, '<': np.less}
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
 

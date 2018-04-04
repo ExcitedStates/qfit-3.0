@@ -361,9 +361,12 @@ class QFitRotamericResidue(_BaseQFit):
             fname = os.path.join(self.options.directory, f'conformer_{n}.pdb')
             conformer.tofile(fname)
         # Make a multiconformer residue
+        nconformers = len(conformers)
         mc_residue = Structure.fromstructurelike(conformers[0])
-        mc_residue.altloc = 'A'
-        if len(conformers) > 1:
+        if nconformers == 1:
+            mc_residue.altloc = ''
+        else:
+            mc_residue.altloc = 'A'
             for altloc, conformer in zip(ascii_uppercase[1:], conformers[1:]):
                 conformer.altloc = altloc
                 mc_residue = mc_residue.combine(conformer)
@@ -408,9 +411,9 @@ class QFitSegment(_BaseQFit):
             altlocs = np.unique(rg.altloc)
             multiconformer = []
             for altloc in altlocs:
-                if not altloc:
+                if not altloc and naltlocs > 1:
                     continue
-                conformer = rg.select('altloc', (altloc, ''))
+                conformer = Structure.fromstructurelike(rg.extract('altloc', (altloc, '')))
                 multiconformer.append(conformer)
             multiconformers.append(multiconformer)
 
@@ -423,22 +426,23 @@ class QFitSegment(_BaseQFit):
             for fragment_multiconformer in fragment_multiconformers:
                 # Create all combinations of alternate residue fragments
                 fragments = []
-                for fragment_conformer in itertools.product(*fragment_elements):
+                for fragment_conformer in itertools.product(*fragment_multiconformer):
                     # Build up fragment by combining conformers
-                    for element in fragment_conformer:
-                        try:
-                            fragment = fragment.combine(element)
-                        except UnboundLocalError:
+                    for n, element in enumerate(fragment_conformer):
+                        if n == 0:
                             fragment = element
+                        else:
+                            fragment = fragment.combine(element)
                     fragments.append(fragment)
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])
-                self._coor_list = [fragment.coor for fragment in fragments]
+                self._coor_set = [fragment.coor for fragment in fragments]
+                self._solve()
                 self._solve(cardinality=self.options.cardinality,
                             threshold=self.options.threshold)
                 multiconformer = []
-                for coor in self._coor_list:
-                    fragment_conformer = fragment.copy()
+                for coor in self._coor_set:
+                    fragment_conformer = fragments[0].copy()
                     fragment_conformer.coor = coor
                     multiconformer.append(fragment_conformer)
                 multiconformers.append(multiconformer)
@@ -450,6 +454,17 @@ class QFitLigand(_BaseQFit):
     def __init__(self, ligand, receptor, xmap, options):
         super().__init__(ligand, xmap, options)
         self.receptor = receptor
+
+    def run(self):
+
+        self._local_search()
+        self._
+
+    def _local_search(self):
+        pass
+
+    def _iterative_sample(self):
+        pass
 
 
 class QFitCovalentLigand(_BaseQFit):

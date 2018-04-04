@@ -43,7 +43,7 @@ class Structure(_BaseStructure):
     @classmethod
     def fromstructurelike(cls, structure_like):
         data = {}
-        for attr in cls.REQUIRED_ATTRIBUTES:
+        for attr in structure_like.data:
             data[attr] = getattr(structure_like, attr)
         return cls(data)
 
@@ -247,6 +247,9 @@ class _Chain(_BaseStructure):
 
 
 class _ResidueGroup(_BaseStructure):
+
+    """Guarantees a group with similar resi and icode."""
+
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
         self.id = (kwargs['resi'], kwargs['icode'])
