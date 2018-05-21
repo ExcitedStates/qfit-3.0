@@ -27,7 +27,7 @@ class _BaseQFitOptions:
         self.scattering = 'xray'
 
         # Sampling options
-        self.clash_scaling_factor = 0.80
+        self.clash_scaling_factor = 0.75
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
 
@@ -82,11 +82,11 @@ class _BaseQFit:
         self._rmask = 1.5
         if self.options.resolution_min is not None:
             self._smin = 1 / (2 * options.resolution_min)
-            self._rmask = options.resolution_min / 3 + 0.5
 
         self._xmap_model = xmap.zeros_like(self.xmap)
         # To speed up the density creation steps, reduce space group symmetry to P1
         self._xmap_model.set_space_group("P1")
+        self._voxel_volume = self.xmap.unit_cell.calc_volume() / self.xmap.array.size
 
     def get_conformers(self):
         conformers = []
@@ -108,39 +108,28 @@ class _BaseQFit:
     def _convert(self):
 
         """Convert structures to densities and extract relevant values for (MI)QP."""
+        logger.info("Converting")
 
-        for coor in self._coor_set:
+        logger.debug("Masking")
+        for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            self._transformer.mask(self._rmask)
+            self._transformer.mask(1.5)
         mask = self._transformer.xmap.array > 0
         self._transformer.reset(full=True)
 
-        if self.options.debug:
-            uc = self._transformer.xmap.unit_cell
-            total_nvoxels = self._transformer.xmap.array.size
-            mask_nvoxels = mask.sum()
-            mask_volume = mask_nvoxels / total_nvoxels * uc.calc_volume()
-            logger.debug(f"Number of mask voxels: {mask_nvoxels}")
-            logger.debug(f"Volume of mask: {mask_volume:.2f}")
-
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
-        if self.options.debug:
-            total_density = self._target.sum()
-            mean_density = total_density / self._target.size
-            logger.debug(f"Total density found under footprint: {total_density:.2f}")
-            logger.debug(f"Average density under footprint: {mean_density:.2f}")
 
+        logger.debug("Density")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self._transformer.density()
             self._models[n] = self._transformer.xmap.array[mask]
-            self._transformer.reset()
+            self._transformer.reset(rmax=3)
 
     def _solve(self, cardinality=None, threshold=None):
-        self._convert()
         do_qp = cardinality == threshold == None
         if do_qp:
             solver = QPSolver(self._target, self._models)
@@ -150,11 +139,9 @@ class _BaseQFit:
             solver(cardinality=self.options.cardinality,
                    threshold=self.options.threshold)
         self._occupancies = solver.weights
-        self._update_conformers()
 
-        if self.options.debug:
-            remainder = 2 * solver.obj_value + np.inner(self._target, self._target)
-            logger.debug(f"Remaining density under footprint: {remainder:.2f}")
+        residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
+        logger.info(f"Residual under footprint: {residual:.4f}")
 
     def _update_conformers(self):
         new_coor_set = []
@@ -218,6 +205,10 @@ class QFitRotamericResidue(_BaseQFit):
 
         super().__init__(residue, xmap, options)
         self.residue = residue
+        # For Proline we do not want to sample the neighborhood.
+        if self.residue.resn[0] == "PRO":
+            self.options.rotamer_neighborhood = 0
+
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
         self._setup_clash_detector()
@@ -249,7 +240,7 @@ class QFitRotamericResidue(_BaseQFit):
         resi, icode = residue.id
         receptor = conformer.parent.parent
         if icode:
-            selection_str = 'not (resi {} and icode {})'.format(resi, icode)
+            selection_str = f'not (resi {resi} and icode {icode})'
             receptor = conformer.parent.extract(selection_str)
         else:
             receptor = conformer.parent.extract('resi', resi, '!=')
@@ -285,18 +276,18 @@ class QFitRotamericResidue(_BaseQFit):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal clash mask.
                 self.residue.active = True
-                try:
+                if chi_index < self.residue.nchi:
                     deactivate = self.residue._rotamers['chi-rotate'][chi_index + 1]
                     selection = self.residue.select('name', deactivate)
                     self.residue._active[selection] = False
-                except KeyError:
-                    pass
                 self.residue.update_clash_mask()
 
                 logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
                 new_coor_set = []
                 sampled_rotamers = []
+                n = 0
                 for coor in self._coor_set:
+                    n += 1
                     self.residue.coor = coor
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
                     for rotamer in rotamers:
@@ -304,7 +295,8 @@ class QFitRotamericResidue(_BaseQFit):
                         # current rotamer
                         is_this_rotamer = True
                         for curr_chi, rotamer_chi in zip(chis, rotamer):
-                            if abs(curr_chi - rotamer_chi) > self.options.rotamer_neighborhood:
+                            diff_chi = abs(curr_chi - rotamer_chi)
+                            if 360 - self.options.rotamer_neighborhood > diff_chi > self.options.rotamer_neighborhood:
                                 is_this_rotamer = False
                                 break
                         if not is_this_rotamer:
@@ -331,21 +323,27 @@ class QFitRotamericResidue(_BaseQFit):
                             if not self._cd() and self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
-                #self._write_intermediate_conformers(f"conformer_{iteration}")
+            #self._write_intermediate_conformers(f"conformer_{iteration}")
 
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial clashes."
                 raise RuntimeError(msg)
             # QP
+            logger.debug("Converting densities.")
+            self._convert()
+            logger.info("Solving QP.")
             self._solve()
+            logger.debug("Updating conformers")
+            self._update_conformers()
             #self._write_intermediate_conformers(f"qp_{iteration}")
             # MIQP
+            self._convert()
+            logger.info("Solving MIQP.")
             self._solve(cardinality=self.options.cardinality,
                         threshold=self.options.threshold)
+            self._update_conformers()
             #self._write_intermediate_conformers(f"miqp_{iteration}")
-            self._solve(cardinality=self.options.cardinality,
-                        threshold=self.options.threshold)
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
 
             # Check if we are done
@@ -451,20 +449,59 @@ class QFitSegment(_BaseQFit):
 
 class QFitLigand(_BaseQFit):
 
-    def __init__(self, ligand, receptor, xmap, options):
+    def __init__(self, ligand, root, receptor, xmap, options):
         super().__init__(ligand, xmap, options)
+        self.ligand = ligand
         self.receptor = receptor
+        csf = self.options.clash_scaling_factor
+        self._cd = ClashDetector(ligand, receptor, scaling_factor=csf)
+        self._rigid_clusters = ligand.rigid_clusters()
+        self._update_transformer(ligand)
 
     def run(self):
 
-        self._local_search()
-        self._
+        if self.options.local_search:
+            self._local_search()
+        self._sample_internal_dofs()
 
     def _local_search(self):
         pass
 
-    def _iterative_sample(self):
-        pass
+    def _sample_internal_dofs(self):
+
+        nbonds = None
+        if nbonds == 0:
+            return
+
+        starting_bond_index = 0
+
+        while True:
+            end_bond_index = min(starting_bond_index + self.options.dofs_per_iteration, nbonds)
+            for bond_index in range(starting_bond_index, end_bond_index):
+
+                nbonds_sampled = bond_index + 1
+                self.ligand.active = False
+                for cluster in self._rigid_clusters:
+                    for sampled_bond in bonds[:nbonds_sampled]:
+                        if sampled_bond[0] in cluster or sampled_bond[1] in cluster:
+                            self.ligand.active[cluster] = True
+                            for atom in cluster:
+                                self.ligand.active[self.ligand.connectivity[atom]] = True
+
+                bond = bonds[bond_index]
+                atoms = [self.ligand.name[bond[0]], self.ligand.name[bond[1]]]
+                new_coor_set = []
+                for coor in self._coor_set:
+                    self.ligand.coor = coor
+                    rotator = BondRotator(self.ligand, *atoms)
+                    for angle in sampling_range:
+                        rotator(angle)
+                        if not self._cd() and self.ligand.clashes():
+                            new_coor_set.append(self.ligand.coor)
+                self._coor_set = new_coor_set
+
+                if not self._coor_set:
+                    return
 
 
 class QFitCovalentLigand(_BaseQFit):

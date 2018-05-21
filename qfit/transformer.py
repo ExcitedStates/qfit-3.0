@@ -112,7 +112,11 @@ class Transformer:
 
         #assert bfactor > 0, "B-factor should be bigger than 0"
 
-        asf = self._asf[element.capitalize()]
+        try:
+            asf = self._asf[element.capitalize()]
+        except KeyError:
+            print("Unknown element:", element.capitalize())
+            asf = self._asf["C"]
         four_pi2 = 4 * np.pi * np.pi
         bw = []
         for i in range(6):

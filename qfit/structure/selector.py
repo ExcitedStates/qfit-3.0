@@ -22,6 +22,7 @@ class _Selector:
         kw_altloc = pp.Keyword('altloc')
         kw_name = pp.Keyword('name')
         kw_icode = pp.Keyword('icode')
+        kw_resseq = pp.Keyword('resseq')
 
         # Resi is special cause it can take a range
         kw_resi = pp.Keyword('resi')
@@ -30,7 +31,7 @@ class _Selector:
         kw_b = pp.Keyword('b')
         kw_q = pp.Keyword('q')
 
-        identifyer_selectors = kw_chain | kw_resn | kw_altloc | kw_name | kw_icode
+        identifyer_selectors = kw_chain | kw_resn | kw_altloc | kw_name | kw_icode | kw_resseq
         numeric_selectors = kw_b | kw_q
 
         # operators
@@ -49,7 +50,7 @@ class _Selector:
                      pp.Literal('>') | pp.Literal('<') | pp.Literal('=='))
         empty = pp.Literal('""') | pp.Literal("''")
 
-        identifyer = pp.Word(pp.alphanums + "'") | empty
+        identifyer = pp.Word(pp.alphanums + "'" + '.') | empty
         number = pp.Word(pp.nums)
         integer = pp.Combine(pp.Optional(plus_minus) + number)
         floatnumber = pp.Combine(integer + pp.Optional(point + pp.Optional(number))).setParseAction(self._push_first)
@@ -120,6 +121,24 @@ class _Selector:
                 if value in ('""', "''"):
                     value = ''
                 mask = data == value
+                selections.append(self.curr_sel[mask])
+            selection = np.concatenate(selections)
+            return selection
+        elif token == 'resseq':
+            picks = set(s.pop())
+            selections = []
+            resi_data = self.structure.resi
+            icode_data = self.structure.icode
+            for value in picks:
+                try:
+                    resi, icode = value.split('.')
+                except ValueError:
+                    resi = value
+                    icode = ''
+                resi = int(resi)
+                mask = resi_data == resi
+                if icode:
+                    mask &= (icode_data == icode)
                 selections.append(self.curr_sel[mask])
             selection = np.concatenate(selections)
             return selection

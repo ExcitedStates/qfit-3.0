@@ -80,7 +80,7 @@ ROTAMERS = {
 # Asparagine
 'ASN': {
     'atoms': ['N', 'CA', 'C', 'O',
-              'CB', 'CG', 'OD1', 'ND1',
+              'CB', 'CG', 'OD1', 'ND2',
              ],
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
@@ -557,8 +557,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'CG1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD1', 'CE1', 'CE2', 'CZ', 'OH'],
-        2: ['CD1', 'CE1', 'CE2', 'CZ', 'OH'],
+        1: ['CG1', 'CG2'],
     },
     'rotamers': [
         [ 63],

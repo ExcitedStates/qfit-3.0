@@ -194,7 +194,7 @@ class QFitProtein:
                     pass
                 try:
                     xmap.array[:] = base_density
-                    scaler = MapScaler(xmap, cutoff=0, scale=False, subtract=True)
+                    scaler = MapScaler(xmap, scale=False, subtract=True)
                     receptor = residue.parent.parent.parent
                     if icode:
                         footprint = receptor.extract(f'not (resi {resi} and icode {icode})')

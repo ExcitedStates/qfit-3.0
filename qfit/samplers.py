@@ -89,6 +89,23 @@ class NullSpaceOptimizer:
         self._rotator(null_space_torsions)
 
 
+class CBMoveFunctional:
+
+    def __init__(self, segment, residue_index, target):
+        self.segment = segment
+        self.residue_index = residue_index
+        self.target = target
+
+    def __call__(self):
+        pass
+
+    def objective(self):
+        pass
+
+    def gradient(self):
+        pass
+
+
 class BackboneRotator:
 
     """Rotate around phi, psi angles."""

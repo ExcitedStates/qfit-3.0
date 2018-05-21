@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict, Iterable
 from operator import eq, gt, ge, le, lt
 
@@ -7,6 +8,8 @@ from .elements import ELEMENTS
 from .math import dihedral_angle
 from .pdbfile import PDBFile
 from .selector import _Selector
+
+logger = logging.getLogger(__name__)
 
 class _BaseStructure:
 

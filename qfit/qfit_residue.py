@@ -87,6 +87,7 @@ def main():
     chain = structure[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
+    residue.altloc = ''
 
     logger.info(f"Residue: {residue.resn[0]}")
     # Prepare X-ray map
@@ -97,15 +98,16 @@ def main():
 
     if not args.no_scale:
         scaler = MapScaler(
-            xmap, mask_radius=1, scattering=options.scattering)
-        footprint = structure.extract('resi', resi, '!=')
+            xmap, mask_radius=1, scattering=options.scattering, subtract=True, cutoff=0)
+        footprint = structure.extract('resi', residue_id, '!=')
         scaler(footprint)
-        fname = os.path.join(options.directory, 'scaled.mrc')
-        xmap.tofile(fname)
 
     qfit = QFitRotamericResidue(residue, xmap, options)
     qfit()
     conformers = qfit.get_conformers()
+    for n, conformer in enumerate(conformers):
+        fname = os.path.join(options.directory, f'conformer_{n}.pdb')
+        conformer.tofile(fname)
 
     passed = time.time() - time0
     print(f"Time passed: {passed}s")

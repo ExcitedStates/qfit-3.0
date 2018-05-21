@@ -38,6 +38,8 @@ class Structure(_BaseStructure):
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=np.bool)
+        if pdbfile.aniso:
+            pass
         return cls(data)
 
     @classmethod
@@ -369,7 +371,7 @@ class _Conformer(_BaseStructure):
             if rtype == 'rotamer-residue':
                 C = _RotamerResidue
             elif rtype == 'aa-residue':
-                C = _AminoAcidResidue
+                C = _Residue
             elif rtype == 'residue':
                 C = _Residue
             elif rtype == 'ligand':

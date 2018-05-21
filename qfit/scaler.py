@@ -38,12 +38,12 @@ class MapScaler:
             xmap_masked_mean = xmap_masked.mean()
             xmap_masked -= xmap_masked_mean
 
-            transformer.reset()
+            transformer.reset(self.mask_radius)
             transformer.density()
             model_masked = self._model_map.array[mask]
             model_masked_mean = model_masked.mean()
             model_masked -= model_masked_mean
-            transformer.reset()
+            transformer.reset(3)
 
             scaling_factor = np.dot(model_masked, xmap_masked) / np.dot(xmap_masked, xmap_masked)
             logger.info(f"Map scaling factor: {scaling_factor:.2f}")
@@ -53,6 +53,7 @@ class MapScaler:
 
         # Subtract the receptor density from the map
         if self.subtract:
+            logger.info("Subtracting density.")
             transformer.density()
             self.xmap.array -= self._model_map.array
 
@@ -61,4 +62,4 @@ class MapScaler:
                 cutoff_value = (cutoff_value - xmap_masked_mean) * scaling_factor + model_masked_mean
             cutoff_mask = self.xmap.array < cutoff_value
             self.xmap.array[cutoff_mask] = 0
-            logger.info(f"Map cutoff value: {cutoff_value:.2f}")
+            logger.info(f"Map absolute cutoff value: {cutoff_value:.2f}")

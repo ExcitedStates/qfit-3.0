@@ -6,7 +6,7 @@ import numpy.linalg as la
 from . import spacegroups
 
 
-class UnitCell(object):
+class UnitCell:
 
     """Class for storing and performing calculations on unit cell parameters.
     The constructor expects alpha, beta, and gamma to be in degrees.

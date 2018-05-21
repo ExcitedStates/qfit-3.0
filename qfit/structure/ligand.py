@@ -15,6 +15,7 @@ class _Ligand(_BaseStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._get_connectivity()
+        self.id = (kwargs['resi'], kwargs['icode'])
         self.type = kwargs["type"]
 
     def __repr__(self):
