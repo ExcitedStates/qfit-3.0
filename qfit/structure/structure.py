@@ -432,7 +432,6 @@ class _Segment(_BaseStructure):
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
         self.residues = kwargs['residues']
-        self.length = len(self.residues)
 
     def __getitem__(self, arg):
         if isinstance(arg, int):
@@ -446,6 +445,9 @@ class _Segment(_BaseStructure):
             return _Segment(self.data, selection=selection, parent=self.parent, residues=residues)
         else:
             raise TypeError
+
+    def __len__(self):
+        return len(self.residues)
 
     def __repr__(self):
         return 'Segment: length {}'.format(len(self.residues))
