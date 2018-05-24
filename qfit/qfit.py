@@ -5,7 +5,8 @@ from string import ascii_uppercase
 
 import numpy as np
 
-from .samplers import ChiRotator, ClashDetector
+from .clash import ClashDetector
+from .samplers import ChiRotator
 from .solvers import MIQPSolver, QPSolver
 from .structure import Structure
 from .transformer import Transformer
