@@ -4,6 +4,62 @@ import scipy as sp
 from .samplers import BackboneRotator
 
 
+def compute_jacobian5d(bb_coor):
+    """Compute the 5D Jacobian for null space computation.
+
+    bb_coor : Coordinates of sequential N, CA, and C atoms.
+
+    endpoint : Coordinate of fixed endpoint.
+    """
+
+    nresidues = bb_coor.shape[0] // 3
+    N_coor = bb_coor[::3]
+    CA_coor = bb_coor[1::3]
+    C_coor = bb_coor[2::3]
+
+    # Use notations as used in Budday, Lyendecker and Van den Bedem (2016).
+    fh = bb_coor[0]
+    fd = bb_coor[1]
+    fa = bb_coor[-1]
+    faa = bb_coor[-2]
+    fh_fa = fh + fa
+    ndofs = nresidues * 2
+    #jacobian = np.zeros((ndofs, 5), dtype=np.float64)
+    jacobian = np.zeros((5, ndofs), dtype=np.float64).T
+    norm = np.linalg.norm
+    # N -> CA rotations
+    # Relative distance constraints
+    r = CA_coor - N_coor
+    r /= norm(r, axis=1).reshape(-1, 1)
+    jacobian[::2, :3] = np.cross(r, fh_fa - N_coor)
+    # Orientation constraints
+    f = np.asmatrix(fa - fh)
+    dfh_dq = np.cross(r, fh - N_coor)
+    dfd_dq = np.cross(r, fd - N_coor)
+    jacobian[::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+
+    f = np.asmatrix(fa - faa)
+    dfa_dq = np.cross(r, fa - N_coor)
+    jacobian[::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+
+    # C -> CA rotations
+    # Relative distance constraints
+    r = C_coor - CA_coor
+    r /= norm(r, axis=1).reshape(-1, 1)
+    jacobian[1::2, :3] = np.cross(r, fh_fa - C_coor)
+    # Orientation constraints
+    f = np.asmatrix(fa - fh)
+    dfh_dq = np.cross(r, fh - CA_coor)
+    dfd_dq = np.cross(r, fd - CA_coor)
+    jacobian[1::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+
+    f = np.asmatrix(fa - faa)
+    dfa_dq = np.cross(r, fa - CA_coor)
+    jacobian[1::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+
+    return jacobian.T
+
+
 def compute_jacobian(bb_coor):
     """Compute the 6D Jacobian for null space computation.
 
@@ -35,13 +91,6 @@ def compute_jacobian(bb_coor):
     jacobian[1::2, 3:] = c1
 
     return jacobian.T
-
-
-def compute_null_space(jacobian):
-
-    _, s, v = sp.linalg.svd(jacobian)
-    nonredundant = (s > 1e-10).sum()
-    return v[:, nonredundant:]
 
 
 def project_on_null_space(null_space, gradients):
@@ -117,24 +166,6 @@ class CBMoveFunctional:
         return target, gradients
 
 
-class NullSpaceSampler:
-
-    def __init__(self, segment):
-
-        self.segment = segment
-        self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
-        self._rotator = BackboneRotator(segment)
-
-    def __call__(self, torsions, gradient):
-        self._rotator(torsions)
-        bb_coor = self.segment._coor[self._bb_selection]
-        jacobian = compute_jacobian(bb_coor)
-        null_space = np.asmatrix(compute_null_space(jacobian))
-        projector = np.asarray(null_space * null_space.T)
-        null_space_torsions = np.dot(projector, gradient)
-        self._rotator(null_space_torsions)
-
-
 class NullSpaceOptimizer:
 
     def __init__(self, segment, endpoint):
@@ -142,16 +173,16 @@ class NullSpaceOptimizer:
         self.segment = segment
         self.ndofs = len(segment) * 2
         self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
-        self._rotator = BackboneRotator(segment)
+        self.rotator = BackboneRotator(segment)
         self._starting_coor = self.segment.coor
 
         residue_index = int(len(self.segment) / 2.0)
         self._functional = CBMoveFunctional(segment, residue_index, endpoint)
 
-
-    def optimize(self, endpoint):
+    def optimize(self):
 
         torsions = np.zeros(self.ndofs, float)
+
         options = {'disp': True}
         minimize = sp.optimize.minimize
         result = minimize(self.target_and_gradient, torsions,
@@ -160,13 +191,30 @@ class NullSpaceOptimizer:
 
     def target_and_gradient(self, torsions):
 
-        self._rotator(torsions)
-        target, gradient = self._functional.target_and_gradients_phi_psi()
+        self.rotator(torsions)
+        #target, gradient = self._functional.target_and_gradients_phi_psi()
+        target = self._functional.target()
+
+        tmp = torsions.copy()
+        delta = 1e-4
+        gradients = np.zeros(torsions.size)
+        for n in range(torsions.size):
+            tmp[n] += delta
+            self.rotator(tmp)
+            fp = self._functional.target()
+
+            tmp[n] -= 2 * delta
+            self.rotator(tmp)
+            fn = self._functional.target()
+
+            gradients[n] = (fp - fn) / (2 * delta)
+            tmp[n] += delta
+
         bb_coor = self.segment._coor[self._bb_selection]
         jacobian = compute_jacobian(bb_coor)
-        null_space = compute_null_space(jacobian)
+        null_space = sp.linalg.null_space(jacobian)
         null_space = np.asmatrix(null_space)
         projector = np.asarray(null_space * null_space.T)
-        null_space_gradients = np.dot(projector, gradient)
+        null_space_gradients = np.dot(projector, gradients)
         self.segment.coor = self._starting_coor
         return target, null_space_gradients

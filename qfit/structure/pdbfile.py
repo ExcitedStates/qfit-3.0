@@ -24,8 +24,8 @@ class PDBFile:
                     for field in CoorRecord.fields:
                         cls.coor[field].append(values[field])
                 elif line.startswith('ANISO'):
-                    values = AnisoRecord.parse_line(line)
-                    for field in AnisoRecord.fields:
+                    values = AnisouRecord.parse_line(line)
+                    for field in AnisouRecord.fields:
                         cls.aniso[field].append(values[field])
                 elif line.startswith('MODEL'):
                     raise NotImplementedError("MODEL record is not implemented.")
