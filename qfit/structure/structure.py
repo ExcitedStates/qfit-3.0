@@ -38,8 +38,18 @@ class Structure(_BaseStructure):
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=np.bool)
-        if pdbfile.aniso:
-            pass
+        if pdbfile.anisou:
+            natoms = len(data['record'])
+            anisou = np.zeros((natoms, 6), float)
+            anisou_atomid = pdbfile.anisou['atomid']
+            n = 0
+            us = ['u00', 'u11', 'u22', 'u01', 'u02', 'u12']
+            nanisou = len(anisou_atomid)
+            for i, atomid in enumerate(pdbfile.coor['atomid']):
+                if n < nanisou and atomid == anisou_atomid[n]:
+                    anisou[i] = [pdbfile.anisou[u][n] for u in us]
+                    n += 1
+            data['anisou'] = anisou
         return cls(data)
 
     @classmethod

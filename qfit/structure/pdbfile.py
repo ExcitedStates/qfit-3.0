@@ -8,7 +8,7 @@ class PDBFile:
     @classmethod
     def read(cls, fname):
         cls.coor = defaultdict(list)
-        cls.aniso = defaultdict(list)
+        cls.anisou = defaultdict(list)
         cls.resolution = None
         if fname.endswith('.gz'):
             fopen = gzip.open
@@ -23,10 +23,10 @@ class PDBFile:
                     values = CoorRecord.parse_line(line)
                     for field in CoorRecord.fields:
                         cls.coor[field].append(values[field])
-                elif line.startswith('ANISO'):
+                elif line.startswith('ANISOU'):
                     values = AnisouRecord.parse_line(line)
                     for field in AnisouRecord.fields:
-                        cls.aniso[field].append(values[field])
+                        cls.anisou[field].append(values[field])
                 elif line.startswith('MODEL'):
                     raise NotImplementedError("MODEL record is not implemented.")
                 elif line.startswith('REMARK   2 RESOLUTION'):

@@ -8,8 +8,6 @@ def compute_jacobian5d(bb_coor):
     """Compute the 5D Jacobian for null space computation.
 
     bb_coor : Coordinates of sequential N, CA, and C atoms.
-
-    endpoint : Coordinate of fixed endpoint.
     """
 
     nresidues = bb_coor.shape[0] // 3
