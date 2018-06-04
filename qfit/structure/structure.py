@@ -49,7 +49,8 @@ class Structure(_BaseStructure):
                 if n < nanisou and atomid == anisou_atomid[n]:
                     anisou[i] = [pdbfile.anisou[u][n] for u in us]
                     n += 1
-            data['anisou'] = anisou
+            for n, key in enumerate(us):
+                data[key] = anisou[:,n]
         return cls(data)
 
     @classmethod
