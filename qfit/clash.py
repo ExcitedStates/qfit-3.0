@@ -1,4 +1,5 @@
 import itertools
+from collections import defaultdict
 
 import numpy as np
 
@@ -100,6 +101,8 @@ class ClashDetector2:
         active = self.ligand.active
         ligand_coor = self.ligand.coor
         for is_active, coor, radius in zip(active, ligand_coor, self.ligand_radii):
+            if not is_active:
+                continue
             index = ((coor - origin) * inv_voxelspacing).astype(np.int32)
             for i, j, k in itertools.product(*index):
                 r2 = (coor - grid[i][j][k])

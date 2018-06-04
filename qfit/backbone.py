@@ -12,7 +12,7 @@ def move_direction_adp(u_matrix, unit_cell):
     u_orth = metric_tensor * u_matrix * metric_tensor
     eigval, eigvec = np.linalg.eigh(u_orth)
     order = np.argsort(eigval)
-    eigvec = eigvec[order]
+    eigvec = np.asarray(eigvec[order])
     if np.linalg.det(eigvec) < 0:
         rotmat[:, 0] *= -1
     eigensum = np.zeros(3)
@@ -186,22 +186,21 @@ class CBMoveFunctional:
 
 class NullSpaceOptimizer:
 
-    def __init__(self, segment, endpoint):
+    def __init__(self, segment):
 
         self.segment = segment
         self.ndofs = len(segment) * 2
-        self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
         self.rotator = BackboneRotator(segment)
+        self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
         self._starting_coor = self.segment.coor
 
+    def optimize(self, endpoint):
         residue_index = int(len(self.segment) / 2.0)
-        self._functional = CBMoveFunctional(segment, residue_index, endpoint)
-
-    def optimize(self):
+        self._functional = CBMoveFunctional(self.segment, residue_index, endpoint)
 
         torsions = np.zeros(self.ndofs, float)
 
-        options = {'disp': True}
+        options = {}
         minimize = sp.optimize.minimize
         result = minimize(self.target_and_gradient, torsions,
                           method='L-BFGS-B', jac=True, options=options)

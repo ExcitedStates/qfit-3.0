@@ -76,8 +76,8 @@ def main():
 
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure)
+    structure = structure.extract('altloc', ('', 'A'))
     chainid, resi = args.selection.split(',')
-    selection_string = f'resi {resi} and chain {chainid}'
     if ':' in resi:
         resi, icode = resi.split(':')
         residue_id = (int(resi), icode)
@@ -102,8 +102,8 @@ def main():
         footprint = structure.extract('resi', residue_id, '!=')
         scaler(footprint)
 
-    qfit = QFitRotamericResidue(residue, xmap, options)
-    qfit()
+    qfit = QFitRotamericResidue(residue, structure, xmap, options)
+    qfit.run()
     conformers = qfit.get_conformers()
     for n, conformer in enumerate(conformers):
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')

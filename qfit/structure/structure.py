@@ -444,6 +444,12 @@ class _Segment(_BaseStructure):
         super().__init__(data, **kwargs)
         self.residues = kwargs['residues']
 
+    def __contains__(self, residue):
+        for res in self.residues:
+            if res.id == residue.id:
+                return True
+        return False
+
     def __getitem__(self, arg):
         if isinstance(arg, int):
             return self.residues[arg]

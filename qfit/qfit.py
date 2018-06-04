@@ -5,6 +5,7 @@ from string import ascii_uppercase
 
 import numpy as np
 
+from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
 from .samplers import ChiRotator
 from .solvers import MIQPSolver, QPSolver
@@ -50,8 +51,11 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
+        self.sample_backbone = True
+        self.neighbor_residues_required = 2
 
         # Rotamer sampling
+        self.sample_rotamers = True
         self.rotamer_neighborhood = 40
         #self.rotamer_neighborhood_first = None
 
@@ -62,8 +66,9 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
 class _BaseQFit:
 
-    def __init__(self, conformer, xmap, options):
+    def __init__(self, conformer, structure, xmap, options):
 
+        self.structure = structure
         self.conformer = conformer
         self.conformer.q = 1
         self.xmap = xmap
@@ -195,7 +200,8 @@ class _BaseQFit:
 
 class QFitRotamericResidue(_BaseQFit):
 
-    def __init__(self, residue, xmap, options):
+    def __init__(self, residue, structure, xmap, options):
+
         # Check if residue is complete, for now we cant handle incomplete
         # residues.
         atoms = residue.name
@@ -204,8 +210,14 @@ class QFitRotamericResidue(_BaseQFit):
                 msg = "Residue is incomplete. Build full sidechain for qfitting"
                 raise RuntimeError(msg)
 
-        super().__init__(residue, xmap, options)
+        super().__init__(residue, structure, xmap, options)
         self.residue = residue
+        # Get the segment that the residue belongs to
+        for segment in self.structure.segments:
+            if self.residue in segment:
+                self.segment = segment
+                break
+
         # For Proline we do not want to sample the neighborhood.
         if self.residue.resn[0] == "PRO":
             self.options.rotamer_neighborhood = 0
@@ -218,45 +230,79 @@ class QFitRotamericResidue(_BaseQFit):
     def _setup_clash_detector(self):
 
         residue = self.residue
-        conformer = residue.parent
-        for segment in conformer.segments:
-            try:
-                index = segment.find(residue.id)
-                break
-            except ValueError:
-                pass
+        segment = self.segment
+        index = segment.find(residue.id)
+        # Exclude peptide bonds from clash detector
         exclude = []
         if index > 0:
             N_index = residue.select('name', 'N')[0]
             N_neighbor = segment.residues[index - 1]
             neighbor_C_index = N_neighbor.select('name', 'C')[0]
-            if np.linalg.norm(residue._coor[N_index] - conformer._coor[neighbor_C_index]) < 2:
+            if np.linalg.norm(residue._coor[N_index] - segment._coor[neighbor_C_index]) < 2:
                 exclude.append((N_index, neighbor_C_index))
         if index < len(segment.residues) - 1:
             C_index = residue.select('name', 'C')[0]
             C_neighbor = segment.residues[index + 1]
             neighbor_N_index = C_neighbor.select('name', 'N')[0]
-            if np.linalg.norm(residue._coor[C_index] - conformer._coor[neighbor_N_index]) < 2:
+            if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
                 exclude.append((C_index, neighbor_N_index))
+        # Obtain atoms which the residue can clash
         resi, icode = residue.id
-        receptor = conformer.parent.parent
         if icode:
             selection_str = f'not (resi {resi} and icode {icode})'
-            receptor = conformer.parent.extract(selection_str)
+            receptor = self.structure.extract(selection_str)
         else:
-            receptor = conformer.parent.extract('resi', resi, '!=')
+            receptor = self.structure.extract('resi', resi, '!=')
         self._cd = ClashDetector(residue, receptor, exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
 
-    def __call__(self):
+    def run(self):
 
-        self._sample_backbone()
-        if self.residue.nchi >= 1:
+        if self.options.sample_backbone:
+            self._sample_backbone()
+        if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
         #self._write_maps()
 
     def _sample_backbone(self):
-        pass
+
+        # Check if residue has enough neighboring residues
+        index = self.segment.find(self.residue.id)
+        nn = self.options.neighbor_residues_required
+        if index < nn or index + nn > len(self.segment):
+            return
+        segment = self.segment[index - nn: index + nn + 1]
+
+        cb_atom = self.residue.extract('name', 'CB')
+        try:
+            unit_cell = self.xmap.unit_cell
+            u_matrix = [[cb_atom.u00[0], cb_atom.u01[0], cb_atom.u02[0]],
+                        [cb_atom.u01[0], cb_atom.u11[0], cb_atom.u12[0]],
+                        [cb_atom.u02[0], cb_atom.u12[0], cb_atom.u22[0]],
+                       ]
+            directions = move_direction_adp(u_matrix, unit_cell)
+        except AttributeError:
+            directions = np.identity(3)
+
+        optimizer = NullSpaceOptimizer(segment)
+
+        start_coor = cb_atom.coor[0]
+        torsion_solutions = []
+        amplitudes = np.linspace(0.10, 0.30, 3, endpoint=True)
+        sigma = 0.125
+        for amplitude, direction in itertools.product(amplitudes, directions):
+            endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
+            optimize_result = optimizer.optimize(endpoint)
+            torsion_solutions.append(optimize_result['x'])
+
+            endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
+            optimize_result = optimizer.optimize(endpoint)
+            torsion_solutions.append(optimize_result['x'])
+        starting_coor = segment.coor
+        for solution in torsion_solutions:
+            optimizer.rotator(solution)
+            self._coor_set.append(self.residue.coor)
+            segment.coor = starting_coor
 
     def _sample_sidechain(self):
 
