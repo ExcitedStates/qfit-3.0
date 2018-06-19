@@ -19,7 +19,7 @@ except ImportError as err:
 
 def main():
 
-    packages = ['qfit', 'qfit.structure', 'qfit.volume']
+    packages = ['qfit', 'qfit.structure']
     package_data = {'qfit': [os.path.join('data', '*.npy'),]
     }
 

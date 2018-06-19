@@ -7,7 +7,7 @@ import numpy as np
 
 from .spacegroups import GetSpaceGroup
 from .unitcell import UnitCell
-from .._extensions import extend_to_p1
+from ._extensions import extend_to_p1
 
 
 class _BaseVolume:

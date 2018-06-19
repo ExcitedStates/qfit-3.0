@@ -1,5 +1,7 @@
 """Classes for handling unit cell transformation."""
 
+from itertools import product
+
 import numpy as np
 import numpy.linalg as la
 
@@ -170,41 +172,43 @@ class UnitCell:
 
         return (cx, cy, cz)
 
-    def iter_struct_orth_symops(self, struct):
+    def iter_struct_orth_symops(self, structure, target=None, cushion=3):
         """Iterate over the orthogonal-space symmetry operations which will
         place a symmetry related structure near the argument struct.
         """
         ## compute the centroid of the structure
-        cent = np.zeros(3, float)
-        for n, atm in enumerate(struct.iter_all_atoms()):
-            cent += atm.position
-        centroid = cent / n
-
-        ccell = self.calc_cell(self.calc_orth_to_frac(centroid))
-        centroid_cell = np.array(ccell, float)
+        coor = structure.coor
+        centroid = coor.mean(axis=0)
+        centroid_frac = self.calc_orth_to_frac(centroid)
 
         ## compute the distance from the centroid to the farthest point from
         ## it in the structure.
-        max_dist = 0.0
-        for frag in struct.iter_amino_acids():
-            for atm in frag.iter_atoms():
-                dist = la.norm.length(atm.position - centroid)
-                max_dist = max(max_dist, dist)
-        max_dist2 = 2.0 * max_dist + 5.0
+        diff = coor - centroid
+        longest_dist_sq = (diff * diff).sum(axis=1).max()
+        longest_dist = np.sqrt(longest_dist_sq)
 
+        if target is not None:
+            target_coor = target.coor
+            target_centroid = target_coor.mean(axis=0)
+            diff = target_coor - target_centroid
+            target_longest_dist_sq = (diff * diff).sum(axis=1).max()
+            target_longest_dist = np.sqrt(target_longest_dist_sq)
+        else:
+            target_centroid = centroid
+            target_longest_dist = longest_dist
+
+        max_dist = longest_dist + target_longest_dist + cushion
         cube = range(-3, 4)
         for symop in self.space_group.iter_symops():
             for i, j, k in product(cube, repeat=3):
+                cell_t  = np.array([i, j, k], float)
+                symop_t = spacegroups.SymOp(symop.R, symop.t + cell_t)
 
-                 cell_t  = np.array([i, j, k], float)
-                 symop_t = spacegroups.SymOp(symop.R, symop.t+cell_t)
+                xyz_symm  = symop_t(centroid_frac)
+                centroid2 = self.calc_frac_to_orth(xyz_symm)
 
-                 xyz       = self.calc_orth_to_frac(centroid)
-                 xyz_symm  = symop_t(xyz)
-                 centroid2 = self.calc_frac_to_orth(xyz_symm)
-
-                 if la.norm(centroid - centroid2) <= max_dist2:
-                     yield self.calc_orth_symop(symop_t)
+                if la.norm(target_centroid - centroid2) <= max_dist:
+                    yield self.calc_orth_symop(symop_t)
 
     def set_space_group(self, space_group):
         self.space_group = spacegroups.GetSpaceGroup(space_group)

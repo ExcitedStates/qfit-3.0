@@ -45,8 +45,7 @@ class _BaseStructure:
     def _structure_property(self, property_name, docstring=None):
         def getter(self):
             if self._selection is None:
-                # TODO check if a copy should be returned instead
-                return self.__getattribute__(property_name)
+                return self.__getattribute__(property_name).copy()
             else:
                 return self.__getattribute__(property_name)[self._selection]
 

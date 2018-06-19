@@ -51,7 +51,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
-        self.sample_backbone = True
+        self.sample_backbone = False
         self.neighbor_residues_required = 2
 
         # Rotamer sampling
@@ -142,12 +142,13 @@ class _BaseQFit:
             solver()
         else:
             solver = MIQPSolver(self._target, self._models)
-            solver(cardinality=self.options.cardinality,
-                   threshold=self.options.threshold)
+            solver(cardinality=cardinality,
+                   threshold=threshold)
         self._occupancies = solver.weights
 
         residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
         logger.info(f"Residual under footprint: {residual:.4f}")
+        return residual
 
     def _update_conformers(self):
         new_coor_set = []
@@ -248,11 +249,23 @@ class QFitRotamericResidue(_BaseQFit):
                 exclude.append((C_index, neighbor_N_index))
         # Obtain atoms which the residue can clash
         resi, icode = residue.id
+        chainid = self.segment.chain[0]
         if icode:
-            selection_str = f'not (resi {resi} and icode {icode})'
+            selection_str = f'not (resi {resi} and icode {icode} and chain {chainid})'
             receptor = self.structure.extract(selection_str)
         else:
-            receptor = self.structure.extract('resi', resi, '!=')
+            receptor = self.structure.extract(f'not (resi {resi} and chain {chainid})')
+
+        # Find symmetry mates of the receptor
+        starting_coor = self.structure.coor.copy()
+        iterator = self.xmap.unit_cell.iter_struct_orth_symops
+        for symop in iterator(self.structure, target=self.residue, cushion=5):
+            if symop.is_identity():
+                continue
+            self.structure.rotate(symop.R)
+            self.structure.translate(symop.t)
+            receptor = receptor.combine(self.structure)
+            self.structure.coor = starting_coor
         self._cd = ClashDetector(residue, receptor, exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
 
@@ -376,6 +389,9 @@ class QFitRotamericResidue(_BaseQFit):
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial clashes."
                 raise RuntimeError(msg)
+            if self.options.debug:
+                prefix = os.path.join(self.options.directory, f'_conformer_{iteration}.pdb')
+                self._write_intermediate_conformers(prefix=prefix)
             # QP
             logger.debug("Converting densities.")
             self._convert()
@@ -387,8 +403,20 @@ class QFitRotamericResidue(_BaseQFit):
             # MIQP
             self._convert()
             logger.info("Solving MIQP.")
-            self._solve(cardinality=self.options.cardinality,
+            residual1 = self._solve(cardinality=1,
                         threshold=self.options.threshold)
+            residual2 = self._solve(cardinality=2,
+                        threshold=self.options.threshold)
+            # residual2 is guaranteed to be lower
+            diff = residual1 - residual2
+            logger.info(f"Improvement in residual: {diff:.5f}")
+            if diff < 0.0005:
+                cardinality = 1
+            else:
+                cardinality = 2
+            self._solve(cardinality=cardinality,
+                        threshold=self.options.threshold)
+
             self._update_conformers()
             #self._write_intermediate_conformers(f"miqp_{iteration}")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))

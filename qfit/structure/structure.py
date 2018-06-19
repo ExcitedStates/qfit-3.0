@@ -51,6 +51,13 @@ class Structure(_BaseStructure):
                     n += 1
             for n, key in enumerate(us):
                 data[key] = anisou[:,n]
+
+        if pdbfile.cryst1:
+            from ..unitcell import UnitCell
+            c = pdbfile.cryst1
+            values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta', 'gamma', 'spg']]
+            cls.unit_cell = UnitCell(*values)
+
         return cls(data)
 
     @classmethod
@@ -130,9 +137,8 @@ class Structure(_BaseStructure):
         """Combines two structures into one"""
         data = {}
         for attr in self.data:
-            hattr = '_' + attr
-            array1 = getattr(self, hattr)
-            array2 = getattr(structure, hattr)
+            array1 = getattr(self, attr)
+            array2 = getattr(structure, attr)
             combined = np.concatenate((array1, array2))
             data[attr] = combined
         return Structure(data)

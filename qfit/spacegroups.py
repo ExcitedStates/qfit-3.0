@@ -131,9 +131,9 @@ class SymOp:
         """Returns True if this SymOp is an identity symmetry operation
         (no rotation, no translation), otherwise returns False.
         """
-        if np.allclose(self.R, numpy.identity(3, float)) and \
-           np.allclose(self.t, numpy.zeros(3, float)):
-            return True
+        value = (np.allclose(self.R, np.identity(3, float)) and
+                 np.allclose(self.t, np.zeros(3, float)))
+        return value
 
 
 class SpaceGroup:
@@ -7764,5 +7764,4 @@ def GetSpaceGroup(name):
         if sg.check_group_name(name):
             return sg
 
-    ## return P1 if not found
-    return sg1
+    raise ValueError(f"Space group name not found. ({name})")

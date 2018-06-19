@@ -9,6 +9,7 @@ class PDBFile:
     def read(cls, fname):
         cls.coor = defaultdict(list)
         cls.anisou = defaultdict(list)
+        cls.cryst1 = {}
         cls.resolution = None
         if fname.endswith('.gz'):
             fopen = gzip.open
@@ -31,6 +32,8 @@ class PDBFile:
                     raise NotImplementedError("MODEL record is not implemented.")
                 elif line.startswith('REMARK   2 RESOLUTION'):
                     cls.resolution = float(line.split()[-2])
+                elif line.startswith('CRYST1'):
+                    cls.cryst1 = Cryst1Record.parse_line(line)
         return cls
 
     @staticmethod
@@ -121,6 +124,10 @@ class Remark2NonDiffractionRecord(Record):
     columns = [(0, 6), (9, 10), (11, 38)]
     dtypes = (str, str, str)
 
+class Cryst1Record(Record):
+    fields = 'record a b c alpha beta gamma spg z'.split()
+    columns = [(0,6), (6, 15), (15, 24), (24, 33), (33, 40), (40, 47), (47, 54), (55, 66), (66, 70)]
+    dtypes = (str, float, float, float, float, float, float, str, int)
 
 class EndRecord(Record):
     fields = ['record']
