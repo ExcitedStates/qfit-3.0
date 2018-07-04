@@ -1,8 +1,135 @@
 import numpy as np
+from numpy.fft import fftn, ifftn, rfftn, irfftn
 from scipy.integrate import fixed_quad
 
 from .atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from ._extensions import dilate_points, mask_points, correlation_gradients
+
+
+class SFTransformer:
+
+    def __init__(self, hkl, f, phi, unit_cell, space_group):
+        self.hkl = hkl
+        self.f = f
+        self.phi = phi
+
+        self.unit_cell = unit_cell
+        self.space_group = space_group
+
+    def __call__(self, nyquist=2):
+
+        h, k, l = self.hkl.T
+        hmax = max(h.max(), abs(h.min()))
+        kmax = max(k.max(), abs(k.min()))
+        lmax = max(l.max(), abs(l.min()))
+        nz = hmax * 2 * nyquist
+        ny = kmax * 2 * nyquist
+        nx = lmax * 2 * nyquist
+        shape = (nz, ny, nx)
+        fft_grid = np.zeros(shape, dtype=np.complex64)
+
+        start_sf = self._f_phi_to_complex(self.f, self.phi)
+        fft_grid[l, k, h] = start_sf
+        hkl = np.asmatrix(self.hkl)
+        symops = self.space_group.symop_list[1:self.space_group.num_primitive_sym_equiv]
+        two_pi = 2 * np.pi
+        for symop in symops:
+            if symop.is_identity():
+                continue
+            h, k, l = np.asarray(symop.R * hkl.T).astype(int)
+            if np.allclose(symop.t, 0):
+                sf = start_sf
+            else:
+                delta_phi = np.rad2deg(np.inner((-two_pi * symop.t), hkl))
+                delta_phi = np.asarray(delta_phi).ravel()
+                sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
+            fft_grid[l, k, h] = sf
+            #fft_grid[-l, -k, -h] = sf
+        grid = np.fft.ifftn(fft_grid).real
+        #grid = np.fft.irfftn(fft_grid[:, :, :nx // 2 + 1])
+        return grid
+
+    def _f_phi_to_complex(self, f, phi):
+        sf = np.nan_to_num((
+            f * np.exp(-1j * np.deg2rad(phi))
+                           ).astype(np.complex64))
+        return sf
+
+
+class FFTTransformer:
+
+    """Transform a structure in a map via FFT"""
+
+    def __init__(self, structure, xmap, hkl=None, scattering='xray', b_add=None):
+        self.structure = structure
+        self.xmap = xmap
+        if hkl is None:
+            hkl = self.xmap.hkl
+        self.hkl = hkl
+        self.b_add = b_add
+        h, k, l = self.hkl.T
+        fft_mask = np.ones(self.xmap.shape, dtype=bool)
+        fft_mask.fill(True)
+        sg = self.xmap.unit_cell.space_group
+        symops = sg.symop_list[:sg.num_primitive_sym_equiv]
+        hmax = 0
+        for symop in symops:
+            symop.R = symop.R.astype(int)
+            rot = symop.R[0]
+            if rot[0] != 0:
+                hsym = h * rot[0]
+            elif rot[1] != 0:
+                hsym = k * rot[1]
+            elif rot[2] != 0:
+                hsym = l * rot[2]
+            rot = symop.R[1]
+            if rot[0] != 0:
+                ksym = h * rot[0]
+            elif rot[1] != 0:
+                ksym = k * rot[1]
+            elif rot[2] != 0:
+                ksym = l * rot[2]
+            rot = symop.R[2]
+            if rot[0] != 0:
+                lsym = h * rot[0]
+            elif rot[1] != 0:
+                lsym = k * rot[1]
+            elif rot[2] != 0:
+                lsym = l * rot[2]
+            fft_mask[lsym, ksym, hsym] = False
+            fft_mask[-lsym, -ksym, -hsym] = False
+        hmax = fft_mask.shape[-1] // 2 + 1
+        #self._fft_mask = fft_mask
+        self._fft_mask = fft_mask[:, :, :hmax].copy()
+        self.hkl = hkl
+        self.scattering = scattering
+        if self.b_add is not None:
+            b_original = self.structure.b
+            self.structure.b += self.b_add
+        self._transformer = Transformer(self.structure, self.xmap,
+                                        simple=True, scattering=self.scattering)
+        self._transformer.initialize()
+        if b_add is not None:
+            self.structure.b = b_original
+
+    def initialize(self):
+        self._transformer.initialize()
+
+    def mask(self, *args, **kwargs):
+        self._transformer.mask(*args, **kwargs)
+
+    def reset(self, *args, **kwargs):
+        self._transformer.reset(*args, **kwargs)
+
+    def density(self):
+
+        self._transformer.density()
+        fft_grid = rfftn(self.xmap.array)
+        fft_grid[self._fft_mask] = 0
+        grid = irfftn(fft_grid)
+        if self.b_add is not None:
+            pass
+        self.xmap.array[:] = grid.real
 
 
 class Transformer:
@@ -82,7 +209,6 @@ class Transformer:
                     self.radial_derivatives[n] = self.simple_radial_derivative(e, b)[1]
             else:
                 #self.radial_derivatives[n] = self.radial_derivative(e, b)[1]
-                # Use edge_order = 1, since the gradient is anti-symmetric in r
                 self.radial_derivatives = np.gradient(self.radial_densities,
                                                       self.rstep, edge_order=2, axis=1)
 

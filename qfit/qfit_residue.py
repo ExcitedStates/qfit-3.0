@@ -16,14 +16,18 @@ from . import MapScaler, Structure, XMap, QFitRotamericResidue, QFitRotamericRes
 def parse_args():
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("xmap", type=str,
-            help="X-ray density map in CCP4 format.")
-    p.add_argument("resolution", type=float,
-            help="Map resolution in angstrom.")
+    p.add_argument("map", type=str,
+            help="Density map in CCP4 or MRC format, or an MTZ file "
+                 "containing reflections and phases. For MTZ files "
+                 "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
             help="PDB-file containing structure.")
-    p.add_argument('--selection', default=None, type=str,
+    p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
+    p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
+            help="MTZ column labels to build density.")
+    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
+            help="Map resolution in angstrom.")
     p.add_argument("-ns", "--no-scale", action="store_true",
             help="Do not scale density.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=1, metavar="<int>",
@@ -34,16 +38,17 @@ def parse_args():
             help="Lower resolution bound in angstrom.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
-    p.add_argument("-r", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float,
+            default=40, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=None, metavar="<float>",
+    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Treshold constraint used during MIQP.")
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
             help="Directory to store results.")
     p.add_argument("--debug", action="store_true",
-           help="Write intermediate structures to file for debugging.")
+            help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
     args = p.parse_args()
@@ -91,16 +96,19 @@ def main():
 
     logger.info(f"Residue: {residue.resn[0]}")
     # Prepare X-ray map
-    xmap = XMap.fromfile(args.xmap).canonical_unit_cell()
+    xmap = XMap.fromfile(args.map, label=args.label)
+    xmap = xmap.canonical_unit_cell()
 
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
 
     if not args.no_scale:
         scaler = MapScaler(
-            xmap, mask_radius=1, scattering=options.scattering, subtract=True, cutoff=0)
-        footprint = structure.extract('resi', residue_id, '!=')
+            xmap, mask_radius=1, scattering=options.scattering,
+            subtract=False, cutoff=None)
+        footprint = structure.extract('resi', residue_id, '!=').extract('record', 'ATOM')
         scaler(footprint)
+        xmap.tofile('scaled.ccp4')
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()

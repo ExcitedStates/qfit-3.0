@@ -67,42 +67,72 @@ class XMap(_BaseVolume):
     """A crystallographic volume with a unit cell."""
 
     def __init__(self, array, voxelspacing=1.0, origin=None, dimensions=None,
-                 unit_cell=None, offset=None):
+                 unit_cell=None, offset=None, resolution=None, resolution_min=None, hkl=None):
         super().__init__(array, voxelspacing, origin, dimensions)
 
         self.unit_cell = unit_cell
         self.offset = offset
+        self.hkl = hkl
         if offset is None:
             self.offset = (0, 0, 0)
+        self.resolution = resolution
+        self.resolution_min = resolution_min
 
     @classmethod
-    def fromfile(cls, fname):
-        parser = CCP4Parser(fname)
-        a, b, c = parser.abc
-        alpha, beta, gamma = parser.angles
-        spacegroup = parser.spacegroup
-        cell_shape = parser.cell_shape
-        unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup, cell_shape)
-        offset = parser.offset
-        array = parser.density
-        voxelspacing = parser.voxelspacing
-        origin = parser.origin
-
-        return cls(array, voxelspacing=voxelspacing, origin=origin,
-                   unit_cell=unit_cell, offset=offset)
+    def fromfile(cls, fname, fmt=None, resolution=None, label="FWT,PHWT"):
+        if fmt is None:
+            fmt = os.path.splitext(fname)[1]
+        if fmt == '.ccp4':
+            parser = CCP4Parser(fname)
+            a, b, c = parser.abc
+            alpha, beta, gamma = parser.angles
+            spacegroup = parser.spacegroup
+            cell_shape = parser.cell_shape
+            unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup, cell_shape)
+            offset = parser.offset
+            array = parser.density
+            voxelspacing = parser.voxelspacing
+            origin = parser.origin
+            xmap = cls(array, voxelspacing=voxelspacing, origin=origin,
+                   unit_cell=unit_cell, offset=offset, resolution=resolution)
+        elif fmt == '.mtz':
+            from .mtzfile import MTZFile
+            from .transformer import SFTransformer
+            mtz = MTZFile(fname)
+            hkl = np.asarray(list(zip(mtz['H'], mtz['K'], mtz['L'])), int)
+            hkl_base = mtz['HKL_base']
+            uc_par = [getattr(hkl_base, x) for x in 'a b c alpha beta gamma'.split()]
+            unit_cell = UnitCell(*uc_par)
+            space_group = GetSpaceGroup(mtz.ispg)
+            unit_cell.space_group = space_group
+            f, phi = label.split(',')
+            t = SFTransformer(hkl, mtz[f], mtz[phi], unit_cell, space_group)
+            grid = t()
+            unit_cell.shape = grid.shape
+            abc = [getattr(unit_cell, x) for x in 'a b c'.split()]
+            voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
+            resolution_min = 1 / np.sqrt(mtz.resmin)
+            resolution = 1 / np.sqrt(mtz.resmax)
+            xmap = cls(grid, voxelspacing=voxelspacing, unit_cell=unit_cell,
+                       resolution=resolution, resolution_min=resolution_min, hkl=hkl)
+        else:
+            raise RuntimeError("File format not recognized.")
+        return xmap
 
     @classmethod
     def zeros_like(cls, xmap):
         array = np.zeros_like(xmap.array)
         return cls(array, voxelspacing=xmap.voxelspacing, origin=xmap.origin,
-                   unit_cell=xmap.unit_cell, offset=xmap.offset)
+                   unit_cell=xmap.unit_cell, offset=xmap.offset, hkl=xmap.hkl,
+                   resolution=xmap.resolution, resolution_min=xmap.resolution_min)
 
     def asymmetric_unit_cell(self):
         pass
 
     def canonical_unit_cell(self):
         array = np.zeros(self.unit_cell.shape, np.float32)
-        out = XMap(array, voxelspacing=self.voxelspacing, unit_cell=self.unit_cell)
+        out = XMap(array, voxelspacing=self.voxelspacing, unit_cell=self.unit_cell,
+                  hkl=self.hkl, resolution=self.resolution, resolution_min=self.resolution_min)
         offset = np.asarray(self.offset, np.int32)
         for symop in self.unit_cell.space_group.symop_list:
             trans = np.hstack((symop.R, symop.t.reshape(3, -1)))

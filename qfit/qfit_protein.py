@@ -1,22 +1,3 @@
-"""
-Usage:
-    qfit_protein [options] <map> <resolution> <pdb>
-    qfit_protein [options] <mtz> <pdb>
-    qfit_protein (-h | --help)
-
-Arguments:
-    <map>             File containing density map, in either CCP4 or MRC format.
-    <resolution>      Resolution of map in angstrom.
-    <pdb>             PDB-file containing protein to fit.
-
-Options:
-    -h, --help         Show this screen.
-    -c, --cardinality=<int>          Cardinality constraint used during MIQP.
-    -t, --threshold=<float>        Threshold constraint used during MIQP.
-    -d, --directory=<dir>  Directory to store the results.
-    -v, --verbose               Be verbose.
-"""
-
 import logging
 import multiprocessing as mp
 import os.path
@@ -33,11 +14,13 @@ def parse_args():
 
     p = ArgumentParser(description=__doc__)
     p.add_argument("map",
-           help="File containing density map, in either CCP4 or MRC format.")
-    p.add_argument("resolution", type=float,
-           help='Resolution of map in angstrom.')
+           help="File containing density map, in either CCP4 or MRC, or MTZ format.")
     p.add_argument("structure",
            help="PDB-file containing protein to analyze.")
+    p.add_argument("-r", "--resolution", type=float, default=None, metavar="<float>",
+            help="Resolution of map in angstrom.")
+    p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
+            help="Column names for MTZ file.")
     p.add_argument("-c", "--cardinality", type=int, default=2, metavar="<int>",
            help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
@@ -50,7 +33,7 @@ def parse_args():
             help="Lower resolution bound in angstrom.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
-    p.add_argument("-r", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
            help="Number of processors to use.")
@@ -109,6 +92,7 @@ class QFitProtein:
         processes = []
         residues = list(self.structure.residues)
         nresidues = len(residues)
+        print(f"RESIDUES: {nresidues}")
         nproc = min(self.options.nproc, nresidues)
         nresidues_per_job = int(ceil(nresidues / nproc))
         counter = _Counter()
@@ -116,7 +100,7 @@ class QFitProtein:
             init_residue = n * nresidues_per_job
             end_residue = min(init_residue + nresidues_per_job, nresidues)
             residues_to_qfit = residues[init_residue: end_residue]
-            args = (residues_to_qfit, self.xmap, self.options, counter)
+            args = (residues_to_qfit, self.structure, self.xmap, self.options, counter)
             process = mp.Process(target=self._run_qfit_instance, args=args)
             processes.append(process)
 
@@ -174,7 +158,7 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_instance(residues, xmap, options, counter):
+    def _run_qfit_instance(residues, structure, xmap, options, counter):
 
         options.verbose = False
         base_directory = options.directory
@@ -194,15 +178,16 @@ class QFitProtein:
                     pass
                 try:
                     xmap.array[:] = base_density
-                    scaler = MapScaler(xmap, scale=False, subtract=True)
-                    receptor = residue.parent.parent.parent
+                    scaler = MapScaler(xmap, scattering=options.scattering,
+                                       scale=False, cutoff=0, subtract=True)
                     if icode:
-                        footprint = receptor.extract(f'not (resi {resi} and icode {icode})')
+                        sel_str = f'not (resi {resi} and icode {icode})'
+                        footprint = structure.extract(sel_str)
                     else:
-                        footprint = receptor.extract('resi', resi, '!=')
+                        footprint = structure.extract('resi', resi, '!=')
                     scaler(footprint)
-                    qfit = QFitRotamericResidue(residue, xmap, options)
-                    qfit()
+                    qfit = QFitRotamericResidue(residue, structure, xmap, options)
+                    qfit.run()
                     qfit.tofile()
                 except RuntimeError:
                     pass
@@ -218,8 +203,7 @@ def main():
     except OSError:
         pass
 
-    xmap = XMap.fromfile(args.map)
-    resolution = args.resolution
+    xmap = XMap.fromfile(args.map, label=args.label)
     # Remove alternate conformers except for the A conformer
     structure = Structure.fromfile(args.structure).extract('altloc', ('', 'A'))
     structure.altloc = ''

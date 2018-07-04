@@ -125,7 +125,7 @@ class Remark2NonDiffractionRecord(Record):
     dtypes = (str, str, str)
 
 class Cryst1Record(Record):
-    fields = 'record a b c alpha beta gamma spg z'.split()
+    fields = 'record a b c alpha beta gamma spg'.split()
     columns = [(0,6), (6, 15), (15, 24), (24, 33), (33, 40), (40, 47), (47, 54), (55, 66), (66, 70)]
     dtypes = (str, float, float, float, float, float, float, str, int)
 

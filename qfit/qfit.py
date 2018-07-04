@@ -77,8 +77,11 @@ class _BaseQFit:
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
 
-        if options.resolution is not None:
+        if options.resolution is not None and self.xmap.resolution is None:
             self._smax = 1 / (2 * options.resolution)
+            self._simple = False
+        elif self.xmap.resolution is not None:
+            self._smax = 1 / (2 * self.xmap.resolution)
             self._simple = False
         else:
             self._smax = None
@@ -88,6 +91,8 @@ class _BaseQFit:
         self._rmask = 1.5
         if self.options.resolution_min is not None:
             self._smin = 1 / (2 * options.resolution_min)
+        elif self.xmap.resolution_min is not None:
+            self._smin = 1 / (2 * self.xmap.resolution_min)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
         # To speed up the density creation steps, reduce space group symmetry to P1
@@ -120,7 +125,7 @@ class _BaseQFit:
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self._transformer.mask(1.5)
-        mask = self._transformer.xmap.array > 0
+        mask = (self._transformer.xmap.array > 0)
         self._transformer.reset(full=True)
 
         nvalues = mask.sum()

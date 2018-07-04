@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from .transformer import Transformer
+from .transformer import Transformer, FFTTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,12 @@ class MapScaler:
             std = self.xmap.array.std()
             cutoff_value = self.cutoff * std + mean
 
-        transformer = Transformer(structure, self._model_map, simple=True,
-                                  rmax=3, scattering=self.scattering)
+        if hasattr(self.xmap, 'hkl'):
+            hkl = self.xmap.hkl
+            transformer = FFTTransformer(structure, self._model_map, hkl=hkl, scattering=self.scattering)
+        else:
+            transformer = Transformer(structure, self._model_map, simple=True,
+                                      rmax=3, scattering=self.scattering)
         if self.scale:
             transformer.mask(self.mask_radius)
             mask = self._model_map.array > 0
@@ -43,7 +47,7 @@ class MapScaler:
             model_masked = self._model_map.array[mask]
             model_masked_mean = model_masked.mean()
             model_masked -= model_masked_mean
-            transformer.reset(3)
+            transformer.reset()
 
             scaling_factor = np.dot(model_masked, xmap_masked) / np.dot(xmap_masked, xmap_masked)
             logger.info(f"Map scaling factor: {scaling_factor:.2f}")
