@@ -200,8 +200,8 @@ class UnitCell:
         max_dist = longest_dist + target_longest_dist + cushion
         cube = range(-3, 4)
         for symop in self.space_group.iter_symops():
-            for i, j, k in product(cube, repeat=3):
-                cell_t  = np.array([i, j, k], float)
+            for cell_t in product(cube, repeat=3):
+                cell_t  = np.array(cell_t, float)
                 symop_t = spacegroups.SymOp(symop.R, symop.t + cell_t)
 
                 xyz_symm  = symop_t(centroid_frac)

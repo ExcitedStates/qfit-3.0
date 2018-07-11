@@ -47,6 +47,8 @@ def main():
                   'qfit_protein = qfit.qfit_protein:main',
                   'qfit_residue = qfit.qfit_residue:main',
                   'qfit_segment = qfit.qfit_segment:main',
+                  'qfit_prep_map = qfit.qfit_prep_map:main',
+                  'qfit_density = qfit.qfit_density:main',
                   ]
               },
          )

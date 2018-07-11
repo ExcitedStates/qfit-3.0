@@ -53,15 +53,13 @@ class ClashDetector:
             cutoff_sq = cutoff * cutoff
 
             clash_mask = distance_sq < cutoff_sq
-            nclashes = clash_mask.sum()
+            nclashes += clash_mask.sum()
             # Check if certain clashes need to be excluded
             if self.exclude is not None:
-                for pair in self.exclude:
-                    ligand_ind, receptor_ind = pair
+                for ligand_ind, rcoor in self.exclude:
                     # Check if this is the coordinate we are interested in
                     if np.allclose(coor, self.ligand._coor[ligand_ind]):
                         # Now check if it is clashing with the excluded receptor atom
-                        rcoor = self.receptor._coor[receptor_ind]
                         if rcoor in neighbors[clash_mask]:
                             nclashes -= 1
             if nclashes > 0:

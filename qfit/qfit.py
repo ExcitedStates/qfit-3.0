@@ -29,7 +29,7 @@ class _BaseQFitOptions:
         self.scattering = 'xray'
 
         # Sampling options
-        self.clash_scaling_factor = 0.75
+        self.clash_scaling_factor = 1
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
 
@@ -245,13 +245,15 @@ class QFitRotamericResidue(_BaseQFit):
             N_neighbor = segment.residues[index - 1]
             neighbor_C_index = N_neighbor.select('name', 'C')[0]
             if np.linalg.norm(residue._coor[N_index] - segment._coor[neighbor_C_index]) < 2:
-                exclude.append((N_index, neighbor_C_index))
+                coor = N_neighbor._coor[neighbor_C_index]
+                exclude.append((N_index, coor))
         if index < len(segment.residues) - 1:
             C_index = residue.select('name', 'C')[0]
             C_neighbor = segment.residues[index + 1]
             neighbor_N_index = C_neighbor.select('name', 'N')[0]
             if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
-                exclude.append((C_index, neighbor_N_index))
+                coor = C_neighbor._coor[neighbor_N_index]
+                exclude.append((C_index, coor))
         # Obtain atoms which the residue can clash
         resi, icode = residue.id
         chainid = self.segment.chain[0]
@@ -259,8 +261,7 @@ class QFitRotamericResidue(_BaseQFit):
             selection_str = f'not (resi {resi} and icode {icode} and chain {chainid})'
             receptor = self.structure.extract(selection_str)
         else:
-            receptor = self.structure.extract(f'not (resi {resi} and chain {chainid})')
-
+            receptor = self.structure.extract(f'not (resi {resi} and chain {chainid})').copy()
         # Find symmetry mates of the receptor
         starting_coor = self.structure.coor.copy()
         iterator = self.xmap.unit_cell.iter_struct_orth_symops
@@ -271,8 +272,10 @@ class QFitRotamericResidue(_BaseQFit):
             self.structure.translate(symop.t)
             receptor = receptor.combine(self.structure)
             self.structure.coor = starting_coor
+
         self._cd = ClashDetector(residue, receptor, exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
+        #receptor.tofile('clash_receptor.pdb')
 
     def run(self):
 

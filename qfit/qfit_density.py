@@ -1,11 +1,9 @@
-from __future__ import division
-
 import argparse
 import os
 
-from .volume import Volume
-from .structure import Structure
-from .transformer import Transformer
+from . import XMap
+from . import Structure
+from .transformer import FFTTransformer, Transformer
 
 def parse_args():
 
@@ -14,11 +12,11 @@ def parse_args():
     p.add_argument("pdb_file", type=str,
             help="PDB file containing structure.")
     p.add_argument('xmap', type=str,
-            help="CCP4 density with P1 symmetry.")
-    p.add_argument('resolution', type=float,
+            help="")
+    p.add_argument('-r', '--resolution', type=float,
             help="Resolution of map in angstrom.")
-    p.add_argument("-s", "--simple", action="store_true",
-            help="Produce simple density.")
+    p.add_argument('-nf', '--no-fft', action='store_true',
+            help="No FFT density map creation.")
     p.add_argument("-o", "--output", type=str, default=None,
             help="Name of output density.")
 
@@ -33,14 +31,19 @@ def main():
     args = parse_args()
 
     structure = Structure.fromfile(args.pdb_file)
-    xmap = Volume.fromfile(args.xmap).fill_unit_cell()
+    xmap = XMap.fromfile(args.xmap)
     resolution = args.resolution
+    out = XMap.zeros_like(xmap)
 
-    out = Volume.zeros_like(xmap)
-    smax = 0.5 / resolution
-    transformer = Transformer(structure, out, simple=args.simple)
-    transformer.mask(1)
-    out.tofile('mask.ccp4')
-    transformer.reset()
+    if hasattr(xmap, 'hkl') and not args.no_fft:
+        transformer = FFTTransformer(structure, out)
+    else:
+        if args.resolution is not None:
+            smax = 0.5 / resolution
+            simple = False
+        else:
+            smax = None
+            simple = True
+        transformer = Transformer(structure, out, smax=smax, simple=simple)
     transformer.density()
     out.tofile(args.output)

@@ -103,11 +103,11 @@ def main():
     options.apply_command_args(args)
 
     if not args.no_scale:
-        scaler = MapScaler(
-            xmap, mask_radius=1, scattering=options.scattering,
-            subtract=False, cutoff=None)
-        footprint = structure.extract('resi', residue_id, '!=').extract('record', 'ATOM')
-        scaler(footprint)
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        footprint = structure.extract('resi', residue_id, '!=')
+        scaler.scale(footprint.extract('record', 'ATOM'), radius=1)
+        scaler.cutoff(0.1, -1)
+        #scaler.subtract(footprint)
         xmap.tofile('scaled.ccp4')
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
