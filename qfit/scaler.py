@@ -16,7 +16,7 @@ class MapScaler:
         self._model_map = xmap.zeros_like(xmap)
 
     def subtract(self, structure):
-        if hasattr(self.xmap, 'hkl'):
+        if hasattr(self.xmap, 'hkl') and self.xmap.hkl is not None:
             hkl = self.xmap.hkl
             transformer = FFTTransformer(structure, self._model_map, hkl=hkl, scattering=self.scattering)
         else:
@@ -35,7 +35,7 @@ class MapScaler:
         #    std = self.xmap.array.std()
         #    cutoff_value = self.cutoff * std + mean
 
-        if hasattr(self.xmap, 'hkl'):
+        if hasattr(self.xmap, 'hkl') and self.xmap.hkl is not None:
             hkl = self.xmap.hkl
             transformer = FFTTransformer(structure, self._model_map, hkl=hkl, scattering=self.scattering)
         else:

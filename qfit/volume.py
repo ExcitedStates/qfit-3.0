@@ -127,7 +127,7 @@ class XMap(_BaseVolume):
                    resolution=xmap.resolution, resolution_min=xmap.resolution_min)
 
     def asymmetric_unit_cell(self):
-        pass
+        raise NotImplementedError
 
     def canonical_unit_cell(self):
         array = np.zeros(self.unit_cell.shape, np.float32)
@@ -139,6 +139,12 @@ class XMap(_BaseVolume):
             trans[:, -1] *= out.shape[::-1]
             extend_to_p1(self.array, offset, trans, out.array)
         return out
+
+    def interpolate(self, xyz):
+        offset = np.asarray(self.offset) * self.voxelspacing
+        offset += np.asarray(self.origin)
+        grid_xyz = xyz - offset
+
 
     def set_space_group(self, space_group):
         self.unit_cell.space_group = GetSpaceGroup(space_group)

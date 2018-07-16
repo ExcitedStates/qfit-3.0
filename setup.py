@@ -49,6 +49,7 @@ def main():
                   'qfit_segment = qfit.qfit_segment:main',
                   'qfit_prep_map = qfit.qfit_prep_map:main',
                   'qfit_density = qfit.qfit_density:main',
+                  'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
                   ]
               },
          )

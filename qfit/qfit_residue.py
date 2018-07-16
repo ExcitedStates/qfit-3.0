@@ -30,6 +30,10 @@ def parse_args():
             help="Map resolution in angstrom.")
     p.add_argument("-ns", "--no-scale", action="store_true",
             help="Do not scale density.")
+    p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
+            help="Densities values below cutoff are set to <density_cutoff_value")
+    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
+            help="Density values below <density-cutoff> are set to this value.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=1, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=5, metavar="<float>",
@@ -82,6 +86,7 @@ def main():
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure)
     structure = structure.extract('altloc', ('', 'A'))
+    structure = structure.extract('e', 'H', '!=')
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -106,9 +111,10 @@ def main():
         scaler = MapScaler(xmap, scattering=options.scattering)
         footprint = structure.extract('resi', residue_id, '!=')
         scaler.scale(footprint.extract('record', 'ATOM'), radius=1)
-        scaler.cutoff(0.1, -1)
+        scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
         #scaler.subtract(footprint)
-        xmap.tofile('scaled.ccp4')
+        scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
+        xmap.tofile(scaled_fname)
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()

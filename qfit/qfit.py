@@ -22,6 +22,10 @@ class _BaseQFitOptions:
         self.directory = '.'
         self.debug = False
 
+        # Density preparation options
+        self.density_cutoff = 0.3
+        self.density_cutoff_value = -1
+
         # Density creation options
         self.map_type = None
         self.resolution = None
@@ -219,8 +223,9 @@ class QFitRotamericResidue(_BaseQFit):
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
         # Get the segment that the residue belongs to
+        chainid = self.residue.chain[0]
         for segment in self.structure.segments:
-            if self.residue in segment:
+            if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
 
@@ -261,7 +266,8 @@ class QFitRotamericResidue(_BaseQFit):
             selection_str = f'not (resi {resi} and icode {icode} and chain {chainid})'
             receptor = self.structure.extract(selection_str)
         else:
-            receptor = self.structure.extract(f'not (resi {resi} and chain {chainid})').copy()
+            sel_str = f'not (resi {resi} and chain {chainid})'
+            receptor = self.structure.extract(sel_str).copy()
         # Find symmetry mates of the receptor
         starting_coor = self.structure.coor.copy()
         iterator = self.xmap.unit_cell.iter_struct_orth_symops
@@ -422,7 +428,7 @@ class QFitRotamericResidue(_BaseQFit):
                 cardinality = 1
             else:
                 cardinality = 2
-            self._solve(cardinality=cardinality,
+            self._solve(cardinality=None,
                         threshold=self.options.threshold)
 
             self._update_conformers()
