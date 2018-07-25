@@ -16,23 +16,28 @@ class SFTransformer:
         self.unit_cell = unit_cell
         self.space_group = space_group
 
+        abc = self.unit_cell.abc
+        hkl_max = np.abs(hkl).max(axis=0)
+        self._resolution = np.max(abc / hkl_max)
+
     def __call__(self, nyquist=2):
 
         h, k, l = self.hkl.T
-        hmax = max(h.max(), abs(h.min()))
-        kmax = max(k.max(), abs(k.min()))
-        lmax = max(l.max(), abs(l.min()))
-        nz = hmax * 2 * nyquist
-        ny = kmax * 2 * nyquist
-        nx = lmax * 2 * nyquist
-        shape = (nz, ny, nx)
+
+        naive_voxelspacing = self._resolution / (2 * nyquist)
+        naive_shape = np.ceil(self.unit_cell.abc / naive_voxelspacing)
+        naive_shape = naive_shape[::-1].astype(int)
+        shape = naive_shape
+        # TODO make grid of unit cell a multiple of small primes
+        #efficient_multiples = [2, 3, 5, 7, 11, 13]
+        #shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
         fft_grid = np.zeros(shape, dtype=np.complex64)
 
         start_sf = self._f_phi_to_complex(self.f, self.phi)
         hkl = np.asmatrix(self.hkl)
         symops = self.space_group.symop_list[:self.space_group.num_primitive_sym_equiv]
         two_pi = 2 * np.pi
-        for n, symop in enumerate(symops):
+        for symop in symops:
             symop.R = symop.R.astype(int).T
             rot = symop.R[0]
             if rot[0] != 0:
@@ -64,6 +69,7 @@ class SFTransformer:
             fft_grid[lsym, ksym, hsym] = sf
             fft_grid[-lsym, -ksym, -hsym] = sf.conj()
         #grid = np.fft.ifftn(fft_grid)
+        nx = shape[-1]
         grid = np.fft.irfftn(fft_grid[:, :, :nx // 2 + 1])
         return grid
 

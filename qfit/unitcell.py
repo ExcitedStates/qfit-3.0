@@ -47,6 +47,10 @@ class UnitCell:
         return "UnitCell(a=%f, b=%f, c=%f, alpha=%f, beta=%f, gamma=%f)" % (
             self.a, self.b, self.c, self.alpha, self.beta, self.gamma)
 
+    @property
+    def abc(self):
+        return np.asarray([self.a, self.b, self.c], float)
+
     def calc_v(self):
         """Calculates the volume of the rhombohedral created by the
         unit vectors a1/|a1|, a2/|a2|, a3/|a3|.

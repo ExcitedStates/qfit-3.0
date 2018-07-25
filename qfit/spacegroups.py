@@ -7764,4 +7764,5 @@ def GetSpaceGroup(name):
         if sg.check_group_name(name):
             return sg
 
-    raise ValueError(f"Space group name not found. ({name})")
+    #raise ValueError(f"Space group name not found. ({name})")
+    return sg1

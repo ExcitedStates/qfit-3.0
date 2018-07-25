@@ -31,7 +31,11 @@ class PDBFile:
                 elif line.startswith('MODEL'):
                     raise NotImplementedError("MODEL record is not implemented.")
                 elif line.startswith('REMARK   2 RESOLUTION'):
-                    cls.resolution = float(line.split()[-2])
+                    try:
+                        values = Remark2DiffractionRecord.parse_line(line)
+                        cls.resolution = values['resolution']
+                    except:
+                        pass
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
         return cls
