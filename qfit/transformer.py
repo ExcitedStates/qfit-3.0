@@ -34,36 +34,22 @@ class SFTransformer:
         fft_grid = np.zeros(shape, dtype=np.complex64)
 
         start_sf = self._f_phi_to_complex(self.f, self.phi)
-        hkl = np.asmatrix(self.hkl)
         symops = self.space_group.symop_list[:self.space_group.num_primitive_sym_equiv]
         two_pi = 2 * np.pi
+        hsym = np.zeros_like(h)
+        ksym = np.zeros_like(k)
+        lsym = np.zeros_like(l)
         for symop in symops:
-            symop.R = symop.R.astype(int).T
-            rot = symop.R[0]
-            if rot[0] != 0:
-                hsym = h * rot[0]
-            elif rot[1] != 0:
-                hsym = k * rot[1]
-            elif rot[2] != 0:
-                hsym = l * rot[2]
-            rot = symop.R[1]
-            if rot[0] != 0:
-                ksym = h * rot[0]
-            elif rot[1] != 0:
-                ksym = k * rot[1]
-            elif rot[2] != 0:
-                ksym = l * rot[2]
-            rot = symop.R[2]
-            if rot[0] != 0:
-                lsym = h * rot[0]
-            elif rot[1] != 0:
-                lsym = k * rot[1]
-            elif rot[2] != 0:
-                lsym = l * rot[2]
+            for n, msym in enumerate((hsym, ksym, lsym)):
+                msym.fill(0)
+                rot = np.asarray(symop.R)[n]
+                for r, m in zip(rot, (h, k, l)):
+                    if r != 0:
+                        msym += int(r) * m
             if np.allclose(symop.t, 0):
                 sf = start_sf
             else:
-                delta_phi = np.rad2deg(np.inner((-two_pi * symop.t), hkl))
+                delta_phi = np.rad2deg(np.inner((-two_pi * symop.t), self.hkl))
                 delta_phi = np.asarray(delta_phi).ravel()
                 sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
             fft_grid[lsym, ksym, hsym] = sf
@@ -97,29 +83,16 @@ class FFTTransformer:
         sg = self.xmap.unit_cell.space_group
         symops = sg.symop_list[:sg.num_primitive_sym_equiv]
         hmax = 0
+        hsym = np.zeros_like(h)
+        ksym = np.zeros_like(k)
+        lsym = np.zeros_like(l)
         for symop in symops:
-            symop.R = symop.R.astype(int).T
-            rot = symop.R[0]
-            if rot[0] != 0:
-                hsym = h * rot[0]
-            elif rot[1] != 0:
-                hsym = k * rot[1]
-            elif rot[2] != 0:
-                hsym = l * rot[2]
-            rot = symop.R[1]
-            if rot[0] != 0:
-                ksym = h * rot[0]
-            elif rot[1] != 0:
-                ksym = k * rot[1]
-            elif rot[2] != 0:
-                ksym = l * rot[2]
-            rot = symop.R[2]
-            if rot[0] != 0:
-                lsym = h * rot[0]
-            elif rot[1] != 0:
-                lsym = k * rot[1]
-            elif rot[2] != 0:
-                lsym = l * rot[2]
+            for n, msym in enumerate((hsym, ksym, lsym)):
+                msym.fill(0)
+                rot = np.asarray(symop.R)[n]
+                for r, m in zip(rot, (h, k, l)):
+                    if r != 0:
+                        msym += int(r) * m
             fft_mask[lsym, ksym, hsym] = False
             fft_mask[-lsym, -ksym, -hsym] = False
         hmax = fft_mask.shape[-1] // 2 + 1
