@@ -84,8 +84,8 @@ def main():
         logging.getLogger('').addHandler(console_out)
 
     # Extract residue and prepare it
-    structure = Structure.fromfile(args.structure)
-    structure = structure.extract('altloc', ('', 'A'))
+    structure = Structure.fromfile(args.structure).reorder()
+    #structure = structure.extract('altloc', ('', 'A'))
     structure = structure.extract('e', 'H', '!=')
     chainid, resi = args.selection.split(',')
     if ':' in resi:
@@ -93,8 +93,12 @@ def main():
         residue_id = (int(resi), icode)
     else:
         residue_id = int(resi)
+        icode = ''
 
-    chain = structure[chainid]
+    structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+    if icode:
+        structure_resi = structure_resi.extract('icode', icode)
+    chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
     residue.altloc = ''

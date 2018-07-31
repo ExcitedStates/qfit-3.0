@@ -4,6 +4,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB',
     ],
+    'hydrogens': 'H1 HA HB1 HB2 HB3 H2 H3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'],
@@ -22,6 +23,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2'
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HD2 HD3 HE HH11 HH12 HH21 HH22'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'NE'], ['NE', 'CZ'],
@@ -82,6 +84,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'OD1', 'ND2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD21 HD22'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'OD1'], ['CG', 'ND2'],
@@ -110,6 +113,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'OD1', 'OD2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD2'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'OD1'], ['CG', 'OD2'],
@@ -136,6 +140,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'SG',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'SG'],
@@ -157,6 +162,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD', 'OE1', 'NE2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE21 HE22'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'NE2']
@@ -188,6 +194,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD', 'OE1', 'OE2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE2'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'OE2']
@@ -218,6 +225,7 @@ ROTAMERS = {
 'GLY': {
     'atoms': ['N', 'CA', 'C', 'O',
     ],
+    'hydrogens': 'H HA2 HA3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
     ],
@@ -233,6 +241,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'ND1', 'CD2', 'CE1', 'NE2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD1 HD2 HE1 HE2'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'ND1'], ['ND1', 'CE1'],
@@ -262,6 +271,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG1', 'CG2', 'CD1',
              ],
+    'hydrogens': 'H HA HB HG12 HG13 HG21 HG22 HG23 HD11 HD12 HD13'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG1'], ['CB', 'CG2'], ['CG1', 'CD1'],
@@ -289,6 +299,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD1', 'CD2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG HD11 HD12 HD13 HD21 HD22 HD23'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
@@ -314,6 +325,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD', 'CE', 'NZ',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HD2 HD3 HE2 HE3 HZ1 HZ2 HZ3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'CE'], ['CE', 'NZ']
@@ -365,6 +377,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'SD', 'CE',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE1 HE2 HE3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'SD'], ['SD', 'CE'],
@@ -400,6 +413,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD1 HD2 HE1 HE2 HZ'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
@@ -426,6 +440,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HD2 HD3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'N'],
@@ -447,6 +462,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'OG',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'OG'],
@@ -469,6 +485,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'OG1', 'CG2',
              ],
+    'hydrogens': 'H HA HB HG1 HG21 HG22 HG23'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'OG1'], ['CB', 'CG2'],
@@ -491,6 +508,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD1 HE1 HE3 HZ2 HZ3 HH2'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
@@ -521,6 +539,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH',
              ],
+    'hydrogens': 'H HA HB2 HB3 HD1 HD2 HE1 HE2 HH'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CD1', 'CE1'],
@@ -548,6 +567,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG1', 'CG2',
              ],
+    'hydrogens': 'H HA HB HG11 HG12 HG13 HG21 HG22 HG23'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG1'], ['CB', 'CG2'],
@@ -570,6 +590,7 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'SE', 'CE',
              ],
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE1 HE2 HE3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'SE'], ['SE', 'CE'],

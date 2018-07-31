@@ -6,12 +6,14 @@ from .base_structure import _BaseStructure, PDBFile
 from .ligand import _Ligand
 from .math import Rz, dihedral_angle
 from .residue import _Residue, _RotamerResidue, residue_type
+from .rotamers import ROTAMERS
 from .selector import _Selector
 
 
 class Structure(_BaseStructure):
 
     """Class with access to underlying PDB hierarchy."""
+
 
     def __init__(self, data, **kwargs):
 
@@ -73,6 +75,7 @@ class Structure(_BaseStructure):
         data = {}
         for attr in self.REQUIRED_ATTRIBUTES:
             data[attr] = []
+        return cls(data)
 
     def __getitem__(self, key):
         if not self._chains:
@@ -158,6 +161,71 @@ class Structure(_BaseStructure):
         ordering = []
         for chain in self.chains:
             for rg in chain.residue_groups:
+                if rg.resn[0] in ROTAMERS:
+                    # There are some perverted cases apparently in the PDB that
+                    # have more than 1 resname in a specific residue 'slot'
+                    if len(set(rg.resn)) > 1:
+                        resi = rg.resi[0]
+                        icode = rg.icode[0]
+                        raise RuntimeError(f"Residue has more than 1 name. {resi}{icode}")
+                    rotamer = ROTAMERS[rg.resn[0]]
+                    atom_order = rotamer['atoms'] + rotamer['hydrogens']
+                    atomnames = list(rg.name)
+                    # Check if all atomnames are standard. We don't touch the
+                    # ordering if it isnt recognized.
+                    for atom in atomnames:
+                        if atom not in atom_order:
+                            break
+                    # Check if the residue has alternate conformers. If the number
+                    # of altlocs is equal to the whole residue, sort
+                    # it after one another. If its just a few, sort it like a
+                    # zipper.
+                    altlocs = sorted(list(set(rg.altloc)))
+                    try:
+                        altlocs.remove('')
+                    except ValueError:
+                        pass
+                    naltlocs = len(altlocs)
+                    if naltlocs < 2:
+                        residue_ordering = []
+                        for atom in atom_order:
+                            try:
+                                index = atomnames.index(atom)
+                                residue_ordering.append(index)
+                            except ValueError:
+                                continue
+                        residue_ordering = rg._selection[residue_ordering]
+                    else:
+                        atoms_per_altloc = []
+                        zip_atoms = True
+                        if rg.select('altloc', '').size == 0:
+                            for altloc in altlocs:
+                                nsel = rg.select('altloc', altloc).size
+                                atoms_per_altloc.append(nsel)
+                            zip_atoms = not all(a == atoms_per_altloc[0] for a in atoms_per_altloc)
+                        residue_orderings = []
+                        for altloc in altlocs:
+                            altconf = rg.extract('altloc', ('', altloc))
+                            residue_ordering = []
+                            atomnames = list(altconf.name)
+                            for atom in atom_order:
+                                try:
+                                    index = atomnames.index(atom)
+                                    residue_ordering.append(index)
+                                except ValueError:
+                                    continue
+                            residue_ordering = altconf._selection[residue_ordering]
+                            residue_orderings.append(residue_ordering)
+                        if zip_atoms:
+                            residue_ordering = list(zip(*residue_orderings))
+                            residue_ordering = np.concatenate(residue_ordering)
+                        else:
+                            residue_ordering = np.concatenate(residue_orderings)
+                        # Now remove duplicates while keeping order
+                        seen = set()
+                        residue_ordering = [x for x in residue_ordering if not (x in seen or seen.add(x))]
+                    ordering.append(residue_ordering)
+                    continue
                 for ag in rg.atom_groups:
                     ordering.append(ag._selection)
         ordering = np.concatenate(ordering)
@@ -224,9 +292,10 @@ class _Chain(_BaseStructure):
     def build_hierarchy(self):
 
         resi = self.resi
-        order = np.argsort(resi)
-        resi = resi[order]
-        icode = self.icode[order]
+        #order = np.argsort(resi)
+        #resi = resi[order]
+        #icode = self.icode[order]
+        icode = self.icode
         # A residue group is a collection of entries that have a unique
         # chain, resi, and icode
         # Do all these order tricks to keep the resid ordering correct
@@ -241,10 +310,9 @@ class _Chain(_BaseStructure):
             resi, icode = residue_group_id.split('_')
             resi = int(resi)
             selection = self.select('resi', resi)
-            if icode:
-                selection &= self.select('icode', icode)
-            residue_group = _ResidueGroup(self.data, selection=selection,
-                                         parent=self, resi=resi, icode=icode)
+            selection = np.intersect1d(selection, self.select('icode', icode))
+            residue_group = _ResidueGroup(
+                self.data, selection=selection, parent=self, resi=resi, icode=icode)
             self._residue_groups.append(residue_group)
             self._residue_group_ids.append((resi, icode))
 

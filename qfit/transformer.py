@@ -42,7 +42,7 @@ class SFTransformer:
         for symop in symops:
             for n, msym in enumerate((hsym, ksym, lsym)):
                 msym.fill(0)
-                rot = np.asarray(symop.R)[n]
+                rot = np.asarray(symop.R.T)[n]
                 for r, m in zip(rot, (h, k, l)):
                     if r != 0:
                         msym += int(r) * m
