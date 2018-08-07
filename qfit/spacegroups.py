@@ -7122,6 +7122,20 @@ sg3005 = SpaceGroup(
         SymOp(Rot_X_Y_Z,     Tr_12_12_0),
         SymOp(Rot_mX_Y_mZ,   Tr_12_0_0)])
 
+sg4005 = SpaceGroup(
+    number                  = 4005,
+    num_sym_equiv           = 4,
+    num_primitive_sym_equiv = 2,
+    short_name              = "I2",
+    point_group_name        = "PG2",
+    crystal_system          = "MONOCLINIC",
+    pdb_name                = "I 1 2 1",
+    symop_list = [
+        SymOp(Rot_X_Y_Z,     Tr_0_0_0),
+        SymOp(Rot_mX_Y_mZ,   Tr_0_0_0),
+        SymOp(Rot_X_Y_Z,     Tr_12_12_12),
+        SymOp(Rot_mX_Y_mZ,   Tr_12_12_12)])
+
 sg1006 = SpaceGroup(
     number                  = 1006,
     num_sym_equiv           = 2,
@@ -7732,6 +7746,7 @@ SpaceGroupList = [
     sg1005,
     sg2005,
     sg3005,
+    sg4005,
     sg1006,
     sg1007,
     sg1008,
@@ -7753,7 +7768,8 @@ SpaceGroupList = [
     sg1023,
     sg1059,
     sg1094,
-    sg1197]
+    sg1197,
+]
 
 
 def GetSpaceGroup(name):
