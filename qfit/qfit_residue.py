@@ -86,6 +86,7 @@ def main():
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure).reorder()
     #structure = structure.extract('altloc', ('', 'A'))
+    # For now we don't support hydrogens
     structure = structure.extract('e', 'H', '!=')
     chainid, resi = args.selection.split(',')
     if ':' in resi:
@@ -101,7 +102,13 @@ def main():
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
-    residue.altloc = ''
+    altlocs = sorted(list(set(residue.altloc)))
+    try:
+        altlocs.remove('')
+    except ValueError:
+        pass
+    altloc = altlocs[0]
+    structure = structure.extract('altloc', ('', altloc))
 
     logger.info(f"Residue: {residue.resn[0]}")
     # Prepare X-ray map
@@ -119,11 +126,13 @@ def main():
         #scaler.subtract(footprint)
         scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
         xmap.tofile(scaled_fname)
+    #xmap = xmap.extract(residue, padding=6)
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
     conformers = qfit.get_conformers()
     for n, conformer in enumerate(conformers):
+        conformer.altloc = ''
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')
         conformer.tofile(fname)
 

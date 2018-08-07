@@ -18,7 +18,7 @@ class SFTransformer:
 
         abc = self.unit_cell.abc
         hkl_max = np.abs(hkl).max(axis=0)
-        self._resolution = np.max(abc / hkl_max)
+        self._resolution = np.min(abc / hkl_max)
 
     def __call__(self, nyquist=2):
 
@@ -57,6 +57,8 @@ class SFTransformer:
         #grid = np.fft.ifftn(fft_grid)
         nx = shape[-1]
         grid = np.fft.irfftn(fft_grid[:, :, :nx // 2 + 1])
+        grid -= grid.mean()
+        grid /= grid.std()
         return grid
 
     def _f_phi_to_complex(self, f, phi):
@@ -89,7 +91,7 @@ class FFTTransformer:
         for symop in symops:
             for n, msym in enumerate((hsym, ksym, lsym)):
                 msym.fill(0)
-                rot = np.asarray(symop.R)[n]
+                rot = np.asarray(symop.R.T)[n]
                 for r, m in zip(rot, (h, k, l)):
                     if r != 0:
                         msym += int(r) * m
@@ -152,9 +154,8 @@ class Transformer:
 
         # Calculate transforms
         uc = xmap.unit_cell
-        abc = np.asarray([uc.a, uc.b, uc.c])
-        self.lattice_to_cartesian = self.xmap.unit_cell.frac_to_orth / abc
-        self.cartesian_to_lattice = self.xmap.unit_cell.orth_to_frac * abc.reshape(3, 1)
+        self.lattice_to_cartesian = uc.frac_to_orth / uc.abc
+        self.cartesian_to_lattice = uc.orth_to_frac * uc.abc.reshape(3, 1)
         self.grid_to_cartesian = self.lattice_to_cartesian * self.xmap.voxelspacing
         structure_coor = self.structure.coor
         self._grid_coor = np.zeros_like(structure_coor)

@@ -117,9 +117,9 @@ class UnitCell:
         o23 = (self._cos_gamma * self._cos_beta - self._cos_alpha) / (self.b * v * self._sin_gamma)
         o33 = self._sin_gamma / (self.c * v)
 
-        frac_to_orth = np.array([ [o11, o12, o13],
-                                     [0.0, o22, o23],
-                                     [0.0, 0.0, o33] ], float)
+        frac_to_orth = np.array([[o11, o12, o13],
+                                 [0.0, o22, o23],
+                                 [0.0, 0.0, o33] ], float)
 
         return frac_to_orth
 

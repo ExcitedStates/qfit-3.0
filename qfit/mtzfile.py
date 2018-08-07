@@ -299,6 +299,7 @@ class MTZFile:
 
         # 3rd pass, extract general data and columns
         f.seek(location)
+        self.symops = []
         while True:
             line = f.read(self.HEADER_WIDTH)
 
@@ -316,8 +317,12 @@ class MTZFile:
                             setattr(crystal, attr, record[attr])
             elif line.startswith(b"SYMI"):
                 record = SymInfoRecord.parse_line(line)
+                self.symi = record
                 self.ispg = record['ispg']
                 self.spg = record['spgname'].strip("'")
+            elif line.startswith(b"SYMM"):
+                record = SymRecord.parse_line(line)
+                self.symops.append(record['symline'].strip())
             elif line.startswith(b"COLU"):
                 record = ColumnRecord.parse_line(line)
                 for ds in self.datasets:

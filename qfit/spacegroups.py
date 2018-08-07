@@ -7764,5 +7764,38 @@ def GetSpaceGroup(name):
         if sg.check_group_name(name):
             return sg
 
-    #raise ValueError(f"Space group name not found. ({name})")
-    return sg1
+    raise ValueError(f"Space group name not found. ({name})")
+    #return sg1
+
+
+def SymOpFromString(string):
+    """Return the SymOp described by string."""
+
+    ops = string.split(',')
+    tr = "Tr"
+    rot = "Rot"
+    for op in ops:
+        parts = op.split('+')
+        # Determine the translational part
+        if '/' in parts[-1]:
+            t = parts.pop()
+            nom, denom = t.split('/')
+            tr += f'_{nom}{denom}'
+        else:
+            tr += '_0'
+
+        # Get the rotational part
+        rot += '_'
+        r = list(''.join(parts).strip())[::-1]
+        while r:
+            l = r.pop()
+            if l == '-':
+                rot += 'm'
+                l = r.pop()
+            rot += l
+
+    g = globals()
+    R = g[rot]
+    T = g[tr]
+    return SymOp(R, T)
+

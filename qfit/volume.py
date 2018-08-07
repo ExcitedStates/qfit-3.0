@@ -5,7 +5,7 @@ from sys import byteorder as _BYTEORDER
 
 import numpy as np
 
-from .spacegroups import GetSpaceGroup
+from .spacegroups import GetSpaceGroup, SpaceGroup, SymOpFromString
 from .unitcell import UnitCell
 from ._extensions import extend_to_p1
 
@@ -103,7 +103,20 @@ class XMap(_BaseVolume):
             hkl_base = mtz['HKL_base']
             uc_par = [getattr(hkl_base, x) for x in 'a b c alpha beta gamma'.split()]
             unit_cell = UnitCell(*uc_par)
-            space_group = GetSpaceGroup(mtz.ispg)
+            try:
+                space_group = GetSpaceGroup(mtz.ispg)
+            except ValueError:
+                symops = [SymOpFromString(string) for string in mtz.symops]
+                space_group = SpaceGroup(
+                    number=mtz.symi['ispg'],
+                    num_sym_equiv=mtz.symi['nsym'],
+                    num_primitive_sym_equiv=mtz.symi['nsymp'],
+                    short_name=mtz.symi['spgname'],
+                    point_group_name=mtz.symi['pgname'],
+                    crystal_system=mtz.symi['symtyp'],
+                    pdb_name=mtz.symi['spgname'],
+                    symop_list=symops,
+                )
             unit_cell.space_group = space_group
             f, phi = label.split(',')
             t = SFTransformer(hkl, mtz[f], mtz[phi], unit_cell, space_group)
@@ -140,7 +153,24 @@ class XMap(_BaseVolume):
             extend_to_p1(self.array, offset, trans, out.array)
         return out
 
+    def extract(self, orth_coor, padding=3):
+        grid_coor = np.dot(orth_coor, self.unit_cell.orth_to_frac.T)
+        grid_coor -= self.offset
+        grid_coor *= self.voxelspacing
+        uc = self.unit_cell
+        abc = np.asarray([uc.a, uc.b, uc.c])
+        grid_padding = padding / abc * self.voxelspacing
+        lb = grid_coor.min(axis=0) - grid_padding
+        ru = grid_coor.max(axis=0) + grid_padding
+        lb = np.floor(lb).astype(int)
+        ru = np.ceil(ru).astype(int)
+        array = self.array[lb[2]:ru[2], lb[1]:ru[1], lb[0]:ru[0]]
+        return XMap(array, voxelspacing=self.voxelspacing, origin=self.origin,
+                    unit_cell=self.unit_cell, offset=self.offset + lb, resolution=self.resolution,
+                    resolution_min=self.resolution_min, hkl=self.hkl)
+
     def interpolate(self, xyz):
+        raise NotImplementedError
         offset = np.asarray(self.offset) * self.voxelspacing
         offset += np.asarray(self.origin)
         grid_xyz = xyz - offset

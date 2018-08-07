@@ -57,6 +57,7 @@ class Structure(_BaseStructure):
         if pdbfile.cryst1:
             from ..unitcell import UnitCell
             c = pdbfile.cryst1
+            # FIXME Create correct SpaceGroup if not automatically found.
             values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta', 'gamma', 'spg']]
             cls.unit_cell = UnitCell(*values)
 
@@ -520,7 +521,7 @@ class _Segment(_BaseStructure):
 
     def __contains__(self, residue):
         for res in self.residues:
-            if res.id == residue.id:
+            if res.id == residue.id and res.altloc[0] == residue.altloc[0]:
                 return True
         return False
 
