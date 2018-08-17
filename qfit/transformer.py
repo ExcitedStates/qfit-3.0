@@ -8,13 +8,13 @@ from ._extensions import dilate_points, mask_points, correlation_gradients
 
 class SFTransformer:
 
-    def __init__(self, hkl, f, phi, unit_cell, space_group):
+    def __init__(self, hkl, f, phi, unit_cell):
         self.hkl = hkl
         self.f = f
         self.phi = phi
 
         self.unit_cell = unit_cell
-        self.space_group = space_group
+        self.space_group = unit_cell.space_group
 
         abc = self.unit_cell.abc
         hkl_max = np.abs(hkl).max(axis=0)
@@ -31,7 +31,7 @@ class SFTransformer:
         # TODO make grid of unit cell a multiple of small primes
         #efficient_multiples = [2, 3, 5, 7, 11, 13]
         #shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
-        fft_grid = np.zeros(shape, dtype=np.complex64)
+        fft_grid = np.zeros(shape, dtype=np.complex128)
 
         start_sf = self._f_phi_to_complex(self.f, self.phi)
         symops = self.space_group.symop_list[:self.space_group.num_primitive_sym_equiv]

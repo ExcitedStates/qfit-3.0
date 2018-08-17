@@ -55,7 +55,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
-        self.sample_backbone = False
+        self.sample_backbone = True
         self.neighbor_residues_required = 2
 
         # Rotamer sampling
@@ -85,7 +85,7 @@ class _BaseQFit:
             self._smax = 1 / (2 * options.resolution)
             self._simple = False
         elif self.xmap.resolution is not None:
-            self._smax = 1 / (2 * self.xmap.resolution)
+            self._smax = 1 / (2 * self.xmap.resolution.high)
             self._simple = False
         else:
             self._smax = None
@@ -95,8 +95,8 @@ class _BaseQFit:
         self._rmask = 1.5
         if self.options.resolution_min is not None:
             self._smin = 1 / (2 * options.resolution_min)
-        elif self.xmap.resolution_min is not None:
-            self._smin = 1 / (2 * self.xmap.resolution_min)
+        elif self.xmap.resolution.low is not None:
+            self._smin = 1 / (2 * self.xmap.resolution.low)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
         # To speed up the density creation steps, reduce space group symmetry to P1

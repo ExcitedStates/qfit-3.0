@@ -225,8 +225,12 @@ class MTZFile:
 
         # 1st pass. Extract crystals and general values
         self.crystals = []
+        lines_read = 0
         while True:
             line = f.read(self.HEADER_WIDTH)
+            lines_read += 1
+            if lines_read > 10000:
+                raise RuntimeError("Can't read MTZ file. Check content")
             if line.startswith(b"NCOL"):
                 record = NColRecord.parse_line(line)
                 self.ncolumns = record['ncol']
@@ -390,7 +394,7 @@ if __name__ == '__main__':
 
     f.seek(20 * 4)
     nterms = ncol_record['nref'] * ncol_record['active']
-    reflection_data = np.fromfile(f, dtype=np.float32, count=nterms)
+    reflection_data = np.fromfile(f, dtype=np.float32, count=nterms).astype(np.float64)
     reflection_data = reflection_data.reshape(-1, ncol_record['active'])
 
     print(reflection_data)

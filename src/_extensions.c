@@ -1,5 +1,5 @@
 #include "Python.h"
-#define NPY_NO_DEPRECATED_API NPY_1_8_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_14_API_VERSION
 #include "numpy/arrayobject.h"
 
 //#include "PTripepClosure.h"
@@ -7,7 +7,7 @@
 #define NEAREST_INT(a) ((int) ((a) + (0.5)))
 
 
-static int modulo(int x, int N)
+static inline int modulo(int x, int N)
 {
   int ret = x % N;
   if (ret < 0)
@@ -91,97 +91,96 @@ static PyObject *correlation_gradients(PyObject *dummy, PyObject *args)
       goto fail;
 
   // Get pointers to arrays and shape info.
-  double *coor = (double *) PyArray_DATA(py_coor);
+  npy_float64 *coor = (npy_float64 *) PyArray_DATA(py_coor);
   npy_bool *active = (npy_bool *) PyArray_DATA(py_active);
-  double *derivatives = (double *) PyArray_DATA(py_derivatives);
-  double *lmax = (double *) PyArray_DATA(py_lmax);
-  double *occ = (double *) PyArray_DATA(py_occ);
-  double *grid_to_cart = (double *) PyArray_DATA(py_grid_to_cart);
-  double *target = (double *) PyArray_DATA(py_target);
-  double *gradients = (double *) PyArray_DATA(py_gradients);
+  npy_float64 *derivatives = (npy_float64 *) PyArray_DATA(py_derivatives);
+  npy_float64 *lmax = (npy_float64 *) PyArray_DATA(py_lmax);
+  npy_float64 *occ = (npy_float64 *) PyArray_DATA(py_occ);
+  npy_float64 *grid_to_cart = (npy_float64 *) PyArray_DATA(py_grid_to_cart);
+  npy_float64 *target = (npy_float64 *) PyArray_DATA(py_target);
+  npy_float64 *gradients = (npy_float64 *) PyArray_DATA(py_gradients);
 
   npy_intp *coor_shape = PyArray_DIMS(py_coor);
   npy_intp *derivatives_shape = PyArray_DIMS(py_derivatives);
   npy_intp *target_shape = PyArray_DIMS(py_target);
 
-    // After the parsing and generation of pointers, the real function can
-    // Precompute some values.
-    int target_slice = target_shape[2] * target_shape[1];
-    int target_size = target_slice * target_shape[0];
-    double rmax2 = rmax * rmax;
+  // After the parsing and generation of pointers, the real function can
+  // Precompute some values.
+  int target_slice = target_shape[2] * target_shape[1];
+  int target_size = target_slice * target_shape[0];
+  double rmax2 = rmax * rmax;
 
-    // Loop over coordinates
-    int n;
-    for (n = 0; n < coor_shape[0]; n++) {
-        if (!active[n])
-            continue;
-        double q = occ[n];
+  // Loop over coordinates
+  int n;
+  for (n = 0; n < coor_shape[0]; n++) {
+      if (!active[n])
+          continue;
+      double q = occ[n];
 
-        size_t point_ind = 3 * n;
-        double center_a = coor[point_ind];
-        double center_b = coor[point_ind + 1];
-        double center_c = coor[point_ind + 2];
+      size_t point_ind = 3 * n;
+      double center_a = coor[point_ind];
+      double center_b = coor[point_ind + 1];
+      double center_c = coor[point_ind + 2];
 
-        int cmin = (int) ceil(center_c - lmax[2]);
-        int bmin = (int) ceil(center_b - lmax[1]);
-        int amin = (int) ceil(center_a - lmax[0]);
+      int cmin = (int) ceil(center_c - lmax[2]);
+      int bmin = (int) ceil(center_b - lmax[1]);
+      int amin = (int) ceil(center_a - lmax[0]);
 
-        int cmax = (int) floor(center_c + lmax[2]);
-        int bmax = (int) floor(center_b + lmax[1]);
-        int amax = (int) floor(center_a + lmax[0]);
+      int cmax = (int) floor(center_c + lmax[2]);
+      int bmax = (int) floor(center_b + lmax[1]);
+      int amax = (int) floor(center_a + lmax[0]);
 
-        int derivatives_ind = n * derivatives_shape[1];
+      int derivatives_ind = n * derivatives_shape[1];
 
-        int c;
-        for (c = cmin; c <= cmax; c++) {
+      int c;
+      for (c = cmin; c <= cmax; c++) {
 
-            int ind_c = modulo(c * target_slice, target_size);
-            double dc = center_c - c;
-            double dz = grid_to_cart[8] * dc;
-            double dy_c = grid_to_cart[5] * dc;
-            double dx_c = grid_to_cart[2] * dc;
+          int ind_c = modulo(c * target_slice, target_size);
+          double dc = center_c - c;
+          double dz = grid_to_cart[8] * dc;
+          double dy_c = grid_to_cart[5] * dc;
+          double dx_c = grid_to_cart[2] * dc;
 
-            double gradient_z = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dz) / rstep)];
-            if (dz < 0) {
-                gradient_z *= -1;
-            }
-            double dz2 = dz * dz;
+          double gradient_z = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dz) / rstep)];
+          if (dz < 0) {
+              gradient_z *= -1;
+          }
+          double dz2 = dz * dz;
 
-            int b;
-            for (b = bmin; b <= bmax; b++) {
-                int ind_cb = modulo(b * target_shape[2], target_slice) + ind_c;
-                double db = center_b - b;
-                double dy = dy_c + grid_to_cart[4] * db;
-                double dx_cb = dx_c + grid_to_cart[1] * db;
+          int b;
+          for (b = bmin; b <= bmax; b++) {
+              int ind_cb = modulo(b * target_shape[2], target_slice) + ind_c;
+              double db = center_b - b;
+              double dy = dy_c + grid_to_cart[4] * db;
+              double dx_cb = dx_c + grid_to_cart[1] * db;
 
-                double gradient_y = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dy) / rstep)];
-                if (dy < 0) {
-                    gradient_y *= -1;
-                }
-                double dz2_dy2 = dz2 + dy * dy;
+              double gradient_y = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dy) / rstep)];
+              if (dy < 0) {
+                  gradient_y *= -1;
+              }
+              double dz2_dy2 = dz2 + dy * dy;
 
-                int a;
-                for (a = amin; a <= amax; a++) {
-                    double da = center_a - a;
-                    double dx = dx_cb + grid_to_cart[0] * da;
-                    double dz2_dy2_dx2 = dz2_dy2 + dx * dx;
-                    if (dz2_dy2_dx2 > rmax2) {
-                        continue;
-                    }
-                    int ind = ind_cb + modulo(a, target_shape[2]);
-                    double density = target[ind];
-                    double gradient_x = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dx) / rstep)];
-                    if (dx < 0) {
-                        gradient_x *= -1;
-                    }
-                    gradients[point_ind] += density * gradient_x;
-                    gradients[point_ind + 1] += density * gradient_y;
-                    gradients[point_ind + 2] += density * gradient_z;
-                }
-            }
-        }
-    }
-
+              int a;
+              for (a = amin; a <= amax; a++) {
+                  double da = center_a - a;
+                  double dx = dx_cb + grid_to_cart[0] * da;
+                  double dz2_dy2_dx2 = dz2_dy2 + dx * dx;
+                  if (dz2_dy2_dx2 > rmax2) {
+                      continue;
+                  }
+                  int ind = ind_cb + modulo(a, target_shape[2]);
+                  double density = target[ind];
+                  double gradient_x = q * derivatives[derivatives_ind + NEAREST_INT(fabs(dx) / rstep)];
+                  if (dx < 0) {
+                      gradient_x *= -1;
+                  }
+                  gradients[point_ind] += density * gradient_x;
+                  gradients[point_ind + 1] += density * gradient_y;
+                  gradients[point_ind + 2] += density * gradient_z;
+              }
+          }
+      }
+  }
 
   // Clean up objects
   Py_DECREF(py_coor);

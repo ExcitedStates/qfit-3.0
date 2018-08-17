@@ -29,7 +29,7 @@ def main():
         footprint = args.structure.extract(sel_str)
     else:
         footprint = args.structure
-    scaler.subtract(footprint)
+    #scaler.subtract(footprint)
     args.xmap.tofile('final.ccp4')
 
 

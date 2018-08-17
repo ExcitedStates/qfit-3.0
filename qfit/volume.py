@@ -1,4 +1,5 @@
 import os.path
+from itertools import product
 from numbers import Real
 from struct import unpack as _unpack, pack as _pack
 from sys import byteorder as _BYTEORDER
@@ -10,23 +11,45 @@ from .unitcell import UnitCell
 from ._extensions import extend_to_p1
 
 
+class GridParameters:
+
+    def __init__(self, voxelspacing=(1, 1, 1), offset=(0, 0, 0)):
+        if isinstance(voxelspacing, Real):
+            voxelspacing = [voxelspacing] * 3
+        self.voxelspacing = np.asarray(voxelspacing, np.float64)
+        self.offset = np.asarray(offset, np.int32)
+
+    def copy(self):
+        return GridParameters(self.voxelspacing.copy(), self.offset.copy())
+
+
+class Resolution:
+
+    def __init__(self, high=None, low=None):
+        self.high = high
+        self.low = low
+
+
 class _BaseVolume:
 
-    def __init__(self, array, voxelspacing=1.0, origin=None, dimensions=None):
-
+    def __init__(self, array, grid_parameters=None, origin=(0,0,0)):
         self.array = array
-        if dimensions is not None:
-            voxelspacing = [d / n for d, n in zip(dimensions, reversed(array.shape))]
-        elif isinstance(voxelspacing, Real):
-            voxelspacing = tuple([voxelspacing] * 3)
-        self.voxelspacing = voxelspacing
-        self.origin = origin
-        if origin is None:
-            self.origin = (0, 0, 0)
+        if  grid_parameters is None:
+            grid_parameters = GridParameters()
+        self.grid_parameters = grid_parameters
+        self.origin = np.asarray(origin, np.float64)
 
     @property
     def shape(self):
         return self.array.shape
+
+    @property
+    def offset(self):
+        return self.grid_parameters.offset
+
+    @property
+    def voxelspacing(self):
+        return self.grid_parameters.voxelspacing
 
     def tofile(self, fid, fmt=None):
         if fmt is None:
@@ -41,93 +64,97 @@ class Volume(_BaseVolume):
 
     """A rectangular cuboid with a grid. The grid can be anisotropic."""
 
+    def __init__(self, array, grid_parameters=None, origin=(0, 0, 0)):
+        super().__init__(array, grid_parameters, origin)
+
     @classmethod
     def fromfile(cls, fid, fmt=None):
         p = parse_volume(fid)
-        return cls(p.density, voxelspacing=p.voxelspacing,
-                origin=p.origin)
+        density = p.density
+        grid_parameters = GridParameters(p.voxelspacing)
+        origin = p.origin
+        return cls(density, grid_parameters=grid_parameters, origin=origin)
 
     @classmethod
-    def zeros(cls, shape, voxelspacing=1.0, origin=(0, 0, 0)):
-        array = np.zeros(shape, dtype=np.float32)
-        return cls(array, voxelspacing, origin)
+    def zeros(cls, shape, grid_parameters=None, origin=None):
+        array = np.zeros(shape, dtype=np.float64)
+        return cls(array, grid_parameters, origin)
 
     @classmethod
     def zeros_like(cls, volume):
         array = np.zeros_like(volume.array)
-        return cls(array, tuple(volume.voxelspacing), tuple(volume.origin))
+        return cls(array, volume.grid_parameters, volume.origin)
 
     def copy(self):
-        return Volume(self.array.copy(), voxelspacing=tuple(self.voxelspacing),
-                      origin=tuple(self.origin))
+        return Volume(self.array.copy(), grid_parameters=self.grid_parameters.copy(),
+                      origin=self.origin.copy())
 
 
 class XMap(_BaseVolume):
 
     """A crystallographic volume with a unit cell."""
 
-    def __init__(self, array, voxelspacing=1.0, origin=None, dimensions=None,
-                 unit_cell=None, offset=None, resolution=None, resolution_min=None, hkl=None):
-        super().__init__(array, voxelspacing, origin, dimensions)
-
+    def __init__(self, array, grid_parameters=None, unit_cell=None,
+                 resolution=None, hkl=None):
+        super().__init__(array, grid_parameters)
         self.unit_cell = unit_cell
-        self.offset = offset
         self.hkl = hkl
-        if offset is None:
-            self.offset = (0, 0, 0)
         self.resolution = resolution
-        self.resolution_min = resolution_min
 
     @classmethod
     def fromfile(cls, fname, fmt=None, resolution=None, label="FWT,PHWT"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
-        if fmt == '.ccp4':
+        if fmt in ('.ccp4'):
             parser = CCP4Parser(fname)
             a, b, c = parser.abc
             alpha, beta, gamma = parser.angles
             spacegroup = parser.spacegroup
-            cell_shape = parser.cell_shape
-            unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup, cell_shape)
+            unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup)
             offset = parser.offset
             array = parser.density
             voxelspacing = parser.voxelspacing
-            origin = parser.origin
-            xmap = cls(array, voxelspacing=voxelspacing, origin=origin,
-                   unit_cell=unit_cell, offset=offset, resolution=resolution)
+            grid_parameters = GridParameters(voxelspacing, offset)
+            resolution = Resolution(high=resolution)
+            xmap = cls(array, grid_parameters, unit_cell=unit_cell, resolution=resolution)
         elif fmt == '.mtz':
             from .mtzfile import MTZFile
             from .transformer import SFTransformer
             mtz = MTZFile(fname)
-            hkl = np.asarray(list(zip(mtz['H'], mtz['K'], mtz['L'])), int)
+            hkl = np.asarray(list(zip(mtz['H'], mtz['K'], mtz['L'])), np.int32)
             hkl_base = mtz['HKL_base']
             uc_par = [getattr(hkl_base, x) for x in 'a b c alpha beta gamma'.split()]
             unit_cell = UnitCell(*uc_par)
-            try:
-                space_group = GetSpaceGroup(mtz.ispg)
-            except ValueError:
-                symops = [SymOpFromString(string) for string in mtz.symops]
-                space_group = SpaceGroup(
-                    number=mtz.symi['ispg'],
-                    num_sym_equiv=mtz.symi['nsym'],
-                    num_primitive_sym_equiv=mtz.symi['nsymp'],
-                    short_name=mtz.symi['spgname'],
-                    point_group_name=mtz.symi['pgname'],
-                    crystal_system=mtz.symi['symtyp'],
-                    pdb_name=mtz.symi['spgname'],
-                    symop_list=symops,
-                )
+            space_group = GetSpaceGroup(mtz.ispg)
+            #symops = [SymOpFromString(string) for string in mtz.symops]
+            #space_group = SpaceGroup(
+            #    number=mtz.symi['ispg'],
+            #    num_sym_equiv=mtz.symi['nsym'],
+            #    num_primitive_sym_equiv=mtz.symi['nsymp'],
+            #    short_name=mtz.symi['spgname'],
+            #    point_group_name=mtz.symi['pgname'],
+            #    crystal_system=mtz.symi['symtyp'],
+            #    pdb_name=mtz.symi['spgname'],
+            #    symop_list=symops,
+            #)
             unit_cell.space_group = space_group
-            f, phi = label.split(',')
-            t = SFTransformer(hkl, mtz[f], mtz[phi], unit_cell, space_group)
+            f_column, phi_column = label.split(',')
+            try:
+                f = mtz[f_column]
+                phi = mtz[phi_column]
+            except KeyError:
+                raise KeyError("Could not find columns in MTZ file.")
+
+            t = SFTransformer(hkl, f, phi, unit_cell)
             grid = t()
-            unit_cell.shape = grid.shape
             abc = [getattr(unit_cell, x) for x in 'a b c'.split()]
             voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
-            resolution_min = 1 / np.sqrt(mtz.resmin)
-            resolution = 1 / np.sqrt(mtz.resmax)
-            xmap = cls(grid, voxelspacing=voxelspacing, unit_cell=unit_cell,
-                       resolution=resolution, resolution_min=resolution_min, hkl=hkl)
+            grid_parameters = GridParameters(voxelspacing)
+            low = 1 / np.sqrt(mtz.resmin)
+            high = 1 / np.sqrt(mtz.resmax)
+            resolution = Resolution(high=high, low=low)
+            xmap = cls(grid, grid_parameters, unit_cell=unit_cell,
+                       resolution=resolution, hkl=hkl)
         else:
             raise RuntimeError("File format not recognized.")
         return xmap
@@ -135,49 +162,80 @@ class XMap(_BaseVolume):
     @classmethod
     def zeros_like(cls, xmap):
         array = np.zeros_like(xmap.array)
-        return cls(array, voxelspacing=xmap.voxelspacing, origin=xmap.origin,
-                   unit_cell=xmap.unit_cell, offset=xmap.offset, hkl=xmap.hkl,
-                   resolution=xmap.resolution, resolution_min=xmap.resolution_min)
+        return cls(array, grid_parameters=xmap.grid_parameters,
+                   unit_cell=xmap.unit_cell, hkl=xmap.hkl, resolution=xmap.resolution)
 
     def asymmetric_unit_cell(self):
         raise NotImplementedError
 
+    @property
+    def unit_cell_shape(self):
+        shape = np.round(self.unit_cell.abc / self.grid_parameters.voxelspacing).astype(int)
+        return shape
+
     def canonical_unit_cell(self):
-        array = np.zeros(self.unit_cell.shape, np.float32)
-        out = XMap(array, voxelspacing=self.voxelspacing, unit_cell=self.unit_cell,
-                  hkl=self.hkl, resolution=self.resolution, resolution_min=self.resolution_min)
+        shape = np.round(self.unit_cell.abc / self.grid_parameters.voxelspacing).astype(int)[::-1]
+        array = np.zeros(shape, np.float64)
+        out = XMap(array, grid_parameters=self.grid_parameters, unit_cell=self.unit_cell,
+                   hkl=self.hkl, resolution=self.resolution)
         offset = np.asarray(self.offset, np.int32)
         for symop in self.unit_cell.space_group.symop_list:
-            trans = np.hstack((symop.R, symop.t.reshape(3, -1)))
-            trans[:, -1] *= out.shape[::-1]
-            extend_to_p1(self.array, offset, trans, out.array)
+            transform = np.hstack((symop.R, symop.t.reshape(3, -1)))
+            transform[:, -1] *= out.shape[::-1]
+            extend_to_p1(self.array, offset, transform, out.array)
         return out
 
+    def is_canonical_unit_cell(self):
+        return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and np.allclose(self.offset, 0))
+
     def extract(self, orth_coor, padding=3):
-        grid_coor = np.dot(orth_coor, self.unit_cell.orth_to_frac.T)
-        grid_coor -= self.offset
-        grid_coor *= self.voxelspacing
+        if not self.is_canonical_unit_cell():
+            raise RuntimeError("XMap should contain full unit cell.")
         uc = self.unit_cell
-        abc = np.asarray([uc.a, uc.b, uc.c])
-        grid_padding = padding / abc * self.voxelspacing
+        grid_coor = orth_coor @ uc.orth_to_frac.T
+        grid_coor *= self.unit_cell_shape
+        grid_coor -= self.offset
+        grid_padding = padding / self.voxelspacing
         lb = grid_coor.min(axis=0) - grid_padding
         ru = grid_coor.max(axis=0) + grid_padding
         lb = np.floor(lb).astype(int)
         ru = np.ceil(ru).astype(int)
-        array = self.array[lb[2]:ru[2], lb[1]:ru[1], lb[0]:ru[0]]
-        return XMap(array, voxelspacing=self.voxelspacing, origin=self.origin,
-                    unit_cell=self.unit_cell, offset=self.offset + lb, resolution=self.resolution,
-                    resolution_min=self.resolution_min, hkl=self.hkl)
+        shape = [h - l for h, l in zip(ru, lb)][::-1]
+        array = np.zeros(shape, np.float64)
+        grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
+        offset = grid_parameters.offset
+        kmax, jmax, imax = self.unit_cell_shape[::-1]
+        ranges = [range(shape[i]) for i in range(3)]
+        for k, j, i in product(*ranges):
+            x = (i + offset[0]) % imax
+            y = (j + offset[1]) % jmax
+            z = (k + offset[2]) % kmax
+            array[k, j, i] = self.array[z, y, x]
+        return XMap(array, grid_parameters=grid_parameters,
+                    unit_cell=self.unit_cell, resolution=self.resolution,
+                    hkl=self.hkl)
 
     def interpolate(self, xyz):
-        raise NotImplementedError
-        offset = np.asarray(self.offset) * self.voxelspacing
-        offset += np.asarray(self.origin)
-        grid_xyz = xyz - offset
-
+        # Transform xyz to grid coor.
+        uc = self.unit_cell
+        orth_to_grid = uc.orth_to_frac * self.unit_cell_shape.reshape(3, 1)
+        # TODO origin shift is not taken into account
+        grid_coor = xyz @ orth_to_grid.T
+        grid_coor -= self.offset
+        if self.is_canonical_unit_cell():
+            grid_coor %= self.unit_cell_shape
+        values = scipy.ndimage.map_coordinates(self.array, grid_coor, order=1)
+        return values
 
     def set_space_group(self, space_group):
         self.unit_cell.space_group = GetSpaceGroup(space_group)
+
+
+class ASU:
+
+    def __init__(self, array, grid_parameters=None, unit_cell=None,
+                 resolution=None, hkl=None):
+        super().__init__(array, grid_parameters, unit_cell, resolution, hkl)
 
 
 # Volume parsers
@@ -239,7 +297,6 @@ class CCP4Parser:
         self._get_symbt()
         self._get_density()
         self.fhandle.close()
-
 
     def _get_endiannes(self):
         self.fhandle.seek(212)
@@ -310,7 +367,7 @@ class CCP4Parser:
             self.density = np.swapaxes(self.density, 0, 2)
         else:
             raise NotImplementedError("Density storage order ({:} {:} {:}) not supported.".format(maps, mapr, mapc))
-        self.density = np.ascontiguousarray(self.density, dtype=np.float32)
+        self.density = np.ascontiguousarray(self.density, dtype=np.float64)
 
 
 class MRCParser(CCP4Parser):
@@ -346,7 +403,7 @@ def to_mrc(fid, volume, labels=[], fmt=None):
         xl, yl, zl = uc.a, uc.b, uc.c
         alpha, beta, gamma = uc.alpha, uc.beta, uc.gamma
         ispg = uc.space_group.number
-        ns, nr, nc = uc.shape
+        ns, nr, nc = volume.unit_cell_shape[::-1]
     elif fmt in ('mrc', 'map'):
         nxstart, nystart, nzstart = [0, 0, 0]
         origin = volume.origin

@@ -103,10 +103,11 @@ def main():
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
     altlocs = sorted(list(set(residue.altloc)))
-    try:
-        altlocs.remove('')
-    except ValueError:
-        pass
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
     altloc = altlocs[0]
     structure = structure.extract('altloc', ('', altloc))
 

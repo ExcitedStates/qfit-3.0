@@ -137,6 +137,5 @@ class _BaseStructure:
 
     def translate(self, translation):
         """Translate atoms"""
-        translation = np.asarray(translation)
         self.coor += translation
 
