@@ -164,7 +164,8 @@ class _DataSet:
         self.columns = []
 
     def __repr__(self):
-        return f"<_DataSet: {self.name} ({len(self.columns)})>"
+        ncolumns = len(self.columns)
+        return f"<_DataSet: {self.name} ({ncolumns})>"
 
 
 class _Crystal:
@@ -212,6 +213,10 @@ class MTZFile:
             if hasattr(ds, key):
                 return getattr(ds, key)
         raise KeyError
+
+    def __repr__(self):
+        string = f"<MTZFile:\n    Crystals: {self.ncrystals}"
+        return string
 
     def _process_file(self, f):
         mtz_str = f.read(4)

@@ -123,8 +123,11 @@ class XMap(_BaseVolume):
             from .transformer import SFTransformer
             mtz = MTZFile(fname)
             hkl = np.asarray(list(zip(mtz['H'], mtz['K'], mtz['L'])), np.int32)
-            hkl_base = mtz['HKL_base']
-            uc_par = [getattr(hkl_base, x) for x in 'a b c alpha beta gamma'.split()]
+            try:
+                crystal = mtz['HKL_base']
+            except KeyError:
+                crystal = mtz.crystals[0]
+            uc_par = [getattr(crystal, attr) for attr in 'a b c alpha beta gamma'.split()]
             unit_cell = UnitCell(*uc_par)
             space_group = GetSpaceGroup(mtz.ispg)
             #symops = [SymOpFromString(string) for string in mtz.symops]
