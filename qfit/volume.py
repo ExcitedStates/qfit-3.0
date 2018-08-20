@@ -5,6 +5,7 @@ from struct import unpack as _unpack, pack as _pack
 from sys import byteorder as _BYTEORDER
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 
 from .spacegroups import GetSpaceGroup, SpaceGroup, SymOpFromString
 from .unitcell import UnitCell
@@ -220,11 +221,11 @@ class XMap(_BaseVolume):
         uc = self.unit_cell
         orth_to_grid = uc.orth_to_frac * self.unit_cell_shape.reshape(3, 1)
         # TODO origin shift is not taken into account
-        grid_coor = xyz @ orth_to_grid.T
-        grid_coor -= self.offset
+        grid_coor = orth_to_grid @ xyz.T
+        grid_coor -= self.offset.reshape(3, 1)
         if self.is_canonical_unit_cell():
-            grid_coor %= self.unit_cell_shape
-        values = scipy.ndimage.map_coordinates(self.array, grid_coor, order=1)
+            grid_coor %= self.unit_cell_shape.reshape(3, 1)
+        values = map_coordinates(self.array, grid_coor[::-1], order=1)
         return values
 
     def set_space_group(self, space_group):

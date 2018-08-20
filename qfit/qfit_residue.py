@@ -28,7 +28,7 @@ def parse_args():
             help="MTZ column labels to build density.")
     p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
             help="Map resolution in angstrom.")
-    p.add_argument("-ns", "--no-scale", action="store_true",
+    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
@@ -112,22 +112,22 @@ def main():
     structure = structure.extract('altloc', ('', altloc))
 
     logger.info(f"Residue: {residue.resn[0]}")
-    # Prepare X-ray map
-    xmap = XMap.fromfile(args.map, label=args.label)
-    xmap = xmap.canonical_unit_cell()
 
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
 
-    if not args.no_scale:
+    xmap = XMap.fromfile(args.map, label=args.label)
+    xmap = xmap.canonical_unit_cell()
+    if args.scale:
+        # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         footprint = structure.extract('resi', residue_id, '!=')
         scaler.scale(footprint.extract('record', 'ATOM'), radius=1)
         scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
         #scaler.subtract(footprint)
-        scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
-        xmap.tofile(scaled_fname)
-    #xmap = xmap.extract(residue, padding=6)
+    xmap = xmap.extract(residue.coor, padding=5)
+    scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
+    xmap.tofile(scaled_fname)
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()

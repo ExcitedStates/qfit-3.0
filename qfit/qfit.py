@@ -55,7 +55,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
-        self.sample_backbone = True
+        self.sample_backbone = False
         self.neighbor_residues_required = 2
 
         # Rotamer sampling
@@ -355,15 +355,16 @@ class QFitRotamericResidue(_BaseQFit):
                     selection = self.residue.select('name', deactivate)
                     self.residue._active[selection] = False
                 self.residue.update_clash_mask()
+                active = self.residue.active
 
                 logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
                 new_coor_set = []
-                sampled_rotamers = []
                 n = 0
                 for coor in self._coor_set:
                     n += 1
                     self.residue.coor = coor
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
+                    sampled_rotamers = []
                     for rotamer in rotamers:
                         # Check if the residue configuration corresponds to the
                         # current rotamer
@@ -394,6 +395,10 @@ class QFitRotamericResidue(_BaseQFit):
                         chi_rotator = ChiRotator(self.residue, chi_index)
                         for angle in sampling_window:
                             chi_rotator(angle)
+                            coor = self.residue.coor
+                            values = self.xmap.interpolate(coor[active])
+                            if np.min(values) < self.options.density_cutoff:
+                                continue
                             if not self._cd() and self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
