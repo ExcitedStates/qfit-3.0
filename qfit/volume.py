@@ -180,7 +180,8 @@ class XMap(_BaseVolume):
     def canonical_unit_cell(self):
         shape = np.round(self.unit_cell.abc / self.grid_parameters.voxelspacing).astype(int)[::-1]
         array = np.zeros(shape, np.float64)
-        out = XMap(array, grid_parameters=self.grid_parameters, unit_cell=self.unit_cell,
+        grid_parameters = GridParameters(self.voxelspacing)
+        out = XMap(array, grid_parameters=grid_parameters, unit_cell=self.unit_cell,
                    hkl=self.hkl, resolution=self.resolution)
         offset = np.asarray(self.offset, np.int32)
         for symop in self.unit_cell.space_group.symop_list:
