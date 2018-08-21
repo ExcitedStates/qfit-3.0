@@ -81,22 +81,21 @@ class _BaseQFit:
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
 
-        if options.resolution is not None and self.xmap.resolution is None:
-            self._smax = 1 / (2 * options.resolution)
-            self._simple = False
-        elif self.xmap.resolution is not None:
+        self._smax = None
+        self._simple = True
+        if self.xmap.resolution.high is not None:
             self._smax = 1 / (2 * self.xmap.resolution.high)
             self._simple = False
-        else:
-            self._smax = None
-            self._simple = True
+        elif options.resolution is not None:
+            self._smax = 1 / (2 * options.resolution)
+            self._simple = False
 
         self._smin = 0
         self._rmask = 1.5
-        if self.options.resolution_min is not None:
-            self._smin = 1 / (2 * options.resolution_min)
-        elif self.xmap.resolution.low is not None:
+        if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
+        elif self.options.resolution_min is not None:
+            self._smin = 1 / (2 * options.resolution_min)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
         # To speed up the density creation steps, reduce space group symmetry to P1
