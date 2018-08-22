@@ -216,8 +216,11 @@ class QFitRotamericResidue(_BaseQFit):
         atoms = residue.name
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
-                msg = "Residue is incomplete. Build full sidechain for qfitting"
-                raise RuntimeError(msg)
+                #msg = "Residue is incomplete. Build full sidechain for qfitting"
+                #raise RuntimeError(msg)
+                residue.complete_residue()
+                residue._init_clash_detection()
+                break
 
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
@@ -599,4 +602,3 @@ class QFitLigand(_BaseQFit):
 
 class QFitCovalentLigand(_BaseQFit):
     pass
-

@@ -166,3 +166,61 @@ class _RotamerResidue(_BaseResidue):
 
         R = forward * rotation
         self._coor[selection] = coor_to_rotate.dot(R.T) + origin
+
+
+    def print_residue(self):
+        for atom,coor,element,b,q in zip(self.name,self.coor,self.e,self.b,self.q):
+            print("{} {} {} {} {}".format(atom,coor,element,b,q))
+
+    def complete_residue(self):
+        if residue_type(self) != "rotamer-residue":
+            msg = "Error! Cannot complete non-aminoacid residue. Please, complete the missing atoms of the residue for qFiting!"
+            raise(msg)
+
+        first_atom=1
+        atoms = self.name
+        for atom, position in zip(self._rotamers['atoms'],self._rotamers['positions']):
+            if atom in atoms:
+                idx=np.argwhere(atoms == atom)[0]
+                # Perform a superposition between the ideal residue coordinates in self._rotamers['positions']
+                # and the ones observed on the PDB. This superposition is used to complete the missing atomsself.
+                # TO DO: adapt this code to use a more robust superposition algorithm!
+                if first_atom==1:
+                    trans = np.array(position)
+                    origin = self.coor[idx]
+                    first_atom=0
+                    trans_next = np.array(position)
+                    origin_next = self.coor[idx]
+                else:
+                    trans = trans_next
+                    origin = origin_next
+                    # Calculate the rotation matrix using the Rodrigues Formula:
+                    A = np.array(position) - trans # Vector of the ideal position
+                    B = self.coor[idx] - origin # Vector of the observed position
+                    n = np.cross(A,B) / np.linalg.norm(np.cross(A,B)) # The unit-orthogonal vector
+                    nx = np.array(   [ [   0   ,-n[0,2], n[0,1]],   # Skew matrix based on the unit-orthogonal vector
+                                       [ n[0,2],  0    ,-n[0,0]],
+                                       [-n[0,1],n[0,0] ,  0   ]])
+                    nx2 = np.matmul(nx,nx)
+                    cos_theta = A.dot(B[0,:]) / ( np.linalg.norm(A) * np.linalg.norm(B) )
+                    sin_theta = np.linalg.norm( np.cross(A,B)) / ( np.linalg.norm(A) * np.linalg.norm(B) )
+                    rot = np.identity(3) + nx*sin_theta + (1-cos_theta)*nx2
+                    trans_next = np.array(position)
+                    origin_next = self.coor[idx]
+            else:
+                self.add_atom(atom,atom[0],origin+np.matmul(rot,(np.array(position)-trans).T))
+                idx+=1
+
+    def add_atom(self,name,element,coor):
+        index = np.ndarray((1,),dtype='int')
+        index[0,]=np.array(self.__dict__['_selection'][-1])
+        for attr in ["record", "name", "b", "q", "coor", "resn", "resi","icode", "e", "charge", "chain", "altloc"]:
+            if attr != "coor":
+                self.__dict__['_'+attr]=np.insert(self.__dict__['_'+attr],index+1 , self.__dict__['_'+attr][index])
+            else:
+                self.__dict__['_'+attr]=np.reshape(np.insert(self.__dict__['_'+attr],3*index+3 , self.__dict__['_'+attr][index][0]),[-1,3])
+        self.__dict__['_selection']=np.append(self.__dict__['_selection'],index+1)
+        self.__dict__['_name'][index+1]=name
+        self.__dict__['_coor'][index+1]=coor
+        self.__dict__['_e'][index+1]=element
+        self.__dict__['natoms']+=1
