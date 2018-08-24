@@ -26,6 +26,8 @@ def parse_args():
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
             help="MTZ column labels to build density.")
+    p.add_argument('-o', '--omit', action="store_true",
+            help="Map file is a 2mFo-DFc OMIT map.")
     p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
             help="Map resolution in angstrom.")
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
@@ -85,7 +87,6 @@ def main():
 
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure).reorder()
-    #structure = structure.extract('altloc', ('', 'A'))
     # For now we don't support hydrogens
     structure = structure.extract('e', 'H', '!=')
     chainid, resi = args.selection.split(',')
@@ -121,10 +122,17 @@ def main():
     if args.scale:
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
-        footprint = structure.extract('resi', residue_id, '!=')
-        scaler.scale(footprint.extract('record', 'ATOM'), radius=1)
+        if args.omit:
+            footprint = structure_resi
+        else:
+            sel_str = f"resi {resi} and chain {chainid}"
+            if icode:
+                sel_str += f" and icode {icode}"
+            sel_str = f"not ({sel_str})"
+            footprint = structure.extract(sel_str)
+            footprint = footprint.extract('record', 'ATOM')
+        scaler.scale(footprint, radius=1)
         scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
-        #scaler.subtract(footprint)
     xmap = xmap.extract(residue.coor, padding=5)
     scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
     xmap.tofile(scaled_fname)
@@ -132,10 +140,32 @@ def main():
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
     conformers = qfit.get_conformers()
-    for n, conformer in enumerate(conformers):
+    nconformers = len(conformers)
+    altloc = ''
+    for n, conformer in enumerate(conformers, start=0):
+        if nconformers > 1:
+            altloc = ascii_uppercase[n]
+        skip = False
+        for conf in conformers[:n]:
+            print("Checking RMSD")
+            if conformer.rmsd(conf) < 0.2:
+                skip = True
+                print("Skipping")
+                break
+        if skip:
+            continue
         conformer.altloc = ''
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')
         conformer.tofile(fname)
+        conformer.altloc = altloc
+        try:
+            multiconformer = multiconformer.combine(conformer)
+        except Exception:
+            multiconformer = Structure.fromstructurelike(conformer.copy())
+    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    if icode:
+        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+    multiconformer.tofile(fname)
 
     passed = time.time() - time0
     print(f"Time passed: {passed}s")
