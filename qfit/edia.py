@@ -88,7 +88,6 @@ class _BaseEDIA():
         self.p = np.ceil(self.d/0.7)
         abc = np.asarray([self.xmap.unit_cell.a, self.xmap.unit_cell.b, self.xmap.unit_cell.c])
         self.grid_to_cartesian = np.transpose( ( self.xmap.unit_cell.frac_to_orth / abc ) * self.xmap.voxelspacing )
-        #self.grid_to_cartesian = np.asarray( [[1,0,0],[self.xmap.unit_cell._cos_gamma,self.xmap.unit_cell._sin_gamma,0],[self.xmap.unit_cell._cos_beta*self.xmap.unit_cell._sin_alpha,self.xmap.unit_cell._cos_alpha*self.xmap.unit_cell._sin_beta,self.xmap.unit_cell._sin_beta*self.xmap.unit_cell._sin_alpha]])* self.xmap.voxelspacing
         self.cartesian_to_grid = np.linalg.inv(self.grid_to_cartesian)
         self.Grid = np.zeros_like(xmap.array, dtype=object)
         self.mean = xmap.array.mean()

@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from .volume import Volume
+from .volume import Volume, XMap
 from .transformer import Transformer
 
 
@@ -13,8 +13,8 @@ class Validator(object):
         self.scattering = scattering
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
-        model_map = Volume.zeros_like(self.xmap)
-        model_map.set_spacegroup("P1")
+        model_map = XMap.zeros_like(self.xmap)
+        model_map.set_space_group("P1")
         if mask_structure is None:
             transformer = Transformer(structure, model_map, simple=simple, scattering=self.scattering)
         else:
@@ -31,26 +31,27 @@ class Validator(object):
 
     def fisher_z(self, structure, rmask=1.5, simple=True):
 
-        model_map = Volume.zeros_like(self.xmap)
-        model_map.set_spacegroup("P1")
+        model_map = XMap.zeros_like(self.xmap)
+        model_map.set_space_group("P1")
         transformer = Transformer(structure, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
-        mv = nvoxels * self.xmap.voxel_volume
+        #mv = nvoxels * self.xmap.voxel_volume
+        mv = nvoxels * np.product(self.xmap.voxelspacing) * self.xmap.unit_cell.omega
         model_map.array.fill(0)
         transformer.density()
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         # Transform to Fisher z-score
-        sigma = 1.0 / np.sqrt(mv / self.resolution - 3)
+        sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 
     def fisher_z_difference(self, structure1, structure2, rmask=1.5, simple=True):
         # Create mask of combined structures
         combined = structure1.combine(structure2)
-        model_map = Volume.zeros_like(self.xmap)
-        model_map.set_spacegroup("P1")
+        model_map = XMap.zeros_like(self.xmap)
+        model_map.set_space_group("P1")
         transformer = Transformer(combined, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
@@ -74,12 +75,12 @@ class Validator(object):
 
         model1_mean = model1_values.mean()
         model1_std = model1_values.std()
-        corr1 = ((target_values * 
-                 (model1_values - model1_mean)).sum() / 
+        corr1 = ((target_values *
+                 (model1_values - model1_mean)).sum() /
                  model1_std) / nvoxels
         model2_mean = model2_values.mean()
         model2_std = model2_values.std()
-        corr2 = ((target_values * (model2_values - model2_mean)).sum() / 
+        corr2 = ((target_values * (model2_values - model2_mean)).sum() /
                  model2_std) / nvoxels
         # Transform to Fisher Z-score
         sigma = 1.0 / np.sqrt(mv / self.resolution - 3)
@@ -87,3 +88,35 @@ class Validator(object):
         fisher2 = 0.5 * np.log((1 + corr2) / (1 - corr2))
         return (fisher2 - fisher1) / sigma
 
+    def GoodnessOfFit(self,conformer,coor_set,occupancies,rmask):
+        # Calculate the Observed map for the masked values:
+        xmap_calc = XMap.zeros_like(self.xmap)
+        xmap_calc.set_space_group("P1")
+        transformer = Transformer(conformer,xmap_calc)
+        rscc_set= np.zeros_like(occupancies)
+        for i,coor in enumerate(coor_set):
+            conformer.coor = coor
+            transformer.mask(rmask)
+            rscc_set[i] = self.rscc(conformer,rmask)
+        mask = xmap_calc.array > 0
+        map_o = self.xmap.array[mask]
+        Residual = map_o
+        order = (-rscc_set).argsort()
+        print("Conf.\t AIC\t AIC2\t BIC\t BIC2\t Fisher Z-score")
+        for i,idx in enumerate(order):
+            conformer.coor = coor_set[idx]
+            xmap_calc.array.fill(0)
+            transformer.density()
+            map_calc = transformer.xmap.array[mask]
+            # Calculate the Residual Sum of Squares (RSS)
+            Residual = Residual - occupancies[idx]*map_calc
+            RSS = np.sum(np.square(Residual))
+            # Formula for the AIC: AIC = 2k + n*ln(RSS)
+            # This is the formula according to qFit 2.0:
+            aic = 2*(i+1) + len(map_o)*np.log(RSS)
+            bic = len(map_o)*np.log(RSS/len(map_o))+(i+1)*np.log(len(map_o))
+            # This is using an adjusted formula:
+            aic2 = 2*(i+1)*4*len(conformer.coor) + len(map_o)*np.log(RSS)
+            bic2 = len(map_o)*np.log(RSS/len(map_o))+ 4*len(conformer.coor)*(i+1)*np.log(len(map_o))
+            # Where k is the number of parameters, n is the number of observations and RSS is the residual sum of squares.
+            print("{}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{:9.2f}".format(idx+1,aic,aic2,bic,bic2,self.fisher_z(conformer,rmask)))

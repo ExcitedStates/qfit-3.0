@@ -37,6 +37,11 @@ class UnitCell:
         self._cos_beta  = np.cos(np.deg2rad(self.beta))
         self._cos_gamma = np.cos(np.deg2rad(self.gamma))
 
+        self.omega = np.sqrt(
+                1 + 2 * self._cos_alpha * self._cos_beta * self._cos_gamma -
+                self._cos_alpha * self._cos_alpha - self._cos_beta * self._cos_beta -
+                self._cos_gamma * self._cos_gamma)
+        
         self.orth_to_frac = self.calc_fractionalization_matrix()
         self.frac_to_orth = self.calc_orthogonalization_matrix()
 
