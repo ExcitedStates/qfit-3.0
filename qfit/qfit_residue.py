@@ -117,7 +117,10 @@ def main():
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
 
-    xmap = XMap.fromfile(args.map, label=args.label)
+    if args.resolution:
+        xmap = XMap.fromfile(args.map, label=args.label,resolution=args.resolution)
+    else:
+        xmap = XMap.fromfile(args.map, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map

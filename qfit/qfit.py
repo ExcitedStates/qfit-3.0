@@ -11,6 +11,7 @@ from .samplers import ChiRotator
 from .solvers import MIQPSolver, QPSolver
 from .structure import Structure
 from .transformer import Transformer
+from .validator import Validator
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class _BaseQFit:
         logger.debug("Masking")
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            self._transformer.mask(1.5)
+            self._transformer.mask(0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
         mask = (self._transformer.xmap.array > 0)
         self._transformer.reset(full=True)
 
@@ -444,9 +445,13 @@ class QFitRotamericResidue(_BaseQFit):
 
             # Check if we are done
             if chi_index == self.residue.nchi:
-                return
+                break
             iteration += 1
             start_chi_index += 1
+        # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
+        validator  = Validator(self.xmap,self.xmap.resolution)
+        validator.GoodnessOfFit(self.conformer, self._coor_set,self._occupancies,0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
+        #self._update_conformers()
 
     def tofile(self):
 
