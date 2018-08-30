@@ -62,6 +62,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         # Rotamer sampling
         self.sample_rotamers = True
         self.rotamer_neighborhood = 40
+        self.remove_conformers_below_cutoff = True
         #self.rotamer_neighborhood_first = None
 
         # General settings
@@ -400,8 +401,9 @@ class QFitRotamericResidue(_BaseQFit):
                             chi_rotator(angle)
                             coor = self.residue.coor
                             values = self.xmap.interpolate(coor[active])
-                            if np.min(values) < self.options.density_cutoff:
-                                continue
+                            if self.options.remove_conformers_below_cutoff:
+                                if np.min(values) < self.options.density_cutoff:
+                                    continue
                             if not self._cd() and self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set

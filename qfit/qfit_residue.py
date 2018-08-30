@@ -24,33 +24,45 @@ def parse_args():
             help="PDB-file containing structure.")
     p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
+
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
             help="MTZ column labels to build density.")
-    p.add_argument('-o', '--omit', action="store_true",
-            help="Map file is a 2mFo-DFc OMIT map.")
     p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
-            help="Map resolution in angstrom.")
+            help="Map resolution in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
+            help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
+            help="Scattering type.")
+
+    # Map prep options
+    p.add_argument('-o', '--omit', action="store_true",
+            help="Map file is an OMIT map. This affects the scaling procedure of the map.")
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
-    p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
+    p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-b", "--dofs-per-iteration", type=int, default=1, metavar="<int>",
+
+    # Sampling options
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=5, metavar="<float>",
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
-    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
-            help="Lower resolution bound in angstrom.")
-    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-            help="Scattering type.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
             default=40, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+                   dest="remove_conformers_below_cutoff",
+            help=("Remove conformers during sampling that have atoms that have "
+                  "no density support for, i.e. atoms are positioned at density "
+                  "values below cutoff value."))
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
+    p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
+
+    # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
             help="Directory to store results.")
     p.add_argument("--debug", action="store_true",
