@@ -38,7 +38,7 @@ class Validator(object):
         mask = model_map.array > 0
         nvoxels = mask.sum()
         #mv = nvoxels * self.xmap.voxel_volume
-        mv = nvoxels * np.product(self.xmap.voxelspacing) * self.xmap.unit_cell.omega
+        mv = nvoxels * np.product(self.xmap.voxelspacing) * self.xmap.unit_cell.calc_v()
         model_map.array.fill(0)
         transformer.density()
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
@@ -88,7 +88,7 @@ class Validator(object):
         fisher2 = 0.5 * np.log((1 + corr2) / (1 - corr2))
         return (fisher2 - fisher1) / sigma
 
-    def GoodnessOfFit(self,conformer,coor_set,occupancies,rmask):
+    def GoodnessOfFit(self, conformer, coor_set, occupancies, rmask):
         # Calculate the Observed map for the masked values:
         xmap_calc = XMap.zeros_like(self.xmap)
         xmap_calc.set_space_group("P1")
