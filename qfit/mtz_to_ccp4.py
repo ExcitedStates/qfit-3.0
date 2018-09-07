@@ -15,7 +15,7 @@ def parse_args():
 def main():
 
     args = parse_args()
-    xmap = XMap.fromfile(args.mtz)
+    xmap = XMap.fromfile(args.mtz, label=args.label)
     space_group = xmap.unit_cell.space_group
     print("Spacegroup:", space_group.pdb_name)
     print("Number of primitive:", space_group.num_primitive_sym_equiv)

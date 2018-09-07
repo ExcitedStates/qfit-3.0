@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from .volume import Volume, XMap
+from .volume import XMap
 from .transformer import Transformer
 
 
@@ -43,7 +43,10 @@ class Validator(object):
         transformer.density()
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         # Transform to Fisher z-score
-        sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
+        if self.resolution.high is not None:
+            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
+        else:
+            sigma = 1.0 / np.sqrt(mv - 3)
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 

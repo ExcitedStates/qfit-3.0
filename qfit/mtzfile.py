@@ -404,23 +404,3 @@ if __name__ == '__main__':
 
     print(reflection_data)
     print(reflection_data.shape)
-
-    #h, k, l = reflection_data[:, :3].astype(np.int32).T
-    #f, phi = reflection_data[:, 3:].T
-    #
-    #nx = h.max() * 4
-    #ny = k.max() * 4
-    #nz = l.max() * 2
-    #reflections = np.zeros((nx, ny, nz), dtype=np.complex64)
-    #print reflections.shape
-    #
-    #reflections[h, k, l] = f * np.exp(-1j * np.deg2rad(phi))
-    #density = np.fft.irfftn(reflections)
-    #from qfit_ligand.volume import Volume
-    #angles = [header['CELL'][x] for x in 'alpha beta gamma'.split()]
-    #voxelspacing = [header['CELL'][x] / float(n) for x, n in zip('abc', (density.shape))]
-    #density = np.swapaxes(density, 0, 2)
-    #density /= density.std()
-    #print voxelspacing
-    #Volume(density, voxelspacing=voxelspacing, angles=angles).tofile('test.ccp4')
-

@@ -85,15 +85,18 @@ class _BaseQFit:
 
         self._smax = None
         self._simple = True
-        if self.xmap.resolution.high is not None:
-            self._smax = 1 / (2 * self.xmap.resolution.high)
-            self._simple = False
-        elif options.resolution is not None:
-            self._smax = 1 / (2 * options.resolution)
-            self._simple = False
-
-        self._smin = 0
         self._rmask = 1.5
+        reso = None
+        if self.xmap.resolution.high is not None:
+            reso = self.xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            self._smax = 1 / (2 * reso)
+            self._simple = False
+            self._rmask = 0.5 + reso / 3.0
+
+        self._smin = None
         if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
         elif self.options.resolution_min is not None:
@@ -122,14 +125,13 @@ class _BaseQFit:
         self._transformer.initialize()
 
     def _convert(self):
-
         """Convert structures to densities and extract relevant values for (MI)QP."""
-        logger.info("Converting")
 
+        logger.info("Converting")
         logger.debug("Masking")
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            self._transformer.mask(0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
+            self._transformer.mask(self._rmask)
         mask = (self._transformer.xmap.array > 0)
         self._transformer.reset(full=True)
 
@@ -452,7 +454,7 @@ class QFitRotamericResidue(_BaseQFit):
             start_chi_index += 1
         # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
         validator  = Validator(self.xmap,self.xmap.resolution)
-        validator.GoodnessOfFit(self.conformer, self._coor_set,self._occupancies,0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
+        validator.GoodnessOfFit(self.conformer, self._coor_set, self._occupancies, self._rmask)
         #self._update_conformers()
 
     def tofile(self):

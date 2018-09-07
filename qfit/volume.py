@@ -61,9 +61,9 @@ class _BaseVolume:
             raise ValueError("Format is not supported.")
 
 
-class Volume(_BaseVolume):
+class EMMap(_BaseVolume):
 
-    """A rectangular cuboid with a grid. The grid can be anisotropic."""
+    """A non-periodic volume. Has no notion of a unit cell or space group."""
 
     def __init__(self, array, grid_parameters=None, origin=(0, 0, 0)):
         super().__init__(array, grid_parameters, origin)
@@ -87,27 +87,52 @@ class Volume(_BaseVolume):
         return cls(array, volume.grid_parameters, volume.origin)
 
     def copy(self):
-        return Volume(self.array.copy(), grid_parameters=self.grid_parameters.copy(),
-                      origin=self.origin.copy())
+        return EMMap(self.array.copy(), grid_parameters=self.grid_parameters.copy(),
+                     origin=self.origin.copy())
+
+    def interpolate(self, xyz, order=1):
+        # Transform xyz to grid coor.
+        grid_coor = xyz - self.origin
+        grid_coor /= self.grid_parameters.voxelspacing
+        values = map_coordinates(self.array, grid_coor.T[::-1], order=order)
+        return values
+
+    def extract(self, xyz, padding=3):
+        grid_coor = xyz - self.origin
+        grid_coor /= self.voxelspacing
+        grid_padding = padding / self.voxelspacing
+        lb = grid_coor.min(axis=0) - grid_padding
+        ru = grid_coor.max(axis=0) + grid_padding
+        lb = np.floor(lb).astype(int)
+        lb = np.maximum(lb, 0)
+        ru = np.ceil(ru).astype(int)
+        array = self.array[lb[2]:ru[2], lb[1]:ru[1], lb[0]:ru[0]].copy()
+        grid_parameters = GridParameters(self.voxelspacing)
+        origin = self.origin + lb * self.voxelspacing
+        return EMMap(array, grid_parameters=grid_parameters, origin=origin)
 
 
 class XMap(_BaseVolume):
 
-    """A crystallographic volume with a unit cell."""
+    """A periodic volume with a unit cell and space group."""
 
     def __init__(self, array, grid_parameters=None, unit_cell=None,
-                 resolution=None, hkl=None):
+                 resolution=None, hkl=None, origin=None):
         super().__init__(array, grid_parameters)
         self.unit_cell = unit_cell
         self.hkl = hkl
         self.resolution = resolution
+        if origin is None:
+            self.origin = np.zeros(3, np.float64)
+        else:
+            self.origin = np.asarray(origin)
 
     @classmethod
     def fromfile(cls, fname, fmt=None, resolution=None, label="FWT,PHWT"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
-        if fmt in ('.ccp4'):
-            parser = CCP4Parser(fname)
+        if fmt in ('.ccp4', '.mrc', '.map'):
+            parser = parse_volume(fname, fmt=fmt)
             a, b, c = parser.abc
             alpha, beta, gamma = parser.angles
             spacegroup = parser.spacegroup
@@ -117,7 +142,9 @@ class XMap(_BaseVolume):
             voxelspacing = parser.voxelspacing
             grid_parameters = GridParameters(voxelspacing, offset)
             resolution = Resolution(high=resolution)
-            xmap = cls(array, grid_parameters, unit_cell=unit_cell, resolution=resolution)
+            origin = parser.origin
+            xmap = cls(array, grid_parameters, unit_cell=unit_cell,
+                       resolution=resolution, origin=origin)
         elif fmt == '.mtz':
             from .mtzfile import MTZFile
             from .transformer import SFTransformer
@@ -218,13 +245,14 @@ class XMap(_BaseVolume):
             array[k, j, i] = self.array[z, y, x]
         return XMap(array, grid_parameters=grid_parameters,
                     unit_cell=self.unit_cell, resolution=self.resolution,
-                    hkl=self.hkl)
+                    hkl=self.hkl, origin=self.origin)
 
     def interpolate(self, xyz):
         # Transform xyz to grid coor.
         uc = self.unit_cell
         orth_to_grid = uc.orth_to_frac * self.unit_cell_shape.reshape(3, 1)
-        # TODO origin shift is not taken into account
+        if not np.allclose(self.origin, 0):
+            xyz = xyz - self.origin
         grid_coor = orth_to_grid @ xyz.T
         grid_coor -= self.offset.reshape(3, 1)
         if self.is_canonical_unit_cell():
@@ -238,8 +266,11 @@ class XMap(_BaseVolume):
 
 class ASU:
 
+    """Assymetric Unit Cell"""
+
     def __init__(self, array, grid_parameters=None, unit_cell=None,
                  resolution=None, hkl=None):
+        raise NotImplementedError
         super().__init__(array, grid_parameters, unit_cell, resolution, hkl)
 
 
@@ -251,10 +282,10 @@ def parse_volume(fid, fmt=None):
         fname = fid
 
     if fmt is None:
-        fmt = os.path.splitext(fname)[-1][1:]
-    if fmt in ('ccp4', 'map'):
+        fmt = os.path.splitext(fname)[-1]
+    if fmt == '.ccp4':
         p = CCP4Parser(fname)
-    elif fmt == 'mrc':
+    elif fmt in ('.map', '.mrc'):
         p = MRCParser(fname)
     else:
         raise ValueError('Extension of file is not supported.')
@@ -371,7 +402,8 @@ class CCP4Parser:
         elif maps == 1 and mapr == 2 and mapc == 3:
             self.density = np.swapaxes(self.density, 0, 2)
         else:
-            raise NotImplementedError("Density storage order ({:} {:} {:}) not supported.".format(maps, mapr, mapc))
+            msg = f"Density storage order ({maps} {mapr} {mapc}) not supported."
+            raise NotImplementedError(msg)
         self.density = np.ascontiguousarray(self.density, dtype=np.float64)
 
 
@@ -380,7 +412,7 @@ class MRCParser(CCP4Parser):
     def _get_origin(self):
         origin_fields = 'xstart ystart zstart'.split()
         origin = [self.header[field] for field in origin_fields]
-        return origin
+        self.origin = origin
 
 
 def to_mrc(fid, volume, labels=[], fmt=None):
@@ -427,6 +459,7 @@ def to_mrc(fid, volume, labels=[], fmt=None):
     fut_use = [0.0] * 12
     str_map = list('MAP ')
     str_map = 'MAP '
+    #TODO machst are similar for little and big endian
     if _BYTEORDER == 'little':
         machst = list('\x44\x41\x00\x00')
     elif _BYTEORDER == 'big':

@@ -14,7 +14,7 @@ def move_direction_adp(u_matrix, unit_cell):
     order = np.argsort(eigval)
     eigvec = np.asarray(eigvec[order])
     if np.linalg.det(eigvec) < 0:
-        rotmat[:, 0] *= -1
+        eigvec[:, 0] *= -1
     eigensum = np.zeros(3)
     for i in range(3):
         eigensum[i] = (eigval[i] * eigvec[i]).sum()

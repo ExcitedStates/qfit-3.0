@@ -25,6 +25,7 @@ def parse_args():
     p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
+    # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
             help="MTZ column labels to build density.")
     p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
@@ -33,10 +34,10 @@ def parse_args():
             help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
-
-    # Map prep options
     p.add_argument('-o', '--omit', action="store_true",
             help="Map file is an OMIT map. This affects the scaling procedure of the map.")
+
+    # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
@@ -45,6 +46,8 @@ def parse_args():
             help="Density values below <density-cutoff> are set to this value.")
 
     # Sampling options
+    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
+            help="Sample backbone using inverse kinematics.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
@@ -129,10 +132,7 @@ def main():
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
 
-    if args.resolution:
-        xmap = XMap.fromfile(args.map, label=args.label,resolution=args.resolution)
-    else:
-        xmap = XMap.fromfile(args.map, label=args.label)
+    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map
@@ -149,7 +149,7 @@ def main():
         scaler.scale(footprint, radius=1)
         scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
     xmap = xmap.extract(residue.coor, padding=5)
-    scaled_fname = os.path.join(args.directory, 'scaled.ccp4')
+    scaled_fname = os.path.join(args.directory, 'scaled.map')
     xmap.tofile(scaled_fname)
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
@@ -183,4 +183,4 @@ def main():
     multiconformer.tofile(fname)
 
     passed = time.time() - time0
-    print(f"Time passed: {passed}s")
+    logger.info(f"Time passed: {passed}s")

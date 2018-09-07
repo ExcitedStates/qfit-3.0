@@ -16,28 +16,24 @@ class MapScaler:
         self._model_map = xmap.zeros_like(xmap)
 
     def subtract(self, structure):
-        if hasattr(self.xmap, 'hkl') and self.xmap.hkl is not None:
+        if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
-            transformer = FFTTransformer(structure, self._model_map, hkl=hkl, scattering=self.scattering)
+            transformer = FFTTransformer(
+                structure, self._model_map, hkl=hkl, scattering=self.scattering)
         else:
-            transformer = Transformer(structure, self._model_map, simple=True,
-                                      rmax=3, scattering=self.scattering)
+            transformer = Transformer(
+                structure, self._model_map, simple=True,
+                rmax=3, scattering=self.scattering)
         logger.info("Subtracting density.")
         transformer.density()
         self.xmap.array -= self._model_map.array
 
     def scale(self, structure, radius=1.5):
-        # smax doesnt have any impact here.
 
-        ## Set values below cutoff to zero, to penalize the solvent more
-        #if self.cutoff is not None:
-        #    mean = self.xmap.array.mean()
-        #    std = self.xmap.array.std()
-        #    cutoff_value = self.cutoff * std + mean
-
-        if hasattr(self.xmap, 'hkl') and self.xmap.hkl is not None:
+        if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
-            transformer = FFTTransformer(structure, self._model_map, hkl=hkl, scattering=self.scattering)
+            transformer = FFTTransformer(structure, self._model_map,
+                                         hkl=hkl, scattering=self.scattering)
         else:
             transformer = Transformer(structure, self._model_map, simple=True,
                                       rmax=3, scattering=self.scattering)
