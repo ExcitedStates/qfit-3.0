@@ -44,10 +44,10 @@ ROTAMERS = {
         4: ['CG', 'CD', 'NE', 'CZ'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2'],
-        2: ['CD', 'NE', 'CZ', 'NH1', 'NH2'],
-        3: ['NE', 'CZ', 'NH1', 'NH2'],
-        4: ['CZ', 'NH1', 'NH2'],
+        1: ['CG', 'CD', 'NE', 'CZ', 'HB2', 'HB3', 'NH1', 'NH2', 'HH22', 'HH21', 'HH12', 'HH11', 'HE', 'HD3', 'HD2', 'HG3', 'HG2'],
+        2: ['CD', 'NE', 'CZ', 'HG2', 'HG3', 'NH1', 'NH2', 'HH22', 'HH21', 'HH12', 'HH11', 'HE', 'HD3', 'HD2'],
+        3: ['NE', 'CZ', 'NH1', 'NH2', 'HD2', 'HD3', 'HE', 'HH22', 'HH21', 'HH12', 'HH11'],
+        4: ['CZ', 'NH1', 'NH2', 'HE', 'HH22', 'HH21', 'HH12', 'HH11'],
     },
     'rotamers': [
         [  62,  180,  65,   85],
@@ -115,8 +115,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'OD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'OD1', 'ND2'],
-        2: ['OD1', 'ND2'],
+        1: ['CG', 'OD1', 'ND2', 'HB2', 'HB3', 'HD21', 'HD22'],
+        2: ['OD1', 'ND2', 'HD21', 'HD22'],
     },
     'rotamers': [
         [  62, -10],
@@ -154,8 +154,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'OD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'OD1', 'OD2'],
-        2: ['OD1', 'OD2'],
+        1: ['CG', 'OD1', 'OD2', 'HB2', 'HB3', 'HD2'],
+        2: ['OD1', 'OD2', 'HD2'],
     },
     'rotamers': [
         [  62, -10],
@@ -190,7 +190,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'SG'],
     },
     'chi-rotate': {
-        1: ['SG'],
+        1: ['SG', 'HB2', 'HB3', 'HG'],
     },
     'rotamers': [
         [  62],
@@ -222,9 +222,9 @@ ROTAMERS = {
         3: ['CB', 'CG', 'CD', 'OE1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD', 'OE1', 'NE2'],
-        2: ['CD', 'OE1', 'NE2'],
-        3: ['OE1', 'NE2'],
+        1: ['CG', 'CD', 'OE1', 'NE2', 'HB2', 'HB3', 'HG2', 'HG3', 'HE21', 'HE22'],
+        2: ['CD', 'OE1', 'NE2', 'HG2', 'HG3', 'HE21', 'HE22'],
+        3: ['OE1', 'NE2', 'HE21', 'HE22'],
     },
     'rotamers': [
         [  62, 180,   20],
@@ -265,9 +265,9 @@ ROTAMERS = {
         3: ['CB', 'CG', 'CD', 'OE1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD', 'OE1', 'OE2'],
-        2: ['CD', 'OE1', 'OE2'],
-        3: ['OE1', 'OE2'],
+        1: ['CG', 'CD', 'OE1', 'OE2', 'HB2', 'HB3', 'HG2', 'HG3', 'HE2'],
+        2: ['CD', 'OE1', 'OE2', 'HE2',],
+        3: ['OE1', 'OE2', 'HE2'],
     },
     'rotamers': [
         [  62, 180, -20],
@@ -320,7 +320,7 @@ ROTAMERS = {
     'hydrogens': 'H HA HB2 HB3 HD1 HD2 HE1 HE2'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
-        ['CA', 'CB'], ['CB', 'CG'], ['CG/', 'ND1'], ['ND1', 'CE1'],
+        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'ND1'], ['ND1', 'CE1'],
         ['CE1', 'NE2'], ['CD2', 'NE2'], ['CD2', 'CG'],
     ],
     'nchi': 2,
@@ -329,8 +329,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'ND1'],
     },
     'chi-rotate': {
-        1: ['CG', 'ND1', 'CD2', 'CE1', 'NE2'],
-        2: ['ND1', 'CD2', 'CE1', 'NE2'],
+        1: ['CG', 'ND1', 'CD2', 'CE1', 'NE2', 'HB2', 'HB3', 'HD1', 'HD2', 'HE1', 'HE2'],
+        2: ['ND1', 'CD2', 'CE1', 'NE2', 'HD1', 'HD2', 'HE1', 'HE2'],
     },
     'rotamers': [
         [  62,  -75],
@@ -370,8 +370,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG1', 'CD1'],
     },
     'chi-rotate': {
-        1: ['CG1', 'CG2', 'CD1'],
-        2: ['CD1'],
+        1: ['CG1', 'CG2', 'CD1', 'HB', 'HG12', 'HG13', 'HG21', 'HG22', 'HG23', 'HD11', 'HD12', 'HD13'],
+        2: ['CD1', 'HG12', 'HG13', 'HD11', 'HD12', 'HD13'],
     },
     'rotamers': [
         [  62, 100],
@@ -408,8 +408,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'CD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD1', 'CD2'],
-        2: ['CD1', 'CD2'],
+        1: ['CG', 'CD1', 'CD2', 'HB2', 'HB3', 'HG', 'HD11', 'HD12', 'HD13', 'HD21', 'HD21', 'HD23'],
+        2: ['CD1', 'CD2', 'HG', 'HD11', 'HD12', 'HD13', 'HD21', 'HD22', 'HD23'],
     },
     'rotamers': [
         [  62,  80],
@@ -446,10 +446,10 @@ ROTAMERS = {
         4: ['CG', 'CD', 'CE', 'NZ'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD', 'CE', 'NZ'],
-        2: ['CD', 'CE', 'NZ'],
-        3: ['CE', 'NZ'],
-        4: ['NZ'],
+        1: ['CG', 'CD', 'CE', 'NZ', 'HB2', 'HB3', 'HG2', 'HG3', 'HD2', 'HD3', 'HE2', 'HE3', 'HZ1', 'HZ2', 'HZ3'],
+        2: ['CD', 'CE', 'NZ', 'HG2', 'HG3', 'HD2', 'HD3', 'HE2', 'HE3', 'HZ1', 'HZ2', 'HZ3'],
+        3: ['CE', 'NZ', 'HD2', 'HD3', 'HE2', 'HE3', 'HZ1', 'HZ2', 'HZ3'],
+        4: ['NZ', 'HE2', 'HE3', 'HZ1', 'HZ2', 'HZ3'],
     },
     'rotamers': [
         [  62, 180,  68, 180],
@@ -508,9 +508,9 @@ ROTAMERS = {
         3: ['CB', 'CG', 'SD', 'CE'],
     },
     'chi-rotate': {
-        1: ['CG', 'SD', 'CE'],
-        2: ['SD', 'CE'],
-        3: ['CE'],
+        1: ['CG', 'SD', 'CE', 'HB2', 'HB3', 'HG2', 'HG3', 'HE1', 'HE2', 'HE3'],
+        2: ['SD', 'CE', 'HG2', 'HG3', 'HE1', 'HE2', 'HE3'],
+        3: ['CE', 'HE1', 'HE2', 'HE3'],
     },
     'rotamers': [
         [  62, 180,  75],
@@ -554,8 +554,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'CD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ'],
-        2: ['CD1', 'CD2', 'CE1', 'CE2', 'CZ'],
+        1: ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'HB2', 'HB3', 'HD1', 'HD2', 'HE1', 'HE2', 'HZ'],
+        2: ['CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'HD1', 'HD2', 'HE1', 'HE2', 'HZ'],
     },
     'rotamers': [
         [  62,  90],
@@ -592,7 +592,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'CG'],
     },
     'chi-rotate': {
-        1: ['CG'],
+        1: ['CG', 'HB2', 'HB3', 'HG2', 'HG3', 'HD2', 'HD3'],
     },
     'rotamers': [
         [ 30],
@@ -623,7 +623,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'OG'],
     },
     'chi-rotate': {
-        1: ['OG'],
+        1: ['OG', 'HB2', 'HB3', 'HG'],
     },
     'rotamers': [
         [  62],
@@ -654,7 +654,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'OG1'],
     },
     'chi-rotate': {
-        1: ['OG1', 'CG2'],
+        1: ['OG1', 'CG2', 'HB', 'HG1', 'HG21', 'HG22', 'HG23'],
     },
     'rotamers': [
         [  62],
@@ -689,8 +689,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'CD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
-        2: ['CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
+        1: ['CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2', 'HB2', 'HB3', 'HD1', 'HE1', 'HE3', 'HZ2', 'HZ3', 'HH2'],
+        2: ['CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2', 'HD1', 'HE1', 'HE3', 'HZ2', 'HZ3', 'HH2'],
     },
     'rotamers': [
         [  62,  -90],
@@ -736,8 +736,8 @@ ROTAMERS = {
         2: ['CA', 'CB', 'CG', 'CD1'],
     },
     'chi-rotate': {
-        1: ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH'],
-        2: ['CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH'],
+        1: ['CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH', 'HB2', 'HB3', 'HD1', 'HD2', 'HE1', 'HE2', 'HH'],
+        2: ['CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH', 'HD1', 'HD2', 'HE1', 'HE2', 'HH'],
     },
     'rotamers': [
         [  62,  90],
@@ -775,7 +775,7 @@ ROTAMERS = {
         1: ['N', 'CA', 'CB', 'CG1'],
     },
     'chi-rotate': {
-        1: ['CG1', 'CG2'],
+        1: ['CG1', 'CG2', 'HB', 'HG11', 'HG12', 'HG13', 'HG21', 'HG22', 'HG23'],
     },
     'rotamers': [
         [ 63],
@@ -809,9 +809,9 @@ ROTAMERS = {
         3: ['CB', 'CG', 'SE', 'CE'],
     },
     'chi-rotate': {
-        1: ['CG', 'SE', 'CE'],
-        2: ['SE', 'CE'],
-        3: ['CE'],
+        1: ['CG', 'SE', 'CE', 'HB2', 'HB3', 'HG2', 'HG3', 'HE1', 'HE2', 'HE3'],
+        2: ['SE', 'CE', 'HG2', 'HG3', 'HE1', 'HE2', 'HE3'],
+        3: ['CE', 'HE1', 'HE2', 'HE3'],
     },
     # A blatant copy of MET
     'rotamers': [

@@ -104,8 +104,6 @@ def main():
 
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure).reorder()
-    # For now we don't support hydrogens
-    structure = structure.extract('e', 'H', '!=')
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
