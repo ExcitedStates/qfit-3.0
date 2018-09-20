@@ -75,6 +75,34 @@ class Translator:
         self.ligand.coor = self.coor_to_translate + np.asarray(trans)
 
 
+class CBAngleRotator:
+
+    def __init__(self, residue):
+        self.residue = residue
+        angle_selection = residue.select('name', ('N', 'CA', 'CB'))
+        if angle_selection.size != 3:
+            raise RuntimeError("Residue does not have N, CA and CB atom for rotation.")
+        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O'), '!=')
+        self._origin = self.residue.extract('name', 'CA').coor[0]
+        self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
+        self._coor_to_rotate -= self._origin
+        axis_coor = residue.extract('name', ('N', 'CB')).coor
+        axis_coor -= self._origin
+        axis = np.cross(axis_coor[0], axis_coor[1])
+        axis /= np.linalg.norm(axis)
+        aligner = ZAxisAligner(axis)
+        self._forward = aligner.forward_rotation
+        self._coor_to_rotate = (aligner.backward_rotation *
+                np.asmatrix(self._coor_to_rotate.T)).T
+
+    def __call__(self, angle):
+        # Since the axis of rotation is already aligned with the z-axis, we can
+        # freely rotate the coordinates and perform the inverse operation to realign the
+        # axis to the real world frame.
+        R = self._forward * np.asmatrix(Rz(np.deg2rad(angle)))
+        self.residue._coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._origin
+
+
 class GlobalRotator:
 
     """Rotate ligand around its center."""
