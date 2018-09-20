@@ -65,6 +65,8 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         self.remove_conformers_below_cutoff = True
         #self.rotamer_neighborhood_first = None
 
+        self.bulk_solvent_level = 0.3
+
         # General settings
         # Exclude certain atoms always during optimization, e.g. backbone
         self.exclude_atoms = None
@@ -129,23 +131,41 @@ class _BaseQFit:
 
         logger.info("Converting")
         logger.debug("Masking")
+        self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self._transformer.mask(self._rmask)
+        #self._transformer.xmap.tofile(f'mask_{self._n}.ccp4')
         mask = (self._transformer.xmap.array > 0)
         self._transformer.reset(full=True)
 
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
-
         logger.debug("Density")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
+        #target_sum = self._target.sum()
+        # Create an initial density to calculate the total integral density of
+        # the model. This way we can derive an approximation of the solvent level.
+        #self.conformer.coor = self._coor_set[0]
+        #self._transformer.density()
+        #model_sum = self._transformer.xmap.array.sum()
+        #residual_sum = target_sum - model_sum
+        #solvent_level = residual_sum / nvalues
+        #scaling_factor = model_sum / target_sum
+        #self._target *= scaling_factor
+        #print("Solvent level advice:", solvent_level)
+        #print("Scaling factor:", scaling_factor)
+        #print("Target sum:", target_sum)
+        #print("Model sum:", model_sum)
+        #self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self._transformer.density()
-            self._models[n] = self._transformer.xmap.array[mask]
-            self._transformer.reset(rmax=3)
+            model = self._models[n]
+            model[:] = self._transformer.xmap.array[mask]
+            np.maximum(model, self.options.bulk_solvent_level, out=model)
+            self._transformer.reset(full=True)
 
     def _solve(self, cardinality=None, threshold=None):
         do_qp = cardinality == threshold == None
@@ -402,8 +422,8 @@ class QFitRotamericResidue(_BaseQFit):
                         for angle in sampling_window:
                             chi_rotator(angle)
                             coor = self.residue.coor
-                            values = self.xmap.interpolate(coor[active])
                             if self.options.remove_conformers_below_cutoff:
+                                values = self.xmap.interpolate(coor[active])
                                 if np.min(values) < self.options.density_cutoff:
                                     continue
                             if not self._cd() and self.residue.clashes() == 0:
@@ -413,7 +433,7 @@ class QFitRotamericResidue(_BaseQFit):
 
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
-                msg = "No conformers could be generated. Check for initial clashes."
+                msg = "No conformers could be generated. Check for initial clashes and density support."
                 raise RuntimeError(msg)
             if self.options.debug:
                 prefix = os.path.join(self.options.directory, f'_conformer_{iteration}.pdb')
@@ -429,17 +449,17 @@ class QFitRotamericResidue(_BaseQFit):
             # MIQP
             self._convert()
             logger.info("Solving MIQP.")
-            residual1 = self._solve(cardinality=1,
-                        threshold=self.options.threshold)
-            residual2 = self._solve(cardinality=2,
-                        threshold=self.options.threshold)
-            # residual2 is guaranteed to be lower
-            diff = residual1 - residual2
-            logger.info(f"Improvement in residual: {diff:.5f}")
-            if diff < 0.0005:
-                cardinality = 1
-            else:
-                cardinality = 2
+            #residual1 = self._solve(cardinality=1,
+            #            threshold=self.options.threshold)
+            #residual2 = self._solve(cardinality=2,
+            #            threshold=self.options.threshold)
+            ## residual2 is guaranteed to be lower
+            #diff = residual1 - residual2
+            #logger.info(f"Improvement in residual: {diff:.5f}")
+            #if diff < 0.0005:
+            #    cardinality = 1
+            #else:
+            #    cardinality = 2
             self._solve(cardinality=None,
                         threshold=self.options.threshold)
 
@@ -453,8 +473,8 @@ class QFitRotamericResidue(_BaseQFit):
             iteration += 1
             start_chi_index += 1
         # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
-        validator  = Validator(self.xmap,self.xmap.resolution)
-        validator.GoodnessOfFit(self.conformer, self._coor_set, self._occupancies, self._rmask)
+        #validator  = Validator(self.xmap,self.xmap.resolution)
+        #validator.GoodnessOfFit(self.conformer, self._coor_set, self._occupancies, self._rmask)
         #self._update_conformers()
 
     def tofile(self):

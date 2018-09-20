@@ -97,6 +97,8 @@ class FFTTransformer:
                         msym += int(r) * m
             fft_mask[lsym, ksym, hsym] = False
             fft_mask[-lsym, -ksym, -hsym] = False
+        # Keep the density on absolute level
+        fft_mask[0, 0, 0] = False
         hmax = fft_mask.shape[-1] // 2 + 1
         #self._fft_mask = fft_mask
         self._fft_mask = fft_mask[:, :, :hmax].copy()
@@ -135,7 +137,7 @@ class Transformer:
 
     """Transform a structure to a density."""
 
-    def __init__(self, structure, xmap, smin=0, smax=0.5, rmax=3.0,
+    def __init__(self, structure, xmap, smin=None, smax=None, rmax=3.0,
                  rstep=0.01, simple=False, scattering='xray'):
         self.structure = structure
         self.xmap = xmap
@@ -151,6 +153,14 @@ class Transformer:
         else:
             raise ValueError("Scattering source not supported. Choose 'xray' or 'electron'")
         self._initialized = False
+
+        if not simple and smax is None and self.xmap.resolution.high is not None:
+            self.smax = 1 / (2 * self.xmap.resolution.high)
+        if not simple:
+            rlow = self.xmap.resolution.low
+            if rlow is None:
+                rlow = 1000
+            self.smin = 1 / (2 * rlow)
 
         # Calculate transforms
         uc = xmap.unit_cell
@@ -244,10 +254,11 @@ class Transformer:
         four_pi2 = 4 * np.pi * np.pi
         bw = []
         for i in range(6):
-            try:
-                bw.append(-four_pi2 / (asf[1][i] + bfactor))
-            except ZeroDivisionError:
+            divisor = asf[1][i] + bfactor
+            if divisor <= 1e-4:
                 bw.append(0)
+            else:
+                bw.append(-four_pi2 / (asf[1][i] + bfactor))
         aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(6)]
         r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
         r2 = r * r

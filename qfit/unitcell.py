@@ -46,6 +46,10 @@ class UnitCell:
         return "UnitCell(a=%f, b=%f, c=%f, alpha=%f, beta=%f, gamma=%f)" % (
             self.a, self.b, self.c, self.alpha, self.beta, self.gamma)
 
+    def copy(self):
+        return UnitCell(self.a, self.b, self.c, self.alpha, self.beta,
+                        self.gamma, self.space_group.number)
+
     @property
     def abc(self):
         return np.asarray([self.a, self.b, self.c], float)

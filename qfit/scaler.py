@@ -28,7 +28,7 @@ class MapScaler:
         transformer.density()
         self.xmap.array -= self._model_map.array
 
-    def scale(self, structure, radius=1.5):
+    def scale(self, structure, radius=1):
 
         if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
@@ -43,18 +43,18 @@ class MapScaler:
         xmap_masked_mean = xmap_masked.mean()
         xmap_masked -= xmap_masked_mean
 
-        transformer.reset(radius)
+        transformer.reset(full=True)
         transformer.density()
         model_masked = self._model_map.array[mask]
         model_masked_mean = model_masked.mean()
         model_masked -= model_masked_mean
-        transformer.reset()
 
         scaling_factor = np.dot(model_masked, xmap_masked) / np.dot(xmap_masked, xmap_masked)
         logger.info(f"Map scaling factor: {scaling_factor:.2f}")
         self.xmap.array -= xmap_masked_mean
         self.xmap.array *= scaling_factor
         self.xmap.array += model_masked_mean
+        transformer.reset(full=True)
 
     def cutoff(self, cutoff_value, value=-1):
         cutoff_mask = self.xmap.array < cutoff_value

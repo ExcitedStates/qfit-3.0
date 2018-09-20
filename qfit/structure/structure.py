@@ -103,6 +103,14 @@ class Structure(_BaseStructure):
         return f'Structure: {self.natoms} atoms'
 
     @property
+    def atoms(self):
+        indices = self._selection
+        if indices is None:
+            indices = range(self.natoms)
+        for index in indices:
+            yield _Atom(self.data, index)
+
+    @property
     def chains(self):
         if not self._chains:
             self.build_hierarchy()
@@ -383,8 +391,27 @@ class _AtomGroup(_BaseStructure):
         return string
 
 
-class Atom(_BaseStructure):
-    pass
+class _Atom:
+
+    def __init__(self, data, index):
+        self.index = index
+        for attr, array in data.items():
+            hattr = '_' + attr
+            setattr(self, hattr, array)
+            prop = self._atom_property(hattr)
+            setattr(_Atom, attr, prop)
+
+    def _atom_property(self, property_name, docstring=None):
+        def getter(self):
+            return self.__getattribute__(property_name)[self.index]
+
+        def setter(self, value):
+            getattr(self, property_name)[self.index] = value
+
+        return property(getter, setter, doc=docstring)
+
+    def __repr__(self):
+        return f"Atom: {self.index}"
 
 
 class _Conformer(_BaseStructure):

@@ -60,6 +60,8 @@ def parse_args():
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
                   "values below cutoff value."))
+    p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
+            help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
@@ -147,9 +149,12 @@ def main():
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
         scaler.scale(footprint, radius=1)
-        scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
     xmap = xmap.extract(residue.coor, padding=5)
-    scaled_fname = os.path.join(args.directory, 'scaled.map')
+    ext = '.ccp4'
+    if not np.allclose(xmap.origin, 0):
+        ext = '.mrc'
+    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
 
     qfit = QFitRotamericResidue(residue, structure, xmap, options)

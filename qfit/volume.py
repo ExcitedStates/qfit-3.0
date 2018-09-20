@@ -1,4 +1,5 @@
 import os.path
+from copy import copy
 from itertools import product
 from numbers import Real
 from struct import unpack as _unpack, pack as _pack
@@ -29,6 +30,9 @@ class Resolution:
     def __init__(self, high=None, low=None):
         self.high = high
         self.low = low
+
+    def copy(self):
+        return Resolution(self.high, self.low)
 
 
 class _BaseVolume:
@@ -193,8 +197,14 @@ class XMap(_BaseVolume):
     @classmethod
     def zeros_like(cls, xmap):
         array = np.zeros_like(xmap.array)
-        return cls(array, grid_parameters=xmap.grid_parameters,
-                   unit_cell=xmap.unit_cell, hkl=xmap.hkl, resolution=xmap.resolution)
+        try:
+            uc = xmap.unit_cell.copy()
+        except AttributeError:
+            uc = None
+        hkl = copy(xmap.hkl)
+        return cls(array, grid_parameters=xmap.grid_parameters.copy(),
+                   unit_cell=uc, hkl=hkl,
+                   resolution=xmap.resolution.copy(), origin=xmap.origin.copy())
 
     def asymmetric_unit_cell(self):
         raise NotImplementedError
