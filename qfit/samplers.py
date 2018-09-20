@@ -1,10 +1,6 @@
-from __future__ import division
-import itertools
 import os.path
-from collections import defaultdict
 
 import numpy as np
-import scipy as sp
 
 
 class BackboneRotator:
