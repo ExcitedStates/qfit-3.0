@@ -59,6 +59,9 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         self.sample_backbone = False
         self.neighbor_residues_required = 2
 
+        # N-CA-CB angle sampling
+        self.sample_angle = False
+
         # Rotamer sampling
         self.sample_rotamers = True
         self.rotamer_neighborhood = 40
@@ -313,6 +316,8 @@ class QFitRotamericResidue(_BaseQFit):
 
         if self.options.sample_backbone:
             self._sample_backbone()
+        if self.options.sample_angle:
+            self._sample_angle()
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
         #self._write_maps()
@@ -356,6 +361,31 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.residue.coor)
             segment.coor = starting_coor
+
+    def _sample_angle(self):
+        """Sample residue along the N-CA-CB angle."""
+
+        active_names = ('N', 'CA', 'C', 'O', 'CB')
+        selection = self.residue.select('name', active_names)
+        self.residue.active = False
+        self.residue._active[selection] = True
+        self.residue.update_clash_mask()
+        angles = np.linspace(-5, 5, 5, endpoint=True)
+        new_coor_set = []
+        for coor in self._coor_set:
+            self.residue.coor = coor
+            rotator = CBAngleRotator(self.residue)
+            for angle in angles:
+                rotator(angle)
+                coor = self.residue.coor
+                if self.options.remove_conformers_below_cutoff:
+                    values = self.xmap.interpolate(coor[active])
+                    if np.min(values) < self.options.density_cutoff:
+                        continue
+                if self._cd() or self.residue.clashes():
+                    continue
+                new_coor_set.append(self.residue.coor)
+        self._coor_set = new_coor_set
 
     def _sample_sidechain(self):
 
