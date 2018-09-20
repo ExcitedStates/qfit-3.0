@@ -48,6 +48,8 @@ def parse_args():
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
             help="Sample backbone using inverse kinematics.")
+    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
+            help="Sample N-CA-CB angle.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",

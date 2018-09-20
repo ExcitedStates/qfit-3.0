@@ -7,7 +7,7 @@ import numpy as np
 
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
-from .samplers import ChiRotator
+from .samplers import ChiRotator, CBAngleRotator
 from .solvers import MIQPSolver, QPSolver
 from .structure import Structure
 from .transformer import Transformer
@@ -370,6 +370,7 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue.active = False
         self.residue._active[selection] = True
         self.residue.update_clash_mask()
+        active = self.residue.active
         angles = np.linspace(-5, 5, 5, endpoint=True)
         new_coor_set = []
         for coor in self._coor_set:
