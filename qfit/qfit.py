@@ -8,7 +8,7 @@ import numpy as np
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator
-from .solvers import MIQPSolver, QPSolver
+from .solvers import QPSolver, MIQPSolver
 from .structure import Structure
 from .transformer import Transformer
 from .validator import Validator
@@ -181,8 +181,9 @@ class _BaseQFit:
                    threshold=threshold)
         self._occupancies = solver.weights
 
-        residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
-        logger.info(f"Residual under footprint: {residual:.4f}")
+        #residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
+        #logger.info(f"Residual under footprint: {residual:.4f}")
+        residual = 0
         return residual
 
     def _update_conformers(self):
@@ -201,37 +202,44 @@ class _BaseQFit:
             fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
             self.conformer.tofile(fname)
 
-    def _write_maps(self):
+    def write_maps(self):
         """Write out model and difference map."""
+        if np.allclose(self.xmap.origin, 0):
+            ext = 'ccp4'
+        else:
+            ext = 'mrc'
         # Create maps
-        for q, coor in zip(self._occupancies, self._coor_set):
-            self.conformer.q = q
-            self.conformer.coor = coor
-            self._transformer.mask(self._rmask)
-        fname = os.path.join(self.options.directory, 'mask.mrc')
-        self._transformer.xmap.tofile(fname)
-        mask = self._transformer.xmap.array > 0
-        self._transformer.reset(full=True)
+        #for q, coor in zip(self._occupancies, self._coor_set):
+        #    self.conformer.q = q
+        #    self.conformer.coor = coor
+        #    self._transformer.mask(self._rmask)
+        #fname = os.path.join(self.options.directory, f'mask.{ext}')
+        #self._transformer.xmap.tofile(fname)
+        #mask = self._transformer.xmap.array > 0
+        #self._transformer.reset(full=True)
 
         for q, coor in zip(self._occupancies, self._coor_set):
             self.conformer.q = q
             self.conformer.coor = coor
             self._transformer.density()
-        fname = os.path.join(self.options.directory, 'model.mrc')
+        fname = os.path.join(self.options.directory, f'model.{ext}')
         self._transformer.xmap.tofile(fname)
-        values = self._transformer.xmap.array[mask]
         self._transformer.xmap.array -= self.xmap.array
-        fname = os.path.join(self.options.directory, 'diff.mrc')
+        fname = os.path.join(self.options.directory, f'diff.{ext}')
         self._transformer.xmap.tofile(fname)
-
         self._transformer.reset(full=True)
-        self._transformer.xmap.array[mask] = values
-        fname = os.path.join(self.options.directory, 'model_masked.mrc')
-        self._transformer.xmap.tofile(fname)
-        values = self.xmap.array[mask]
-        self._transformer.xmap.array[mask] -= values
-        fname = os.path.join(self.options.directory, 'diff_masked.mrc')
-        self._transformer.xmap.tofile(fname)
+        #self._transformer.xmap.array *= -1
+        #fname = os.path.join(self.options.directory, f'diff_negative.{ext}')
+        #self._transformer.xmap.tofile(fname)
+
+        #self._transformer.reset(full=True)
+        #self._transformer.xmap.array[mask] = values
+        #fname = os.path.join(self.options.directory, f'model_masked.{ext}')
+        #self._transformer.xmap.tofile(fname)
+        #values = self.xmap.array[mask]
+        #self._transformer.xmap.array[mask] -= values
+        #fname = os.path.join(self.options.directory, f'diff_masked.{ext}')
+        #self._transformer.xmap.tofile(fname)
 
 
 class QFitRotamericResidue(_BaseQFit):
@@ -400,7 +408,10 @@ class QFitRotamericResidue(_BaseQFit):
 
         iteration = 0
         while True:
-            end_chi_index = min(start_chi_index + self.options.dofs_per_iteration,
+            chis_to_sample = self.options.dofs_per_iteration
+            if start_chi_index == 1 and (self.options.sample_backbone or self.options.sample_angle):
+                chis_to_sample = max(1, self.options.dofs_per_iteration - 1)
+            end_chi_index = min(start_chi_index + chis_to_sample,
                                 self.residue.nchi + 1)
             for chi_index in range(start_chi_index, end_chi_index):
 
