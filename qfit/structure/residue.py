@@ -14,7 +14,8 @@ def residue_type(residue):
     """Check residue type.
 
     The following types are recognized:
-        standard-residue
+        rotamer-residue
+            Amino acid for which rotamer information is available
         aa-residue
             Amino acid residue
         residue
@@ -108,7 +109,6 @@ class _RotamerResidue(_BaseResidue):
             self._active_mask[starting_index: end] = active
 
     def clashes(self):
-
         """Checks if there are any internal clashes.
         Deactivated atoms are not taken into account.
         """
@@ -174,10 +174,10 @@ class _RotamerResidue(_BaseResidue):
 
     def complete_residue(self):
         if residue_type(self) != "rotamer-residue":
-            msg = "Error! Cannot complete non-aminoacid residue. Please, complete the missing atoms of the residue for qFiting!"
-            raise(msg)
+            msg = "Cannot complete non-aminoacid residue. Please, complete the missing atoms of the residue for qFiting!"
+            raise RuntimeError(msg)
 
-        first_atom=1
+        first_atom = True
         atoms = self.name
         for atom, position in zip(self._rotamers['atoms'],self._rotamers['positions']):
             if atom in atoms:
@@ -185,7 +185,7 @@ class _RotamerResidue(_BaseResidue):
                 # Perform a superposition between the ideal residue coordinates in self._rotamers['positions']
                 # and the ones observed on the PDB. This superposition is used to complete the missing atomsself.
                 # TO DO: adapt this code to use a more robust superposition algorithm!
-                if first_atom==1:
+                if first_atom:
                     trans = np.array(position)
                     origin = self.coor[idx]
                     first_atom=0
@@ -210,6 +210,7 @@ class _RotamerResidue(_BaseResidue):
             else:
                 self.add_atom(atom,atom[0],origin+np.matmul(rot,(np.array(position)-trans).T))
                 idx+=1
+        self._selection = self._selection.astype(np.int32)
 
     def add_atom(self,name,element,coor):
         index = np.ndarray((1,),dtype='int')

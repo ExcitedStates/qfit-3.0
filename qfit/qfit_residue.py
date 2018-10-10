@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 from . import MapScaler, Structure, XMap, QFitRotamericResidue, QFitRotamericResidueOptions
+from .structure import residue_type
 
 
 def parse_args():
@@ -121,6 +122,10 @@ def main():
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
+    rtype = residue_type(residue)
+    if rtype != 'rotamer-residue':
+        logger.info("Residue has no known rotamers. Stopping qfit_residue.")
+        sys.exit()
     altlocs = sorted(list(set(residue.altloc)))
     if len(altlocs) > 1:
         try:
@@ -130,7 +135,8 @@ def main():
     altloc = altlocs[0]
     structure = structure.extract('altloc', ('', altloc))
 
-    logger.info(f"Residue: {residue.resn[0]}")
+    residue_name = residue.resn[0]
+    logger.info(f"Residue: {residue_name}")
 
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
