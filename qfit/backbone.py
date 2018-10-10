@@ -117,20 +117,20 @@ def project_on_null_space(null_space, gradients):
     return projection * gradients
 
 
-class CBMoveFunctional:
+class AtomMoveFunctional:
 
     """Functional for obtaining energy and gradient to move a CB atom"""
 
-    def __init__(self, segment, residue_index, endpoint):
+    def __init__(self, segment, residue_index, atom_name, endpoint):
         self.segment = segment
         self.residue_index = residue_index
         residue = self.segment[residue_index]
-        self._cb_index = residue.select('name', 'CB')[0]
+        self._atom_index = residue.select('name', atom_name)[0]
         self.endpoint = endpoint
 
     def target(self):
 
-        current = self.segment._coor[self._cb_index]
+        current = self.segment._coor[self._atom_index]
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         return energy
@@ -139,12 +139,12 @@ class CBMoveFunctional:
 
         """Return the gradient on the CB atom."""
 
-        current = self.segment._coor[self._cb_index]
+        current = self.segment._coor[self._atom_index]
         diff = current - self.endpoint
         return 2 * diff
 
     def target_and_gradient(self):
-        current = self.segment._coor[self._cb_index]
+        current = self.segment._coor[self._atom_index]
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         gradient = 2 * diff
@@ -157,7 +157,7 @@ class CBMoveFunctional:
         target, gradient = self.target_and_gradient()
         normal = gradient / np.linalg.norm(gradient)
         gradients = np.zeros((len(self.segment) * 2, 3), float)
-        current = self.segment._coor[self._cb_index]
+        current = self.segment._coor[self._atom_index]
         for n, residue in enumerate(self.segment.residues):
             # Residues after the selected CB residue have no impact on the CB
             # position. The backbone torsion gradients will be zero.
@@ -194,9 +194,9 @@ class NullSpaceOptimizer:
         self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
         self._starting_coor = self.segment.coor
 
-    def optimize(self, endpoint):
+    def optimize(self, atom_name, endpoint):
         residue_index = int(len(self.segment) / 2.0)
-        self._functional = CBMoveFunctional(self.segment, residue_index, endpoint)
+        self._functional = AtomMoveFunctional(self.segment, residue_index, atom_name, endpoint)
 
         torsions = np.zeros(self.ndofs, float)
 

@@ -273,7 +273,6 @@ class QFitRotamericResidue(_BaseQFit):
             self.options.rotamer_neighborhood = 0
             self.options.sample_angle = False
         elif resn == 'GLY':
-            self.options.sample_backbone = False
             self.options.sample_angle = False
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
@@ -362,12 +361,15 @@ class QFitRotamericResidue(_BaseQFit):
             return
         segment = self.segment[index - nn: index + nn + 1]
 
-        cb_atom = self.residue.extract('name', 'CB')
+        atom_name = "CB"
+        if self.residue.resn[0] == "GLY":
+            atom_name = "O"
+        atom = self.residue.extract('name', atom_name)
         try:
             unit_cell = self.xmap.unit_cell
-            u_matrix = [[cb_atom.u00[0], cb_atom.u01[0], cb_atom.u02[0]],
-                        [cb_atom.u01[0], cb_atom.u11[0], cb_atom.u12[0]],
-                        [cb_atom.u02[0], cb_atom.u12[0], cb_atom.u22[0]],
+            u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
+                        [atom.u01[0], atom.u11[0], atom.u12[0]],
+                        [atom.u02[0], atom.u12[0], atom.u22[0]],
                        ]
             directions = move_direction_adp(u_matrix, unit_cell)
         except AttributeError:
@@ -375,17 +377,17 @@ class QFitRotamericResidue(_BaseQFit):
 
         optimizer = NullSpaceOptimizer(segment)
 
-        start_coor = cb_atom.coor[0]
+        start_coor = atom.coor[0]
         torsion_solutions = []
         amplitudes = np.linspace(0.10, 0.30, 3, endpoint=True)
         sigma = 0.125
         for amplitude, direction in itertools.product(amplitudes, directions):
             endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
-            optimize_result = optimizer.optimize(endpoint)
+            optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
 
             endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
-            optimize_result = optimizer.optimize(endpoint)
+            optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
         starting_coor = segment.coor
         for solution in torsion_solutions:
