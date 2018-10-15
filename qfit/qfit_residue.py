@@ -126,17 +126,21 @@ def main():
     if rtype != 'rotamer-residue':
         logger.info("Residue has no known rotamers. Stopping qfit_residue.")
         sys.exit()
+    # Check which altlocs are present in the residue. If none, take the
+    # A-conformer as default.
     altlocs = sorted(list(set(residue.altloc)))
     if len(altlocs) > 1:
         try:
             altlocs.remove('')
         except ValueError:
             pass
-    altloc = altlocs[0]
+        altloc = altlocs[0]
+    else:
+        altloc = 'A'
     structure = structure.extract('altloc', ('', altloc))
 
     residue_name = residue.resn[0]
-    logger.info(f"Residue: {residue_name}")
+    logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
 
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
