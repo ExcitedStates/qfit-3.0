@@ -6,16 +6,6 @@ from setuptools.extension import Extension
 
 import numpy as np
 
-try:
-    import cplex
-except ImportError as err:
-    msg = ('\nCPLEX is required to install qfit. '
-           'Obtain it from the IBM website, or install it with conda:\n'
-           '    conda install -c ibmdecisionoptimization cplex\n'
-          )
-    print(msg)
-    exit()
-
 
 def main():
 
@@ -31,7 +21,6 @@ def main():
     install_requires = [
         'numpy>=1.14',
         'scipy>=1.00',
-        'cvxopt>=1.1.9',
     ]
 
     setup(name="qfit",
