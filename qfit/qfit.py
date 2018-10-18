@@ -2,7 +2,6 @@ import itertools
 import logging
 import os
 from string import ascii_uppercase
-
 import numpy as np
 
 from .backbone import NullSpaceOptimizer, move_direction_adp
@@ -32,6 +31,8 @@ class _BaseQFitOptions:
         self.resolution = None
         self.resolution_min = None
         self.scattering = 'xray'
+        self.omit = False
+        self.scale = True
 
         # Sampling options
         self.clash_scaling_factor = 1
@@ -79,13 +80,12 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 class _BaseQFit:
 
     def __init__(self, conformer, structure, xmap, options):
-
         self.structure = structure
         self.conformer = conformer
         self.conformer.q = 1
         self.xmap = xmap
         self.options = options
-
+        self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
 
@@ -181,7 +181,22 @@ class _BaseQFit:
             solver(cardinality=cardinality,
                    threshold=threshold)
         self._occupancies = solver.weights
-
+        #### Treshold Selection by BIC ####
+        #if do_qp:
+        #    solver = QPSolver2(self._target, self._models)
+        #    solver()
+        #    self._occupancies = solver.weights
+        #else:
+        #    solver = MIQPSolver2(self._target, self._models)
+        #    self.BIC=np.inf
+        #    for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
+        #        solver(cardinality=cardinality,threshold=threshold)
+        #        rss = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
+        #        confs = np.sum(solver.weights >= 0.001)
+        #        BIC = len(self._target)*np.log(rss/len(self._target))+(confs)*np.log(len(self._target))
+        #        if BIC < self.BIC:
+        #            self.BIC=BIC
+        #            self._occupancies = solver.weights
         #residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
         #logger.info(f"Residual under footprint: {residual:.4f}")
         residual = 0
@@ -247,17 +262,14 @@ class QFitRotamericResidue(_BaseQFit):
 
     def __init__(self, residue, structure, xmap, options):
 
-        # Check if residue is complete, for now we cant handle incomplete
-        # residues.
+        # Check if residue is complete. If not, complete it:
         atoms = residue.name
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
-                #msg = "Residue is incomplete. Build full sidechain for qfitting"
-                #raise RuntimeError(msg)
                 residue.complete_residue()
+                #residue.reorder()
                 residue._init_clash_detection()
                 break
-
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
         # Get the segment that the residue belongs to
@@ -266,7 +278,6 @@ class QFitRotamericResidue(_BaseQFit):
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
-
         # Override some residue specific options
         resn = self.residue.resn[0]
         if resn == "PRO":
@@ -326,7 +337,6 @@ class QFitRotamericResidue(_BaseQFit):
         #receptor.tofile('clash_receptor.pdb')
 
     def run(self):
-
         if self.options.sample_backbone:
             self._sample_backbone()
         if self.options.sample_angle:
@@ -537,8 +547,8 @@ class QFitRotamericResidue(_BaseQFit):
                 start_chi_index += 1
             iteration += 1
         # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
-        #validator  = Validator(self.xmap,self.xmap.resolution)
-        #validator.GoodnessOfFit(self.conformer, self._coor_set, self._occupancies, self._rmask)
+        validator  = Validator(self.xmap,self.xmap.resolution)
+        self.validation_metrics = validator.GoodnessOfFit(self.conformer, self._coor_set,self._occupancies,0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
         #self._update_conformers()
 
     def tofile(self):
@@ -549,6 +559,9 @@ class QFitRotamericResidue(_BaseQFit):
             conformer.tofile(fname)
         # Make a multiconformer residue
         nconformers = len(conformers)
+        if nconformers < 1:
+            msg = "No conformers could be generated. Check for initial clashes."
+            raise RuntimeError(msg)
         mc_residue = Structure.fromstructurelike(conformers[0])
         if nconformers == 1:
             mc_residue.altloc = ''
@@ -582,35 +595,90 @@ class QFitSegmentOptions(_BaseQFitOptions):
 
 
 class QFitSegment(_BaseQFit):
-
     """Determines consistent protein segments based on occupancy / density fit"""
+    def __init__(self, structure, xmap, options):
+        self.segment = structure
+        self.conformer = structure
+        self.xmap = xmap
+        self.options = options
+        self.BIC = np.inf
+        self._coor_set = [self.conformer.coor]
+        self._occupancies = [1.0]
 
-    def __init__(self, segment, xmap, options):
-        super().__init__(segment, xmap, options)
-        self.segment = segment
-        self.segment.q = 1
+        self._smax = None
+        self._simple = True
+        if self.xmap.resolution.high is not None:
+            self._smax = 1 / (2 * self.xmap.resolution.high)
+            self._simple = False
+        elif options.resolution is not None:
+            self._smax = 1 / (2 * options.resolution)
+            self._simple = False
+
+        self._smin = 0
+        self._rmask = 1.5
+        if self.xmap.resolution.low is not None:
+            self._smin = 1 / (2 * self.xmap.resolution.low)
+        elif self.options.resolution_min is not None:
+            self._smin = 1 / (2 * options.resolution_min)
+
+        self._xmap_model = xmap.zeros_like(self.xmap)
+        # To speed up the density creation steps, reduce space group symmetry to P1
+        self._xmap_model.set_space_group("P1")
+        self._voxel_volume = self.xmap.unit_cell.calc_volume() / self.xmap.array.size
 
     def __call__(self):
-
         # Build up initial elements
-        multiconformers = []
-        for rg in self.segment.residue_groups:
+        multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
+        segment = []
+        for i,rg in enumerate(self.segment.residue_groups):
             altlocs = np.unique(rg.altloc)
+            naltlocs = len(altlocs)
             multiconformer = []
+            CA_single = True
+            O_single = True
+            CA_pos = None
+            O_pos = None
             for altloc in altlocs:
                 if not altloc and naltlocs > 1:
                     continue
                 conformer = Structure.fromstructurelike(rg.extract('altloc', (altloc, '')))
+                # Reproducing the code in idmulti.cpp:
+                mask = np.isin(conformer.name,['CA','O'])
+                try:
+                    CA_single = np.linalg.norm(CA_pos-conformer.coor[mask][0]) <= 0.1
+                    O_single = np.linalg.norm(O_pos-conformer.coor[mask][1]) <= 0.1
+                except:
+                    CA_pos, O_pos = [ coor for coor in conformer.coor[mask] ]
                 multiconformer.append(conformer)
-            multiconformers.append(multiconformer)
 
+            # Check to see if the residue has a single conformer:
+            if naltlocs==1:
+                #multiconformers = multiconformers.combine(self.combine_segment(segment))
+                #segment = []
+                multiconformers = multiconformers.combine(conformer)
+            # Check if we need to collapse the backbone into a single conformer!
+            elif CA_single and O_single:
+                #multiconformers = multiconformers.combine(self.combine_segment(segment))
+                #segment = []
+                collapsed = multiconformer[0]
+                for conformer in multiconformer[1:]:
+                    collapsed=collapsed.combine(conformer)
+                multiconformers=multiconformers.combine( collapsed.collapse_backbone(collapsed.resi[0]) )
+            else:
+                print("Backbone multiconformer: ",conformer.resi[0])
+                segment.append(multiconformer)
+        # if not segment.isempty:
+        #    self.append_segment(multiconformers,self.combine_segment(segment))
+        multiconformers.tofile("test_final.pdb")
+        return 0#multiconformers
+
+    def combine_segment(self,multiconformers):
         fl = self.options.fragment_length
         while len(multiconformers) > 1:
-
             n = len(multiconformers)
             fragment_multiconformers = [multiconformers[i: i + fl] for i in range(0, n, fl)]
             multiconformers = []
-            for fragment_multiconformer in fragment_multiconformers:
+            for i,fragment_multiconformer in enumerate(fragment_multiconformers):
                 # Create all combinations of alternate residue fragments
                 fragments = []
                 for fragment_conformer in itertools.product(*fragment_multiconformer):
@@ -624,12 +692,18 @@ class QFitSegment(_BaseQFit):
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]
+                # QP
+                self._convert()
                 self._solve()
+                fragments=self._update_conformers(fragments)
+                # MIQP
+                self._convert()
                 self._solve(cardinality=self.options.cardinality,
                             threshold=self.options.threshold)
+                fragments=self._update_conformers(fragments)
                 multiconformer = []
-                for coor in self._coor_set:
-                    fragment_conformer = fragments[0].copy()
+                for fragment,coor in zip(fragments,self._coor_set):
+                    fragment_conformer = fragments.copy()
                     fragment_conformer.coor = coor
                     multiconformer.append(fragment_conformer)
                 multiconformers.append(multiconformer)

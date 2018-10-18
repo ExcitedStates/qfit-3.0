@@ -1,8 +1,10 @@
 from __future__ import division
 import numpy as np
-
+import copy
 from .volume import XMap
 from .transformer import Transformer
+from .structure import Structure
+import scipy.stats as st
 
 
 class Validator(object):
@@ -91,7 +93,7 @@ class Validator(object):
         fisher2 = 0.5 * np.log((1 + corr2) / (1 - corr2))
         return (fisher2 - fisher1) / sigma
 
-    def GoodnessOfFit(self, conformer, coor_set, occupancies, rmask):
+    def GoodnessOfFit(self,conformer,coor_set,occupancies,rmask,confidence=0.95):
         # Calculate the Observed map for the masked values:
         xmap_calc = XMap.zeros_like(self.xmap)
         xmap_calc.set_space_group("P1")
@@ -106,8 +108,13 @@ class Validator(object):
         Residual = map_o
         order = (-rscc_set).argsort()
         print("Conf.\t AIC\t AIC2\t BIC\t BIC2\t Fisher Z-score")
+        metrics = []
         for i,idx in enumerate(order):
             conformer.coor = coor_set[idx]
+            try:
+                multiconformer = multiconformer.combine(conformer)
+            except Exception:
+                multiconformer = Structure.fromstructurelike(conformer.copy())
             xmap_calc.array.fill(0)
             transformer.density()
             map_calc = transformer.xmap.array[mask]
@@ -121,5 +128,12 @@ class Validator(object):
             # This is using an adjusted formula:
             aic2 = 2*(i+1)*4*len(conformer.coor) + len(map_o)*np.log(RSS)
             bic2 = len(map_o)*np.log(RSS/len(map_o))+ 4*len(conformer.coor)*(i+1)*np.log(len(map_o))
+            # Using fish z-transform:
+            z = self.fisher_z(multiconformer,rmask)
+            sigma_z = 1/np.sqrt(len(map_o)-3)
+            CI_z = [ z-st.norm.ppf(confidence)*sigma_z , z+st.norm.ppf(confidence)*sigma_z ]
+            CI_r = [(np.exp(2*bound_z)-1)/(np.exp(2*bound_z)+1) for bound_z in CI_z ]
             # Where k is the number of parameters, n is the number of observations and RSS is the residual sum of squares.
-            print("{}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{:9.2f}".format(idx+1,aic,aic2,bic,bic2,self.fisher_z(conformer,rmask)))
+            print("{}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{:9.2f}\t{}".format(idx+1,aic,aic2,bic,bic2,CI_r))
+            metrics.append([idx+1,aic,aic2,bic,bic2,CI_r])
+        return metrics

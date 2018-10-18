@@ -1,4 +1,5 @@
 import os.path
+import time
 from argparse import ArgumentParser
 
 from . import MapScaler, Structure, XMap
@@ -8,18 +9,34 @@ from .qfit import QFitSegment, QFitSegmentOptions
 def parse_args():
 
     p = ArgumentParser(description=__doc__)
-    p.add_argument("xmap", type=str,
-            help="X-ray density map in CCP4 format.")
-    p.add_argument("resolution", type=float,
-            help="Map resolution in angstrom.")
+    p.add_argument("map", type=str,
+            help="Density map in CCP4 or MRC format, or an MTZ file "
+                 "containing reflections and phases. For MTZ files "
+                 "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
             help="PDB-file containing structure.")
+    p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
+            help="MTZ column labels to build density.")
+    p.add_argument('-o', '--omit', action="store_true",
+            help="Map file is a 2mFo-DFc OMIT map.")
+    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
+            help="Map resolution in angstrom.")
     p.add_argument("-ns", "--no-scale", action="store_true",
             help="Do not scale density.")
+    p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
+            help="Densities values below cutoff are set to <density_cutoff_value")
+    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
+            help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=1, metavar="<int>",
+            help="Number of internal degrees that are sampled/build per iteration.")
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=5, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
             help="Lower resolution bound in angstrom.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
+            help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=2, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
@@ -38,45 +55,31 @@ def parse_args():
 
 
 def main():
+    args = parse_args()
+    try:
+        os.makedirs(args.directory)
+    except OSError:
+        pass
+    time0 = time.time()
 
     options = QFitSegmentOptions()
-    args = parse_args()
     options = options.apply_command_args(args)
 
-    xmap = XMap.fromfile(args.xmap)
     structure = Structure.fromfile(args.structure).reorder()
+    structure = structure.extract('e', 'H', '!=')
+
+
+    if args.resolution:
+        xmap = XMap.fromfile(args.map, label=args.label,resolution=args.resolution)
+    else:
+        xmap = XMap.fromfile(args.map, label=args.label)
+    xmap = xmap.canonical_unit_cell()
 
     if not args.no_scale:
-        scaler = MapScaler(
-            xmap, mask_radius=1, scattering=options.scattering)
-        scaler(structure)
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler.scale(structure)
         fname = os.path.join(options.directory, 'scaled.mrc')
         xmap.tofile(fname)
-
-
-    # Divide structure up in connected segments
-    #print("Dividing")
-    #segment_resids = []
-    #for rg in structure.residue_groups:
-    #del segment
-
-    #print("Building segments")
-    #segments = []
-    #for resids in segment_resids:
-    #    for resid in resids:
-    #        resi, icode = resid
-    #        residue = structure.extract('resi', resi)
-    #        if icode:
-    #            residue = residue.extract('icode', icode)
-    #        try:
-    #            segment = segment.combine(residue)
-    #        except UnboundLocalError:
-    #            segment = residue
-    #    segments.append(segment)
-
-    #print("Writing segments.")
-    #for n, segment in enumerate(segments, start=1):
-    #    segment.tofile(f'segment_{n}.pdb')
 
     qfit = QFitSegment(structure, xmap, options)
     qfit()

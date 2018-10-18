@@ -8,10 +8,19 @@ def Rz(theta):
                        [sin_theta,  cos_theta, 0],
                        [        0,          0, 1]])
 
+def Rv(vector,theta):
+      """Rotate along a vector."""
+      vector = vector/np.linalg.norm(vector)
+      x, y, z = vector
+      K = np.asmatrix([[0, -z, y],
+                       [z, 0, -x],
+                       [-y, x, 0]])
+      rot = np.cos(theta) * np.identity(3) + np.sin(theta) * K + (1 - np.cos(theta))* np.outer(vector,vector)
+      return rot
+
 
 def aa_to_rotmat(axis, angle):
     """Axis angle to rotation matrix."""
-
     kx, ky, kz = axis
     K = np.asmatrix([[0, -kz, ky],
                      [kz, 0, -kx],

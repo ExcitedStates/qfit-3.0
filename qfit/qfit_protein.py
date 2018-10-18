@@ -13,30 +13,57 @@ from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions, QFitSegment
 def parse_args():
 
     p = ArgumentParser(description=__doc__)
-    p.add_argument("map",
-           help="File containing density map, in either CCP4 or MRC, or MTZ format.")
-    p.add_argument("structure",
-           help="PDB-file containing protein to analyze.")
-    p.add_argument("-r", "--resolution", type=float, default=None, metavar="<float>",
-            help="Resolution of map in angstrom.")
+    p.add_argument("map", type=str,
+            help="Density map in CCP4 or MRC format, or an MTZ file "
+                 "containing reflections and phases. For MTZ files "
+                 "use the --label options to specify columns to read.")
+    p.add_argument("structure", type=str,
+            help="PDB-file containing structure.")
+
+
+    # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
-            help="Column names for MTZ file.")
-    p.add_argument("-c", "--cardinality", type=int, default=2, metavar="<int>",
-           help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
-           help="Threshold constraint used during MIQP.")
-    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
-            help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
-            help="Stepsize for dihedral angle sampling in degree.")
+            help="MTZ column labels to build density.")
+    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
+            help="Map resolution in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
-            help="Lower resolution bound in angstrom.")
+            help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
-    p.add_argument("-rn", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
+    p.add_argument('-o', '--omit', action="store_true",
+            help="Map file is an OMIT map. This affects the scaling procedure of the map.")
+
+    # Map prep options
+    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
+            help="Do not scale density.")
+    p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
+            help="Densities values below cutoff are set to <density_cutoff_value")
+    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
+            help="Density values below <density-cutoff> are set to this value.")
+
+    # Sampling options
+    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
+            help="Sample backbone using inverse kinematics.")
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
+            help="Number of internal degrees that are sampled/build per iteration.")
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degree.")
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float,
+            default=40, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+                   dest="remove_conformers_below_cutoff",
+            help=("Remove conformers during sampling that have atoms that have "
+                  "no density support for, i.e. atoms are positioned at density "
+                  "values below cutoff value."))
+    p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
+            help="Cardinality constraint used during MIQP.")
+    p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
+            help="Treshold constraint used during MIQP.")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
            help="Number of processors to use.")
+
+    # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
            help="Directory to store results.")
     p.add_argument("--debug", action="store_true",
@@ -65,12 +92,11 @@ class _Counter:
 
 
 class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
-
     def __init__(self):
         super().__init__()
         self.nproc = 1
         self.verbose = True
-
+        self.omit = False
 
 class QFitProtein:
 
@@ -88,7 +114,6 @@ class QFitProtein:
 
     def _run_qfit_residue(self):
         """Run qfit on each residue separately."""
-
         processes = []
         residues = list(self.structure.residues)
         nresidues = len(residues)
@@ -144,6 +169,7 @@ class QFitProtein:
             except UnboundLocalError:
                 multiconformer = residue_multiconformer
             except FileNotFoundError:
+                print("File not found!",fname)
                 pass
         fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
         multiconformer.tofile(fname)
@@ -159,7 +185,6 @@ class QFitProtein:
 
     @staticmethod
     def _run_qfit_instance(residues, structure, xmap, options, counter):
-
         options.verbose = False
         base_directory = options.directory
         base_density = xmap.array.copy()
@@ -167,7 +192,6 @@ class QFitProtein:
             if residue.type == 'rotamer-residue':
                 chain = residue.chain[0]
                 resi, icode = residue.id
-
                 identifyer = f"{chain}_{resi}"
                 if icode:
                     identifyer += f'_{icode}'
@@ -176,49 +200,65 @@ class QFitProtein:
                     os.makedirs(options.directory)
                 except OSError:
                     pass
-                try:
-                    xmap.array[:] = base_density
-                    scaler = MapScaler(xmap, scattering=options.scattering,
-                                       scale=False, cutoff=0, subtract=True)
-                    if icode:
-                        sel_str = f'not (resi {resi} and icode {icode})'
-                        footprint = structure.extract(sel_str)
+
+                xmap.array[:] = base_density
+                # Prepare X-ray map
+                if options.scale:
+                    # Prepare X-ray map
+                    scaler = MapScaler(xmap, scattering=options.scattering)
+                    if options.omit:
+                        footprint = structure_resi
                     else:
-                        footprint = structure.extract('resi', resi, '!=')
-                    scaler(footprint)
-                    qfit = QFitRotamericResidue(residue, structure, xmap, options)
+                        sel_str = f"resi {resi} and chain {chain}"
+                        if icode:
+                            sel_str += f" and icode {icode}"
+                        sel_str = f"not ({sel_str})"
+                        footprint = structure.extract(sel_str)
+                        footprint = footprint.extract('record', 'ATOM')
+                    scaler.scale(footprint, radius=1)
+                    scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+                xmap_reduced = xmap.extract(residue.coor, padding=5)
+
+                qfit = QFitRotamericResidue(residue, structure, xmap_reduced, options)
+
+                # Exception handling in case qFit-residue fails:
+                try:
                     qfit.run()
-                    qfit.tofile()
                 except RuntimeError:
-                    pass
+                    print(f"[WARNING] Failed to run qfit-residue for residue {resi} of chain {chain}")
+                    print(f"Using deposited conformer A for this residue.")
+                    qfit.conformer = residue.copy()
+                    qfit._occupancies = [residue.q]
+                    qfit._coor_set = [residue.coor]
+                qfit.tofile()
             counter.increment()
 
 
 def main():
 
     args = parse_args()
-
     try:
         os.mkdir(args.directory)
     except OSError:
         pass
 
-    xmap = XMap.fromfile(args.map, label=args.label)
+    # Load structure and prepare it
+    structure = Structure.fromfile(args.structure).reorder()
+    # For now we don't support hydrogens
+    structure = structure.extract('e', 'H', '!=')
     # Remove alternate conformers except for the A conformer
-    structure = Structure.fromfile(args.structure).extract('altloc', ('', 'A'))
+    structure = structure.extract('altloc', ('','A'))
     structure.altloc = ''
     structure.q = 1
 
-    # Prepare map once
-    scaler = MapScaler(xmap)
-    scaler(structure)
 
     options = QFitProteinOptions()
     options.apply_command_args(args)
+
+    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
+    xmap = xmap.canonical_unit_cell()
 
     time0 = time.time()
     qfit = QFitProtein(structure, xmap, options)
     multiconformer = qfit.run()
     print(f"Total time: {time.time() - time0}s")
-
-

@@ -40,6 +40,7 @@ def main():
                   'qfit_density = qfit.qfit_density:main',
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
                   'edia = qfit.edia:main',
+                  'side_chain_remover = qfit.side_chain_remover:main',
                   ]
               },
          )

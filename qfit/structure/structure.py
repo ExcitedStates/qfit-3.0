@@ -155,6 +155,23 @@ class Structure(_BaseStructure):
             data[attr] = combined
         return Structure(data)
 
+    def collapse_backbone(self,resid):
+        """Collapses the backbone atoms of a given residue"""
+        data = {}
+        mask = (self.data['resi']==resid) & np.isin(self.data['name'], ['CA','C','N','O']) & np.isin(self.data['altloc'],['B','C','D','E'])
+        mask2 = (self.data['resi']==resid) & np.isin(self.data['name'], ['CA','C','N','O']) & np.isin(self.data['altloc'],['A'])
+
+        for attr in self.data:
+            array1 = getattr(self, attr)
+            if attr == 'altloc':
+                array1[mask2]=''
+            if attr == 'q':
+                array1[mask2]=1.0
+            data[attr] = array1[~mask]
+
+        return Structure(data)
+
+
     def register(self, attr, array):
         """Register array attribute"""
         if self.parent is not None:
@@ -606,5 +623,3 @@ class _Segment(_BaseStructure):
         rotation = Rz(angle)
         R = forward * rotation * backward
         self._coor[selection] = np.dot(coor, R.T) + origin
-
-

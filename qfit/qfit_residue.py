@@ -15,7 +15,6 @@ from .structure import residue_type
 
 
 def parse_args():
-
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
             help="Density map in CCP4 or MRC format, or an MTZ file "
@@ -115,7 +114,6 @@ def main():
     else:
         residue_id = int(resi)
         icode = ''
-
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_resi = structure_resi.extract('icode', icode)
@@ -167,7 +165,6 @@ def main():
         ext = '.mrc'
     scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
-
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
     qfit.write_maps()
