@@ -8,16 +8,22 @@ try:
 except ImportError:
     OSQP = False
 
-import cvxopt
-import cplex
-CPLEX = True
+CPLEX = False
+if not OSQP:
+    import cvxopt
+    import cplex
+    CPLEX = True
 
 
 
 if OSQP:
     class QPSolver2:
 
-        OSQP_SETTINGS = {'verbose': False}
+        OSQP_SETTINGS = {
+            'eps_abs': 1e-06,
+            'eps_rel': 1e-06,
+            'eps_prim_inf': 1e-07,
+            'verbose': False}
 
         def __init__(self, target, models):
             self.target = target
@@ -68,7 +74,7 @@ if OSQP:
 
         MIOSQP_SETTINGS = {
             # integer feasibility tolerance
-            'eps_int_feas': 1e-05,
+            'eps_int_feas': 1e-06,
             # maximum number of iterations
             'max_iter_bb': 10000,
             # tree exploration rule
@@ -82,9 +88,9 @@ if OSQP:
             'print_interval': 1}
 
         OSQP_SETTINGS = {
-            'eps_abs': 1e-05,
-            'eps_rel': 1e-05,
-            'eps_prim_inf': 1e-06,
+            'eps_abs': 1e-06,
+            'eps_rel': 1e-06,
+            'eps_prim_inf': 1e-07,
             'verbose': False}
 
         def __init__(self, target, models):
@@ -168,22 +174,25 @@ if OSQP:
             u = np.ones(nconstraints)
             if cardinality is not None:
                 u[-1] = cardinality
-            shape = (nconstraints, 2 * self.nconformers)
             A = sparse.csc_matrix((A_data, (A_row, A_col)))
-            #print('ARRAY:', A.toarray())
-            #print('SHAPE:', shape)
-            #print('NCONSTRAINTS:', nconstraints)
-            #print('l:', l)
-            #print('u:', u)
 
             miqp = miosqp.MIOSQP()
             miqp.setup(self.P, self.q, A, l, u, i_idx, i_l, i_u,
                        self.MIOSQP_SETTINGS, self.OSQP_SETTINGS)
             result = miqp.solve()
             self.weights = np.asarray(result.x[:self.nconformers])
-            #print("WEIGHTS:", self.weights)
-            #print("RESULT:", result.x)
             self.obj_value = result.upper_glob
+
+            #print("MIOSQP MIQP")
+            #w = result.x.reshape(-1, 1)
+            #q = self.q.reshape(-1, 1)
+            #print('P:', self.P)
+            #print('q:', self.q[:self.nconformers])
+            #print('w:', w[:self.nconformers])
+
+            #obj = 0.5 * w.T @ self.P @ w + q.T @ w
+            #print("calculated myself OBJ:", obj)
+            #print('from solver OBJ:', self.obj_value)
 
 
 if CPLEX:
@@ -339,6 +348,16 @@ if CPLEX:
 
             self.obj_value = miqp.solution.get_objective_value()
             self.weights = np.asarray(miqp.solution.get_values()[:self._nconformers])
-            #print('WEIGHTS CPLEX:', self.weights)
-            #print("RESULT CPLEX:", miqp.solution.get_values())
             miqp.end()
+            #q = self._lin_obj.reshape(-1, 1)
+            #P = self._quad_obj
+            #w = self.weights.reshape(-1, 1)
+
+            #print("CPLEX MIQP")
+            #print('P:', P)
+            #print('q:', q)
+            #print('w:', w)
+
+            #obj = 0.5 * w.T @ P @ w + q.T @ w
+            #print("calculated myself OBJ:", obj)
+            #print('from solver OBJ:', self.obj_value)

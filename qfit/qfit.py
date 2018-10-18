@@ -8,7 +8,7 @@ import numpy as np
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator
-from .solvers import QPSolver, MIQPSolver
+from .solvers import QPSolver2, MIQPSolver2
 from .structure import Structure
 from .transformer import Transformer
 from .validator import Validator
@@ -172,12 +172,12 @@ class _BaseQFit:
             self._transformer.reset(full=True)
 
     def _solve(self, cardinality=None, threshold=None):
-        do_qp = cardinality == threshold == None
+        do_qp = cardinality is threshold is None
         if do_qp:
-            solver = QPSolver(self._target, self._models)
+            solver = QPSolver2(self._target, self._models)
             solver()
         else:
-            solver = MIQPSolver(self._target, self._models)
+            solver = MIQPSolver2(self._target, self._models)
             solver(cardinality=cardinality,
                    threshold=threshold)
         self._occupancies = solver.weights
