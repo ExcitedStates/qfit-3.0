@@ -115,8 +115,7 @@ def main():
         residue_id = int(resi)
         icode = ''
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
-    if icode:
-        structure_resi = structure_resi.extract('icode', icode)
+    structure_resi = structure_resi.extract('icode', icode)
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
