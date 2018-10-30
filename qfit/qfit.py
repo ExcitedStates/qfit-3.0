@@ -14,6 +14,7 @@ from .validator import Validator
 
 logger = logging.getLogger(__name__)
 
+
 class _BaseQFitOptions:
 
     def __init__(self):
@@ -109,9 +110,11 @@ class _BaseQFit:
             self._smin = 1 / (2 * options.resolution_min)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
-        # To speed up the density creation steps, reduce space group symmetry to P1
+        # To speed up the density creation steps,
+        # reduce space group symmetry to P1
         self._xmap_model.set_space_group("P1")
-        self._voxel_volume = self.xmap.unit_cell.calc_volume() / self.xmap.array.size
+        self._voxel_volume = (self.xmap.unit_cell.calc_volume()
+                              / self.xmap.array.size)
 
     def get_conformers(self):
         conformers = []
@@ -131,7 +134,10 @@ class _BaseQFit:
         self._transformer.initialize()
 
     def _convert(self):
-        """Convert structures to densities and extract relevant values for (MI)QP."""
+        """
+        Convert structures to densities and extract relevant values
+        for (MI)QP.
+        """
 
         logger.info("Converting")
         logger.debug("Masking")
@@ -274,10 +280,14 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue = residue
         # Get the segment that the residue belongs to
         chainid = self.residue.chain[0]
+        current_segment = None
         for segment in self.structure.segments:
             if segment.chain[0] == chainid and self.residue in segment:
-                self.segment = segment
+                current_segment = segment
                 break
+        self.segment = current_segment
+        if current_segment is None:
+            raise RuntimeError("Could not determine segment.")
         # Override some residue specific options
         resn = self.residue.resn[0]
         if resn == "PRO":
@@ -369,6 +379,8 @@ class QFitRotamericResidue(_BaseQFit):
         if index < nn or index + nn > len(self.segment):
             self.options.sample_backbone = False
             return
+        logger.info("Sampling backbone conformations.")
+
         segment = self.segment[index - nn: index + nn + 1]
 
         atom_name = "CB"
@@ -380,7 +392,7 @@ class QFitRotamericResidue(_BaseQFit):
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]],
-                       ]
+                        ]
             directions = move_direction_adp(u_matrix, unit_cell)
         except AttributeError:
             directions = np.identity(3)
@@ -407,6 +419,8 @@ class QFitRotamericResidue(_BaseQFit):
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
+
+        logger.info("Sampling N-CA-CB angle.")
 
         active_names = ('N', 'CA', 'C', 'O', 'CB')
         selection = self.residue.select('name', active_names)

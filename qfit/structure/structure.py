@@ -476,13 +476,11 @@ class _Conformer(_BaseStructure):
         return self._segments
 
     def build_residues(self):
-        resi = self.resi
-        order = np.argsort(resi)
-        resi = resi[order]
-        icode = self.icode[order]
         # A residue group is a collection of entries that have a unique
         # chain, resi, and icode
         # Do all these order tricks in order to keep the resid ordering correct
+        resi = self.resi
+        icode = self.icode
         cadd = np.char.add
         residue_ids = cadd(cadd(resi.astype(str), '_'), icode)
         residue_ids, ind = np.unique(residue_ids, return_index=True)
@@ -493,9 +491,8 @@ class _Conformer(_BaseStructure):
             resi, icode = residue_id.split('_')
             resi = int(resi)
             selection = self.select('resi', resi)
-            if icode:
-                icode_selection = self.select('icode', icode)
-                selection = np.intersect1d(selection, icode_selection, assume_unique=True)
+            icode_selection = self.select('icode', icode)
+            selection = np.intersect1d(selection, icode_selection, assume_unique=True)
             residue = self.extract(selection)
             rtype = residue_type(residue)
             if rtype == 'rotamer-residue':
