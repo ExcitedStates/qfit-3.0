@@ -8,11 +8,12 @@ try:
 except ImportError:
     OSQP = False
 
-CPLEX = False
-if not OSQP:
+try:
     import cvxopt
     import cplex
     CPLEX = True
+except ImportError:
+    CPLEX = False
 
 
 
@@ -67,7 +68,7 @@ if OSQP:
             qp.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, **self.OSQP_SETTINGS)
             result = qp.solve()
             self.weights = np.asarray(result.x).ravel()
-            self.obj_value = result.info.obj_val
+            self.obj_value = 2 * result.info.obj_val + np.inner(self.target, self.target)
 
 
     class MIQPSolver2:
@@ -115,12 +116,20 @@ if OSQP:
             col_idx = []
             q = np.zeros(self.nvariables, np.float64)
             for i in range(self.nconformers):
-                for j in range(i, self.nconformers):
-                    value = np.inner(self.models[i], self.models[j])
+                model_i = self.models[i]
+                q[i] = -np.inner(model_i, self.target)
+                value = np.inner(model_i, model_i)
+                data.append(value)
+                row_idx.append(i)
+                col_idx.append(i)
+                for j in range(i + 1, self.nconformers):
+                    value = np.inner(model_i, self.models[j])
+                    data.append(value)
+                    row_idx.append(i)
+                    col_idx.append(j)
                     data.append(value)
                     row_idx.append(j)
                     col_idx.append(i)
-                q[i] = -np.inner(self.models[i], self.target)
             self.P = sparse.csc_matrix((data, (row_idx, col_idx)), shape=shape)
             self.q = q
 
@@ -181,18 +190,21 @@ if OSQP:
                        self.MIOSQP_SETTINGS, self.OSQP_SETTINGS)
             result = miqp.solve()
             self.weights = np.asarray(result.x[:self.nconformers])
-            self.obj_value = result.upper_glob
+            self.obj_value = 2 * result.upper_glob + np.inner(self.target, self.target)
 
             #print("MIOSQP MIQP")
             #w = result.x.reshape(-1, 1)
             #q = self.q.reshape(-1, 1)
-            #print('P:', self.P)
-            #print('q:', self.q[:self.nconformers])
-            #print('w:', w[:self.nconformers])
+            ##print('P:', self.P)
+            ##print('q:', self.q[:self.nconformers])
+            ##print('w:', w[:self.nconformers])
 
             #obj = 0.5 * w.T @ self.P @ w + q.T @ w
             #print("calculated myself OBJ:", obj)
             #print('from solver OBJ:', self.obj_value)
+            #print('TOTAL:', np.inner(self.target, self.target) + 2 * (0.5 * w.T @ self.P @ w + q.T @ w))
+            #print('again:', np.inner(self.target, self.target) + 2 * self.obj_value)
+            #print('rho2:', np.inner(self.target, self.target))
 
 
 if CPLEX:
@@ -247,7 +259,7 @@ if CPLEX:
                     self._quad_obj, self._lin_obj,
                     self._le_constraints, self._le_bounds
                     )
-            self.obj_value = self._solution['primal objective']
+            self.obj_value = 2 * self._solution['primal objective'] + np.inner(self.target, self.target)
             self.weights = np.asarray(self._solution['x']).ravel()
 
 
@@ -346,12 +358,12 @@ if CPLEX:
                             )
             miqp.solve()
 
-            self.obj_value = miqp.solution.get_objective_value()
+            self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(self._target, self._target)
             self.weights = np.asarray(miqp.solution.get_values()[:self._nconformers])
             miqp.end()
-            #q = self._lin_obj.reshape(-1, 1)
-            #P = self._quad_obj
-            #w = self.weights.reshape(-1, 1)
+            q = self._lin_obj.reshape(-1, 1)
+            P = self._quad_obj
+            w = self.weights.reshape(-1, 1)
 
             #print("CPLEX MIQP")
             #print('P:', P)
@@ -361,3 +373,4 @@ if CPLEX:
             #obj = 0.5 * w.T @ P @ w + q.T @ w
             #print("calculated myself OBJ:", obj)
             #print('from solver OBJ:', self.obj_value)
+            #print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
