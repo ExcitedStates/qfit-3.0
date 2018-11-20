@@ -39,6 +39,7 @@ class _BaseQFitOptions:
         self.clash_scaling_factor = 1
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
+        self.hydro = False
 
         # MIQP options
         self.cardinality = None
@@ -186,23 +187,20 @@ class _BaseQFit:
             solver = MIQPSolver2(self._target, self._models)
             solver(cardinality=cardinality,
                    threshold=threshold)
+            #print(solver.obj_value)
+            #### Treshold Selection by BIC ####
+            #solver = MIQPSolver2(self._target, self._models)
+            #self.BIC=np.inf
+            #for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
+            #solver(cardinality=cardinality,threshold=threshold)
+            #    print(solver.obj_value,print(len(self._target)))
+                #rss = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
+                #print(rss)
+            #    confs = np.sum(solver.weights >= 0.001)
+            #    BIC = len(self._target)*np.log(solver.obj_value/len(self._target))+(confs)*np.log(len(self._target))
+            #    if BIC < self.BIC:
+            #        self.BIC=BIC
         self._occupancies = solver.weights
-        #### Treshold Selection by BIC ####
-        #if do_qp:
-        #    solver = QPSolver2(self._target, self._models)
-        #    solver()
-        #    self._occupancies = solver.weights
-        #else:
-        #    solver = MIQPSolver2(self._target, self._models)
-        #    self.BIC=np.inf
-        #    for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
-        #        solver(cardinality=cardinality,threshold=threshold)
-        #        rss = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
-        #        confs = np.sum(solver.weights >= 0.001)
-        #        BIC = len(self._target)*np.log(rss/len(self._target))+(confs)*np.log(len(self._target))
-        #        if BIC < self.BIC:
-        #            self.BIC=BIC
-        #            self._occupancies = solver.weights
         #residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
         #logger.info(f"Residual under footprint: {residual:.4f}")
         residual = 0
@@ -273,9 +271,26 @@ class QFitRotamericResidue(_BaseQFit):
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
                 residue.complete_residue()
-                #residue.reorder()
                 residue._init_clash_detection()
                 break
+
+        # If including hydrogens:
+        if options.hydro:
+            for atom in residue._rotamers['hydrogens']:
+                if atom not in atoms:
+                    # Maybe the atom is missing due to a dissulfide...
+                    if atom == "HG" and residue.resn[0] == "CYS":
+                        continue
+                    # Ignore N hydrogen in prolines:
+                    if atom == "H" and residue.resn[0] == "PRO":
+                        continue
+                    # Deal with hydrogens that might be missing due to pH
+                    if atom == "HD1" and residue.resn[0] == "HIS":
+                        continue
+                    print(f"Missing atom {atom} of residue {residue.resi[0]},{residue.resn[0]}")
+                    msg = "Residue contains missing hydrogens. Please, run qFit without the '--hydro' flag."
+                    raise RuntimeError(msg)
+
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
         # Get the segment that the residue belongs to
@@ -322,7 +337,7 @@ class QFitRotamericResidue(_BaseQFit):
             if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
                 coor = C_neighbor._coor[neighbor_N_index]
                 exclude.append((C_index, coor))
-        # Obtain atoms which the residue can clash
+        # Obtain atoms with which the residue can clash
         resi, icode = residue.id
         chainid = self.segment.chain[0]
         if icode:
@@ -430,6 +445,7 @@ class QFitRotamericResidue(_BaseQFit):
         active = self.residue.active
         angles = np.linspace(-5, 5, 5, endpoint=True)
         new_coor_set = []
+
         for coor in self._coor_set:
             self.residue.coor = coor
             rotator = CBAngleRotator(self.residue)
@@ -606,6 +622,8 @@ class QFitSegmentOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
         self.fragment_length = 5
+        self.bulk_solvent_level = 0.3
+
 
 
 class QFitSegment(_BaseQFit):
@@ -618,7 +636,8 @@ class QFitSegment(_BaseQFit):
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
-
+        self.orderings = []
+        self.charseq = []
         self._smax = None
         self._simple = True
         if self.xmap.resolution.high is not None:
@@ -641,7 +660,7 @@ class QFitSegment(_BaseQFit):
         self._voxel_volume = self.xmap.unit_cell.calc_volume() / self.xmap.array.size
 
     def __call__(self):
-        # Build up initial elements
+        # Create an empty structure:
         multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
         segment = []
         for i,rg in enumerate(self.segment.residue_groups):
@@ -667,62 +686,88 @@ class QFitSegment(_BaseQFit):
 
             # Check to see if the residue has a single conformer:
             if naltlocs==1:
-                #multiconformers = multiconformers.combine(self.combine_segment(segment))
-                #segment = []
-                multiconformers = multiconformers.combine(conformer)
+                if len(segment) > 1:
+                    for path in self.find_paths(segment):
+                        multiconformers = multiconformers.combine(path)
+                segment=[]
+                # Set the occupancy of all atoms of the residue to 1
+                rg.q = np.ones_like(rg.q)
+                # Add the single conformer residue to the existing multiconformer:
+                multiconformers = multiconformers.combine(rg)
+
             # Check if we need to collapse the backbone into a single conformer!
             elif CA_single and O_single:
-                #multiconformers = multiconformers.combine(self.combine_segment(segment))
-                #segment = []
-                collapsed = multiconformer[0]
-                for conformer in multiconformer[1:]:
-                    collapsed=collapsed.combine(conformer)
-                multiconformers=multiconformers.combine( collapsed.collapse_backbone(collapsed.resi[0]) )
+                collapsed = multiconformer[:]
+                for multi in collapsed:
+                    multi=multi.collapse_backbone(multi.resi[0])
+                segment.append( collapsed )
             else:
-                print("Backbone multiconformer: ",conformer.resi[0])
                 segment.append(multiconformer)
-        # if not segment.isempty:
-        #    self.append_segment(multiconformers,self.combine_segment(segment))
-        multiconformers.tofile("test_final.pdb")
-        return 0#multiconformers
+        if len(segment):
+            for path in self.find_paths(segment):
+                multiconformers = multiconformers.combine(path)
 
-    def combine_segment(self,multiconformers):
+            
+        self.relabelMCMC(multiconformers)
+        multiconformers = multiconformers.reorder()
+        multiconformers.tofile("test_final.pdb")
+        return multiconformers
+
+    def find_paths(self,segment_original):
+        segment = segment_original[:]
         fl = self.options.fragment_length
-        while len(multiconformers) > 1:
-            n = len(multiconformers)
-            fragment_multiconformers = [multiconformers[i: i + fl] for i in range(0, n, fl)]
-            multiconformers = []
-            for i,fragment_multiconformer in enumerate(fragment_multiconformers):
-                # Create all combinations of alternate residue fragments
+        while len(segment) > 1:
+            n = len(segment)
+            fragment_multiconformers = [segment[i: i + fl] for i in range(0, n, fl)]
+            segment = []
+            for fragment_multiconformer in fragment_multiconformers:
                 fragments = []
+                # Create all combinations of alternate residue conformers
                 for fragment_conformer in itertools.product(*fragment_multiconformer):
-                    # Build up fragment by combining conformers
-                    for n, element in enumerate(fragment_conformer):
-                        if n == 0:
-                            fragment = element
-                        else:
-                            fragment = fragment.combine(element)
+                    fragment = fragment_conformer[0].set_backbone_occ()
+                    for element in fragment_conformer[1:]:
+                        fragment = fragment.combine(element.set_backbone_occ())
                     fragments.append(fragment)
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])
-                self._coor_set = [fragment.coor for fragment in fragments]
                 # QP
+                self._coor_set = [fragment.coor for fragment in fragments]
                 self._convert()
                 self._solve()
-                fragments=self._update_conformers(fragments)
+                # Update conformers
+                fragments = np.array(fragments)[self._occupancies >= 0.002]
+                self._update_conformers()
+
                 # MIQP
                 self._convert()
                 self._solve(cardinality=self.options.cardinality,
                             threshold=self.options.threshold)
-                fragments=self._update_conformers(fragments)
-                multiconformer = []
-                for fragment,coor in zip(fragments,self._coor_set):
-                    fragment_conformer = fragments.copy()
-                    fragment_conformer.coor = coor
-                    multiconformer.append(fragment_conformer)
-                multiconformers.append(multiconformer)
-        return multiconformers[0]
 
+                # Update conformers
+                mask = self._occupancies >= 0.002
+                for fragment,occ in zip(fragments[mask],self._occupancies[mask]):
+                    fragment.q = occ
+                segment.append(fragments[mask])
+
+        self.print_paths(segment[0])
+        for path,altloc in zip(segment[0],["A","B","C","D","E"]):
+            path.altloc=altloc
+        #self.print_paths(segment[0])
+        return segment[0]
+
+    def print_paths(self,segment):
+        # Calculate the path matrix:
+        for k,fragment in enumerate(segment):
+             path=[]
+             for i,residue_altloc in enumerate(fragment.altloc):
+                 if fragment.name[i] == "N":
+                     path.append(residue_altloc)
+                     #coor.append(fragment.coor[i])
+             print(f"Path {k+1}:\t{ path }\t{fragment.q[0]}")
+
+    def relabelMCMC(self,structure,Nsimulations=10000,Nchains=10):
+        for residue in structure:
+            print(residue.resi)
 
 class QFitLigand(_BaseQFit):
 

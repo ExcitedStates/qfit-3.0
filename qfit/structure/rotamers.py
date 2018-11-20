@@ -4,10 +4,12 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB',
     ],
-    'hydrogens': 'H1 HA HB1 HB2 HB3 H2 H3'.split(),
+    'hydrogens': 'H HA HB1 HB2 HB3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'],
+        ['N','H'],['CA','HA'],['CB','HB1'],['CB','HB2'],
+        ['CB','HB3'],
     ],
     'nchi': 0,
     'chi': {
@@ -94,6 +96,10 @@ ROTAMERS = {
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'NE'], ['NE', 'CZ'],
         ['CZ', 'NH1'], ['CZ', 'NH2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['CD','HD2'],['CD','HD3'],
+        ['NE','HE'],['NH1','HH11'],['NH1','HH12'],
+        ['NH2','HH21'],['NH2','HH22'],
     ],
     'nchi': 4,
     'chi': {
@@ -295,6 +301,8 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'OD1'], ['CG', 'ND2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['ND2','HD21'],['ND2','HD22'],
     ],
     'nchi': 2,
     'chi': {
@@ -408,10 +416,11 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'OD1', 'OD2',
              ],
-    'hydrogens': 'H HA HB2 HB3 HD2'.split(),
+    'hydrogens': 'H HA HB2 HB3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'OD1'], ['CG', 'OD2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
     ],
     'nchi': 2,
     'chi': {
@@ -518,6 +527,8 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'SG'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['SG','HG'],
     ],
     'nchi': 1,
     'chi': {
@@ -610,7 +621,9 @@ ROTAMERS = {
     'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE21 HE22'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
-        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'NE2']
+        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'NE2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['NE2','HE21'],['NE2','HE22'],
     ],
     'nchi': 3,
     'chi': {
@@ -743,10 +756,13 @@ ROTAMERS = {
     'atoms': ['N', 'CA', 'C', 'O',
               'CB', 'CG', 'CD', 'OE1', 'OE2',
              ],
-    'hydrogens': 'H HA HB2 HB3 HG2 HG3 HE2'.split(),
+    'hydrogens': 'H HA HB2 HB3 HG2 HG3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
-        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'OE2']
+        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'OE1'], ['CD', 'OE2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],
+
     ],
     'nchi': 3,
     'chi': {
@@ -872,6 +888,7 @@ ROTAMERS = {
     'hydrogens': 'H HA2 HA3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
+        ['N','H'],['CA','HA2'],['CA','HA3'],
     ],
     'nchi': 0,
     'chi': {
@@ -936,6 +953,8 @@ ROTAMERS = {
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'ND1'], ['ND1', 'CE1'],
         ['CE1', 'NE2'], ['CD2', 'NE2'], ['CD2', 'CG'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['ND1','HD1'],['CD2','HD2'],['CE1','HE1'],['NE2','HE2'],
     ],
     'nchi': 2,
     'chi': {
@@ -1081,6 +1100,9 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG1'], ['CB', 'CG2'], ['CG1', 'CD1'],
+        ['N','H'],['CA','HA'],['CB','HB'],['CG1','HG12'],
+        ['CG1','HG13'],['CG2','HG21'],['CG2','HG22'],['CG2','HG23'],
+        ['CD1','HD11'],['CD1','HD12'],['CD1','HD13'],
     ],
     'nchi': 2,
     'chi': {
@@ -1225,6 +1247,9 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG'],['CD1','HD11'],['CD1','HD12'],['CD1','HD13'],
+        ['CD2','HD21'],['CD2','HD22'],['CD2','HD23'],
     ],
     'nchi': 2,
     'chi': {
@@ -1365,7 +1390,10 @@ ROTAMERS = {
     'hydrogens': 'H HA HB2 HB3 HG2 HG3 HD2 HD3 HE2 HE3 HZ1 HZ2 HZ3'.split(),
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
-        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'CE'], ['CE', 'NZ']
+        ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'CE'], ['CE', 'NZ'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['CD','HD2'],['CD','HD3'],['CE','HE2'],
+        ['CE','HE3'],['NZ','HZ1'],['NZ','HZ2'],['NZ','HZ3'],
     ],
     'nchi': 4,
     'chi': {
@@ -1548,6 +1576,9 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'SD'], ['SD', 'CE'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['CE','HE1'],['CE','HE2'],
+        ['CE','HE3'],
     ],
     'nchi': 3,
     'chi': {
@@ -1688,6 +1719,9 @@ ROTAMERS = {
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
         ['CD1', 'CE1'], ['CD2', 'CE2'], ['CE1', 'CZ'], ['CE2', 'CZ'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CD1','HD1'],['CD2','HD2'],['CE1','HE1'],['CE2','HE2'],
+        ['CZ','HZ'],
     ],
     'nchi': 2,
     'chi': {
@@ -1841,6 +1875,8 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD'], ['CD', 'N'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['CD','HD2'],['CD','HD3'],
     ],
     'nchi': 1,
     'chi': {
@@ -1957,6 +1993,8 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'OG'],
+        ['N', 'H'], ['CA', 'HA'], ['CB', 'HB2'],
+        ['CB', 'HB3'], ['OG','HG'],
     ],
     'nchi': 1,
     'chi': {
@@ -2051,6 +2089,8 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'OG1'], ['CB', 'CG2'],
+        ['N','H'],['CA','HA'],['CB','HB'],
+        ['OG1','HG1'],['CG2','HG21'],['CG2','HG22'],['CG2','HG23'],
     ],
     'nchi': 1,
     'chi': {
@@ -2164,6 +2204,9 @@ ROTAMERS = {
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CG', 'CD2'],
         ['CD1', 'NE1'], ['NE1', 'CE2'], ['CD2', 'CE2'], ['CD2', 'CE3'],
         ['CE2', 'CZ2'], ['CE3', 'CZ3'], ['CZ2', 'CH2'], ['CZ3', 'CH2'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CD1','HD1'],['NE1','HE1'],['CE3','HE3'],
+        ['CZ2','HZ2'],['CZ3','HZ3'],['CH2','HH2'],
     ],
     'nchi': 2,
     'chi': {
@@ -2352,6 +2395,9 @@ ROTAMERS = {
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'CD1'], ['CD1', 'CE1'],
         ['CG', 'CD2'], ['CD2', 'CE2'], ['CE1', 'CZ'], ['CE2', 'CZ'],
         ['CZ', 'OH'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CD1','HD1'],['CD2','HD2'],['CE1','HE1'],['CE2','HE2'],
+        ['OH','HH'],
     ],
     'nchi': 2,
     'chi': {
@@ -2514,6 +2560,9 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG1'], ['CB', 'CG2'],
+        ['N','H'],['CA','HA'],['CB','HB'],['CG1','HG11'],
+        ['CG1','HG12'],['CG1','HG13'],['CG2','HG21'],
+        ['CG2','HG22'],['CG2','HG23'],
     ],
     'nchi': 1,
     'chi': {
@@ -2636,6 +2685,9 @@ ROTAMERS = {
     'bonds': [
         ['N', 'CA'], ['CA', 'C'], ['C', 'O'],
         ['CA', 'CB'], ['CB', 'CG'], ['CG', 'SE'], ['SE', 'CE'],
+        ['N','H'],['CA','HA'],['CB','HB2'],['CB','HB3'],
+        ['CG','HG2'],['CG','HG3'],['CE','HE1'],['CE','HE2'],
+        ['CE','HE3'],
     ],
     'nchi': 3,
     'chi': {

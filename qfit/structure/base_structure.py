@@ -138,4 +138,3 @@ class _BaseStructure:
     def translate(self, translation):
         """Translate atoms"""
         self.coor += translation
-

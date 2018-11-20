@@ -171,6 +171,29 @@ class Structure(_BaseStructure):
 
         return Structure(data)
 
+    def get_backbone(self):
+        """Return the backbone atoms of a given residue"""
+        data = {}
+        mask = (self.data['resi']==self.resi[0]) & np.isin(self.data['name'], ['CA','C','N','O'],invert=True)
+        for attr in self.data:
+            array1 = getattr(self, attr)
+            data[attr] = array1[~mask]
+        return Structure(data)
+
+    def set_backbone_occ(self):
+        """Set the "backbone" occupancy to 0 and the occupancy of other atoms to 1.0"""
+        data = {}
+        # "Backbone" atoms for the residue:
+        mask = np.isin(self.data['name'], ['CA','C','N'])
+        # Non-"backbone" atoms for the residue:
+        mask2 = np.isin(self.data['name'], ['CA','C','N'],invert=True)
+        for attr in self.data:
+            array1 = getattr(self, attr)
+            if attr == 'q':
+                array1[mask]=0.0
+                array1[mask2]=1.0
+            data[attr] = array1
+        return Structure(data)
 
     def register(self, attr, array):
         """Register array attribute"""

@@ -68,6 +68,8 @@ def parse_args():
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
+    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
+            help="Include hydrogens during calculations.")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -106,7 +108,9 @@ def main():
 
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure).reorder()
-    structure = structure.extract('e', 'H', '!=')
+    if not args.hydro:
+        structure = structure.extract('e', 'H', '!=')
+
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
