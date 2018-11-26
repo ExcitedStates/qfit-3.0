@@ -265,7 +265,7 @@ class Structure(_BaseStructure):
                                     continue
                             residue_ordering = altconf._selection[residue_ordering]
                             residue_orderings.append(residue_ordering)
-                        if zip_atoms:
+                        if zip_atoms and len(list(set([len(x) for x in residue_orderings])))==1:
                             residue_ordering = list(zip(*residue_orderings))
                             residue_ordering = np.concatenate(residue_ordering)
                         else:

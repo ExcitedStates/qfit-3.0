@@ -110,6 +110,3 @@ class ClashDetector2:
                 k += index[2]
                 diff = (coor - grid[i][j][k])
                 r2 = (diff * diff).sum(axis=1)
-
-
-

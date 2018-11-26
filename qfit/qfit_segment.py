@@ -49,6 +49,9 @@ def parse_args():
            help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
+    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
+            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+
     args = p.parse_args()
 
     return args

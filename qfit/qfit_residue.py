@@ -70,6 +70,8 @@ def parse_args():
             help="Treshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
+    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
+            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -84,7 +86,6 @@ def parse_args():
 
 
 def main():
-
     args = parse_args()
     try:
         os.makedirs(args.directory)
@@ -119,7 +120,8 @@ def main():
         residue_id = int(resi)
         icode = ''
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
-    structure_resi = structure_resi.extract('icode', icode)
+    if icode:
+        structure_resi = structure_resi.extract('icode', icode)
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]

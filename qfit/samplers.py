@@ -22,7 +22,7 @@ class BackboneRotator:
             psi_sel = residue.select('name', ('O', 'OXT'))
             if n > 0:
                 psi_sel = np.concatenate((psi_sel, self.segment.residues[-n]._selection))
-            phi_sel = residue.select('name', ('N', 'CA', 'O', 'OXT'), '!=')
+            phi_sel = residue.select('name', ('N', 'CA', 'O', 'OXT','H','HA'), '!=')
             selections += [psi_sel, phi_sel]
 
             N = residue.extract('name', 'N')
@@ -82,7 +82,7 @@ class CBAngleRotator:
         angle_selection = residue.select('name', ('N', 'CA', 'CB'))
         if angle_selection.size != 3:
             raise RuntimeError("Residue does not have N, CA and CB atom for rotation.")
-        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O'), '!=')
+        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O','H','HA'), '!=')
         self._origin = self.residue.extract('name', 'CA').coor[0]
         self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
         self._coor_to_rotate -= self._origin

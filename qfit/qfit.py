@@ -7,13 +7,12 @@ import numpy as np
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator
-from .solvers import QPSolver2, MIQPSolver2
+from .solvers import QPSolver, MIQPSolver, QPSolver2, MIQPSolver2
 from .structure import Structure
 from .transformer import Transformer
 from .validator import Validator
 
 logger = logging.getLogger(__name__)
-
 
 class _BaseQFitOptions:
 
@@ -42,6 +41,7 @@ class _BaseQFitOptions:
         self.hydro = False
 
         # MIQP options
+        self.cplex = True
         self.cardinality = None
         self.threshold = 0.30
 
@@ -111,11 +111,9 @@ class _BaseQFit:
             self._smin = 1 / (2 * options.resolution_min)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
-        # To speed up the density creation steps,
-        # reduce space group symmetry to P1
+        # To speed up the density creation steps, reduce space group symmetry to P1
         self._xmap_model.set_space_group("P1")
-        self._voxel_volume = (self.xmap.unit_cell.calc_volume()
-                              / self.xmap.array.size)
+        self._voxel_volume = self.xmap.unit_cell.calc_volume() / self.xmap.array.size
 
     def get_conformers(self):
         conformers = []
@@ -135,10 +133,7 @@ class _BaseQFit:
         self._transformer.initialize()
 
     def _convert(self):
-        """
-        Convert structures to densities and extract relevant values
-        for (MI)QP.
-        """
+        """Convert structures to densities and extract relevant values for (MI)QP."""
 
         logger.info("Converting")
         logger.debug("Masking")
@@ -181,27 +176,28 @@ class _BaseQFit:
     def _solve(self, cardinality=None, threshold=None):
         do_qp = cardinality is threshold is None
         if do_qp:
-            solver = QPSolver2(self._target, self._models)
+            if self.options.cplex:
+                solver = QPSolver(self._target, self._models)
+            else:
+                solver = QPSolver2(self._target, self._models)
             solver()
+            self._occupancies = solver.weights
         else:
-            solver = MIQPSolver2(self._target, self._models)
-            solver(cardinality=cardinality,
-                   threshold=threshold)
-            #print(solver.obj_value)
             #### Treshold Selection by BIC ####
-            #solver = MIQPSolver2(self._target, self._models)
-            #self.BIC=np.inf
-            #for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
-            #solver(cardinality=cardinality,threshold=threshold)
-            #    print(solver.obj_value,print(len(self._target)))
-                #rss = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
-                #print(rss)
-            #    confs = np.sum(solver.weights >= 0.001)
-            #    BIC = len(self._target)*np.log(solver.obj_value/len(self._target))+(confs)*np.log(len(self._target))
-            #    if BIC < self.BIC:
-            #        self.BIC=BIC
-        self._occupancies = solver.weights
-        #residual = np.sqrt(2 * solver.obj_value + np.inner(self._target, self._target)) * self._voxel_volume
+            if self.options.cplex:
+                solver = MIQPSolver(self._target, self._models)
+            else:
+                solver = MIQPSolver2(self._target, self._models)
+            self.BIC=np.inf
+            for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
+                solver(cardinality=cardinality,threshold=threshold)
+                rss = np.sqrt( 2 * solver.obj_value + np.inner(self._target, self._target) ) * self._voxel_volume
+                confs = np.sum(solver.weights >= 0.002)
+                BIC = len(self._target)*np.log(rss)+(confs)*np.log(len(self._target))
+                if BIC < self.BIC:
+                    self.BIC=BIC
+                    self._occupancies = solver.weights
+
         #logger.info(f"Residual under footprint: {residual:.4f}")
         residual = 0
         return residual
@@ -271,38 +267,24 @@ class QFitRotamericResidue(_BaseQFit):
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
                 residue.complete_residue()
-                residue._init_clash_detection()
                 break
 
         # If including hydrogens:
         if options.hydro:
             for atom in residue._rotamers['hydrogens']:
                 if atom not in atoms:
-                    # Maybe the atom is missing due to a dissulfide...
-                    if atom == "HG" and residue.resn[0] == "CYS":
-                        continue
-                    # Ignore N hydrogen in prolines:
-                    if atom == "H" and residue.resn[0] == "PRO":
-                        continue
-                    # Deal with hydrogens that might be missing due to pH
-                    if atom == "HD1" and residue.resn[0] == "HIS":
-                        continue
-                    print(f"Missing atom {atom} of residue {residue.resi[0]},{residue.resn[0]}")
-                    msg = "Residue contains missing hydrogens. Please, run qFit without the '--hydro' flag."
-                    raise RuntimeError(msg)
+                    print(f"[WARNING] Missing atom {atom} of residue {residue.resi[0]},{residue.resn[0]}")
+                    continue
 
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
+        self.residue._init_clash_detection()
         # Get the segment that the residue belongs to
         chainid = self.residue.chain[0]
-        current_segment = None
         for segment in self.structure.segments:
             if segment.chain[0] == chainid and self.residue in segment:
-                current_segment = segment
+                self.segment = segment
                 break
-        self.segment = current_segment
-        if current_segment is None:
-            raise RuntimeError("Could not determine segment.")
         # Override some residue specific options
         resn = self.residue.resn[0]
         if resn == "PRO":
@@ -385,6 +367,9 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve(threshold=self.options.threshold,
                         cardinality=self.options.cardinality)
             self._update_conformers()
+        # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
+        validator  = Validator(self.xmap,self.xmap.resolution)
+        self.validation_metrics = validator.GoodnessOfFit(self.conformer, self._coor_set,self._occupancies,0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
 
     def _sample_backbone(self):
 
@@ -394,8 +379,6 @@ class QFitRotamericResidue(_BaseQFit):
         if index < nn or index + nn > len(self.segment):
             self.options.sample_backbone = False
             return
-        logger.info("Sampling backbone conformations.")
-
         segment = self.segment[index - nn: index + nn + 1]
 
         atom_name = "CB"
@@ -407,7 +390,7 @@ class QFitRotamericResidue(_BaseQFit):
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]],
-                        ]
+                       ]
             directions = move_direction_adp(u_matrix, unit_cell)
         except AttributeError:
             directions = np.identity(3)
@@ -435,9 +418,7 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
 
-        logger.info("Sampling N-CA-CB angle.")
-
-        active_names = ('N', 'CA', 'C', 'O', 'CB')
+        active_names = ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA')
         selection = self.residue.select('name', active_names)
         self.residue.active = False
         self.residue._active[selection] = True
@@ -454,7 +435,8 @@ class QFitRotamericResidue(_BaseQFit):
                 coor = self.residue.coor
                 if self.options.remove_conformers_below_cutoff:
                     values = self.xmap.interpolate(coor[active])
-                    if np.min(values) < self.options.density_cutoff:
+                    mask = (self.residue.e[active] != "H")
+                    if np.min(values[mask]) < self.options.density_cutoff:
                         continue
                 if self._cd() or self.residue.clashes():
                     continue
@@ -462,7 +444,6 @@ class QFitRotamericResidue(_BaseQFit):
         self._coor_set = new_coor_set
 
     def _sample_sidechain(self):
-
         opt = self.options
         start_chi_index = 1
         sampling_window = np.arange(
@@ -532,13 +513,12 @@ class QFitRotamericResidue(_BaseQFit):
                             coor = self.residue.coor
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
-                                if np.min(values) < opt.density_cutoff:
+                                mask = (self.residue.e[active] != "H")
+                                if np.min(values[mask]) < opt.density_cutoff:
                                     continue
                             if not self._cd() and self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
-            #self._write_intermediate_conformers(f"conformer_{iteration}")
-
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial clashes and density support."
@@ -576,10 +556,6 @@ class QFitRotamericResidue(_BaseQFit):
             if increase_chi:
                 start_chi_index += 1
             iteration += 1
-        # Now that the conformers have been generated, the resulting conformations should be examined via GoodnessOfFit:
-        validator  = Validator(self.xmap,self.xmap.resolution)
-        self.validation_metrics = validator.GoodnessOfFit(self.conformer, self._coor_set,self._occupancies,0.7 + ( self.xmap.resolution.high - 0.6 )/3.0 if self.xmap.resolution.high < 3.0 else 0.5 * self.xmap.resolution.high)
-        #self._update_conformers()
 
     def tofile(self):
 
@@ -707,7 +683,6 @@ class QFitSegment(_BaseQFit):
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
-            
         self.relabelMCMC(multiconformers)
         multiconformers = multiconformers.reorder()
         multiconformers.tofile("test_final.pdb")

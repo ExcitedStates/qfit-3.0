@@ -259,7 +259,7 @@ if CPLEX:
                     self._quad_obj, self._lin_obj,
                     self._le_constraints, self._le_bounds
                     )
-            self.obj_value = 2 * self._solution['primal objective'] + np.inner(self.target, self.target)
+            self.obj_value = 2 * self._solution['primal objective'] + np.inner(self._target, self._target)
             self.weights = np.asarray(self._solution['x']).ravel()
 
 

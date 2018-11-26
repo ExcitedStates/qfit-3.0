@@ -285,7 +285,7 @@ class _RotamerResidue(_BaseResidue):
         self.__dict__['natoms']+=1
 
     def reorder(self):
-        for idx,atom2 in enumerate(self._rotamers['atoms']):
+        for idx,atom2 in enumerate(self._rotamers['atoms']+self._rotamers['hydrogens']):
             if self.name[idx] != atom2:
                     idx2 = np.argwhere(self.name == atom2)[0]
                     index = np.ndarray((1,),dtype='int')
