@@ -44,6 +44,8 @@ def parse_args():
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
             help="Sample backbone using inverse kinematics.")
+    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
+            help="Sample N-CA-CB angle.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
@@ -56,14 +58,18 @@ def parse_args():
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
                   "values below cutoff value."))
+    p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
+            help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
-    p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
-           help="Number of processors to use.")
+    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
+            help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
+           help="Number of processors to use.")
 
 
     # Output options
@@ -228,7 +234,7 @@ class QFitProtein:
                 try:
                     qfit.run()
                 except RuntimeError:
-                    print(f"[WARNING] Failed to run qfit-residue for residue {resi} of chain {chain}")
+                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chain}.")
                     print(f"Using deposited conformer A for this residue.")
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
