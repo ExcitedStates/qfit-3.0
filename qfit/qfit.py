@@ -44,6 +44,7 @@ class _BaseQFitOptions:
         self.cplex = True
         self.cardinality = None
         self.threshold = 0.30
+        self.bic_threshold = False
 
     def apply_command_args(self, args):
 
@@ -135,7 +136,7 @@ class _BaseQFit:
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
 
-        logger.info("Converting")
+        logger.info("Converting") 
         logger.debug("Masking")
         self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
@@ -181,26 +182,33 @@ class _BaseQFit:
             else:
                 solver = QPSolver2(self._target, self._models)
             solver()
-            self._occupancies = solver.weights
+            if self.options.bic_threshold:
+                self._occupancies = solver.weights
         else:
             #### Treshold Selection by BIC ####
             if self.options.cplex:
                 solver = MIQPSolver(self._target, self._models)
             else:
                 solver = MIQPSolver2(self._target, self._models)
-            self.BIC=np.inf
-            for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
+
+            if self.options.bic_threshold:
+                self.BIC=np.inf
+                for threshold in [0.5,0.4,0.33,0.3,0.25,0.2]:
+                    solver(cardinality=cardinality,threshold=threshold)
+                    rss = solver.obj_value * self._voxel_volume
+                    confs = np.sum(solver.weights >= 0.002)
+                    BIC = len(self._target)*np.log(rss)+(confs)*np.log(len(self._target))
+                    if BIC < self.BIC:
+                        self.BIC=BIC
+                self._occupancies = solver.weights
+            else:
                 solver(cardinality=cardinality,threshold=threshold)
-                rss = np.sqrt( 2 * solver.obj_value + np.inner(self._target, self._target) ) * self._voxel_volume
-                confs = np.sum(solver.weights >= 0.002)
-                BIC = len(self._target)*np.log(rss)+(confs)*np.log(len(self._target))
-                if BIC < self.BIC:
-                    self.BIC=BIC
-                    self._occupancies = solver.weights
+        if not self.options.bic_threshold:
+            self._occupancies = solver.weights
 
         #logger.info(f"Residual under footprint: {residual:.4f}")
-        residual = 0
-        return residual
+        #residual = 0
+        return solver.obj_value
 
     def _update_conformers(self):
         new_coor_set = []

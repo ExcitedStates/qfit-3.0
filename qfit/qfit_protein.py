@@ -68,6 +68,7 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",                                                                                                       help="Use BIC to select the most parsimonious MIQP threshold") 
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
            help="Number of processors to use.")
 
