@@ -3,6 +3,7 @@ import multiprocessing as mp
 import os.path
 import sys
 import time
+import copy
 from argparse import ArgumentParser
 from math import ceil
 
@@ -68,7 +69,7 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",                                                                                                       help="Use BIC to select the most parsimonious MIQP threshold") 
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",                                                                                                       help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
            help="Number of processors to use.")
 
@@ -198,6 +199,7 @@ class QFitProtein:
         options.verbose = False
         base_directory = options.directory
         base_density = xmap.array.copy()
+        original_structure = copy.deepcopy(structure)
         for residue in residues:
             if residue.type == 'rotamer-residue':
                 chain = residue.chain[0]
@@ -211,25 +213,37 @@ class QFitProtein:
                 except OSError:
                     pass
 
+                altlocs = sorted(list(set(residue.altloc)))
+                if len(altlocs) > 1:
+                    try:
+                        altlocs.remove('')
+                    except ValueError:
+                        pass
+                    altloc = altlocs[0]
+                else:
+                    altloc = 'A'
+
+                structure_new = original_structure.extract('altloc', ('', altloc))
+
                 xmap.array[:] = base_density
                 # Prepare X-ray map
                 if options.scale:
                     # Prepare X-ray map
                     scaler = MapScaler(xmap, scattering=options.scattering)
                     if options.omit:
-                        footprint = structure_resi
+                        footprint = residue
                     else:
                         sel_str = f"resi {resi} and chain {chain}"
                         if icode:
                             sel_str += f" and icode {icode}"
                         sel_str = f"not ({sel_str})"
-                        footprint = structure.extract(sel_str)
+                        footprint = structure_new.extract(sel_str)
                         footprint = footprint.extract('record', 'ATOM')
                     scaler.scale(footprint, radius=1)
-                    scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+                    #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
                 xmap_reduced = xmap.extract(residue.coor, padding=5)
 
-                qfit = QFitRotamericResidue(residue, structure, xmap_reduced, options)
+                qfit = QFitRotamericResidue(residue, structure_new, xmap_reduced, options)
 
                 # Exception handling in case qFit-residue fails:
                 try:
@@ -254,13 +268,12 @@ def main():
 
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder()
-    # For now we don't support hydrogens
-    structure = structure.extract('e', 'H', '!=')
+    if not args.hydro:
+        structure = structure.extract('e', 'H', '!=')
+
     # Remove alternate conformers except for the A conformer
     structure = structure.extract('altloc', ('','A'))
     structure.altloc = ''
-    structure.q = 1
-
 
     options = QFitProteinOptions()
     options.apply_command_args(args)
