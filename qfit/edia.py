@@ -1,16 +1,13 @@
 """Use EDIA to assess quality of model fitness to electron density"""
-
+import numpy as np
+from . import Structure, XMap, ElectronDensityRadiusTable
+from . import ResolutionBins, BondLengthTable
 import argparse
 import logging
 import os
-import sys
 import time
-from string import ascii_uppercase
 logger = logging.getLogger(__name__)
 
-import numpy as np
-
-from . import Structure, XMap, Transformer, ElectronDensityRadiusTable, ResolutionBins, BondLengthTable
 
 class ediaOptions:
     def __init__(self):
@@ -30,11 +27,12 @@ class ediaOptions:
                 setattr(self, key, value)
         return self
 
+
 class Weight():
     def __init__(self, radius):
         # Per definition:
         self.b1 = 1.0 #(maximum of first parabola)
-        self.b2 =-0.4 #(minimum of second parabola)
+        self.b2 = -0.4 #(minimum of second parabola)
         self.b3 = 0.0 #(maximum of third parabola)
         self.c1 = 0.0 # (we want the first parabola to have its maximum at x=0)
         self.m1 = -1.0/(radius**2) # This ensures that the density becomes superfluous if p is in d(a)

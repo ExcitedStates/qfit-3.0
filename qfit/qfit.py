@@ -136,7 +136,7 @@ class _BaseQFit:
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
 
-        logger.info("Converting") 
+        logger.info("Converting")
         logger.debug("Masking")
         self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
@@ -619,7 +619,7 @@ class QFitSegment(_BaseQFit):
         self.options = options
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
-        self._occupancies = [1.0]
+        self._occupancies = [self.conformer.q]
         self.orderings = []
         self.charseq = []
         self._smax = None

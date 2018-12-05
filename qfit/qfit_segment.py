@@ -10,18 +10,18 @@ def parse_args():
 
     p = ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
-            help="Density map in CCP4 or MRC format, or an MTZ file "
-                 "containing reflections and phases. For MTZ files "
-                 "use the --label options to specify columns to read.")
+                   help="Density map in CCP4 or MRC format, or an MTZ file \
+                   containing reflections and phases. For MTZ files \
+                   use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
-            help="PDB-file containing structure.")
+                   help="PDB-file containing structure.")
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
             help="MTZ column labels to build density.")
     p.add_argument('-o', '--omit', action="store_true",
             help="Map file is a 2mFo-DFc OMIT map.")
     p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
             help="Map resolution in angstrom.")
-    p.add_argument("-ns", "--no-scale", action="store_true",
+    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
@@ -37,7 +37,7 @@ def parse_args():
             help="Scattering type.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
-    p.add_argument("-c", "--cardinality", type=int, default=2, metavar="<int>",
+    p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
@@ -51,6 +51,8 @@ def parse_args():
             help="Be verbose.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
+            help="Use BIC to select the most parsimonious MIQP threshold")
 
     args = p.parse_args()
 
@@ -71,18 +73,15 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     structure = structure.extract('e', 'H', '!=')
 
-
-    if args.resolution:
-        xmap = XMap.fromfile(args.map, label=args.label,resolution=args.resolution)
-    else:
-        xmap = XMap.fromfile(args.map, label=args.label)
+    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
-
-    if not args.no_scale:
+    if args.scale:
+        # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
-        scaler.scale(structure)
-        fname = os.path.join(options.directory, 'scaled.mrc')
-        xmap.tofile(fname)
+        footprint = structure.extract('record', 'ATOM')
+        scaler.scale(footprint, radius=1)
+        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+    xmap = xmap.extract(structure.coor, padding=5)
 
     qfit = QFitSegment(structure, xmap, options)
     qfit()
