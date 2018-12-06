@@ -202,7 +202,7 @@ class QFitProtein:
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
                              "multiconformer_model2.pdb")
-        multiconformer.tofile(multiconformer)
+        multiconformer.tofile(fname)
         return multiconformer
 
     @staticmethod
