@@ -41,7 +41,7 @@ def parse_args():
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
-    p.add_argument("-f", "--fragment-length", type=int, default=5, metavar="<int>",
+    p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
             help="Number of subsequent elements used during optimization.")
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
             help="Directory to store results.")

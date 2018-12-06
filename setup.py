@@ -1,5 +1,4 @@
 import os.path
-from sys import exit
 
 from setuptools import setup
 from setuptools.extension import Extension
@@ -10,13 +9,11 @@ import numpy as np
 def main():
 
     packages = ['qfit', 'qfit.structure']
-    package_data = {'qfit': [os.path.join('data', '*.npy'), ]
-                    }
+    package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
 
     ext_modules = [Extension("qfit._extensions",
                              [os.path.join("src", "_extensions.c")],
-                             include_dirs=[np.get_include()],
-                             ),
+                             include_dirs=[np.get_include()],),
                    ]
     install_requires = [
         'numpy>=1.14',
@@ -42,8 +39,7 @@ def main():
                   'edia = qfit.edia:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
               ]
-          },
-          )
+          },)
 
 
 if __name__ == '__main__':

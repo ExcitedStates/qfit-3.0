@@ -1,26 +1,19 @@
-from collections import defaultdict
-
 import numpy as np
-
 from .base_structure import _BaseStructure, PDBFile
 from .ligand import _Ligand
-from .math import Rz, dihedral_angle
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
-from .selector import _Selector
+from .math import Rz
 
 
 class Structure(_BaseStructure):
-
     """Class with access to underlying PDB hierarchy."""
 
-
     def __init__(self, data, **kwargs):
-
         for attr in self.REQUIRED_ATTRIBUTES:
             if attr not in data:
-                raise ValueError("Not all attributes are given to build the structure")
-
+                raise ValueError("Not all attributes are given to \
+                                 build the structure")
         super().__init__(data, **kwargs)
         self._chains = []
 
@@ -36,7 +29,8 @@ class Structure(_BaseStructure):
             if attr in 'xyz':
                 continue
             data[attr] = np.asarray(array)
-        coor = np.asarray(list(zip(dd['x'], dd['y'], dd['z'])), dtype=np.float64)
+        coor = np.asarray(list(zip(dd['x'], dd['y'], dd['z'])),
+                          dtype=np.float64)
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=np.bool)
@@ -52,13 +46,14 @@ class Structure(_BaseStructure):
                     anisou[i] = [pdbfile.anisou[u][n] for u in us]
                     n += 1
             for n, key in enumerate(us):
-                data[key] = anisou[:,n]
+                data[key] = anisou[:, n]
 
         if pdbfile.cryst1:
             from ..unitcell import UnitCell
             c = pdbfile.cryst1
             # FIXME Create correct SpaceGroup if not automatically found.
-            values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta', 'gamma', 'spg']]
+            values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta',
+                                     'gamma', 'spg']]
             cls.unit_cell = UnitCell(*values)
 
         return cls(data)
@@ -71,8 +66,7 @@ class Structure(_BaseStructure):
         return cls(data)
 
     @classmethod
-    def empty(cls):
-
+    def empty(self, cls):
         data = {}
         for attr in self.REQUIRED_ATTRIBUTES:
             data[attr] = []
@@ -142,7 +136,8 @@ class Structure(_BaseStructure):
         self._chains = []
         for chainid in chainids:
             selection = self.select('chain', chainid)
-            chain = _Chain(self.data, selection=selection, parent=self, chainid=chainid)
+            chain = _Chain(self.data, selection=selection,
+                           parent=self, chainid=chainid)
             self._chains.append(chain)
 
     def combine(self, structure):
@@ -155,18 +150,24 @@ class Structure(_BaseStructure):
             data[attr] = combined
         return Structure(data)
 
-    def collapse_backbone(self,resid):
+    def collapse_backbone(self, resid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
-        mask = (self.data['resi']==resid) & np.isin(self.data['name'], ['CA','C','N','O']) & np.isin(self.data['altloc'],['B','C','D','E'])
-        mask2 = (self.data['resi']==resid) & np.isin(self.data['name'], ['CA','C','N','O']) & np.isin(self.data['altloc'],['A'])
+        mask = (
+                (self.data['resi'] == resid)
+                & np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'])
+                & np.isin(self.data['altloc'], ['B', 'C', 'D', 'E']))
+        mask2 = (
+                 (self.data['resi'] == resid)
+                 & np.isin(self.data['name'], ['CA', 'C', 'N', 'O'])
+                 & np.isin(self.data['altloc'], ['A']))
 
         for attr in self.data:
             array1 = getattr(self, attr)
             if attr == 'altloc':
-                array1[mask2]=''
+                array1[mask2] = ''
             if attr == 'q':
-                array1[mask2]=1.0
+                array1[mask2] = 1.0
             data[attr] = array1[~mask]
 
         return Structure(data)
@@ -174,31 +175,36 @@ class Structure(_BaseStructure):
     def get_backbone(self):
         """Return the backbone atoms of a given residue"""
         data = {}
-        mask = (self.data['resi']==self.resi[0]) & np.isin(self.data['name'], ['CA','C','N','O'],invert=True)
+        mask = (
+                (self.data['resi'] == self.resi[0])
+                & np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'],
+                          invert=True))
         for attr in self.data:
             array1 = getattr(self, attr)
             data[attr] = array1[~mask]
         return Structure(data)
 
     def set_backbone_occ(self):
-        """Set the "backbone" occupancy to 0 and the occupancy of other atoms to 1.0"""
+        """Set the "backbone" occupancy to 0 and the occupancy of
+           other atoms to 1.0"""
         data = {}
         # "Backbone" atoms for the residue:
-        mask = np.isin(self.data['name'], ['CA','C','N'])
+        mask = np.isin(self.data['name'], ['CA', 'C', 'N'])
         # Non-"backbone" atoms for the residue:
-        mask2 = np.isin(self.data['name'], ['CA','C','N'],invert=True)
+        mask2 = np.isin(self.data['name'], ['CA', 'C', 'N'], invert=True)
         for attr in self.data:
             array1 = getattr(self, attr)
             if attr == 'q':
-                array1[mask]=0.0
-                array1[mask2]=1.0
+                array1[mask] = 0.0
+                array1[mask2] = 1.0
             data[attr] = array1
         return Structure(data)
 
     def register(self, attr, array):
         """Register array attribute"""
         if self.parent is not None:
-            msg = "This structure has a parent, registering a new array is not allowed."
+            msg = "This structure has a parent, registering a new array \
+                    is not allowed."
             raise ValueError(msg)
 
         self.data[attr] = array
@@ -216,7 +222,8 @@ class Structure(_BaseStructure):
                     if len(set(rg.resn)) > 1:
                         resi = rg.resi[0]
                         icode = rg.icode[0]
-                        raise RuntimeError(f"Residue has more than 1 name. {resi}{icode}")
+                        raise RuntimeError(f"Residue has more than 1 name. \
+                                             {resi}{icode}")
                     rotamer = ROTAMERS[rg.resn[0]]
                     atom_order = rotamer['atoms'] + rotamer['hydrogens']
                     atomnames = list(rg.name)
@@ -225,8 +232,8 @@ class Structure(_BaseStructure):
                     for atom in atomnames:
                         if atom not in atom_order:
                             break
-                    # Check if the residue has alternate conformers. If the number
-                    # of altlocs is equal to the whole residue, sort
+                    # Check if the residue has alternate conformers. If the
+                    # number of altlocs is equal to the whole residue, sort
                     # it after one another. If its just a few, sort it like a
                     # zipper.
                     altlocs = sorted(list(set(rg.altloc)))
@@ -251,7 +258,8 @@ class Structure(_BaseStructure):
                             for altloc in altlocs:
                                 nsel = rg.select('altloc', altloc).size
                                 atoms_per_altloc.append(nsel)
-                            zip_atoms = not all(a == atoms_per_altloc[0] for a in atoms_per_altloc)
+                            zip_atoms = not all(a == atoms_per_altloc[0] for a
+                                                in atoms_per_altloc)
                         residue_orderings = []
                         for altloc in altlocs:
                             altconf = rg.extract('altloc', ('', altloc))
@@ -263,16 +271,20 @@ class Structure(_BaseStructure):
                                     residue_ordering.append(index)
                                 except ValueError:
                                     continue
-                            residue_ordering = altconf._selection[residue_ordering]
+                            residue_ordering = altconf._selection[
+                                residue_ordering]
                             residue_orderings.append(residue_ordering)
-                        if zip_atoms and len(list(set([len(x) for x in residue_orderings])))==1:
+                        if zip_atoms and len(list(set(
+                           [len(x) for x in residue_orderings]))) == 1:
                             residue_ordering = list(zip(*residue_orderings))
                             residue_ordering = np.concatenate(residue_ordering)
                         else:
-                            residue_ordering = np.concatenate(residue_orderings)
+                            residue_ordering = np.concatenate(
+                                residue_orderings)
                         # Now remove duplicates while keeping order
                         seen = set()
-                        residue_ordering = [x for x in residue_ordering if not (x in seen or seen.add(x))]
+                        residue_ordering = [x for x in residue_ordering
+                                            if not (x in seen or seen.add(x))]
                     ordering.append(residue_ordering)
                     continue
                 for ag in rg.atom_groups:
@@ -282,6 +294,64 @@ class Structure(_BaseStructure):
         for attr, value in self.data.items():
             data[attr] = value[ordering]
         return Structure(data)
+
+    def _init_clash_detection(self):
+        # Setup the condensed distance based arrays for clash detection and
+        # fill them
+        self._ndistances = self.natoms * (self.natoms - 1) // 2
+        self._clash_mask = np.ones(self._ndistances, bool)
+        self._clash_radius2 = np.zeros(self._ndistances, float)
+        radii = self.covalent_radius
+        offset = self.natoms * (self.natoms - 1) // 2
+        for i in range(self.natoms - 1):
+            rotamers = ROTAMERS[self.resn[i]]
+            bonds = rotamers['bonds']
+            natoms_left = self.natoms - i
+            starting_index = offset - natoms_left * (natoms_left - 1) // 2 - i - 1
+            name1 = self.name[i]
+            covrad1 = radii[i]
+            for j in range(i + 1, self.natoms):
+                bond1 = [name1, self.name[j]]
+                bond2 = bond1[::-1]
+                covrad2 = radii[j]
+                index = starting_index + j
+                self._clash_radius2[index] = covrad1 + covrad2 + 0.4
+                if self.resi[i] == self.resi[j] and self.chain[i] == self.chain[j]:
+                    if bond1 in bonds or bond2 in bonds:
+                        self._clash_mask[index] = False
+                elif self.resi[i] + 1 == self.resi[j] and self.chain[i] == self.chain[j]:
+                    if name1 == 'C' and self.name[j] == 'N':
+                        self._clash_mask[index] = False
+                elif self.e[i] == 'S' and self.e[j] == 'S':
+                    self._clash_mask[index] = False
+        self._clash_radius2 *= self._clash_radius2
+        self._clashing = np.zeros(self._ndistances, bool)
+        self._dist2_matrix = np.empty(self._ndistances, float)
+
+        # All atoms are active from the start
+        self.active = np.ones(self.natoms, bool)
+        self._active_mask = np.ones(self._ndistances, bool)
+
+    def clashes(self):
+        """Checks if there are any internal clashes.
+        Deactivated atoms are not taken into account.
+        """
+
+        dm = self._dist2_matrix
+        coor = self.coor
+        dot = np.dot
+        k = 0
+        for i in range(self.natoms - 1):
+            u = coor[i]
+            for j in range(i + 1, self.natoms):
+                u_v = u - coor[j]
+                dm[k] = dot(u_v, u_v)
+                k += 1
+        np.less_equal(dm, self._clash_radius2, self._clashing)
+        self._clashing &= self._clash_mask
+        self._clashing &= self._active_mask
+        nclashes = self._clashing.sum()
+        return nclashes
 
 
 class _Chain(_BaseStructure):
@@ -341,16 +411,17 @@ class _Chain(_BaseStructure):
     def build_hierarchy(self):
 
         resi = self.resi
-        #order = np.argsort(resi)
-        #resi = resi[order]
-        #icode = self.icode[order]
+        # order = np.argsort(resi)
+        # resi = resi[order]
+        # icode = self.icode[order]
         icode = self.icode
         # A residue group is a collection of entries that have a unique
         # chain, resi, and icode
         # Do all these order tricks to keep the resid ordering correct
         cadd = np.char.add
         residue_group_ids = cadd(cadd(resi.astype(str), '_'), icode)
-        residue_group_ids, ind = np.unique(residue_group_ids, return_index=True)
+        residue_group_ids, ind = np.unique(residue_group_ids,
+                                           return_index=True)
         order = np.argsort(ind)
         residue_group_ids = residue_group_ids[order]
         self._residue_groups = []
@@ -361,7 +432,8 @@ class _Chain(_BaseStructure):
             selection = self.select('resi', resi)
             selection = np.intersect1d(selection, self.select('icode', icode))
             residue_group = _ResidueGroup(
-                self.data, selection=selection, parent=self, resi=resi, icode=icode)
+                self.data, selection=selection, parent=self,
+                resi=resi, icode=icode)
             self._residue_groups.append(residue_group)
             self._residue_group_ids.append((resi, icode))
 
@@ -401,16 +473,18 @@ class _ResidueGroup(_BaseStructure):
         # An atom group is a collection of entries that have a unique
         # chain, resi, icode, resn and altloc
         cadd = np.char.add
-        self.atom_group_ids = np.unique(cadd(cadd(self.resn, '_'), self.altloc))
+        self.atom_group_ids = np.unique(cadd(cadd(self.resn, '_'),
+                                        self.altloc))
         self._atom_groups = []
         for atom_group_id in self.atom_group_ids:
             resn, altloc = atom_group_id.split('_')
             selection = self.select('resn', resn)
             if altloc:
                 altloc_selection = self.select('altloc', altloc)
-                selection = np.intersect1d(selection, altloc_selection, assume_unique=True)
-            atom_group = _AtomGroup(self.data, selection=selection, parent=self,
-                                    resn=resn, altloc=altloc)
+                selection = np.intersect1d(selection, altloc_selection,
+                                           assume_unique=True)
+            atom_group = _AtomGroup(self.data, selection=selection,
+                                    parent=self, resn=resn, altloc=altloc)
             self._atom_groups.append(atom_group)
 
     def __repr__(self):
@@ -483,7 +557,8 @@ class _Conformer(_BaseStructure):
     def ligands(self):
         if not self._residues:
             self.build_residues()
-        _ligands = [l for l in self._residues if isinstance(l, _Ligand) and l.natoms > 3]
+        _ligands = [l for l in self._residues if isinstance(l, _Ligand)
+                    and l.natoms > 3]
         return _ligands
 
     @property
@@ -515,7 +590,8 @@ class _Conformer(_BaseStructure):
             resi = int(resi)
             selection = self.select('resi', resi)
             icode_selection = self.select('icode', icode)
-            selection = np.intersect1d(selection, icode_selection, assume_unique=True)
+            selection = np.intersect1d(selection, icode_selection,
+                                       assume_unique=True)
             residue = self.extract(selection)
             rtype = residue_type(residue)
             if rtype == 'rotamer-residue':
@@ -571,13 +647,15 @@ class _Conformer(_BaseStructure):
             if len(segment) > 1:
                 selections = [residue._selection for residue in segment]
                 selection = np.concatenate(selections)
-                segment = _Segment(self.data, selection=selection, parent=self, residues=segment)
+                segment = _Segment(self.data, selection=selection,
+                                   parent=self, residues=segment)
                 self._segments.append(segment)
 
 
 class _Segment(_BaseStructure):
 
-    """Class that guarantees connected residues and allows backbone rotations."""
+    """Class that guarantees connected residues and allows
+       backbone rotations."""
 
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
@@ -598,7 +676,8 @@ class _Segment(_BaseStructure):
             for residue in residues:
                 selections.append(residue._selection)
             selection = np.concatenate(selections)
-            return _Segment(self.data, selection=selection, parent=self.parent, residues=residues)
+            return _Segment(self.data, selection=selection, parent=self.parent,
+                            residues=residues)
         else:
             raise TypeError
 
@@ -618,7 +697,8 @@ class _Segment(_BaseStructure):
 
     def rotate_psi(self, index, angle):
         """Rotate along psi dihedral."""
-        selection = [residue._selection for residue in self.residues[index + 1:]]
+        selection = [residue._selection
+                     for residue in self.residues[index + 1:]]
         residue = self.residues[index]
         selection.append(residue.select('name', ('O', 'OXT')))
         selection = np.concatenate(selection)

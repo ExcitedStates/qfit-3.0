@@ -1,21 +1,22 @@
 import argparse
 import sys
 import numpy as np
-import os.path
 import random
 import copy
-from vdw_radii import vdwRadiiTable,EpsilonTable
+from vdw_radii import vdwRadiiTable, EpsilonTable
 from structure import Structure
+
 
 def cartesian_product(*arrays):
     la = len(arrays)
     arr = np.empty([len(a) for a in arrays] + [la], dtype=int)
     for i, a in enumerate(np.ix_(*arrays)):
-        arr[...,i] = a
+        arr[..., i] = a
     return arr.reshape(-1, la)
 
+
 def update_progress(progress):
-    barLength = 20 # Modify this to change the length of the progress bar
+    barLength = 20  # Modify this to change the length of the progress bar
     status = ""
     if isinstance(progress, int):
         progress = float(progress)
@@ -32,6 +33,7 @@ def update_progress(progress):
     text = "\rProgress: [{0}] {1:2.0f}% {2}".format( "#"*block + "-"*(barLength-block), progress*100, status)
     sys.stdout.write(text)
     sys.stdout.flush()
+
 
 class RelabellerOptions:
     def __init__(self):
@@ -91,7 +93,7 @@ class Relabeller:
 
     def calc_energy(self, node1, node2):
         energy = 0.0
-        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 13.0:
+        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 16.0:
             for name1,ele1,coor1 in zip(node1.name,node1.e,node1.coor):
                 for name2,ele2,coor2 in zip(node2.name,node2.e,node2.coor):
                     if name1 not in ["N","CA","C","O","H","HA"] or name2 not in ["N","CA","C","O","H","HA"] or np.abs(node1.resi[0] - node2.resi[0]) != 1:
