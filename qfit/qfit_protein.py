@@ -58,28 +58,23 @@ def parse_args():
                          "that have no density support for, ie atoms are "
                          "positioned at density values below cutoff value."))
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float,
-                   metavar="<float>", help="Bulk solvent level in absolute\
-                                           values.")
+                   metavar="<float>", help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
                    help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.3,
-                   metavar="<float>", help="Treshold constraint used \
-                                            during MIQP.")
+                   metavar="<float>", help="Treshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
                    help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-                   help="Use MIOSQP instead of CPLEX for the QP/MIQP \
-                        calculations.")
+                   help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
     p.add_argument("-T", "--threshold-selection", dest="bic_threshold",
-                   action="store_true", help="Use BIC to select the most \
-                          parsimonious MIQP threshold")
+                   action="store_true", help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
                    help="Number of processors to use.")
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int,
-                   default=4, metavar="<int>", help="Fragment length \
-                   used during qfit_segment.")
+                   default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
@@ -128,6 +123,7 @@ class QFitProtein:
     def run(self):
 
         multiconformer = self._run_qfit_residue()
+        self.options.bic_threshold = False
         multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
@@ -191,6 +187,8 @@ class QFitProtein:
             except FileNotFoundError:
                 print("File not found!", fname)
                 pass
+        hetatms = self.structure.extract('record', 'HETATM', '==')
+        multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
         multiconformer.tofile(fname)
@@ -258,13 +256,11 @@ class QFitProtein:
 
                 qfit = QFitRotamericResidue(residue, structure_new,
                                             xmap_reduced, options)
-
                 # Exception handling in case qFit-residue fails:
                 try:
                     qfit.run()
                 except RuntimeError:
-                    print(f"[WARNING] qFit was unable to produce an alternate \
-                            conformer for residue {resi} of chain {chain}.")
+                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chain}.")
                     print(f"Using deposited conformer A for this residue.")
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]

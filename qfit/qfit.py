@@ -1,6 +1,7 @@
 import itertools
 import logging
 import os
+import copy
 from string import ascii_uppercase
 import numpy as np
 
@@ -36,7 +37,7 @@ class _BaseQFitOptions:
         self.scale = True
 
         # Sampling options
-        self.clash_scaling_factor = 1
+        self.clash_scaling_factor = 0.75
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
         self.hydro = False
@@ -199,13 +200,20 @@ class _BaseQFit:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in [0.5, 0.4, 0.33, 0.3, 0.25, 0.2]:
-                    solver(cardinality=cardinality, threshold=threshold)
+                    solver(cardinality=None, threshold=threshold)
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
-                    BIC = len(self._target)*np.log(rss)+(confs)*np.log(
-                                                            len(self._target))
+                    n = len(self._target)
+                    try:
+                        natoms = len(self.residue._rotamers['atoms'])
+                        k = 4 * confs * natoms
+                    except AttributeError:
+                        k = 4 * confs
+                    BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
+#                    else:
+#                        break
                 self._occupancies = solver.weights
             else:
                 solver(cardinality=cardinality, threshold=threshold)
@@ -293,7 +301,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
-        self.residue._init_clash_detection()
+        self.residue._init_clash_detection(self.options.clash_scaling_factor)
         # Get the segment that the residue belongs to
         chainid = self.residue.chain[0]
         for segment in self.structure.segments:
@@ -375,7 +383,8 @@ class QFitRotamericResidue(_BaseQFit):
             new_coor_set = []
             for coor in self._coor_set:
                 self.residue.coor = coor
-                if not self._cd() and self.residue.clashes() == 0:
+                # if not self._cd() and self.residue.clashes() == 0:
+                if self.residue.clashes() == 0:
                     new_coor_set.append(coor)
             self._coor_set = new_coor_set
             self._convert()
@@ -398,12 +407,11 @@ class QFitRotamericResidue(_BaseQFit):
                                                           cutoff)
 
     def _sample_backbone(self):
-
         # Check if residue has enough neighboring residues
         index = self.segment.find(self.residue.id)
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
-            self.options.sample_backbone = False
+            # self.options.sample_backbone = False
             return
         segment = self.segment[index - nn: index + nn + 1]
 
@@ -415,8 +423,7 @@ class QFitRotamericResidue(_BaseQFit):
             unit_cell = self.xmap.unit_cell
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
-                        [atom.u02[0], atom.u12[0], atom.u22[0]],
-                        ]
+                        [atom.u02[0], atom.u12[0], atom.u22[0]]]
             directions = move_direction_adp(u_matrix, unit_cell)
         except AttributeError:
             directions = np.identity(3)
@@ -436,9 +443,10 @@ class QFitRotamericResidue(_BaseQFit):
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
         starting_coor = segment.coor
+
         for solution in torsion_solutions:
             optimizer.rotator(solution)
-            self._coor_set.append(self.residue.coor)
+            self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
 
     def _sample_angle(self):
@@ -464,7 +472,8 @@ class QFitRotamericResidue(_BaseQFit):
                     mask = (self.residue.e[active] != "H")
                     if np.min(values[mask]) < self.options.density_cutoff:
                         continue
-                if self._cd() or self.residue.clashes():
+                # if self._cd() or self.residue.clashes():
+                if self.residue.clashes():
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
@@ -545,7 +554,8 @@ class QFitRotamericResidue(_BaseQFit):
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < opt.density_cutoff:
                                     continue
-                            if not self._cd() and self.residue.clashes() == 0:
+                            # if not self._cd() and self.residue.clashes() == 0:
+                            if self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
@@ -588,7 +598,6 @@ class QFitRotamericResidue(_BaseQFit):
             iteration += 1
 
     def tofile(self):
-
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
             fname = os.path.join(self.options.directory, f'conformer_{n}.pdb')
@@ -607,6 +616,7 @@ class QFitRotamericResidue(_BaseQFit):
             for altloc, conformer in zip(ascii_uppercase[1:], conformers[1:]):
                 conformer.altloc = altloc
                 mc_residue = mc_residue.combine(conformer)
+
         mc_residue = mc_residue.reorder()
         fname = os.path.join(self.options.directory,
                              f"multiconformer_residue.pdb")
@@ -629,8 +639,8 @@ class QFitSegmentOptions(_BaseQFitOptions):
 
     def __init__(self):
         super().__init__()
-        self.fragment_length = 5
         self.bulk_solvent_level = 0.3
+        self.fragment_length = None
 
 
 class QFitSegment(_BaseQFit):
@@ -642,6 +652,7 @@ class QFitSegment(_BaseQFit):
         self.conformer = structure
         self.xmap = xmap
         self.options = options
+        self.fragment_length = options.fragment_length
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
@@ -672,9 +683,10 @@ class QFitSegment(_BaseQFit):
 
     def __call__(self):
         # Create an empty structure:
+        hetatms = self.segment.extract('record', "HETATM")
         multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
         segment = []
-        for i, rg in enumerate(self.segment.residue_groups):
+        for i, rg in enumerate(self.segment.extract('record',"ATOM").residue_groups):
             altlocs = np.unique(rg.altloc)
             naltlocs = len(altlocs)
             multiconformer = []
@@ -714,24 +726,33 @@ class QFitSegment(_BaseQFit):
 
             # Check if we need to collapse the backbone
             elif CA_single and O_single:
+                # Process the existing segment
+                if len(segment) > 1:
+                    for path in self.find_paths(segment):
+                        multiconformers = multiconformers.combine(path)
+                segment = []
                 collapsed = multiconformer[:]
                 for multi in collapsed:
                     multi = multi.collapse_backbone(multi.resi[0])
-                segment.append(collapsed)
+                multiconformers = multiconformers.combine(multi)
+
             else:
                 segment.append(multiconformer)
+
         if len(segment):
+            print(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
         # self.relabelMCMC(multiconformers)
+        multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
         multiconformers.tofile("test_final.pdb")
         return multiconformers
 
     def find_paths(self, segment_original):
         segment = segment_original[:]
-        fl = self.options.fragment_length
+        fl = self.fragment_length
         while len(segment) > 1:
             n = len(segment)
             fragment_multiconformers = [segment[i: i + fl] for i in range(0, n, fl)]
@@ -743,9 +764,10 @@ class QFitSegment(_BaseQFit):
                     fragment = fragment_conformer[0].set_backbone_occ()
                     for element in fragment_conformer[1:]:
                         fragment = fragment.combine(element.set_backbone_occ())
-                    fragment._init_clash_detection()
-                    if not fragment.clashes():
-                        fragments.append(fragment)
+                    # fragment._init_clash_detection()
+                    # if not fragment.clashes():
+                    fragments.append(fragment)
+
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]

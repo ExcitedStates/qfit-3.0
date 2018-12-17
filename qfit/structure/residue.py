@@ -73,7 +73,7 @@ class _RotamerResidue(_BaseResidue):
         self._init_clash_detection()
         self.i=0
 
-    def _init_clash_detection(self):
+    def _init_clash_detection(self, scaling_factor=0.75):
         # Setup the condensed distance based arrays for clash detection and fill them
         self._ndistances = self.natoms * (self.natoms - 1) // 2
         self._clash_mask = np.ones(self._ndistances, bool)
@@ -96,6 +96,7 @@ class _RotamerResidue(_BaseResidue):
                 if bond1 in bonds or bond2 in bonds:
                     self._clash_mask[index] = False
         self._clash_radius2 *= self._clash_radius2
+        self._clash_radius2 *= scaling_factor
         self._clashing = np.zeros(self._ndistances, bool)
         self._dist2_matrix = np.empty(self._ndistances, float)
 
@@ -126,7 +127,7 @@ class _RotamerResidue(_BaseResidue):
                 u_v = u - coor[j]
                 dm[k] = dot(u_v, u_v)
                 k += 1
-        np.less_equal(dm, self._clash_radius2, self._clashing)
+        np.less_equal(dm, self._clash_radius2 , self._clashing)
         self._clashing &= self._clash_mask
         self._clashing &= self._active_mask
         nclashes = self._clashing.sum()

@@ -189,9 +189,9 @@ class Structure(_BaseStructure):
            other atoms to 1.0"""
         data = {}
         # "Backbone" atoms for the residue:
-        mask = np.isin(self.data['name'], ['CA', 'C', 'N'])
+        mask = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'])
         # Non-"backbone" atoms for the residue:
-        mask2 = np.isin(self.data['name'], ['CA', 'C', 'N'], invert=True)
+        mask2 = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'], invert=True)
         for attr in self.data:
             array1 = getattr(self, attr)
             if attr == 'q':

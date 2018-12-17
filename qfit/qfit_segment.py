@@ -10,19 +10,19 @@ def parse_args():
 
     p = ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
-                   help="Density map in CCP4 or MRC format, or an MTZ file \
-                   containing reflections and phases. For MTZ files \
-                   use the --label options to specify columns to read.")
+                   help="Density map in CCP4 or MRC format, or an MTZ file "
+                   "containing reflections and phases. For MTZ files "
+                   "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
-            help="MTZ column labels to build density.")
+                   help="MTZ column labels to build density.")
     p.add_argument('-o', '--omit', action="store_true",
-            help="Map file is a 2mFo-DFc OMIT map.")
-    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
-            help="Map resolution in angstrom.")
+                   help="Map file is a 2mFo-DFc OMIT map.")
+    p.add_argument('-r', "--resolution", type=float, default=None,
+                   metavar="<float>", help="Map resolution in angstrom.")
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
-            help="Do not scale density.")
+                   help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
@@ -42,7 +42,7 @@ def parse_args():
     p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
             help="Treshold constraint used during MIQP.")
     p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
-            help="Number of subsequent elements used during optimization.")
+                   dest="fragment_length", help="Number of subsequent elements used during optimization.")
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
             help="Directory to store results.")
     p.add_argument("--debug", action="store_true",
