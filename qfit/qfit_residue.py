@@ -62,6 +62,8 @@ def parse_args():
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
                   "values below cutoff value."))
+    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
+            help="Set clash scaling factor. Default = 0.75")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",

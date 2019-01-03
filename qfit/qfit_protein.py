@@ -57,6 +57,8 @@ def parse_args():
                    help=("Remove conformers during sampling that have atoms "
                          "that have no density support for, ie atoms are "
                          "positioned at density values below cutoff value."))
+    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
+            help="Set clash scaling factor. Default = 0.75")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float,
                    metavar="<float>", help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
@@ -71,6 +73,7 @@ def parse_args():
                    action="store_true", help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
                    help="Number of processors to use.")
+    
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int,
