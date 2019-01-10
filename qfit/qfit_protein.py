@@ -59,6 +59,8 @@ def parse_args():
                          "positioned at density values below cutoff value."))
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
+            help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float,
                    metavar="<float>", help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
@@ -73,7 +75,6 @@ def parse_args():
                    action="store_true", help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
                    help="Number of processors to use.")
-    
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int,
@@ -211,7 +212,6 @@ class QFitProtein:
         options.verbose = False
         base_directory = options.directory
         base_density = xmap.array.copy()
-        original_structure = copy.deepcopy(structure)
         for residue in residues:
             if residue.type == 'rotamer-residue':
                 chain = residue.chain[0]
@@ -225,18 +225,19 @@ class QFitProtein:
                 except OSError:
                     pass
 
+                structure_new = copy.deepcopy(structure)
                 altlocs = sorted(list(set(residue.altloc)))
                 if len(altlocs) > 1:
                     try:
                         altlocs.remove('')
                     except ValueError:
                         pass
-                    altloc = altlocs[0]
-                else:
-                    altloc = 'A'
+                    for altloc in altlocs[1:]:
+                        sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                        sel_str = f"not ({sel_str})"
+                        structure_new = structure_new.extract(sel_str)
 
-                structure_new = original_structure.extract('altloc',
-                                                           ('', altloc))
+
 
                 xmap.array[:] = base_density
                 # Prepare X-ray map
@@ -284,10 +285,6 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
-
-    # Remove alternate conformers except for the A conformer
-    structure = structure.extract('altloc', ('', 'A'))
-    structure.altloc = ''
 
     options = QFitProteinOptions()
     options.apply_command_args(args)

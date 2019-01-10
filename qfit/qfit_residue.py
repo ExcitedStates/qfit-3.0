@@ -64,6 +64,8 @@ def parse_args():
                   "values below cutoff value."))
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
+            help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
@@ -141,10 +143,10 @@ def main():
             altlocs.remove('')
         except ValueError:
             pass
-        altloc = altlocs[0]
-    else:
-        altloc = 'A'
-    structure = structure.extract('altloc', ('', altloc))
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure = structure.extract(sel_str)
 
     residue_name = residue.resn[0]
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")

@@ -38,6 +38,8 @@ class _BaseQFitOptions:
 
         # Sampling options
         self.clash_scaling_factor = 0.75
+        self.external_clash = False
+
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
         self.hydro = False
@@ -383,8 +385,10 @@ class QFitRotamericResidue(_BaseQFit):
             new_coor_set = []
             for coor in self._coor_set:
                 self.residue.coor = coor
-                # if not self._cd() and self.residue.clashes() == 0:
-                if self.residue.clashes() == 0:
+                if self.options.external_clash:
+                    if not self._cd() and self.residue.clashes() == 0:
+                        new_coor_set.append(coor)
+                elif self.residue.clashes() == 0:
                     new_coor_set.append(coor)
             self._coor_set = new_coor_set
             self._convert()
@@ -472,8 +476,10 @@ class QFitRotamericResidue(_BaseQFit):
                     mask = (self.residue.e[active] != "H")
                     if np.min(values[mask]) < self.options.density_cutoff:
                         continue
-                # if self._cd() or self.residue.clashes():
-                if self.residue.clashes():
+                if self.options.external_clash:
+                    if self._cd() and self.residue.clashes():
+                        continue
+                elif self.residue.clashes():
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
@@ -554,8 +560,10 @@ class QFitRotamericResidue(_BaseQFit):
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < opt.density_cutoff:
                                     continue
-                            # if not self._cd() and self.residue.clashes() == 0:
-                            if self.residue.clashes() == 0:
+                            if self.options.external_clash:
+                                if not self._cd() and self.residue.clashes() == 0:
+                                    new_coor_set.append(self.residue.coor)
+                            elif self.residue.clashes() == 0:
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
