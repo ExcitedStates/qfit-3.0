@@ -50,11 +50,11 @@ def parse_args():
                    help="Sample N-CA-CB angle.")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
                    type=float, default=0.3, metavar="<float>",
-                   help="Sample N-CA-CB angle.")        
+                   help="Sample N-CA-CB angle.")
     p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
             help="Sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
-                   type=float, default=2.5, metavar="<float>",
+                   type=float, default=3.75, metavar="<float>",
                    help="Sample N-CA-CB angle.")
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
                    type=float, default=7.5, metavar="<float>",
