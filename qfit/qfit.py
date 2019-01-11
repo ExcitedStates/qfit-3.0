@@ -35,11 +35,11 @@ class _BaseQFitOptions:
         self.scattering = 'xray'
         self.omit = False
         self.scale = True
+        self.randomize_b = False
 
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 8
         self.hydro = False
@@ -66,9 +66,14 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         # Backbone sampling
         self.sample_backbone = False
         self.neighbor_residues_required = 2
+        self.sample_backbone_amplitude = 0.30
+        self.sample_backbone_step = 0.1
+        self.sample_backbone_sigma = 0.125
 
         # N-CA-CB angle sampling
         self.sample_angle = False
+        self.sample_angle_range = 7.5
+        self.sample_angle_step = 3.75
 
         # Rotamer sampling
         self.sample_rotamers = True
@@ -135,7 +140,8 @@ class _BaseQFit:
         self.conformer = structure
         self._transformer = Transformer(
             structure, self._xmap_model, smax=self._smax, smin=self._smin,
-            simple=self._simple, scattering=self.options.scattering)
+            simple=self._simple, scattering=self.options.scattering,
+            randomize_b=self.options.randomize_b)
         logger.debug("Initializing radial density lookup table.")
         self._transformer.initialize()
 
@@ -436,8 +442,9 @@ class QFitRotamericResidue(_BaseQFit):
 
         start_coor = atom.coor[0]
         torsion_solutions = []
-        amplitudes = np.linspace(0.10, 0.30, 3, endpoint=True)
-        sigma = 0.125
+        amplitudes = np.arange(0, self.options.sample_backbone_amplitude + 0.01,
+                                 self.options.sample_backbone_step)
+        sigma = self.options.sample_backbone_sigma
         for amplitude, direction in itertools.product(amplitudes, directions):
             endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
@@ -452,6 +459,7 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
+        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -462,7 +470,9 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue._active[selection] = True
         self.residue.update_clash_mask()
         active = self.residue.active
-        angles = np.linspace(-5, 5, 5, endpoint=True)
+        angles = np.arange(-self.options.sample_angle_range,
+                           self.options.sample_angle_range+0.001,
+                           self.options.sample_angle_step)
         new_coor_set = []
 
         for coor in self._coor_set:
@@ -483,6 +493,7 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
+        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
 
     def _sample_sidechain(self):
         opt = self.options
@@ -575,6 +586,7 @@ class QFitRotamericResidue(_BaseQFit):
                 prefix = os.path.join(opt.directory,
                                       f'_conformer_{iteration}.pdb')
                 self._write_intermediate_conformers(prefix=prefix)
+            # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
             # QP
             logger.debug("Converting densities.")
             self._convert()

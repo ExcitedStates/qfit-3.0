@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from numpy.fft import fftn, ifftn, rfftn, irfftn
 from scipy.integrate import fixed_quad
 
@@ -138,7 +139,8 @@ class Transformer:
     """Transform a structure to a density."""
 
     def __init__(self, structure, xmap, smin=None, smax=None, rmax=3.0,
-                 rstep=0.01, simple=False, scattering='xray'):
+                 rstep=0.01, simple=False, scattering='xray',
+                 randomize_b = False):
         self.structure = structure
         self.xmap = xmap
         self.smin = smin
@@ -146,6 +148,7 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
+        self.randomize_b = randomize_b
         if scattering == 'xray':
             self._asf = ATOM_STRUCTURE_FACTORS
         elif scattering == 'electron':
@@ -224,8 +227,14 @@ class Transformer:
 
     def density(self):
         """Transform structure to a density in a xmap."""
-
-        if not self._initialized:
+        if self.randomize_b:
+            add = 0.2 * np.random.rand(self.structure.b.shape[0]) - 0.1
+            self.b_add = np.multiply(self.structure.b, add)
+            b_original = copy.deepcopy(self.structure.b)
+            self.structure.b += self.b_add
+            self.initialize()
+            self.structure.b = b_original
+        elif not self._initialized:
             self.initialize()
 
         self._coor_to_grid_coor()

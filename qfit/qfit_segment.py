@@ -30,8 +30,8 @@ def parse_args():
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
     p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
-            help="Enable external clash detection during sampling.")
-    p.add_argument("-b", "--dofs-per-iteration", type=int, default=1, metavar="<int>",
+            help="Enable external clash detection during consistent segment calculations.")
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=5, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
