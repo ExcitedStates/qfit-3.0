@@ -442,7 +442,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         start_coor = atom.coor[0]
         torsion_solutions = []
-        amplitudes = np.arange(0, self.options.sample_backbone_amplitude + 0.01,
+        amplitudes = np.arange(0.1, self.options.sample_backbone_amplitude + 0.01,
                                  self.options.sample_backbone_step)
         sigma = self.options.sample_backbone_sigma
         for amplitude, direction in itertools.product(amplitudes, directions):
