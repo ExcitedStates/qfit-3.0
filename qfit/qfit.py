@@ -721,14 +721,15 @@ class QFitSegment(_BaseQFit):
                                                                    (altloc, '')
                                                                    ))
                 # Reproducing the code in idmulti.cpp:
-                mask = np.isin(conformer.name, ['CA', 'O'])
-                try:
-                    CA_single = np.linalg.norm(CA_pos-conformer.coor[mask][0])
-                    CA_single = CA_single <= 0.1
-                    O_single = np.linalg.norm(O_pos-conformer.coor[mask][1])
-                    O_single = O_single <= 0.1
-                except TypeError:
-                    CA_pos, O_pos = [coor for coor in conformer.coor[mask]]
+                if (CA_single and O_single):
+                    mask = np.isin(conformer.name, ['CA', 'O'])
+                    try:
+                        CA_single = np.linalg.norm(CA_pos-conformer.coor[mask][0])
+                        CA_single = CA_single <= 0.1
+                        O_single = np.linalg.norm(O_pos-conformer.coor[mask][1])
+                        O_single = O_single <= 0.1
+                    except TypeError:
+                        CA_pos, O_pos = [coor for coor in conformer.coor[mask]]
                 multiconformer.append(conformer)
 
             # Check to see if the residue has a single conformer:
