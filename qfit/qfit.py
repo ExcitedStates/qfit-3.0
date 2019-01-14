@@ -3,6 +3,7 @@ import logging
 import os
 import copy
 from string import ascii_uppercase
+from subprocess import call
 import numpy as np
 
 from .backbone import NullSpaceOptimizer, move_direction_adp
@@ -23,6 +24,7 @@ class _BaseQFitOptions:
         # General options
         self.directory = '.'
         self.debug = False
+        self.label = None
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -81,6 +83,9 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         self.remove_conformers_below_cutoff = True
 
         self.bulk_solvent_level = 0.3
+
+        # Anisotropic refinement using phenix
+        self.phenix_aniso = False
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -291,7 +296,6 @@ class _BaseQFit:
 class QFitRotamericResidue(_BaseQFit):
 
     def __init__(self, residue, structure, xmap, options):
-
         # Check if residue is complete. If not, complete it:
         atoms = residue.name
         for atom in residue._rotamers['atoms']:
@@ -306,6 +310,7 @@ class QFitRotamericResidue(_BaseQFit):
                     print(f"[WARNING] Missing atom {atom} of residue \
                             {residue.resi[0]},{residue.resn[0]}")
                     continue
+
 
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
@@ -754,8 +759,7 @@ class QFitSegment(_BaseQFit):
                 segment = []
                 collapsed = multiconformer[:]
                 for multi in collapsed:
-                    multi = multi.collapse_backbone(multi.resi[0])
-                multiconformers = multiconformers.combine(multi)
+                    multiconformers = multiconformers.combine(multi.collapse_backbone(multi.resi[0]))
 
             else:
                 segment.append(multiconformer)

@@ -34,8 +34,6 @@ def parse_args():
             help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
-    p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
-            help="Randomize B-factors of generated conformers.")
     p.add_argument('-o', '--omit', action="store_true",
             help="Map file is an OMIT map. This affects the scaling procedure of the map.")
 
@@ -46,24 +44,15 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
+            help="Use phenix to perform anisotropic refinement of individual sites."
+                 "This option creates an OMIT map and uses it as a default.")
 
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
             help="Sample backbone using inverse kinematics.")
-    p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
-                   type=float, default=0.1, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
-    p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
-                   type=float, default=0.3, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
     p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
             help="Sample N-CA-CB angle.")
-    p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
-                   type=float, default=3.75, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
-    p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
-                   type=float, default=7.5, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
