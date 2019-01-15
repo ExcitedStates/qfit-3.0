@@ -188,10 +188,16 @@ class Structure(_BaseStructure):
         """Set the "backbone" occupancy to 0 and the occupancy of
            other atoms to 1.0"""
         data = {}
-        # "Backbone" atoms for the residue:
-        mask = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'])
-        # Non-"backbone" atoms for the residue:
-        mask2 = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'], invert=True)
+        if self.resn[0] == 'GLY':
+            # "Backbone" atoms for the residue:
+            mask = np.isin(self.data['name'], ['CA', 'C', 'N', 'H', 'HA'])
+            # Non-"backbone" atoms for the residue:
+            mask2 = np.isin(self.data['name'], ['CA', 'C', 'N', 'H', 'HA'], invert=True)
+        else:
+            # "Backbone" atoms for the residue:
+            mask = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'])
+            # Non-"backbone" atoms for the residue:
+            mask2 = np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'], invert=True)
         for attr in self.data:
             array1 = getattr(self, attr)
             if attr == 'q':

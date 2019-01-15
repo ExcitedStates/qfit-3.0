@@ -3,7 +3,7 @@ import logging
 import os
 import copy
 from string import ascii_uppercase
-from subprocess import call
+import subprocess
 import numpy as np
 
 from .backbone import NullSpaceOptimizer, move_direction_adp
@@ -13,6 +13,9 @@ from .solvers import QPSolver, MIQPSolver, QPSolver2, MIQPSolver2
 from .structure import Structure
 from .transformer import Transformer
 from .validator import Validator
+from .volume import XMap
+from .scaler import MapScaler
+from .relabel import RelabellerOptions, Relabeller
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +28,8 @@ class _BaseQFitOptions:
         self.directory = '.'
         self.debug = False
         self.label = None
+        self.map = None
+
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -296,6 +301,99 @@ class _BaseQFit:
 class QFitRotamericResidue(_BaseQFit):
 
     def __init__(self, residue, structure, xmap, options):
+        self.chain = residue.chain[0]
+        self.resi = residue.resi[0]
+        if options.phenix_aniso:
+            self.prv_resi = structure.resi[(residue._selection[0]-1)]
+            # Identify which atoms to refine anisotropically:
+            if xmap.resolution.high < 1.45:
+                adp = "not (water or element H)"
+            else:
+                adp = f"chain {self.chain} and resid {self.resi}"
+
+            # Generate the parameter file for phenix refinement:
+            labels = options.label.split(",")
+            with open(f"chain_{self.chain}_res_{self.resi}_adp.params", "w") as params:
+                params.write("refinement {\n")
+                params.write("  electron_density_maps {\n")
+                params.write("    map_coefficients {\n")
+                params.write(f"      mtz_label_amplitudes = {labels[0]}\n")
+                params.write(f"      mtz_label_phases = {labels[1]}\n")
+                params.write("      map_type = 2mFo-DFc\n")
+                params.write("    }\n  }\n")
+                params.write("  refine {\n")
+                params.write("    strategy = *individual_sites *individual_adp\n")
+                params.write("    adp {\n")
+                params.write("      individual {\n")
+                params.write(f"        anisotropic = {adp}\n")
+                params.write("      }\n    }\n  }\n}\n")
+            params.close()
+
+            # Set the occupancy of structure to zero for omit map calculation
+            out_root= f'out_{self.chain}_{self.resi}'
+            structure.tofile(f'{out_root}.pdb')
+            subprocess.run(["phenix.pdbtools",
+                            f'modify.selection=\"chain {self.chain} and'
+                            f'( resseq {self.resi} and not '
+                            f'( name n or name ca or name c or name o or name cb )'
+                            f' or ( resseq {self.prv_resi} and name n) )\"',
+                            "modify.occupancies.set=0",
+                            "stop_for_unknowns=False",
+                            f"{out_root}.pdb",
+                            f"output.file_name={out_root}_modified.pdb"])
+
+            # Add hydrogens to the structure:
+            out_mod_H = open(f"{out_root}_modified_H.pdb", "w")
+            subprocess.run(["phenix.reduce", f"{out_root}_modified.pdb"],
+                            stdout=out_mod_H)
+            out_mod_H.close()
+
+            # Generate CIF file of unknown ligands for refinement:
+            subprocess.run(["phenix.elbow", "--do_all",
+                            f"{out_root}_modified_H.pdb"])
+            # Run the refinement protocol:
+            if os.path.isfile(f'elbow.{out_root}_modified_H_pdb.all.001.cif'):
+                elbow = f'elbow.{out_root}_modified_H_pdb.all.001.cif'
+                subprocess.run(["phenix.refine",
+                                f'{options.map}',
+                                f'{out_root}_modified_H.pdb',
+                                "--overwrite",
+                                f'chain_{self.chain}_res_{self.resi}_adp.params',
+                                f'refinement.input.xray_data.labels=F-obs',
+                                f'{elbow}'])
+            else:
+                # Run the refinement protocol:
+                subprocess.run(["phenix.refine",
+                                f'{options.map}',
+                                f'{out_root}_modified_H.pdb',
+                                "--overwrite",
+                                f'chain_{self.chain}_res_{self.resi}_adp.params',
+                                f'refinement.input.xray_data.labels=F-obs'])
+            # Reload structure and xmap as omit map:
+            structure = Structure.fromfile(f'{out_root}_modified_H_refine_001.pdb').reorder()
+            if not options.hydro:
+                structure = structure.extract('e', 'H', '!=')
+            structure_resi = structure.extract(f'resi {self.resi} and chain {self.chain}')
+            if residue.icode[0]:
+                structure_resi = structure_resi.extract('icode', residue.icode[0])
+            chain = structure_resi[self.chain]
+            conformer = chain.conformers[0]
+            if residue.icode[0]:
+                residue_id = (int(self.resi), residue.icode[0])
+                residue = conformer[residue_id]
+            else:
+                residue = conformer[int(self.resi)]
+
+            xmap = XMap.fromfile(f'{out_root}_modified_H_refine_001.mtz',
+                                 resolution=None, label=options.label)
+            xmap = xmap.canonical_unit_cell()
+            if options.scale:
+                # Prepare X-ray map
+                scaler = MapScaler(xmap, scattering=options.scattering)
+                footprint = structure_resi
+                scaler.scale(footprint, radius=1)
+            xmap = xmap.extract(residue.coor, padding=5)
+
         # Check if residue is complete. If not, complete it:
         atoms = residue.name
         for atom in residue._rotamers['atoms']:
@@ -740,7 +838,7 @@ class QFitSegment(_BaseQFit):
             # Check to see if the residue has a single conformer:
             if naltlocs == 1:
                 # Process the existing segment
-                if len(segment) > 1:
+                if len(segment):
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
                 segment = []
@@ -753,7 +851,7 @@ class QFitSegment(_BaseQFit):
             # Check if we need to collapse the backbone
             elif CA_single and O_single:
                 # Process the existing segment
-                if len(segment) > 1:
+                if len(segment):
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
                 segment = []
@@ -768,8 +866,29 @@ class QFitSegment(_BaseQFit):
             print(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
+        '''
+        for chain in multiconformers:
+            for residue in chain:
+                altlocs = list(set(residue.altloc))
+                try:
+                    altlocs.remove('')
+                except:
+                    pass
+                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                conformers = [multiconformers.extract(sel_str + x) for x in altlocs]
+                for i in range(len(conformers)):
+                    for j in range(i+1,len(conformers)):
+                        try:
+                            if np.sum( np.linalg(conformers[i].coor - conformers[j].coor,axis=1) ) < 0.1:
+                                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc {conformers[j].altloc[0]} "
+                                sel_str = f"not ({sel_str})"
+                                print(f"{conformers[i].altloc[0]} {conformers[j].altloc[0]}")
+                                print(f"Identical conformers for residue {residue.resi[0]}:")
+                                multiconformer = multiconformer.extract(sel_str)'''
 
-        # self.relabelMCMC(multiconformers)
+        relab_options = RelabellerOptions()
+        relabeller = Relabeller(multiconformers, relab_options)
+        multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
         multiconformers.tofile("test_final.pdb")

@@ -3,8 +3,8 @@ import sys
 import numpy as np
 import random
 import copy
-from vdw_radii import vdwRadiiTable, EpsilonTable
-from structure import Structure
+from .vdw_radii import vdwRadiiTable, EpsilonTable
+from .structure import Structure
 
 
 def cartesian_product(*arrays):
@@ -36,9 +36,9 @@ def update_progress(progress):
 
 
 class RelabellerOptions:
-    def __init__(self):
-        self.nSims  = 10000
-        self.nChains= 10
+    def __init__(self, nSims=10000, nChains=10):
+        self.nSims = nSims
+        self.nChains = nChains
 
     def apply_command_args(self, args):
 
@@ -76,13 +76,13 @@ class Relabeller:
                 self.permutation.append(resInd)
 
     def initMetric(self):
-        print("Calculating all possible Van der Waals interactions:")
+        # print("Calculating all possible Van der Waals interactions:")
         for i in range(len(self.nodes)):
             for j in range(i+1,len(self.nodes)):
                 if self.nodes[i].resi[0]!=self.nodes[j].resi[0] or self.nodes[i].chain[0]!=self.nodes[j].chain[0]:
                     self.metric[i][j] = self.calc_energy(self.nodes[i],self.nodes[j])
                     self.metric[j][i] = self.metric[i][j]
-            update_progress(i/len(self.nodes))
+            # update_progress(i/len(self.nodes))
 
 
     def vdw_energy(self,atom1, atom2, coor1, coor2):
@@ -118,10 +118,10 @@ class Relabeller:
 
         # Sum the energy of each cluster:
         energyList.append(np.sum(energies))
-        print(f"Starting energy: {energyList[-1]}")
+        # print(f"Starting energy: {energyList[-1]}")
 
         for i in range(self.nSims):
-            update_progress(i/self.nSims)
+            # update_progress(i/self.nSims)
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
@@ -149,7 +149,7 @@ class Relabeller:
                 permutation = copy.deepcopy(tmpPerm)
                 energyList.append(np.sum(energies))
 
-        print(f"Locally optimal energy: {energyList[-1]}")
+        # print(f"Locally optimal energy: {energyList[-1]}")
         return energyList[-1], permutation
 
     def run(self):
@@ -157,7 +157,7 @@ class Relabeller:
         energyList = []
 
         for i in range(self.nChains):
-            print(f"\nRunning iteration {i+1} of Simulated Annealing")
+            # print(f"\nRunning iteration {i+1} of Simulated Annealing")
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)
@@ -184,6 +184,7 @@ class Relabeller:
                 res+=1
         self.structure.reorder()
         self.structure.tofile("Test_relabel.pdb")
+        return self.structure
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
