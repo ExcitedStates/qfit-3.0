@@ -596,7 +596,11 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
+        #print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
+        if len(self._coor_set) > 1000:
+            print("[WARNING] Large number of conformers have been generated. Run times may be slow."
+                  "Please, consider changing sampling parameters and re-running qFit.")
+
 
     def _sample_sidechain(self):
         opt = self.options
@@ -690,6 +694,7 @@ class QFitRotamericResidue(_BaseQFit):
                                       f'_conformer_{iteration}.pdb')
                 self._write_intermediate_conformers(prefix=prefix)
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
+
             # QP
             logger.debug("Converting densities.")
             self._convert()
@@ -866,32 +871,30 @@ class QFitSegment(_BaseQFit):
             print(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
-        '''
+
+        multiconformers = multiconformers.reorder()
         for chain in multiconformers:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 try:
                     altlocs.remove('')
-                except:
+                except ValueError:
                     pass
                 sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                 conformers = [multiconformers.extract(sel_str + x) for x in altlocs]
                 for i in range(len(conformers)):
                     for j in range(i+1,len(conformers)):
-                        try:
-                            if np.sum( np.linalg(conformers[i].coor - conformers[j].coor,axis=1) ) < 0.1:
-                                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc {conformers[j].altloc[0]} "
-                                sel_str = f"not ({sel_str})"
-                                print(f"{conformers[i].altloc[0]} {conformers[j].altloc[0]}")
-                                print(f"Identical conformers for residue {residue.resi[0]}:")
-                                multiconformer = multiconformer.extract(sel_str)'''
+                        if np.sum( np.linalg.norm(conformers[i].coor - conformers[j].coor, axis=1) ) < 0.01:
+                            sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc {conformers[j].altloc[0]} "
+                            sel_str = f"not ({sel_str})"
+                            multiconformers = multiconformers.extract(sel_str)
 
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
-        multiconformers.tofile("test_final.pdb")
+        # multiconformers.tofile("test_final.pdb")
         return multiconformers
 
     def find_paths(self, segment_original):
