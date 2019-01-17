@@ -813,6 +813,7 @@ class QFitSegment(_BaseQFit):
     def __call__(self):
         # Create an empty structure:
         hetatms = self.segment.extract('record', "HETATM")
+        print(self.segment.average_conformers(),end=' ')
         multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
         segment = []
         for i, rg in enumerate(self.segment.extract('record',"ATOM").residue_groups):
@@ -873,8 +874,10 @@ class QFitSegment(_BaseQFit):
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
+        print(multiconformers.average_conformers(),end=' ')
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
+        print(multiconformers.average_conformers())
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()

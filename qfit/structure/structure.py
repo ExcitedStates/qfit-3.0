@@ -302,6 +302,23 @@ class Structure(_BaseStructure):
             data[attr] = value[ordering]
         return Structure(data)
 
+    def remove_conformer(self, resi, chain, altloc1, altloc2):
+        data = {}
+        mask = ((self.data['resi'] == resi)
+                & (self.data['chain'] == chain)
+                & (self.data['altloc'] == altloc1))
+        mask2 = ((self.data['resi'] == resi)
+                 & (self.data['chain'] == chain)
+                 & (self.data['altloc'] == altloc2))
+
+        for attr in self.data:
+            array1 = getattr(self, attr)
+            if attr == 'q':
+                array1[mask] = array1[mask] + array1[mask2]
+            data[attr] = array1[~mask2]
+
+        return Structure(data)
+
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
         for chain in multiconformer:
@@ -316,11 +333,24 @@ class Structure(_BaseStructure):
                 for i in range(len(conformers)):
                     for j in range(i+1,len(conformers)):
                         if np.sum( np.linalg.norm(conformers[i].coor - conformers[j].coor, axis=1) ) < rmsd_cutoff:
-                            sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc {conformers[j].altloc[0]} "
-                            sel_str = f"not ({sel_str})"
-                            multiconformer = multiconformer.extract(sel_str)
+                            multiconformer = multiconformer.remove_conformer(
+                                residue.resi[0],
+                                residue.chain[0],
+                                conformers[i].altloc[0],
+                                conformers[j].altloc[0]
+                            )
         return multiconformer
 
+    def average_conformers(self):
+        total_res = 0.0
+        total_altlocs = 0.0
+        for chain in self:
+            for residue in chain:
+                total_res += 1
+                altlocs = list(set(residue.altloc))
+                total_altlocs += len(altlocs)
+        return total_altlocs/total_res
+        
     def _init_clash_detection(self):
         # Setup the condensed distance based arrays for clash detection and
         # fill them
