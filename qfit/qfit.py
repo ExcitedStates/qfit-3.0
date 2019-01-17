@@ -769,6 +769,7 @@ class QFitSegmentOptions(_BaseQFitOptions):
         super().__init__()
         self.bulk_solvent_level = 0.3
         self.fragment_length = None
+        self.rmsd_cutoff = 0.01
 
 
 class QFitSegment(_BaseQFit):
@@ -873,28 +874,12 @@ class QFitSegment(_BaseQFit):
                 multiconformers = multiconformers.combine(path)
 
         multiconformers = multiconformers.reorder()
-        for chain in multiconformers:
-            for residue in chain:
-                altlocs = list(set(residue.altloc))
-                try:
-                    altlocs.remove('')
-                except ValueError:
-                    pass
-                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
-                conformers = [multiconformers.extract(sel_str + x) for x in altlocs]
-                for i in range(len(conformers)):
-                    for j in range(i+1,len(conformers)):
-                        if np.sum( np.linalg.norm(conformers[i].coor - conformers[j].coor, axis=1) ) < 0.01:
-                            sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc {conformers[j].altloc[0]} "
-                            sel_str = f"not ({sel_str})"
-                            multiconformers = multiconformers.extract(sel_str)
-
+        multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
-        # multiconformers.tofile("test_final.pdb")
         return multiconformers
 
     def find_paths(self, segment_original):

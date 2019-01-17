@@ -183,7 +183,7 @@ class Relabeller:
                 residue.altloc=copy.deepcopy(tmpAltlocs)
                 res+=1
         self.structure.reorder()
-        self.structure.tofile("Test_relabel.pdb")
+        # self.structure.tofile("Test_relabel.pdb")
         return self.structure
 
 def parse_args():

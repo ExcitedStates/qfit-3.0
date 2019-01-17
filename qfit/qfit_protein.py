@@ -93,6 +93,8 @@ def parse_args():
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int,
                    default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
+            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',

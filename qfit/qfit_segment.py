@@ -57,6 +57,9 @@ def parse_args():
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
     p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
             help="Use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
+            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
+
 
     args = p.parse_args()
 
@@ -88,8 +91,9 @@ def main():
     xmap = xmap.extract(structure.coor, padding=5)
 
     qfit = QFitSegment(structure, xmap, options)
-    qfit()
+    multiconformer = qfit()
     # Write to file
+    multiconformer.tofile("multiconformer_model2.pdb")
 
 if __name__ == '__main__':
     main()
