@@ -79,7 +79,7 @@ def parse_args():
                    metavar="<float>", help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
                    help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.3,
+    p.add_argument("-t", "--threshold", type=float, default=0.2,
                    metavar="<float>", help="Treshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
                    help="Include hydrogens during calculations.")

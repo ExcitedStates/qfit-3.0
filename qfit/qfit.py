@@ -54,7 +54,7 @@ class _BaseQFitOptions:
         # MIQP options
         self.cplex = True
         self.cardinality = None
-        self.threshold = 0.30
+        self.threshold = 0.20
         self.bic_threshold = False
 
     def apply_command_args(self, args):

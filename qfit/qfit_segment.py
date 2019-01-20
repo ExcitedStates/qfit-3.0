@@ -43,7 +43,7 @@ def parse_args():
             help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
+    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Treshold constraint used during MIQP.")
     p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
                    dest="fragment_length", help="Number of subsequent elements used during optimization.")
