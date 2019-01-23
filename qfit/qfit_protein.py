@@ -141,10 +141,10 @@ class QFitProtein:
         self.options = options
 
     def run(self):
-
         multiconformer = self._run_qfit_residue()
-        self.options.bic_threshold = False
-        multiconformer = self._run_qfit_segment(multiconformer)
+        structure = Structure.fromfile('multiconformer_model.pdb').reorder()
+        structure = structure.extract('e', 'H', '!=')
+        multiconformer = self._run_qfit_segment(structure)
         return multiconformer
 
     def _run_qfit_residue(self):
@@ -208,6 +208,7 @@ class QFitProtein:
                 print("File not found!", fname)
                 pass
         hetatms = self.structure.extract('record', 'HETATM', '==')
+        hetatms = hetatms.combine(self.structure.extract('resn', "HOH"))
         multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
@@ -215,7 +216,8 @@ class QFitProtein:
         return multiconformer
 
     def _run_qfit_segment(self, multiconformer):
-
+        self.options.randomize_b = False
+        self.options.bic_threshold = False
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
@@ -232,10 +234,10 @@ class QFitProtein:
             if residue.type == 'rotamer-residue':
                 chain = residue.chain[0]
                 resi, icode = residue.id
-                identifyer = f"{chain}_{resi}"
+                identifier = f"{chain}_{resi}"
                 if icode:
-                    identifyer += f'_{icode}'
-                options.directory = os.path.join(base_directory, identifyer)
+                    identifier += f'_{icode}'
+                options.directory = os.path.join(base_directory, identifier)
                 try:
                     os.makedirs(options.directory)
                 except OSError:

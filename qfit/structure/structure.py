@@ -344,13 +344,14 @@ class Structure(_BaseStructure):
     def average_conformers(self):
         total_res = 0.0
         total_altlocs = 0.0
-        for chain in self:
-            for residue in chain:
-                total_res += 1
-                altlocs = list(set(residue.altloc))
-                total_altlocs += len(altlocs)
+        for i, rg in enumerate(self.extract('record',"ATOM").residue_groups):
+            total_res += 1
+            altlocs = list(set(rg.altloc))
+            if '' in altlocs and len(altlocs) > 1:
+                altlocs.remove('')
+            total_altlocs += len(altlocs)
         return total_altlocs/total_res
-        
+
     def _init_clash_detection(self):
         # Setup the condensed distance based arrays for clash detection and
         # fill them

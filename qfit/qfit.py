@@ -16,6 +16,8 @@ from .validator import Validator
 from .volume import XMap
 from .scaler import MapScaler
 from .relabel import RelabellerOptions, Relabeller
+from .structure.rotamers import ROTAMERS
+
 
 logger = logging.getLogger(__name__)
 
@@ -390,7 +392,10 @@ class QFitRotamericResidue(_BaseQFit):
             if options.scale:
                 # Prepare X-ray map
                 scaler = MapScaler(xmap, scattering=options.scattering)
-                footprint = structure_resi
+                sel_str = f"resi {self.resi} and chain {self.chain}"
+                sel_str = f"not ({sel_str})"
+                footprint = structure.extract(sel_str)
+                footprint = footprint.extract('record', 'ATOM')
                 scaler.scale(footprint, radius=1)
             xmap = xmap.extract(residue.coor, padding=5)
 
@@ -813,10 +818,17 @@ class QFitSegment(_BaseQFit):
     def __call__(self):
         # Create an empty structure:
         hetatms = self.segment.extract('record', "HETATM")
-        print(self.segment.average_conformers(),end=' ')
-        multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
+        hetatms = hetatms.combine(self.segment.extract('resn', "HOH"))
+        print(f'Average number of conformers before qfit_segment run: '
+              f'{self.segment.average_conformers():.2f}')
+        multiconformers = Structure.fromstructurelike(
+                    self.segment.extract('altloc', "Z"))
         segment = []
-        for i, rg in enumerate(self.segment.extract('record',"ATOM").residue_groups):
+        for i, rg in enumerate(self.segment.extract('record',
+                                                    "ATOM").residue_groups):
+            if rg.resn[0] not in ROTAMERS:
+                multiconformers = multiconformers.combine(rg)
+                continue
             altlocs = np.unique(rg.altloc)
             naltlocs = len(altlocs)
             multiconformer = []
@@ -825,7 +837,7 @@ class QFitSegment(_BaseQFit):
             CA_pos = None
             O_pos = None
             for altloc in altlocs:
-                if not altloc and naltlocs > 1:
+                if altloc == '' and naltlocs > 1:
                     continue
                 conformer = Structure.fromstructurelike(rg.extract('altloc',
                                                                    (altloc, '')
@@ -833,11 +845,16 @@ class QFitSegment(_BaseQFit):
                 # Reproducing the code in idmulti.cpp:
                 if (CA_single and O_single):
                     mask = np.isin(conformer.name, ['CA', 'O'])
+                    if np.sum(mask) > 2:
+                        print("f[WARNING] Conformer {altloc} of residue"
+                              f"{rg.resi[0]} has more than one coordinate"
+                              f" for CA/O atoms.")
+                        mask = mask[:2]
                     try:
                         CA_single = np.linalg.norm(CA_pos-conformer.coor[mask][0])
-                        CA_single = CA_single <= 0.1
+                        CA_single = CA_single <= 0.05
                         O_single = np.linalg.norm(O_pos-conformer.coor[mask][1])
-                        O_single = O_single <= 0.1
+                        O_single = O_single <= 0.05
                     except TypeError:
                         CA_pos, O_pos = [coor for coor in conformer.coor[mask]]
                 multiconformer.append(conformer)
@@ -874,10 +891,10 @@ class QFitSegment(_BaseQFit):
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
-        print(multiconformers.average_conformers(),end=' ')
+        print(f'Average number of conformers after qfit_segment run: {multiconformers.average_conformers():.2f}')
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
-        print(multiconformers.average_conformers())
+        print(f'Average number of conformers after removal of identical conformers: {multiconformers.average_conformers():.2f}')
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
@@ -888,6 +905,9 @@ class QFitSegment(_BaseQFit):
     def find_paths(self, segment_original):
         segment = segment_original[:]
         fl = self.fragment_length
+        possible_conformers = list(map(chr, range(65, 90)))
+        possible_conformers = possible_conformers[0:int(
+            round(1./self.options.threshold))]
         while len(segment) > 1:
             n = len(segment)
             fragment_multiconformers = [segment[i: i + fl] for i in range(0, n, fl)]
@@ -899,8 +919,6 @@ class QFitSegment(_BaseQFit):
                     fragment = fragment_conformer[0].set_backbone_occ()
                     for element in fragment_conformer[1:]:
                         fragment = fragment.combine(element.set_backbone_occ())
-                    # fragment._init_clash_detection()
-                    # if not fragment.clashes():
                     fragments.append(fragment)
 
                 # We have the fragments, select consistent optimal set
@@ -910,8 +928,12 @@ class QFitSegment(_BaseQFit):
                 self._convert()
                 self._solve()
                 # Update conformers
-                fragments = np.array(fragments)[self._occupancies >= 0.002]
-                self._update_conformers()
+                fragments = np.array(fragments)
+                mask = self._occupancies >= 0.002
+                fragments = fragments[mask]
+                self._coor_set = [fragment.coor for fragment in fragments]
+                self._occupancies = self._occupancies[mask]
+                # self.print_paths(fragments)
                 # MIQP
                 self._convert()
                 self._solve(cardinality=self.options.cardinality,
@@ -923,8 +945,7 @@ class QFitSegment(_BaseQFit):
                     fragment.q = occ
                 segment.append(fragments[mask])
 
-        # self.print_paths(segment[0])
-        for path, altloc in zip(segment[0], ["A", "B", "C", "D", "E"]):
+        for path, altloc in zip(segment[0],possible_conformers ):
             path.altloc = altloc
         return segment[0]
 
@@ -933,10 +954,10 @@ class QFitSegment(_BaseQFit):
         for k, fragment in enumerate(segment):
             path = []
             for i, residue_altloc in enumerate(fragment.altloc):
-                if fragment.name[i] == "N":
+                if fragment.name[i] == "CA":
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
-            print(f"Path {k+1}:\t{ path }\t{fragment.q[0]}")
+            print(f"Path {k+1}:\t{ path }\t{fragment.q[-1]}")
 
 
 class QFitLigand(_BaseQFit):
