@@ -200,7 +200,8 @@ class _BaseQFit:
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
-    def _solve(self, cardinality=None, threshold=None):
+    def _solve(self, cardinality=None, threshold=None,
+               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
         do_qp = cardinality is threshold is None
         if do_qp:
             if self.options.cplex:
@@ -219,7 +220,7 @@ class _BaseQFit:
             # Treshold Selection by BIC:
             if self.options.bic_threshold:
                 self.BIC = np.inf
-                for threshold in [0.5, 0.4, 0.33, 0.3, 0.25, 0.2]:
+                for threshold in loop_range:
                     solver(cardinality=None, threshold=threshold)
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
@@ -818,7 +819,6 @@ class QFitSegment(_BaseQFit):
     def __call__(self):
         # Create an empty structure:
         hetatms = self.segment.extract('record', "HETATM")
-        hetatms = hetatms.combine(self.segment.extract('resn', "HOH"))
         print(f'Average number of conformers before qfit_segment run: '
               f'{self.segment.average_conformers():.2f}')
         multiconformers = Structure.fromstructurelike(
@@ -937,7 +937,8 @@ class QFitSegment(_BaseQFit):
                 # MIQP
                 self._convert()
                 self._solve(cardinality=self.options.cardinality,
-                            threshold=self.options.threshold)
+                            threshold=self.options.threshold,
+                            loop_range=[0.3, 0.25, 0.2, 0.16, 0.14, 0.12])
                 # Update conformers
                 mask = self._occupancies >= 0.002
                 for fragment, occ in zip(fragments[mask],

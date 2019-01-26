@@ -208,7 +208,9 @@ class QFitProtein:
                 print("File not found!", fname)
                 pass
         hetatms = self.structure.extract('record', 'HETATM', '==')
-        hetatms = hetatms.combine(self.structure.extract('resn', "HOH"))
+        waters = self.structure.extract('record', "ATOM")
+        waters = waters.extract('resn', "HOH")
+        hetatms = hetatms.combine(waters)
         multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
@@ -218,6 +220,7 @@ class QFitProtein:
     def _run_qfit_segment(self, multiconformer):
         self.options.randomize_b = False
         self.options.bic_threshold = False
+        self.options.threshold = 0.2
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,

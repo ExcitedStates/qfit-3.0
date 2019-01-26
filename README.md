@@ -1,4 +1,4 @@
-# qFit
+# qFit 3.0.0 (Version alpha)
 
 ## Requirements
 

@@ -22,8 +22,8 @@ def main():
 
     setup(name="qfit",
           version='3.0.0',
-          author='Gydo C.P. van Zundert',
-          author_email='gydo.vanzundert@schrodinger.com',
+          author='Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
+          author_email='saulo@stanford.edu',
           packages=packages,
           package_data=package_data,
           ext_modules=ext_modules,
@@ -38,6 +38,7 @@ def main():
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
                   'edia = qfit.edia:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
+                  'normalize_occupancies = qfit.normalize_occupancies:main',
               ]
           },)
 
