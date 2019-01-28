@@ -20,6 +20,8 @@ def parse_args():
                    metavar="<dir>", help="Directory to store results.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument('-occ', "--occ_cutoff", type=float, default=0.01, metavar="<float>",
+            help="Remove conformers with occupancies below occ_cutoff. Default = 0.01")
     args = p.parse_args()
 
     return args
@@ -52,7 +54,7 @@ def main():
         else:
             for altloc in altlocs:
                 mask = (rg.altloc == altloc)
-                if rg.q[mask][0] < 0.01:
+                if rg.q[mask][0] < args.occ_cutoff:
                     to_remove.append([rg.resi[mask][0], rg.chain[mask][0],
                                       rg.altloc[mask][0]])
                 else:
