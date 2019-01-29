@@ -58,6 +58,7 @@ class _BaseQFitOptions:
         self.cardinality = None
         self.threshold = 0.20
         self.bic_threshold = False
+        self.seg_bic_threshold = False
 
     def apply_command_args(self, args):
 

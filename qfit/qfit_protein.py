@@ -95,7 +95,8 @@ def parse_args():
                    default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
-
+    p.add_argument("-Ts", "--segment-threshold-selection", dest="seg_bic_threshold",
+                   action="store_true", help="Use BIC to select the most parsimonious MIQP threshold (segment)")
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
                    metavar="<dir>", help="Directory to store results.")
@@ -219,7 +220,7 @@ class QFitProtein:
 
     def _run_qfit_segment(self, multiconformer):
         self.options.randomize_b = False
-        self.options.bic_threshold = False
+        self.options.bic_threshold = self.options.seg_bic_threshold
         self.options.threshold = 0.2
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
