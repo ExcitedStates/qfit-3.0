@@ -53,10 +53,50 @@ conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please, refer below for a few use case examples
 to understand which tool is best suited for your needs.
 
+To remove single-conformer model bias, qFit should be used with a composite omit
+map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
+
+`phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
+
 An example test case (3K0N) can be found in the *example* directory.
 
+### 1. Recommended settings
 
-### 1. Modelling alternate conformers for a residue of interest (faster, not as precise)
+To model alternate conformers for all residues in a protein of interest using qFit,
+the following command should be used:
+
+`qfit_protein [MAP_FILE] -l FWT,PHWT [PDB_FILE] -bb -sa -T -s 5 -rb`
+
+This command will produce a multiconformer model that spans the entirety of the
+input target protein. You will encounter two output files of interest in the
+directory where this command was run: *multiconformer_model.pdb* and
+*multiconformer_model2.pdb*.
+
+If you wish to specify a different directory for the output, this can be done
+using the flag *-d*.
+
+The *multiconformer_model.pdb* contains the output of running the qfit_residue
+routine for every protein residue. This file may contain up to five alternate
+conformers per residue. However, some of these conformers may be spurious as
+ alternate conformers of neighboring residues are not consistent with regards to
+ each other.
+
+After calculating the conformers described in *multiconformer_model.pdb*,
+qfit_protein identifies consistent protein segments, where some of the spurious,
+overlapping conformers, are discarded. The final model, with the consistent
+multiconformer model is *multiconformer_model2.pdb*. This file should then
+be used as input to the refinement script provided in *./scripts*.   
+
+By default, qFit uses expects the labels FWT,PHWT to be present in the input map.
+Different labels can be set accordingly using the flag *-l*.
+
+Using the example 3K0N:
+
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -T -s 5 -rb`
+
+
+
+### 2. Modelling alternate conformers for a residue of interest (faster, not as precise)
 
 
 `qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN]`
@@ -73,7 +113,7 @@ for residue 113 of chain A of 3K0N.
 
 
 -------------
-### 2. Using a map file in ".ccp4" format as input for qFit
+### 3. Using a map file in ".ccp4" format as input for qFit
 
 qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
@@ -91,7 +131,7 @@ Using the example 3K0N:
 
 -------------
 
-### 3. Activate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (slower, more precise)
+### 4. Activate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (slower, more precise)
 
 
 In its default mode, *qfit_residue* only samples side chain conformations.
@@ -111,53 +151,19 @@ Other useful sampling parameters that can be tweaked:
 * Rotamer neighborhood sampled: *-rn* flag (default: 40)
 * Parsimonious selection of the number of conformers output by qFit using the Bayesian
 Information Criterion (BIC): *-T* flag.
+* Randomize the b-factors of generated conformers: *-rb* flag (recommended).
 
 
 Using the example 3K0N:
 
 
-`qfit_residue /path/to/3K0N.mtz /path/to/3K0N.pdb A,113 -bb -sa -s 5 -T -rn 45`
+`qfit_residue /path/to/3K0N.mtz /path/to/3K0N.pdb A,113 -bb -sa -s 5 -T -rb -rn 45`
 
 
 For a full list of options, run:
 
 `qfit_residue -h`
 
--------------
-
-### 4. Modeling alternate conformers for all residues in a protein of interest
-
-
-`qfit_protein [MAP_FILE] [PDB_FILE]`
-
-
-This command will produce a multiconformer model that spans the entirety of your
-target protein, as described in the PDB file. You will encounter two output files
-of interest in the directory where this command was run: *multiconformer_model.pdb*
-and *multiconformer_model2.pdb*.
-
-
-If you wish to specify a different directory for the output, this can be done
-using the flag *-d*.
-
-
-The *multiconformer_model.pdb* contains the output of running the qfit_residue
-routine for every protein residue. This file may contain up to five alternate
-conformers per residue. However, some of these conformers may be spurious as
- alternate conformers of neighboring residues are not consistent with regards to
- each other.
-
-
-After calculating the conformers described in *multiconformer_model.pdb*,
-qfit_protein identifies consistent protein segments, where some of the spurious,
-overlapping conformers, are discarded. The final model, with the consistent
-multiconformer model is *multiconformer_model2.pdb*.
-
-
-Using the example 3K0N:
-
-
-`qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb`
 
 -------------
 
@@ -210,7 +216,7 @@ To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
 
-`qfit_ligad [MAP_FILE] [PDB_FILE] [LIGAND,CHAIN]`
+`qfit_ligand [MAP_FILE] [PDB_FILE] [LIGAND,CHAIN]`
 
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
@@ -227,7 +233,7 @@ original source code and its full license.
 The `elements.py` is licensed under MIT, Copyright (c) 2005-2015, Christoph
 Gohlke. See file header.
 
-The `LoopTK` package has been a major inspiration for the inverse kinematics
+The `Xpleo` software and `LoopTK` package have been major inspirations for the inverse kinematics
 functionality.
 
 [1]: https://www-01.ibm.com/software/websphere/products/optimization/cplex-studio-community-edition/ "IBM website"
