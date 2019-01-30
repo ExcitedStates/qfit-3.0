@@ -80,7 +80,7 @@ class _BaseQFitOptions:
 
         # MIQP options
         self.cplex = True
-        self.cardinality = None
+        self.cardinality = 5
         self.threshold = 0.20
         self.bic_threshold = False
         self.seg_bic_threshold = True

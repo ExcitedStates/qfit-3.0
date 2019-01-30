@@ -94,7 +94,12 @@ Using the example 3K0N:
 
 `qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -T -s 5 -rb`
 
+After *multiconformer_model2.pdb* has been generated, refine this model using:
 
+`/path/to/qfit-3.0/scripts/post_refine_phenix.csh multiconformer_model2.pdb /path/to/3K0N.mtz IOBS SIGIOBS`
+
+Bear in mind that this final step currently depends on an existing installation
+of the Phenix software suite. We plan to remove this dependency in future releases.
 
 ### 2. Modelling alternate conformers for a residue of interest (faster, not as precise)
 

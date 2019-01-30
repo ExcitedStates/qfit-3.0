@@ -120,8 +120,9 @@ def parse_args():
                    default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
-    p.add_argument("-Ts", "--segment-threshold-selection", dest="seg_bic_threshold",
-                   action="store_true", help="Use BIC to select the most parsimonious MIQP threshold (segment)")
+    p.add_argument("-Ts", "--no-segment-threshold-selection", dest="seg_bic_threshold",
+                   action="store_false", help="Do not use BIC to select the most "
+                   "parsimonious MIQP threshold (segment)")
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
                    metavar="<dir>", help="Directory to store results.")
@@ -280,13 +281,11 @@ class QFitProtein:
                     except ValueError:
                         pass
                     for altloc in altlocs[1:]:
-                        sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                        sel_str = f"resi {resi} and chain {chain} and altloc {altloc}"
                         sel_str = f"not ({sel_str})"
                         structure_new = structure_new.extract(sel_str)
 
-
-
-                xmap.array[:] = base_density
+                xmap.array = copy.deepcopy(base_density)
                 # Prepare X-ray map
                 if options.scale:
                     # Prepare X-ray map
