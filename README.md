@@ -55,7 +55,7 @@ to understand which tool is best suited for your needs.
 
 An example test case (3K0N) can be found in the *example* directory.
 
-1. Modelling alternate conformers for a residue of interest (faster, not as precise)
+### 1. Modelling alternate conformers for a residue of interest (faster, not as precise)
 
 `qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN]`
 
@@ -66,7 +66,8 @@ Using the example 3K0N:
 This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
 
-2. Using a map file in ".ccp4" format as input for qFit
+-------------
+### 2. Using a map file in ".ccp4" format as input for qFit
 
 `qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN] -r [RESOLUTION]`
 
@@ -78,8 +79,9 @@ Using the example 3K0N:
 
 `qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb A,113 -r 1.39`
 
+-------------
 
-3. Activate backbone sampling and bond angle sampling to model alternate
+### 3. Activate backbone sampling and bond angle sampling to model alternate
 conformers for a single residue of interest (slower, more precise)
 
 In its default mode, *qfit_residue* only samples side chain conformations.
@@ -97,6 +99,7 @@ Other useful sampling parameters that can be tweaked:
 * Parsimonious selection of the number of conformers output by qFit using the Bayesian
 Information Criterion (BIC): *-T* flag.
 
+
 Using the example 3K0N:
 
 `qfit_residue /path/to/3K0N.mtz /path/to/3K0N.pdb A,113 -bb -sa -s 5 -T -rn 45`
@@ -104,8 +107,9 @@ Using the example 3K0N:
 For a full list of options, run:
 
 `qfit_residue -h`
+-------------
 
-4. Modeling alternate conformers for all residues in a protein of interest
+### 4. Modeling alternate conformers for all residues in a protein of interest
 
 `qfit_protein [MAP_FILE] [PDB_FILE]`
 
@@ -132,13 +136,17 @@ Using the example 3K0N:
 
 `qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb`
 
-5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
+-------------
+
+### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
 
 Using the example 3K0N:
 
 `qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb -bb -sa -s 5 -T -rn 45`
 
-6.  Parallelization:
+-------------
+
+### 6.  Parallelization:
 
 The *qfit_protein* routine can be executed in parallel and the number of concurrent threads
 can be adjusted using the *-p* flag.
@@ -147,7 +155,9 @@ Using the example 3K0N, spawning 30 parallel threads:
 
 `qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb -bb -sa -s 5 -T -rn 45 -p 30`
 
-7. Revisiting the consistent protein segment output by qfit_protein
+-------------
+
+### 7. Revisiting the consistent protein segment output by qfit_protein
 
 Depending on the resolution, the default parameters for the identification of
 consistent protein segments may prove too strict, leading to the removal of
@@ -160,8 +170,9 @@ can re-process the initial model with less stringent parameters using the *qfit_
 
 `qfit_segment /path/to/3K0N.mtz /path/to/multiconformer_model.pdb -Ts -T 14 -f 3`
 
+-------------
 
-8. Modeling alternate conformers of a ligand
+### 8. Modeling alternate conformers of a ligand
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
