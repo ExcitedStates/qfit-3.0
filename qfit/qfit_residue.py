@@ -1,3 +1,28 @@
+'''
+Excited States software: qFit 3.0
+
+Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
+Contact: vdbedem@stanford.edu
+
+Copyright (C) 2009-2019 Stanford University
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+This entire text, including the above copyright notice and this permission notice
+shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+'''
+
 """Automatically build a multiconformer residue"""
 
 import argparse
@@ -34,6 +59,8 @@ def parse_args():
             help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
             help="Scattering type.")
+    p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
+        help="Randomize B-factors of generated conformers.")
     p.add_argument('-o', '--omit', action="store_true",
             help="Map file is an OMIT map. This affects the scaling procedure of the map.")
 
@@ -44,11 +71,26 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
+            help="Use phenix to perform anisotropic refinement of individual sites."
+                 "This option creates an OMIT map and uses it as a default.")
 
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
             help="Sample backbone using inverse kinematics.")
+    p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
+            type=float, default=0.1, metavar="<float>",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
+            type=float, default=0.3, metavar="<float>",
+           help="Sample N-CA-CB angle.")
     p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
+            type=float, default=3.75, metavar="<float>",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
+            type=float, default=7.5, metavar="<float>",
             help="Sample N-CA-CB angle.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
@@ -62,11 +104,15 @@ def parse_args():
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
                   "values below cutoff value."))
+    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
+            help="Set clash scaling factor. Default = 0.75")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
+            help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.3, metavar="<float>",
+    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Treshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
@@ -139,10 +185,10 @@ def main():
             altlocs.remove('')
         except ValueError:
             pass
-        altloc = altlocs[0]
-    else:
-        altloc = 'A'
-    structure = structure.extract('altloc', ('', altloc))
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure = structure.extract(sel_str)
 
     residue_name = residue.resn[0]
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
