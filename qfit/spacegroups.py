@@ -1,3 +1,51 @@
+'''
+Excited States software: qFit 3.0
+
+Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
+Contact: vdbedem@stanford.edu
+
+Copyright (C) 2009-2019 Stanford University
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+This entire text, including the above copyright notice and this permission notice
+shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+''''''
+Excited States software: qFit 3.0
+
+Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
+Contact: vdbedem@stanford.edu
+
+Copyright (C) 2009-2019 Stanford University
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+This entire text, including the above copyright notice and this permission notice
+shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+'''
+
 """Symmetry operations as functions on vectors or arrays."""
 
 import numpy as np
@@ -171,7 +219,7 @@ class SpaceGroup:
         return iter(self.symop_list)
 
     def check_group_name(self, name):
-        """Checks if the given name is a name for this space group, returns 
+        """Checks if the given name is a name for this space group, returns
         True or False. The space group name can be in several forms:
         the short name, the longer PDB-style name, or the space group number.
         """
@@ -188,7 +236,7 @@ class SpaceGroup:
 
     def iter_equivalent_positions(self, vec):
         """Iterate the symmetry equivalent positions of the argument vector.
-        The vector must already be in fractional coordinates, and the symmetry 
+        The vector must already be in fractional coordinates, and the symmetry
         equivalent vectors are also in fractional coordinates.
         """
         for symop in self.symop_list:
@@ -7773,7 +7821,7 @@ SpaceGroupList = [
 
 
 def GetSpaceGroup(name):
-    """Returns the SpaceGroup instance for the given name. If the space group 
+    """Returns the SpaceGroup instance for the given name. If the space group
     is not found, return the P1 space group as default.
     """
     for sg in SpaceGroupList:
@@ -7814,4 +7862,3 @@ def SymOpFromString(string):
     R = g[rot]
     T = g[tr]
     return SymOp(R, T)
-
