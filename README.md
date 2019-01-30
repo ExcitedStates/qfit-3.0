@@ -121,8 +121,8 @@ Using the example 3K0N:
 
 For a full list of options, run:
 
-
 `qfit_residue -h`
+
 -------------
 
 ### 4. Modeling alternate conformers for all residues in a protein of interest
