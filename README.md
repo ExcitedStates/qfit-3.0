@@ -87,7 +87,7 @@ overlapping conformers, are discarded. The final model, with the consistent
 multiconformer model is *multiconformer_model2.pdb*. This file should then
 be used as input to the refinement script provided in *./scripts*.   
 
-By default, qFit uses expects the labels FWT,PHWT to be present in the input map.
+By default, qFit expects the labels FWT,PHWT to be present in the input map.
 Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
