@@ -177,7 +177,7 @@ class QFitProtein:
     def _run_qfit_residue(self):
         """Run qfit on each residue separately."""
         processes = []
-        residues = list(self.structure.residues)
+        residues = list(self.structure.single_conformer_residues)
         nresidues = len(residues)
         print(f"RESIDUES: {nresidues}")
         nproc = min(self.options.nproc, nresidues)
@@ -262,9 +262,9 @@ class QFitProtein:
         base_density = xmap.array.copy()
         for residue in residues:
             if residue.type == 'rotamer-residue':
-                chain = residue.chain[0]
+                chainid = residue.chain[0]
                 resi, icode = residue.id
-                identifier = f"{chain}_{resi}"
+                identifier = f"{chainid}_{resi}"
                 if icode:
                     identifier += f'_{icode}'
                 options.directory = os.path.join(base_directory, identifier)
@@ -274,6 +274,12 @@ class QFitProtein:
                     pass
 
                 structure_new = copy.deepcopy(structure)
+                structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+                if icode:
+                    structure_resi = structure_resi.extract('icode', icode)
+                chain = structure_resi[chainid]
+                conformer = chain.conformers[0]
+                residue = conformer[residue.id]
                 altlocs = sorted(list(set(residue.altloc)))
                 if len(altlocs) > 1:
                     try:
@@ -281,7 +287,7 @@ class QFitProtein:
                     except ValueError:
                         pass
                     for altloc in altlocs[1:]:
-                        sel_str = f"resi {resi} and chain {chain} and altloc {altloc}"
+                        sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
                         sel_str = f"not ({sel_str})"
                         structure_new = structure_new.extract(sel_str)
 
@@ -291,9 +297,9 @@ class QFitProtein:
                     # Prepare X-ray map
                     scaler = MapScaler(xmap, scattering=options.scattering)
                     if options.omit:
-                        footprint = residue
+                        footprint = structure_resi
                     else:
-                        sel_str = f"resi {resi} and chain {chain}"
+                        sel_str = f"resi {resi} and chain {chainid}"
                         if icode:
                             sel_str += f" and icode {icode}"
                         sel_str = f"not ({sel_str})"
@@ -310,7 +316,7 @@ class QFitProtein:
                 try:
                     qfit.run()
                 except RuntimeError:
-                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chain}.")
+                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
                     print(f"Using deposited conformer A for this residue.")
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
