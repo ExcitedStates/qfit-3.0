@@ -150,6 +150,18 @@ class Structure(_BaseStructure):
                     yield residue
 
     @property
+    def single_conformer_residues(self):
+        Dict = {}
+        for chain in self.chains:
+            if chain.chain[0] not in Dict:
+                Dict[chain.chain[0]] = {}
+            for conformer in chain.conformers:
+                for residue in conformer.residues:
+                    if residue.resi[0] not in Dict[chain.chain[0]]:
+                        yield residue
+                        Dict[chain.chain[0]][residue.resi[0]] = 1
+
+    @property
     def segments(self):
         for chain in self.chains:
             for conformer in chain.conformers:
