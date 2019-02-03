@@ -451,13 +451,6 @@ class QFitRotamericResidue(_BaseQFit):
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
-        # Override some residue specific options
-        resn = self.residue.resn[0]
-        if resn == "PRO":
-            self.options.rotamer_neighborhood = 0
-            self.options.sample_angle = False
-        elif resn == 'GLY':
-            self.options.sample_angle = False
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -515,7 +508,7 @@ class QFitRotamericResidue(_BaseQFit):
     def run(self):
         if self.options.sample_backbone:
             self._sample_backbone()
-        if self.options.sample_angle:
+        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0]!='GLY':
             self._sample_angle()
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
@@ -594,11 +587,10 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        #print(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
-
         active_names = ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA')
         selection = self.residue.select('name', active_names)
         self.residue.active = False
@@ -628,7 +620,6 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        #print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
         if len(self._coor_set) > 1000:
             print("[WARNING] Large number of conformers have been generated. Run times may be slow."
                   "Please, consider changing sampling parameters and re-running qFit.")
@@ -637,10 +628,14 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
-        sampling_window = np.arange(
-            -opt.rotamer_neighborhood,
-            opt.rotamer_neighborhood + opt.dofs_stepsize,
-            opt.dofs_stepsize)
+        if self.residue.resn[0] != 'PRO':
+            sampling_window = np.arange(
+                -opt.rotamer_neighborhood,
+                opt.rotamer_neighborhood + opt.dofs_stepsize,
+                opt.dofs_stepsize)
+        else:
+            sampling_window = [0]
+            
         rotamers = self.residue.rotamers
         rotamers.append([self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)])
 

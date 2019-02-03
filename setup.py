@@ -62,6 +62,8 @@ def main():
                   'qfit_density = qfit.qfit_density:main',
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
                   'edia = qfit.edia:main',
+                  'remove_altconfs = qfit.remove_altconfs:main',
+                  'compare_apo_holo = qfit.compare_apo_holo:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'normalize_occupancies = qfit.normalize_occupancies:main',
               ]
