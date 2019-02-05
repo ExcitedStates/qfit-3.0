@@ -191,8 +191,6 @@ def main():
             structure = structure.extract(sel_str)
 
     residue_name = residue.resn[0]
-    print(residue,len(residue.coor))
-    exit()
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
 
     options = QFitRotamericResidueOptions()

@@ -274,7 +274,7 @@ class QFitProtein:
                     pass
 
                 structure_new = copy.deepcopy(structure)
-                structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+                structure_resi = structure_new.extract(f'resi {resi} and chain {chainid}')
                 if icode:
                     structure_resi = structure_resi.extract('icode', icode)
                 chain = structure_resi[chainid]
