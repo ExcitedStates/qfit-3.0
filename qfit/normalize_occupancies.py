@@ -93,5 +93,5 @@ def main():
         sel_str = f"resi {res} and chain {chain} and altloc {altloc}"
         sel_str = f"not ({sel_str})"
         structure = structure.extract(sel_str)
-
+    structure.altloc[structure.q>0.99]=''
     structure.tofile(output_file)

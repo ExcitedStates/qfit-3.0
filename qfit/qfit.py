@@ -75,7 +75,7 @@ class _BaseQFitOptions:
         self.clash_scaling_factor = 0.75
         self.external_clash = False
         self.dofs_per_iteration = 2
-        self.dofs_stepsize = 8
+        self.dofs_stepsize = 6
         self.hydro = False
 
         # MIQP options
@@ -332,6 +332,7 @@ class QFitRotamericResidue(_BaseQFit):
     def __init__(self, residue, structure, xmap, options):
         self.chain = residue.chain[0]
         self.resi = residue.resi[0]
+        self.incomplete = False
         if options.phenix_aniso:
             self.prv_resi = structure.resi[(residue._selection[0]-1)]
             # Identify which atoms to refine anisotropically:
@@ -431,6 +432,7 @@ class QFitRotamericResidue(_BaseQFit):
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
                 residue.complete_residue()
+                self.incomplete = True
                 break
 
         # If including hydrogens:
@@ -451,13 +453,6 @@ class QFitRotamericResidue(_BaseQFit):
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
-        # Override some residue specific options
-        resn = self.residue.resn[0]
-        if resn == "PRO":
-            self.options.rotamer_neighborhood = 0
-            self.options.sample_angle = False
-        elif resn == 'GLY':
-            self.options.sample_angle = False
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -513,9 +508,11 @@ class QFitRotamericResidue(_BaseQFit):
         # receptor.tofile('clash_receptor.pdb')
 
     def run(self):
+        if self.incomplete:
+            raise RuntimeError("Incomplete residue")
         if self.options.sample_backbone:
             self._sample_backbone()
-        if self.options.sample_angle:
+        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0]!='GLY':
             self._sample_angle()
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
@@ -541,7 +538,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
-        validator = Validator(self.xmap, self.xmap.resolution)
+        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory)
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
         else:
@@ -594,11 +591,10 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        #print(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
-
         active_names = ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA')
         selection = self.residue.select('name', active_names)
         self.residue.active = False
@@ -628,7 +624,6 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        #print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
         if len(self._coor_set) > 1000:
             print("[WARNING] Large number of conformers have been generated. Run times may be slow."
                   "Please, consider changing sampling parameters and re-running qFit.")
@@ -637,10 +632,14 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
-        sampling_window = np.arange(
-            -opt.rotamer_neighborhood,
-            opt.rotamer_neighborhood + opt.dofs_stepsize,
-            opt.dofs_stepsize)
+        if self.residue.resn[0] != 'PRO':
+            sampling_window = np.arange(
+                -opt.rotamer_neighborhood,
+                opt.rotamer_neighborhood + opt.dofs_stepsize,
+                opt.dofs_stepsize)
+        else:
+            sampling_window = [0]
+
         rotamers = self.residue.rotamers
         rotamers.append([self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)])
 

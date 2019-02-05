@@ -14,6 +14,9 @@ Optional requirements used for installation
 * conda
 * pip
 
+As an open source alternative to IBM ILOG CPLEX Optimization Studio:
+
+* [MIOSQP](https://github.com/oxfordcontrol/miosqp)
 
 ## Installation
 
@@ -37,6 +40,10 @@ software, install the CPLEX Python interface
 where `<CPLEX_ROOT>` is the directory where you installed CPLEX, and `<PLATFORM>` is
 a platform dependent string, such as `linux` for Linux systems and `osx` for
 macOSX.
+
+Alternatively, instead of installing CPLEX, you can use the MIQP open-source implementation
+MIOSQP, which is based on the OSQP package. Installation instructions for MIOSQP 
+can be found on its [GitHub Repository](https://github.com/oxfordcontrol/miosqp).
 
 You are now all set now to install `qfit`. Installation of `qfit` is
 as simple as
