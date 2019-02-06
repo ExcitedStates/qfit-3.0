@@ -20,7 +20,7 @@ As an open source alternative to IBM ILOG CPLEX Optimization Studio:
 
 ## Installation
 
-If you have access to the `conda` package manager ([Python 3.7 64bit miniconda](https://conda.io/en/latest/miniconda.html), 
+If you have access to the `conda` package manager ([Python 3.7 64bit miniconda](https://conda.io/en/latest/miniconda.html)), 
 installing all dependencies is straightforward
 
     conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
