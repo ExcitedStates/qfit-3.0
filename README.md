@@ -20,18 +20,18 @@ As an open source alternative to IBM ILOG CPLEX Optimization Studio:
 
 ## Installation
 
-If you have access to the `conda` package manager, installing all dependencies
-is straightforward
+If you have access to the `conda` package manager ([Python 3.7 64bit miniconda](https://conda.io/en/latest/miniconda.html), 
+installing all dependencies is straightforward
 
     conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
 
-If you prefer the more traditional `pip` tool, the requirements can be installed
+If you prefer the more traditional `pip` tool, dependencies can be installed
 as follows
 
     pip install numpy scipy cvxopt
 
-Next, obtain a copy of CPLEX, the Community Edition will do, by registering and
-downloading it from the [IBM website][1]. After installing and unpacking the
+The CPLEX optimization suite is not available through `pip`. Obtain the CPLEX Community Edition 
+by registering and downloading it from the [IBM website][1]. After installing and unpacking the
 software, install the CPLEX Python interface
 
     cd <CPLEX_ROOT>/cplex/python/3.6/x86_64_<PLATFORM>
@@ -41,9 +41,9 @@ where `<CPLEX_ROOT>` is the directory where you installed CPLEX, and `<PLATFORM>
 a platform dependent string, such as `linux` for Linux systems and `osx` for
 macOSX.
 
-Alternatively, instead of installing CPLEX, you can use the MIQP open-source implementation
-MIOSQP, which is based on the OSQP package. Installation instructions for MIOSQP 
-can be found on its [GitHub Repository](https://github.com/oxfordcontrol/miosqp).
+qFit also **requires** an open-source MIQP implementation, MIOSQP, which is based on the OSQP package. 
+Installation instructions for MIOSQP can be found on its 
+[GitHub Repository](https://github.com/oxfordcontrol/miosqp).
 
 You are now all set now to install `qfit`. Installation of `qfit` is
 as simple as
