@@ -725,7 +725,6 @@ class QFitRotamericResidue(_BaseQFit):
                                       f'_conformer_{iteration}.pdb')
                 self._write_intermediate_conformers(prefix=prefix)
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
-
             # QP
             logger.debug("Converting densities.")
             self._convert()
