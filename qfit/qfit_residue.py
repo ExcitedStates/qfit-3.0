@@ -136,7 +136,7 @@ def parse_args():
 
 
 def main():
-    version = pkg_resources.require("qFit-3.0")[0].version
+    version = pkg_resources.require("qfit")[0].version
     print(version)
     args = parse_args()
     try:
