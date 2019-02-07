@@ -31,7 +31,7 @@ import os
 import sys
 import time
 from string import ascii_uppercase
-import pkg_resources  # part of setuptools
+from .qfit import print_run_info
 
 logger = logging.getLogger(__name__)
 
@@ -137,11 +137,11 @@ def parse_args():
 
 def main():
     args = parse_args()
-    print_run_info(args)
     try:
         os.makedirs(args.directory)
     except OSError:
         pass
+    print_run_info(args)
     time0 = time.time()
 
     # Setup logger

@@ -26,6 +26,7 @@ IN THE SOFTWARE.
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
+from .qfit import print_run_info
 import multiprocessing as mp
 import os.path
 import sys
@@ -327,14 +328,12 @@ class QFitProtein:
 
 
 def main():
-
     args = parse_args()
-    print_run_info(args)
     try:
         os.mkdir(args.directory)
     except OSError:
         pass
-
+    print_run_info(args)
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder()
     if not args.hydro:
