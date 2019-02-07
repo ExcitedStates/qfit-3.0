@@ -31,6 +31,8 @@ import os
 import sys
 import time
 from string import ascii_uppercase
+import pkg_resources  # part of setuptools
+
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -134,6 +136,8 @@ def parse_args():
 
 
 def main():
+    version = pkg_resources.require("qFit-3.0")[0].version
+    print(version)
     args = parse_args()
     try:
         os.makedirs(args.directory)
