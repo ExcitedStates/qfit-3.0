@@ -1,21 +1,47 @@
+'''
+Excited States software: qFit 3.0
+
+Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
+Contact: vdbedem@stanford.edu
+
+Copyright (C) 2009-2019 Stanford University
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+This entire text, including the above copyright notice and this permission notice
+shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+'''
+
 import argparse
 import sys
 import numpy as np
-import os.path
 import random
 import copy
-from vdw_radii import vdwRadiiTable,EpsilonTable
-from structure import Structure
+from .vdw_radii import vdwRadiiTable, EpsilonTable
+from .structure import Structure
+
 
 def cartesian_product(*arrays):
     la = len(arrays)
     arr = np.empty([len(a) for a in arrays] + [la], dtype=int)
     for i, a in enumerate(np.ix_(*arrays)):
-        arr[...,i] = a
+        arr[..., i] = a
     return arr.reshape(-1, la)
 
+
 def update_progress(progress):
-    barLength = 20 # Modify this to change the length of the progress bar
+    barLength = 20  # Modify this to change the length of the progress bar
     status = ""
     if isinstance(progress, int):
         progress = float(progress)
@@ -33,10 +59,11 @@ def update_progress(progress):
     sys.stdout.write(text)
     sys.stdout.flush()
 
+
 class RelabellerOptions:
-    def __init__(self):
-        self.nSims  = 10000
-        self.nChains= 10
+    def __init__(self, nSims=10000, nChains=10):
+        self.nSims = nSims
+        self.nChains = nChains
 
     def apply_command_args(self, args):
 
@@ -74,13 +101,13 @@ class Relabeller:
                 self.permutation.append(resInd)
 
     def initMetric(self):
-        print("Calculating all possible Van der Waals interactions:")
+        # print("Calculating all possible Van der Waals interactions:")
         for i in range(len(self.nodes)):
             for j in range(i+1,len(self.nodes)):
                 if self.nodes[i].resi[0]!=self.nodes[j].resi[0] or self.nodes[i].chain[0]!=self.nodes[j].chain[0]:
                     self.metric[i][j] = self.calc_energy(self.nodes[i],self.nodes[j])
                     self.metric[j][i] = self.metric[i][j]
-            update_progress(i/len(self.nodes))
+            # update_progress(i/len(self.nodes))
 
 
     def vdw_energy(self,atom1, atom2, coor1, coor2):
@@ -91,7 +118,7 @@ class Relabeller:
 
     def calc_energy(self, node1, node2):
         energy = 0.0
-        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 13.0:
+        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 16.0:
             for name1,ele1,coor1 in zip(node1.name,node1.e,node1.coor):
                 for name2,ele2,coor2 in zip(node2.name,node2.e,node2.coor):
                     if name1 not in ["N","CA","C","O","H","HA"] or name2 not in ["N","CA","C","O","H","HA"] or np.abs(node1.resi[0] - node2.resi[0]) != 1:
@@ -116,10 +143,10 @@ class Relabeller:
 
         # Sum the energy of each cluster:
         energyList.append(np.sum(energies))
-        print(f"Starting energy: {energyList[-1]}")
+        # print(f"Starting energy: {energyList[-1]}")
 
         for i in range(self.nSims):
-            update_progress(i/self.nSims)
+            # update_progress(i/self.nSims)
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
@@ -147,7 +174,7 @@ class Relabeller:
                 permutation = copy.deepcopy(tmpPerm)
                 energyList.append(np.sum(energies))
 
-        print(f"Locally optimal energy: {energyList[-1]}")
+        # print(f"Locally optimal energy: {energyList[-1]}")
         return energyList[-1], permutation
 
     def run(self):
@@ -155,7 +182,7 @@ class Relabeller:
         energyList = []
 
         for i in range(self.nChains):
-            print(f"\nRunning iteration {i+1} of Simulated Annealing")
+            # print(f"\nRunning iteration {i+1} of Simulated Annealing")
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)
@@ -181,7 +208,8 @@ class Relabeller:
                 residue.altloc=copy.deepcopy(tmpAltlocs)
                 res+=1
         self.structure.reorder()
-        self.structure.tofile("Test_relabel.pdb")
+        # self.structure.tofile("Test_relabel.pdb")
+        return self.structure
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
