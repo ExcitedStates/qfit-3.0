@@ -42,7 +42,7 @@ from .scaler import MapScaler
 from .structure import Ligand, Structure
 from .validator import Validator
 from .volume import Volume
-
+from .qfit import parse_args
 
 def parse_args():
 
@@ -102,6 +102,7 @@ def parse_args():
 def main():
 
     args = parse_args()
+    print_run_info(args)
     mkdir_p(args.directory)
     time0 = time.time()
     logging_fname = os.path.join(args.directory, 'qfit_ligand.log')

@@ -136,9 +136,8 @@ def parse_args():
 
 
 def main():
-    version = pkg_resources.require("qfit")[0].version
-    print(version)
     args = parse_args()
+    print_run_info(args)
     try:
         os.makedirs(args.directory)
     except OSError:

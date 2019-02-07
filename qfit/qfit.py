@@ -1044,3 +1044,10 @@ class QFitLigand(_BaseQFit):
 
 class QFitCovalentLigand(_BaseQFit):
     pass
+
+
+def print_run_info(args):
+    version = pkg_resources.require("qfit")[0].version
+    print(version)
+    for arg in vars(args):
+        print arg, getattr(args, arg)

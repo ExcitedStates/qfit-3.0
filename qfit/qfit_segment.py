@@ -94,6 +94,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    print_run_info(args)
     try:
         os.makedirs(args.directory)
     except OSError:

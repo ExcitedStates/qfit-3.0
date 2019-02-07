@@ -23,6 +23,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
+import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 import multiprocessing as mp
@@ -328,6 +329,7 @@ class QFitProtein:
 def main():
 
     args = parse_args()
+    print_run_info(args)
     try:
         os.mkdir(args.directory)
     except OSError:
