@@ -25,7 +25,8 @@ installing all dependencies is straightforward:
 
     conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
 
-If you prefer, installation instructions without `conda` can be found [here]().
+If you prefer, installation instructions without `conda` can be found inside the
+`docs` folder.
 
 qFit also **requires** an open-source MIQP implementation, MIOSQP, which is based on the OSQP package.
 Installation instructions for MIOSQP can be found on its
