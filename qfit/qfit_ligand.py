@@ -30,38 +30,54 @@ import logging
 import os.path
 import sys
 import time
-from itertools import izip
 from string import ascii_uppercase
 logger = logging.getLogger(__name__)
 
 import numpy as np
 
-from .builders import HierarchicalBuilder
-from .helpers import mkdir_p
-from .scaler import MapScaler
-from .structure import Ligand, Structure
-from .validator import Validator
-from .volume import Volume
-
+#from .builders import HierarchicalBuilder
+#from .helpers import mkdir_p
+#from .validator import Validator
+from . import MapScaler, Structure, XMap, _Ligand
 
 def parse_args():
-
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("xmap", type=str,
-            help="X-ray density map in CCP4 format.")
-    p.add_argument("resolution", type=float,
-            help="Map resolution in angstrom.")
-    p.add_argument("ligand", type=str,
-            help="Ligand structure in PDB format. Can also be a whole structure if selection is added with --select option.")
-    p.add_argument("-r", "--receptor", type=str, default=None,
-            metavar="<file>",
-            help="PDB file containing receptor for clash detection.")
-    p.add_argument('--selection', default=None, type=str, metavar="<chain,resi>",
-            help="Chain and residue id for ligand in main PDB file, e.g. A,105.")
-    p.add_argument("-ns", "--no-scale", action="store_true",
+    p.add_argument("map", type=str,
+            help="Density map in CCP4 or MRC format, or an MTZ file "
+                 "containing reflections and phases. For MTZ files "
+                 "use the --label options to specify columns to read.")
+    p.add_argument("structure", type=str,
+            help="PDB-file containing structure.")
+    p.add_argument('selection', type=str,
+            help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
+
+    # Map input options
+    p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
+            help="MTZ column labels to build density.")
+    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
+            help="Map resolution in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
+            help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
+            help="Scattering type.")
+    p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
+        help="Randomize B-factors of generated conformers.")
+    p.add_argument('-o', '--omit', action="store_true",
+            help="Map file is an OMIT map. This affects the scaling procedure of the map.")
+
+
+    # Map prep options
+    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
-    p.add_argument("-dc", "--density-cutoff", type=float, default=0.0, metavar="<float>",
-            help="Density value cutoff in sigma of X-ray map. Values below this threshold are set to 0 after scaling to absolute density.")
+    p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
+            help="Densities values below cutoff are set to <density_cutoff_value")
+    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
+            help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
+            help="Use phenix to perform anisotropic refinement of individual sites."
+                 "This option creates an OMIT map and uses it as a default.")
+
+    # Sampling options
     p.add_argument("-nb", "--no-build", action="store_true",
             help="Do not build ligand.")
     p.add_argument("-nl", "--no-local", action="store_true",
@@ -72,87 +88,97 @@ def parse_args():
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=None, metavar="<float>",
+    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Treshold constraint used during MIQP.")
     p.add_argument("-it", "--intermediate-threshold", type=float, default=0.01, metavar="<float>",
             help="Threshold constraint during intermediate MIQP.")
     p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during intermediate MIQP.")
+
+
+    # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
             help="Directory to store results.")
-    #p.add_argument("-p", "--processors", type=int,
-    #        default=None, metavar="<int>",
-    #        help="Number of threads to use. Currently this only changes the CPLEX/MIQP behaviour.")
     p.add_argument("--debug", action="store_true",
-                   help="Write intermediate structures to file for debugging.")
+            help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
     args = p.parse_args()
-
-    # If threshold and cutoff are not defined, use "optimal" values
-    if args.threshold is None:
-        if args.resolution < 2.00:
-            args.threshold = 0.2
-        else:
-            args.threshold = 0.3
 
     return args
 
 
 def main():
-
     args = parse_args()
-    mkdir_p(args.directory)
+    try:
+        os.makedirs(args.directory)
+    except OSError:
+        pass
     time0 = time.time()
+
+    # Setup logger
     logging_fname = os.path.join(args.directory, 'qfit_ligand.log')
-    logging.basicConfig(filename=logging_fname, level=logging.INFO)
+    if args.debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(filename=logging_fname, level=level)
     logger.info(' '.join(sys.argv))
     logger.info(time.strftime("%c %Z"))
     if args.verbose:
         console_out = logging.StreamHandler(stream=sys.stdout)
-        console_out.setLevel(logging.INFO)
+        console_out.setLevel(level)
         logging.getLogger('').addHandler(console_out)
 
-    xmap = Volume.fromfile(args.xmap).fill_unit_cell()
-    if args.selection is None:
-        ligand = Ligand.fromfile(args.ligand)
-        if args.receptor is not None:
-            receptor = Structure.fromfile(args.receptor).select('e', 'H', '!=')
-        else:
-            receptor = None
-    else:
-        # Extract ligand and rest of structure
-        structure = Structure.fromfile(args.ligand)
-        logger.info("Extracting receptor and ligand from input structure.")
-        types = (str, int)
-        chain, resi = [t(x) for t, x in izip(types, args.selection.split(','))]
-        # Select all ligand conformers
-        ligand_selection = structure.select('resi', resi, return_ind=True)
-        ligand_selection &= structure.select('chain', chain, return_ind=True)
-        ligand = Ligand(structure.data[ligand_selection], structure.coor[ligand_selection])
-        if ligand.natoms == 0:
-            raise RuntimeError("No atoms were selected for the ligand. Check the selection input.")
-        # Check if current ligand already has an alternate conformation. Discard all but one of them.
-        altlocs = np.unique(ligand.altloc).tolist()
-        naltlocs = len(altlocs)
-        if naltlocs > 1 or altlocs[0] != "":
-            if "" in altlocs:
-                altlocs.remove('""')
-                naltlocs -= 1
-                logger.info("Ligand contains {naltlocs} alternate conformers.".format(naltlocs=naltlocs))
-            altloc_to_use = altlocs[0]
-            logger.info("Taking main chain and {altloc} conformer atoms of ligand.".format(altloc=altloc_to_use))
-            ligand = ligand.select('altloc', ['', altloc_to_use])
-        logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
-        receptor_selection = np.logical_not(ligand_selection)
-        receptor = Structure(structure.data[receptor_selection],
-                             structure.coor[receptor_selection]).select('e', 'H', '!=')
-        logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
-    # Reset occupancies of ligand
+
+
+    # Extract ligand and rest of structure
+    structure = Structure.fromfile(args.structure)
+    logger.info("Extracting receptor and ligand from input structure.")
+
+    chainid, resi = args.selection.split(',')
+    if ':' in resi:
+        resi, icode = resi.split(':')
+        residue_id = (int(resi), icode)
+    else:
+        residue_id = int(resi)
+        icode = ''
+
+    # Extract the ligand:
+    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
+    if icode:
+        structure_ligand = structure_ligand.extract('icode', icode)
+    ligand = _Ligand(structure_ligand)
+    if ligand.natoms == 0:
+        raise RuntimeError("No atoms were selected for the ligand. Check the "
+                           " selection input.")
+
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+    altlocs = sorted(list(set(ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+#            structure = structure.extract(sel_str)
+            ligand = ligand.extract(sel_str)
     ligand.altloc.fill('')
     ligand.q.fill(1)
 
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
+    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
+
+    print("Under development!")
+
+    '''
+    xmap = Volume.fromfile(args.xmap).fill_unit_cell()
     if not args.no_scale:
         scaler = MapScaler(xmap, mask_radius=1, cutoff=args.density_cutoff)
         scaler(receptor.select('record', 'ATOM'))
@@ -256,7 +282,7 @@ def main():
             logger.info("{altloc}: {score:.2f}".format(altloc=conformer.altloc[0], score=conformer.zscore))
 
     fname = os.path.join(args.directory, 'multiconformer.pdb')
-    multiconformer.tofile(fname)
+    multiconformer.tofile(fname)'''
 
     m, s = divmod(time.time() - time0, 60)
     logger.info('Time passed: {m:.0f}m {s:.0f}s'.format(m=m, s=s))

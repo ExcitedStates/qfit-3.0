@@ -30,18 +30,31 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
 from .base_structure import _BaseStructure
+from .residue import residue_type
+
 from .math import aa_to_rotmat
 
 
 class _Ligand(_BaseStructure):
 
-    """Ligand class autamatically generates a topology on the structure."""
+    """Ligand class automatically generates a topology on the structure."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    #def __init__(self, *args, **kwargs):
+    #    super().__init__(*args, **kwargs)
+    #    self._get_connectivity()
+    #    self.id = (kwargs['resi'], kwargs['icode'])
+    #    self.type = kwargs["type"]
+
+    def __init__(self, structure_ligand):
+        super().__init__(structure_ligand.data,structure_ligand._selection,
+                         structure_ligand.parent)
         self._get_connectivity()
-        self.id = (kwargs['resi'], kwargs['icode'])
-        self.type = kwargs["type"]
+        resi, icode = structure_ligand.resi[0], structure_ligand.icode[0]
+        if icode != '':
+            self.id = (int(resi), icode)
+        else:
+            self.id = int(resi)
+        self.type = residue_type(structure_ligand)
 
     def __repr__(self):
         string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
@@ -51,7 +64,6 @@ class _Ligand(_BaseStructure):
         """Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
         """
-
         coor = self.coor
         #dm_size = self.natoms * (self.natoms - 1) // 2
         #dm = np.zeros(dm_size, np.float64)
