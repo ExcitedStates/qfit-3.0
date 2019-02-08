@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 from . import MapScaler, Structure, XMap, QFitRotamericResidue, QFitRotamericResidueOptions
-from .residue import residue_type
+from .structure import residue_type
 
 
 def parse_args():
