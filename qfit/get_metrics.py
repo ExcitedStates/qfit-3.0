@@ -33,13 +33,15 @@ def main():
         pass
 
     structure = Structure.fromfile(args.structure).reorder()
-    
 
-    for residue in structure.extract('record',"ATOM").residue_groups:
+
+    for residue in structure.extract('record',"ATOM").extract(
+      'resn', "HOH","!=").residue_groups:
         altlocs = sorted(list(set(residue.altloc)))
         resi = residue.resi[0]
         chainid = residue.chain[0]
         tot_rmsd = 0.0
+        numlocs = 0
         if len(altlocs) > 1:
             try:
                 altlocs.remove('')
@@ -52,5 +54,7 @@ def main():
                         conf2 = residue.extract('altloc',altloc2)
                         rmsd = conf1.rmsd(conf2)
                         tot_rmsd += rmsd
-        print(resi,tot_rmsd/len(altlocs),len(altlocs))            
-        
+                        numlocs += 1
+            print(resi,chainid,round(tot_rmsd/numlocs,2),len(altlocs))
+        else:
+            print(resi,chainid,0.0,len(altlocs))
