@@ -24,10 +24,9 @@ IN THE SOFTWARE.
 '''
 
 import os.path
-
 from setuptools import setup
 from setuptools.extension import Extension
-
+from version import get_version
 import numpy as np
 
 
@@ -46,7 +45,7 @@ def main():
     ]
 
     setup(name="qfit",
-          version='3.0.0',
+          version=get_version(),
           author='Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
           author_email='saulo@stanford.edu',
           packages=packages,
@@ -68,7 +67,8 @@ def main():
                   'compare_apo_holo = qfit.compare_apo_holo:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'normalize_occupancies = qfit.normalize_occupancies:main',
-              ]
+                  'get_metrics = qfit.get_metrics:main',    
+            ]
           },)
 
 

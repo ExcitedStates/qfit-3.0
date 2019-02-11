@@ -31,6 +31,8 @@ import os
 import sys
 import time
 from string import ascii_uppercase
+from .qfit import print_run_info
+
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -139,6 +141,7 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
+    print_run_info(args)
     time0 = time.time()
 
     # Setup logger

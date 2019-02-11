@@ -26,10 +26,12 @@ IN THE SOFTWARE.
 import itertools
 import logging
 import os
+from sys import argv
 import copy
 from string import ascii_uppercase
 import subprocess
 import numpy as np
+import pkg_resources  # part of setuptools
 
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
@@ -229,6 +231,7 @@ class _BaseQFit:
     def _solve(self, cardinality=None, threshold=None,
                loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
         do_qp = cardinality is threshold is None
+        print(self.options.bic_threshold)
         if do_qp:
             if self.options.cplex:
                 solver = QPSolver(self._target, self._models)
@@ -255,7 +258,8 @@ class _BaseQFit:
                         natoms = len(self.residue._rotamers['atoms'])
                         k = 4 * confs * natoms
                     except AttributeError:
-                        k = 4 * confs
+                        natoms = len(self.residue._rotamers['atoms'])
+                        k = confs
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
@@ -725,7 +729,6 @@ class QFitRotamericResidue(_BaseQFit):
                                       f'_conformer_{iteration}.pdb')
                 self._write_intermediate_conformers(prefix=prefix)
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
-
             # QP
             logger.debug("Converting densities.")
             self._convert()
@@ -950,14 +953,14 @@ class QFitSegment(_BaseQFit):
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]
                 # QP
-                self._convert()
-                self._solve()
+                #self._convert()
+                #self._solve()
                 # Update conformers
                 fragments = np.array(fragments)
-                mask = self._occupancies >= 0.002
-                fragments = fragments[mask]
-                self._coor_set = [fragment.coor for fragment in fragments]
-                self._occupancies = self._occupancies[mask]
+                #mask = self._occupancies >= 0.002
+                #fragments = fragments[mask]
+                #self._coor_set = [fragment.coor for fragment in fragments]
+                #self._occupancies = self._occupancies[mask]
                 # self.print_paths(fragments)
                 # MIQP
                 self._convert()
@@ -970,6 +973,7 @@ class QFitSegment(_BaseQFit):
                                          self._occupancies[mask]):
                     fragment.q = occ
                 segment.append(fragments[mask])
+                self.print_paths(fragments[mask])
 
         for path, altloc in zip(segment[0],possible_conformers ):
             path.altloc = altloc
@@ -1045,3 +1049,16 @@ class QFitLigand(_BaseQFit):
 
 class QFitCovalentLigand(_BaseQFit):
     pass
+
+
+def print_run_info(args):
+    runinfo_fname = os.path.join(args.directory, 'qfit_run_info.log')
+    with open(runinfo_fname, 'w') as f:
+        version = pkg_resources.require("qfit")[0].version
+        f.write(f'===== qFit version: {version} =====\n\n')
+        cmd = ' '.join(argv)
+        f.write(f'{cmd}\n\n')
+        f.write(f'===== qFit parameters: =====\n\n')
+        for arg in vars(args):
+            f.write(f'{arg[0].upper()}{arg[1:]}: {getattr(args, arg)}\n')
+        f.close()
