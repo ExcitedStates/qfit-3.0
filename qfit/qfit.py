@@ -231,6 +231,7 @@ class _BaseQFit:
     def _solve(self, cardinality=None, threshold=None,
                loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
         do_qp = cardinality is threshold is None
+        print(self.options.bic_threshold)
         if do_qp:
             if self.options.cplex:
                 solver = QPSolver(self._target, self._models)
@@ -257,7 +258,8 @@ class _BaseQFit:
                         natoms = len(self.residue._rotamers['atoms'])
                         k = 4 * confs * natoms
                     except AttributeError:
-                        k = 4 * confs
+                        natoms = len(self.residue._rotamers['atoms'])
+                        k = confs
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
@@ -951,14 +953,14 @@ class QFitSegment(_BaseQFit):
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]
                 # QP
-                self._convert()
-                self._solve()
+                #self._convert()
+                #self._solve()
                 # Update conformers
                 fragments = np.array(fragments)
-                mask = self._occupancies >= 0.002
-                fragments = fragments[mask]
-                self._coor_set = [fragment.coor for fragment in fragments]
-                self._occupancies = self._occupancies[mask]
+                #mask = self._occupancies >= 0.002
+                #fragments = fragments[mask]
+                #self._coor_set = [fragment.coor for fragment in fragments]
+                #self._occupancies = self._occupancies[mask]
                 # self.print_paths(fragments)
                 # MIQP
                 self._convert()
@@ -971,6 +973,7 @@ class QFitSegment(_BaseQFit):
                                          self._occupancies[mask]):
                     fragment.q = occ
                 segment.append(fragments[mask])
+                self.print_paths(fragments[mask])
 
         for path, altloc in zip(segment[0],possible_conformers ):
             path.altloc = altloc

@@ -29,7 +29,7 @@ from argparse import ArgumentParser
 
 from . import MapScaler, Structure, XMap
 from .qfit import QFitSegment, QFitSegmentOptions
-
+from .qfit import print_run_info
 
 def parse_args():
 
@@ -94,11 +94,12 @@ def parse_args():
 
 def main():
     args = parse_args()
-    print_run_info(args)
     try:
         os.makedirs(args.directory)
     except OSError:
         pass
+    print_run_info(args)
+
     time0 = time.time()
 
     options = QFitSegmentOptions()
