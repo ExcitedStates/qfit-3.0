@@ -39,22 +39,22 @@ class _Ligand(_BaseStructure):
 
     """Ligand class automatically generates a topology on the structure."""
 
-    #def __init__(self, *args, **kwargs):
-    #    super().__init__(*args, **kwargs)
-    #    self._get_connectivity()
-    #    self.id = (kwargs['resi'], kwargs['icode'])
-    #    self.type = kwargs["type"]
-
-    def __init__(self, structure_ligand):
-        super().__init__(structure_ligand.data,structure_ligand._selection,
-                         structure_ligand.parent)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._get_connectivity()
-        resi, icode = structure_ligand.resi[0], structure_ligand.icode[0]
-        if icode != '':
-            self.id = (int(resi), icode)
-        else:
-            self.id = int(resi)
-        self.type = residue_type(structure_ligand)
+        self.id = (kwargs['resi'], kwargs['icode'])
+        self.type = kwargs["type"]
+
+    #def __init__(self, structure_ligand):
+    #    super().__init__(structure_ligand.data,structure_ligand._selection,
+    #                     structure_ligand.parent)
+    #    self._get_connectivity()
+    #    resi, icode = structure_ligand.resi[0], structure_ligand.icode[0]
+    #    if icode != '':
+    #        self.id = (int(resi), icode)
+    #    else:
+    #        self.id = int(resi)
+    #    self.type = residue_type(structure_ligand)
 
     def __repr__(self):
         string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
