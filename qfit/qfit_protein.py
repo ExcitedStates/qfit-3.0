@@ -118,7 +118,7 @@ def parse_args():
                    help="Number of processors to use.")
 
     # qFit Segment options
-    p.add_argument("-f", "--fragment-length", type=int,
+    p.add_argument("-f", "--fragment-length", type=int, dest="fragment_length",
                    default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
@@ -249,7 +249,15 @@ class QFitProtein:
     def _run_qfit_segment(self, multiconformer):
         self.options.randomize_b = False
         self.options.bic_threshold = self.options.seg_bic_threshold
+        if self.options.seg_bic_threshold:
+            self.options.fragment_length = 3
         self.options.threshold = 0.2
+        if self.options.scale:
+            # Prepare X-ray map
+            scaler = MapScaler(self.xmap, scattering=self.options.scattering)
+            footprint = self.structure.extract('record', 'ATOM')
+            scaler.scale(footprint, radius=1)
+        self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
@@ -276,7 +284,7 @@ class QFitProtein:
                     pass
 
                 structure_new = copy.deepcopy(structure)
-                structure_resi = structure_new.extract(f'resi {resi} and chain {chainid}')
+                structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
                 if icode:
                     structure_resi = structure_resi.extract('icode', icode)
                 chain = structure_resi[chainid]

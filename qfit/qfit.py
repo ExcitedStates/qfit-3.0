@@ -811,8 +811,10 @@ class QFitSegment(_BaseQFit):
     def __init__(self, structure, xmap, options):
         self.segment = structure
         self.conformer = structure
+        self.conformer.q = 1
         self.xmap = xmap
         self.options = options
+        self.options.bic_threshold = self.options.seg_bic_threshold
         self.fragment_length = options.fragment_length
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
@@ -821,15 +823,18 @@ class QFitSegment(_BaseQFit):
         self.charseq = []
         self._smax = None
         self._simple = True
-        if self.xmap.resolution.high is not None:
-            self._smax = 1 / (2 * self.xmap.resolution.high)
-            self._simple = False
-        elif options.resolution is not None:
-            self._smax = 1 / (2 * options.resolution)
-            self._simple = False
-
-        self._smin = 0
         self._rmask = 1.5
+        reso = None
+        if self.xmap.resolution.high is not None:
+            reso = self.xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            self._smax = 1 / (2 * reso)
+            self._simple = False
+            self._rmask = 0.5 + reso / 3.0
+
+        self._smin = None
         if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
         elif self.options.resolution_min is not None:
@@ -959,18 +964,18 @@ class QFitSegment(_BaseQFit):
                 fragments = fragments[mask]
                 self._coor_set = [fragment.coor for fragment in fragments]
                 self._occupancies = self._occupancies[mask]
-                # self.print_paths(fragments)
                 # MIQP
                 self._convert()
                 self._solve(cardinality=self.options.cardinality,
                             threshold=self.options.threshold,
-                            loop_range=[0.3, 0.25, 0.2, 0.16, 0.14, 0.12])
+                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
                 # Update conformers
                 mask = self._occupancies >= 0.002
                 for fragment, occ in zip(fragments[mask],
                                          self._occupancies[mask]):
                     fragment.q = occ
                 segment.append(fragments[mask])
+                # self.print_paths(fragments[mask])
 
         for path, altloc in zip(segment[0],possible_conformers ):
             path.altloc = altloc

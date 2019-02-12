@@ -40,55 +40,63 @@ def parse_args():
                    "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+
+    # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
                    help="MTZ column labels to build density.")
+    p.add_argument('-r', "--resolution", type=float, default=None,
+                   metavar="<float>", help="Map resolution in angstrom."
+                   "Only use when providing CCP4 map files.")
+    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
+            help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
+            help="Scattering type.")
+    p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
+            help="Randomize B-factors of generated conformers.")
     p.add_argument('-o', '--omit', action="store_true",
                    help="Map file is a 2mFo-DFc OMIT map.")
-    p.add_argument('-r', "--resolution", type=float, default=None,
-                   metavar="<float>", help="Map resolution in angstrom.")
+
+    # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
                    help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.1, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
-    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
+    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1,
+            metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
+
+    # Sampling options
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
     p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
             help="Enable external clash detection during consistent segment calculations.")
-    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
-            help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=5, metavar="<float>",
-            help="Stepsize for dihedral angle sampling in degree.")
-    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
-            help="Lower resolution bound in angstrom.")
-    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-            help="Scattering type.")
-    p.add_argument("-rn", "--rotamer-neighborhood", type=float, default=40, metavar="<float>",
-            help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Treshold constraint used during MIQP.")
-    p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
-                   dest="fragment_length", help="Number of subsequent elements used during optimization.")
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
-            help="Directory to store results.")
-    p.add_argument("--debug", action="store_true",
-           help="Write intermediate structures to file for debugging.")
-    p.add_argument("-v", "--verbose", action="store_true",
-            help="Be verbose.")
+    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
+                   help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+
+    # qFit Segment options
+    p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
+                   dest="fragment_length", help="Number of subsequent elements used during optimization.")
     p.add_argument("-Ts","--no-segment-threshold-selection", dest="seg_bic_threshold",
                    action="store_false",
                    help="Do not use BIC to select the most parsimonious MIQP threshold")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
+    # Output options
+    p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
+            help="Directory to store results.")
+    p.add_argument("--debug", action="store_true",
+           help="Write intermediate structures to file for debugging.")
+    p.add_argument("-v", "--verbose", action="store_true",
+            help="Be verbose.")
 
     args = p.parse_args()
-
     return args
 
 
@@ -106,7 +114,8 @@ def main():
     options = options.apply_command_args(args)
 
     structure = Structure.fromfile(args.structure).reorder()
-    structure = structure.extract('e', 'H', '!=')
+    if not args.hydro:
+        structure = structure.extract('e', 'H', '!=')
 
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
