@@ -248,7 +248,7 @@ class mmCIFTable(list):
         return None
 
     def get_row(self, *args):
-        """Preforms a SQL-like 'AND' select aginst all the rows in the table,
+        """Performs a SQL-like 'AND' select aginst all the rows in the table,
         and returns the first matching row found. The arguments are a
         variable list of tuples of the form:
           (<lower-case-column-name>, <column-value>)

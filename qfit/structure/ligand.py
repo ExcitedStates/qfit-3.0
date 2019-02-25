@@ -31,7 +31,7 @@ from scipy.spatial.distance import pdist, squareform
 
 from .base_structure import _BaseStructure
 from .residue import residue_type
-
+from .mmCIF import mmCIFDictionary
 from .math import aa_to_rotmat
 
 
@@ -42,19 +42,14 @@ class _Ligand(_BaseStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._get_connectivity()
-        self.id = (kwargs['resi'], kwargs['icode'])
-        self.type = kwargs["type"]
-
-    #def __init__(self, structure_ligand):
-    #    super().__init__(structure_ligand.data,structure_ligand._selection,
-    #                     structure_ligand.parent)
-    #    self._get_connectivity()
-    #    resi, icode = structure_ligand.resi[0], structure_ligand.icode[0]
-    #    if icode != '':
-    #        self.id = (int(resi), icode)
-    #    else:
-    #        self.id = int(resi)
-    #    self.type = residue_type(structure_ligand)
+        try:
+            self.id = (kwargs['resi'], kwargs['icode'])
+        except KeyError:
+            self.id = (args[0]['resi'], args[0]['icode'])
+        try:
+            self.type = kwargs["type"]
+        except:
+            pass
 
     def __repr__(self):
         string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
@@ -321,3 +316,214 @@ class _Ligand(_BaseStructure):
         checked_bonds = []
         _rotation_order(clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree)
         return rotation_tree
+
+
+class Covalent_Ligand(_BaseStructure):
+
+    """ Covalent Ligand class """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.id = (args[0]['resi'], args[0]['icode'])
+        self.ligand_name = self.resn[0]
+        self.bonds = None
+        if "cif_file" in kwargs:
+            self._get_connectivity_from_cif(kwargs["cif_file"])
+        else:
+            self._get_connectivity()
+        # self.type = args[0].data["type"]
+
+    def __repr__(self):
+        string = (f'Covalent Ligand: {self.resn[0]}.'
+                  f' Number of atoms: {self.natoms}.')
+        return string
+
+    def _get_connectivity_from_cif(self, cif_file):
+        """Determine connectivity matrix of ligand and associated distance
+        cutoff matrix for later clash detection.
+        """
+        coor = self.coor
+        self.bonds = {}
+        dist_matrix = squareform(pdist(coor))
+        covrad = self.covalent_radius
+        natoms = self.natoms
+        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
+        connectivity_matrix = np.zeros_like(dist_matrix,dtype=bool)
+        cif = mmCIFDictionary()
+        cif.load_file(cif_file)
+        for cif_data in cif:
+            if cif_data.name == f'comp_{self.ligand_name}':
+                for cif_table in cif_data:
+                    if cif_table.name == "chem_comp_bond":
+                        for cif_row in cif_table:
+                            a1 = cif_row['atom_id_1']
+                            a2 = cif_row['atom_id_2']
+                            index1 = np.argwhere(self.name == a1)
+                            index2 = np.argwhere(self.name == a2)
+                            try:
+                                connectivity_matrix[index1,index2] = True
+                                connectivity_matrix[index2,index1] = True
+                            except:
+                                pass
+                            else:
+                                try:
+                                    index1 = index1[0,0]
+                                    index2 = index2[0,0]
+                                except:
+                                    continue
+                                if index1 not in self.bonds:
+                                    self.bonds[index1] = {}
+                                if index2 not in self.bonds:
+                                    self.bonds[index2] = {}
+                                self.bonds[index1][index2] = cif_row['type']
+                                self.bonds[index2][index1] = cif_row['type']
+
+        self._cutoff_matrix = cutoff_matrix
+        self.connectivity = connectivity_matrix
+
+    def _get_connectivity(self):
+        coor = self.coor
+        dist_matrix = squareform(pdist(coor))
+        covrad = self.covalent_radius
+        natoms = self.natoms
+        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
+        # Add 0.5 A to give covalently bound atoms more room
+        cutoff_matrix = cutoff_matrix + cutoff_matrix.T + 0.5
+        connectivity_matrix = (dist_matrix < cutoff_matrix)
+        # Atoms are not connected to themselves
+        np.fill_diagonal(connectivity_matrix, False)
+        self.connectivity = connectivity_matrix
+        self._cutoff_matrix = cutoff_matrix
+        #print(self.connectivity)
+
+    def clashes(self):
+        """Checks if there are any internal clashes."""
+        ''' dist_matrix = squareform(pdist(self.coor))
+        mask = np.logical_not(self.connectivity)
+        active_matrix = (self.active.reshape(1, -1) * self.active.reshape(-1, 1)) > 0
+        mask &= active_matrix
+        np.fill_diagonal(mask, False)
+        clash_matrix = dist_matrix < self._cutoff_matrix
+        if np.any(np.logical_and(clash_matrix, mask)):
+            return True
+        return False'''
+        pass
+
+    def bonds(self):
+        """Print bonds"""
+        indices = np.nonzero(self.connectivity)
+        for a, b in zip(*indices):
+            print(self.name[a], self.name[b])
+
+    def rigid_clusters(self):
+        """Find rigid clusters / seeds in the molecule.
+
+        Currently seeds are either rings or terminal ends of the molecule, i.e.
+        the last two atoms.
+        """
+
+        conn = self.connectivity
+        rings = self.ring_paths()
+        clusters = []
+        proc_queue = []
+        clustered = np.zeros(self.natoms, dtype=int)
+        for root in range(self.natoms):
+            # Ignore root if it is a Hydrogen
+            if self.e[root] == 'H':
+                continue
+
+            # Check if root has already been clustered
+            if clustered[root] == 2:
+                continue
+            elif clustered[root] == 1:
+                for cluster in clusters:
+                    if root in cluster:
+                        break
+            else:
+                cluster = [root]
+
+            # Check if atom is part of a ring, if so add all atoms. This
+            # step combines multi-ring systems.
+            ring_atom = False
+            for atom, ring in product(cluster, rings):
+                if atom in ring:
+                    ring_atom = True
+                    for a in ring:
+                        if a not in cluster:
+                            cluster.append(a)
+                            clustered[a] = 2
+
+            # If root is not part of a ring, check if it is connected to a
+            # terminal heavy atom.
+            if not ring_atom:
+                neighbors = np.flatnonzero(conn[root])
+                for n in neighbors:
+                    if self.e[n] == 'H':
+                        continue
+                    neighbor_neighbors = np.flatnonzero(conn[n])
+                    # Ignore hydrogen neighbors:
+                    hydrogen_neighbors = (self.e[neighbor_neighbors] == 'H').sum()
+                    if len(neighbor_neighbors) - hydrogen_neighbors == 1:
+                        if clustered[n] == 0:
+                            cluster.append(n)
+                            clustered[n] = 2
+
+                    # If bond type was provided via CIF file, check for
+                    # double and aromatic bonds:
+                    if self.bonds is not None:
+                        if self.bonds[root][n] != "single" and n not in cluster:
+                            cluster.append(n)
+                            clustered[n] = 1
+
+            if len(cluster) > 1:
+                clusters.append(cluster)
+
+        # Add all left-over single unclustered atoms
+        for atom in range(self.natoms):
+            found = False
+            for cluster in clusters:
+                if atom in cluster:
+                    found = True
+                    break
+            if not found:
+                clusters.append([atom])
+        return clusters
+
+    # This method aims to identify atoms that are involved in a ring.
+    def ring_paths(self):
+        # Call to the BFS:
+        def ring_path(T, v1, v2):
+            v1path = []
+            v = v1
+            while v is not None:
+                v1path.append(v)
+                v = T[v]
+            v = v2
+            v2path = []
+            while v not in v1path:
+                v2path.append(v)
+                v = T[v]
+            ring = v1path[0:v1path.index(v) + 1] + v2path
+            return ring
+
+        ring_paths = []
+        T = {}
+        conn = self.connectivity
+        for root in range(self.natoms):
+            if root in T:
+                continue
+            T[root] = None
+            fringe = [root]
+            while fringe:
+                a = fringe[0]
+                del fringe[0]
+                # Scan the neighbors of a
+                for n in np.flatnonzero(conn[a]):
+                    if n in T and n == T[a]:
+                        continue
+                    elif n in T and (n not in fringe):
+                        ring_paths.append(ring_path(T, a, n))
+                    elif n not in fringe:
+                        T[n] = a
+                        fringe.append(n)
+        return ring_paths
