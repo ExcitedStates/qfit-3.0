@@ -72,6 +72,7 @@ class _BaseQFitOptions:
         self.omit = False
         self.scale = True
         self.randomize_b = False
+        self.neighbor_radius = None
 
         # Sampling options
         self.clash_scaling_factor = 0.75
@@ -144,6 +145,8 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
+
+
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
@@ -154,6 +157,7 @@ class _BaseQFit:
             self._simple = False
             self._rmask = 0.5 + reso / 3.0
 
+        self.options.neighbor_radius = self._rmask
         self._smin = None
         if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
@@ -171,6 +175,7 @@ class _BaseQFit:
         conformers = []
         for q, coor in zip(self._occupancies, self._coor_set):
             conformer = self.conformer.copy()
+            conformer = conformer.extract(f"resi {self.resi} and chain {self.chain}")
             conformer.coor = coor
             conformer.q = q
             conformers.append(conformer)
@@ -193,7 +198,7 @@ class _BaseQFit:
         logger.debug("Masking")
         self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
+            self.conformer.coor = np.concatenate((self.neighbors.coor, coor),axis=0) # coor
             self._transformer.mask(self._rmask)
         # self._transformer.xmap.tofile(f'mask_{self._n}.ccp4')
         mask = (self._transformer.xmap.array > 0)
@@ -221,7 +226,7 @@ class _BaseQFit:
         # print("Model sum:", model_sum)
         # self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
+            self.conformer.coor = np.concatenate((self.neighbors.coor, coor),axis=0) # coor
             self._transformer.density()
             model = self._models[n]
             model[:] = self._transformer.xmap.array[mask]
@@ -307,7 +312,7 @@ class _BaseQFit:
 
         for q, coor in zip(self._occupancies, self._coor_set):
             self.conformer.q = q
-            self.conformer.coor = coor
+            self.conformer.coor = np.concatenate((self.neighbors.coor, coor),axis=0) # coor
             self._transformer.density()
         fname = os.path.join(self.options.directory, f'model.{ext}')
         self._transformer.xmap.tofile(fname)
@@ -456,10 +461,27 @@ class QFitRotamericResidue(_BaseQFit):
                 self.segment = segment
                 break
 
+        # Identify the neighboring atoms of the residue:
+        sel_str = f"resi {self.resi} and chain {self.chain}"
+        sel_str = f"not ({sel_str})"
+        neighbors = self.structure.extract(sel_str)
+        mask = (neighbors.coor[:,1] < -np.inf)
+        for coor in self.residue.coor:
+             diffs = neighbors.coor - np.array(coor)
+             dists = np.linalg.norm(diffs, axis=1)
+             mask = np.logical_or(mask, dists < self.options.neighbor_radius)
+
+        data = {}
+        for attr in neighbors.data:
+            array1 = getattr(neighbors, attr)
+            data[attr] = array1[mask]
+        self.neighbors = Structure(data)
+        self.near_atoms = self.neighbors.combine(self.residue)
+
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
         self._setup_clash_detector()
-        self._update_transformer(self.residue)
+        self._update_transformer(self.near_atoms)
 
     def _setup_clash_detector(self):
 
@@ -540,7 +562,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
-        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory)
+        validator = Validator(self.xmap, self.xmap.resolution,
+                              self.neighbors, self.options.directory)
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
         else:
@@ -593,7 +616,7 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        #print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -626,6 +649,7 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
+        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
         if len(self._coor_set) > 1000:
             print("[WARNING] Large number of conformers have been generated. Run times may be slow."
                   "Please, consider changing sampling parameters and re-running qFit.")
@@ -703,6 +727,7 @@ class QFitRotamericResidue(_BaseQFit):
 
                         # Sample around the neighborhood of the rotamer
                         chi_rotator = ChiRotator(self.residue, chi_index)
+
                         for angle in sampling_window:
                             chi_rotator(angle)
                             coor = self.residue.coor
@@ -718,6 +743,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
+            # print(f"Nconf: {len(self._coor_set)}")
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
@@ -825,6 +851,7 @@ class QFitSegment(_BaseQFit):
         self._simple = True
         self._rmask = 1.5
         reso = None
+        self.neighbors = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
         elif options.resolution is not None:
@@ -854,6 +881,7 @@ class QFitSegment(_BaseQFit):
               f'{self.segment.average_conformers():.2f}')
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))
+        self.neighbors = hetatms
         segment = []
         for i, rg in enumerate(self.segment.extract('record',
                                                     "ATOM").residue_groups):
