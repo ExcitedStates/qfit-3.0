@@ -29,6 +29,7 @@ from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
 import multiprocessing as mp
 import os.path
+import os
 import sys
 import time
 import copy
@@ -36,6 +37,7 @@ from argparse import ArgumentParser
 from math import ceil
 from . import MapScaler, Structure, XMap
 
+os.environ["OMP_NUM_THREADS"] = "1"
 
 def parse_args():
 
@@ -91,7 +93,7 @@ def parse_args():
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=40, metavar="<float>",
+            default=60, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
                    dest="remove_conformers_below_cutoff",
@@ -256,7 +258,15 @@ class QFitProtein:
             # Prepare X-ray map
             scaler = MapScaler(self.xmap, scattering=self.options.scattering)
             footprint = self.structure.extract('record', 'ATOM')
-            scaler.scale(footprint, radius=1)
+            radius = 1.5
+            reso = None
+            if self.xmap.resolution.high is not None:
+                reso = self.xmap.resolution.high
+            elif options.resolution is not None:
+                reso = options.resolution
+            if reso is not None:
+                radius = 0.5 + reso / 3.0
+            scaler.scale(footprint, radius=radius)
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
@@ -315,7 +325,15 @@ class QFitProtein:
                         sel_str = f"not ({sel_str})"
                         footprint = structure_new.extract(sel_str)
                         footprint = footprint.extract('record', 'ATOM')
-                    scaler.scale(footprint, radius=1)
+                    radius = 1.5
+                    reso = None
+                    if xmap.resolution.high is not None:
+                        reso = xmap.resolution.high
+                    elif options.resolution is not None:
+                        reso = options.resolution
+                    if reso is not None:
+                        radius = 0.5 + reso / 3.0
+                    scaler.scale(footprint, radius=radius)
                     # scaler.cutoff(options.density_cutoff,
                     #                options.density_cutoff_value)
                 xmap_reduced = xmap.extract(residue.coor, padding=5)

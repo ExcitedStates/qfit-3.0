@@ -30,16 +30,15 @@ import logging
 import os
 import sys
 import time
+import numpy as np
 from string import ascii_uppercase
 from .qfit import print_run_info
-
-logger = logging.getLogger(__name__)
-
-import numpy as np
-
-from . import MapScaler, Structure, XMap, QFitRotamericResidue, QFitRotamericResidueOptions
+from . import MapScaler, Structure, XMap
+from . import QFitRotamericResidue, QFitRotamericResidueOptions
 from .structure import residue_type
 
+logger = logging.getLogger(__name__)
+os.environ["OMP_NUM_THREADS"] = "1"
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -99,7 +98,7 @@ def parse_args():
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=40, metavar="<float>",
+            default=60, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
                    dest="remove_conformers_below_cutoff",
@@ -162,7 +161,6 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
-
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -198,7 +196,6 @@ def main():
 
     options = QFitRotamericResidueOptions()
     options.apply_command_args(args)
-
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:
@@ -213,8 +210,15 @@ def main():
             sel_str = f"not ({sel_str})"
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
-        scaler.scale(footprint, radius=1)
-        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(footprint, radius=radius)
     xmap = xmap.extract(residue.coor, padding=5)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):

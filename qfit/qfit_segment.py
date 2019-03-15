@@ -24,12 +24,16 @@ IN THE SOFTWARE.
 '''
 
 import os.path
+import os
 import time
 from argparse import ArgumentParser
 
 from . import MapScaler, Structure, XMap
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
+
+os.environ["OMP_NUM_THREADS"] = "1"
+
 
 def parse_args():
 

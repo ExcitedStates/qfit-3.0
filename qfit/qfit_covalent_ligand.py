@@ -28,6 +28,7 @@ IN THE SOFTWARE.
 import argparse
 import logging
 import os.path
+import os
 import sys
 import time
 from string import ascii_uppercase
@@ -36,6 +37,8 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 from . import MapScaler, Structure, XMap, Covalent_Ligand
+
+os.environ["OMP_NUM_THREADS"] = "1"
 
 
 def parse_args():

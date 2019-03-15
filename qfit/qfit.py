@@ -26,6 +26,7 @@ IN THE SOFTWARE.
 import itertools
 import logging
 import os
+import time
 from sys import argv
 import copy
 from string import ascii_uppercase
@@ -72,7 +73,6 @@ class _BaseQFitOptions:
         self.omit = False
         self.scale = True
         self.randomize_b = False
-        self.neighbor_radius = None
 
         # Sampling options
         self.clash_scaling_factor = 0.75
@@ -115,7 +115,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 40
+        self.rotamer_neighborhood = 60
         self.remove_conformers_below_cutoff = True
 
         self.bulk_solvent_level = 0.3
@@ -157,7 +157,6 @@ class _BaseQFit:
             self._simple = False
             self._rmask = 0.5 + reso / 3.0
 
-        self.options.neighbor_radius = self._rmask
         self._smin = None
         if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
@@ -456,11 +455,15 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
         # Get the segment that the residue belongs to
         chainid = self.residue.chain[0]
+        self.segment = None
         for segment in self.structure.segments:
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
 
+        if self.segment == None:
+            raise RuntimeError(f"Could not determine the protein segment of "
+                               f"residue {self.chain}, {self.resi}.")
         # Identify the neighboring atoms of the residue:
         sel_str = f"resi {self.resi} and chain {self.chain}"
         sel_str = f"not ({sel_str})"
@@ -469,7 +472,7 @@ class QFitRotamericResidue(_BaseQFit):
         for coor in self.residue.coor:
              diffs = neighbors.coor - np.array(coor)
              dists = np.linalg.norm(diffs, axis=1)
-             mask = np.logical_or(mask, dists < self.options.neighbor_radius)
+             mask = np.logical_or(mask, dists < 3.5)
 
         data = {}
         for attr in neighbors.data:
@@ -536,7 +539,7 @@ class QFitRotamericResidue(_BaseQFit):
             raise RuntimeError("Incomplete residue")
         if self.options.sample_backbone:
             self._sample_backbone()
-        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0]!='GLY':
+        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0] != 'GLY':
             self._sample_angle()
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
@@ -616,7 +619,7 @@ class QFitRotamericResidue(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        # print(f"\nBackbone sampling generated {len(self._coor_set)} conformers.\n"
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -630,7 +633,6 @@ class QFitRotamericResidue(_BaseQFit):
                            self.options.sample_angle_range+0.001,
                            self.options.sample_angle_step)
         new_coor_set = []
-
         for coor in self._coor_set:
             self.residue.coor = coor
             rotator = CBAngleRotator(self.residue)
@@ -649,7 +651,7 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers")
+        #print(f"\nBond angle sampling generated {len(self._coor_set)}/{total} conformers.\n"
         if len(self._coor_set) > 1000:
             print("[WARNING] Large number of conformers have been generated. Run times may be slow."
                   "Please, consider changing sampling parameters and re-running qFit.")
@@ -743,7 +745,6 @@ class QFitRotamericResidue(_BaseQFit):
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
-            # print(f"Nconf: {len(self._coor_set)}")
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
@@ -766,7 +767,6 @@ class QFitRotamericResidue(_BaseQFit):
             logger.info("Solving MIQP.")
             self._solve(cardinality=opt.cardinality,
                         threshold=opt.threshold)
-
             self._update_conformers()
             # self._write_intermediate_conformers(f"miqp_{iteration}")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
@@ -845,13 +845,13 @@ class QFitSegment(_BaseQFit):
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
+        self.neighbors = None
         self.orderings = []
         self.charseq = []
         self._smax = None
         self._simple = True
         self._rmask = 1.5
         reso = None
-        self.neighbors = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
         elif options.resolution is not None:
@@ -881,7 +881,7 @@ class QFitSegment(_BaseQFit):
               f'{self.segment.average_conformers():.2f}')
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))
-        self.neighbors = hetatms
+        self.neighbors = copy.deepcopy(multiconformers)
         segment = []
         for i, rg in enumerate(self.segment.extract('record',
                                                     "ATOM").residue_groups):
