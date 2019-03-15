@@ -28,6 +28,7 @@ IN THE SOFTWARE.
 import argparse
 import logging
 import os.path
+import os
 import sys
 import time
 from string import ascii_uppercase
@@ -35,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 
-from . import Structure, _Ligand
+from . import MapScaler, Structure, XMap, Covalent_Ligand
+
+os.environ["OMP_NUM_THREADS"] = "1"
 
 
 def parse_args():
@@ -46,6 +49,8 @@ def parse_args():
                  "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
             help="PDB-file containing structure.")
+    p.add_argument('-cif', "--cif_file", type=str, default=None,
+            help="CIF file describing the ligand")
     p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
@@ -130,11 +135,62 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
-    ligand = _Ligand(structure_ligand)
-    if ligand.natoms == 0:
+    if args.cif_file:
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection,
+                                          cif_file=args.cif_file)
+    else:
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection)
+    if covalent_ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            "selection input.")
 
     # Select all ligand conformers:
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+    altlocs = sorted(list(set(covalent_ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+#            structure = structure.extract(sel_str)
+            covalent_ligand = covalent_ligand.extract(sel_str)
+    covalent_ligand.altloc.fill('')
+    covalent_ligand.q.fill(1)
+
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
+
+    # Load and process the electron density map:
+    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
+    xmap = xmap.canonical_unit_cell()
+    if args.scale:
+        # Prepare X-ray map
+        scaler = MapScaler(xmap, scattering=args.scattering)
+        if args.omit:
+            footprint = structure_ligand
+        else:
+            sel_str = f"resi {resi} and chain {chainid}"
+            if icode:
+                sel_str += f" and icode {icode}"
+            sel_str = f"not ({sel_str})"
+            footprint = structure.extract(sel_str)
+            footprint = footprint.extract('record', 'ATOM')
+        scaler.scale(footprint, radius=1)
+    xmap = xmap.extract(covalent_ligand.coor, padding=5)
+    ext = '.ccp4'
+    if not np.allclose(xmap.origin, 0):
+        ext = '.mrc'
+    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
+    xmap.tofile(scaled_fname)
+
+    print(covalent_ligand.rigid_clusters())
+
 
     print("Under development!")

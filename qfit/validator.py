@@ -35,10 +35,11 @@ import scipy.stats as st
 
 class Validator(object):
 
-    def __init__(self, xmap, resolution, directory, scattering='xray'):
+    def __init__(self, xmap, resolution, neighbors, directory, scattering='xray'):
         self.xmap = xmap
         self.resolution = resolution
         self.scattering = scattering
+        self.neighbors = neighbors
         self.fname = os.path.join(directory,'Validation_Metrics.txt')
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
@@ -120,14 +121,14 @@ class Validator(object):
         fisher2 = 0.5 * np.log((1 + corr2) / (1 - corr2))
         return (fisher2 - fisher1) / sigma
 
-    def GoodnessOfFit(self,conformer,coor_set,occupancies,rmask,confidence=0.95):
+    def GoodnessOfFit(self, conformer,coor_set,occupancies,rmask,confidence=0.95):
         # Calculate the Observed map for the masked values:
         xmap_calc = XMap.zeros_like(self.xmap)
         xmap_calc.set_space_group("P1")
         transformer = Transformer(conformer,xmap_calc)
         rscc_set= np.zeros_like(occupancies)
         for i,coor in enumerate(coor_set):
-            conformer.coor = coor
+            conformer.coor = np.concatenate((self.neighbors.coor, coor),axis=0) # coor
             transformer.mask(rmask)
             rscc_set[i] = self.rscc(conformer,rmask)
         mask = xmap_calc.array > 0
@@ -138,7 +139,7 @@ class Validator(object):
             f.write("Conf.\t AIC\t AIC2\t BIC\t BIC2\t Fisher Z-score\n")
             metrics = []
             for i,idx in enumerate(order):
-                conformer.coor = coor_set[idx]
+                conformer.coor = np.concatenate((self.neighbors.coor, coor_set[idx]),axis=0) 
                 try:
                     multiconformer = multiconformer.combine(conformer)
                 except Exception:
