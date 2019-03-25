@@ -145,8 +145,6 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
-
-
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
@@ -439,6 +437,7 @@ class QFitRotamericResidue(_BaseQFit):
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
                 residue.complete_residue()
+                residue._init_clash_detection()
                 self.incomplete = True
                 break
 
@@ -453,13 +452,16 @@ class QFitRotamericResidue(_BaseQFit):
 
         super().__init__(residue, structure, xmap, options)
         self.residue = residue
-        self.residue._init_clash_detection(self.options.clash_scaling_factor)
+        # self.residue._init_clash_detection(self.options.clash_scaling_factor)
         # Get the segment that the residue belongs to
         chainid = self.residue.chain[0]
+        self.segment = None
         for segment in self.structure.segments:
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
+        if self.segment is None:
+            raise RuntimeError("Could not determine segment.")
 
         # Identify the neighboring atoms of the residue:
         sel_str = f"resi {self.resi} and chain {self.chain}"
@@ -576,9 +578,10 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_backbone(self):
         # Check if residue has enough neighboring residues
         index = self.segment.find(self.residue.id)
+        self.residue.update_clash_mask()
+        active = self.residue.active
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
-            # self.options.sample_backbone = False
             return
         segment = self.segment[index - nn: index + nn + 1]
 
@@ -614,6 +617,11 @@ class QFitRotamericResidue(_BaseQFit):
 
         for solution in torsion_solutions:
             optimizer.rotator(solution)
+            if self.options.remove_conformers_below_cutoff:
+                values = self.xmap.interpolate(self.segment[index].coor[active])
+                mask = (self.residue.e[active] != "H")
+                if np.min(values[mask]) < self.options.density_cutoff:
+                    continue
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
         # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
@@ -677,7 +685,6 @@ class QFitRotamericResidue(_BaseQFit):
             end_chi_index = min(start_chi_index + chis_to_sample,
                                 self.residue.nchi + 1)
             for chi_index in range(start_chi_index, end_chi_index):
-
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
                 # clash mask.
@@ -692,6 +699,7 @@ class QFitRotamericResidue(_BaseQFit):
                 logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
                 new_coor_set = []
                 n = 0
+                ex = 0
                 for coor in self._coor_set:
                     n += 1
                     self.residue.coor = coor
@@ -735,6 +743,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < opt.density_cutoff:
+                                    ex+=1
                                     continue
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
@@ -743,7 +752,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
-            # print(f"Nconf: {len(self._coor_set)}")
+            print(f"Nconf: {len(self._coor_set)}. Excluded = {ex}")
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
@@ -760,6 +769,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
+            print(f"Nconf post QP: {len(self._coor_set)}.")
+
             # self._write_intermediate_conformers(f"qp_{iteration}")
             # MIQP
             self._convert()
@@ -881,7 +892,7 @@ class QFitSegment(_BaseQFit):
               f'{self.segment.average_conformers():.2f}')
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))
-        self.neighbors = hetatms
+        self.neighbors = copy.deepcopy(multiconformers)
         segment = []
         for i, rg in enumerate(self.segment.extract('record',
                                                     "ATOM").residue_groups):
@@ -1019,6 +1030,10 @@ class QFitSegment(_BaseQFit):
                     # coor.append(fragment.coor[i])
             print(f"Path {k+1}:\t{ path }\t{fragment.q[-1]}")
 
+class QFitLigandOptions(_BaseQFitOptions):
+
+    def __init__(self):
+        super().__init__()
 
 class QFitLigand(_BaseQFit):
 
@@ -1076,11 +1091,147 @@ class QFitLigand(_BaseQFit):
                 if not self._coor_set:
                     return
 
+class QFitCovalentLigandOptions(_BaseQFitOptions):
+
+    def __init__(self):
+        super().__init__()
+
+        # Backbone sampling
+        self.sample_backbone = False
+        self.neighbor_residues_required = 2
+        self.sample_backbone_amplitude = 0.30
+        self.sample_backbone_step = 0.1
+        self.sample_backbone_sigma = 0.125
+
+        # N-CA-CB angle sampling
+        self.sample_angle = False
+        self.sample_angle_range = 7.5
+        self.sample_angle_step = 3.75
 
 class QFitCovalentLigand(_BaseQFit):
-    pass
+
+    def __init__(self, covalent_ligand, receptor, xmap, options):
+        self.chain = covalent_ligand.chain[0]
+        self.resi = covalent_ligand.resi[0]
 
 
+        if covalent_ligand.covalent_bonds == 0:
+            pass
+        elif covalent_ligand.covalent_bonds == 1:
+            partner_chain, partner_resi, partner_icode = covalent_ligand.covalent_partners[0]
+            sel_str = f"chain {partner_chain} and resi {partner_resi}"
+            if partner_icode:
+                sel_str = f"{sel_str} and icode {partner_icode}"
+
+            self.covalent_partner = receptor.extract(sel_str)
+            self.covalent_residue = self.covalent_partner.combine(covalent_ligand)
+
+            sel_str = f"not {sel_str}"
+            self.structure = receptor.extract(sel_str)
+
+            super().__init__(self.covalent_residue, self.structure, xmap, options)
+            # Get the segment that the residue belongs to
+            if partner_icode:
+                partner_id = (int(partner_resi), partner_icode)
+            else:
+                partner_id = int(partner_resi)
+
+            self.partner_id = partner_id
+            chain = self.covalent_partner[partner_chain]
+            conformer = chain.conformers[0]
+            cov_residue = conformer[partner_id]
+            self.segment = None
+            for segment in receptor.segments:
+                if segment.chain[0] == partner_chain and cov_residue in segment:
+                    self.segment = segment
+                    break
+            if self.segment is None:
+                raise RuntimeError("Could not determine segment.")
+
+            # Identify the neighboring atoms of the residue:
+            neighbors = copy.deepcopy(self.structure)
+            mask = (neighbors.coor[:,1] < -np.inf)
+            for coor in self.covalent_residue.coor:
+                 diffs = neighbors.coor - np.array(coor)
+                 dists = np.linalg.norm(diffs, axis=1)
+                 mask = np.logical_or(mask, dists < 3.5)
+            data = {}
+            for attr in neighbors.data:
+                array1 = getattr(neighbors, attr)
+                data[attr] = array1[mask]
+            self.neighbors = Structure(data)
+            self.near_atoms = self.neighbors.combine(self.covalent_residue)
+
+            self._setup_clash_detector()
+            self._update_transformer(self.near_atoms)
+
+
+        else:
+            pass
+
+    def _setup_clash_detector(self):
+        # Clash detector disabled as we are using soft clash
+        pass
+
+    def run(self):
+        if self.options.sample_backbone:
+            self._sample_backbone()
+        return
+        # if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0]!='GLY':
+        #    self._sample_angle()
+        # if self.residue.nchi >= 1 and self.options.sample_rotamers:
+        #    self._sample_sidechain()
+
+    def _sample_backbone(self):
+        # Check if residue has enough neighboring residues
+        index = self.segment.find(self.partner_id)
+        # self.covalent_residue.update_clash_mask()
+        active = self.covalent_residue.active
+        nn = self.options.neighbor_residues_required
+        if index < nn or index + nn > len(self.segment):
+            return
+        segment = self.segment[index - nn: index + nn + 1]
+        atom_name = "CB"
+        if self.covalent_residue.resn[0] == "GLY":
+            atom_name = "O"
+        atom = self.covalent_residue.extract('name', atom_name)
+        try:
+            unit_cell = self.xmap.unit_cell
+            u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
+                        [atom.u01[0], atom.u11[0], atom.u12[0]],
+                        [atom.u02[0], atom.u12[0], atom.u22[0]]]
+            directions = move_direction_adp(u_matrix, unit_cell)
+        except AttributeError:
+            directions = np.identity(3)
+
+        optimizer = NullSpaceOptimizer(segment)
+        '''
+                start_coor = atom.coor[0]
+                torsion_solutions = []
+                amplitudes = np.arange(0.1, self.options.sample_backbone_amplitude + 0.01,
+                                         self.options.sample_backbone_step)
+                sigma = self.options.sample_backbone_sigma
+                for amplitude, direction in itertools.product(amplitudes, directions):
+                    endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
+                    optimize_result = optimizer.optimize(atom_name, endpoint)
+                    torsion_solutions.append(optimize_result['x'])
+
+                    endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
+                    optimize_result = optimizer.optimize(atom_name, endpoint)
+                    torsion_solutions.append(optimize_result['x'])
+                starting_coor = segment.coor
+
+                for solution in torsion_solutions:
+                    optimizer.rotator(solution)
+                    if self.options.remove_conformers_below_cutoff:
+                        values = self.xmap.interpolate(self.segment[index].coor[active])
+                        mask = (self.residue.e[active] != "H")
+                        if np.min(values[mask]) < self.options.density_cutoff:
+                            continue
+                    self._coor_set.append(self.segment[index].coor)
+                    segment.coor = starting_coor
+                # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        '''
 def print_run_info(args):
     runinfo_fname = os.path.join(args.directory, 'qfit_run_info.log')
     with open(runinfo_fname, 'w') as f:

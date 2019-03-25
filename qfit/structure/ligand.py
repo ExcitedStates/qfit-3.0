@@ -327,10 +327,22 @@ class Covalent_Ligand(_BaseStructure):
         self.id = (args[0]['resi'], args[0]['icode'])
         self.ligand_name = self.resn[0]
         self.bonds = None
+        self.covalent_bonds = 0
+        self.covalent_partners = []
+
         if "cif_file" in kwargs:
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:
             self._get_connectivity()
+
+        for i, res1 in enumerate(self.link_data['resn1']):
+            if res1 == self.ligand_name:
+                self.covalent_bonds += 1
+                self.covalent_partners.append(
+                    [self.link_data['chain2'][i],
+                     self.link_data['resi2'][i],
+                     self.link_data['icode2'][i]])
+
         # self.type = args[0].data["type"]
 
     def __repr__(self):

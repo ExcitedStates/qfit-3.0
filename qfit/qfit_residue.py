@@ -201,7 +201,7 @@ def main():
 
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale:
+    if args.scale == True:
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         if args.omit:
@@ -211,10 +211,16 @@ def main():
             if icode:
                 sel_str += f" and icode {icode}"
             sel_str = f"not ({sel_str})"
+            print(sel_str)
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
-        scaler.scale(footprint, radius=1)
-        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+            print(footprint)
+        if xmap.resolution.high < 3.0:
+            radius =  0.7 + ( xmap.resolution.high - 0.6 )/3.0
+        else:
+            radius = 0.5 * xmap.resolution.high
+        scaler.scale(footprint, radius=radius)
+        # scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
     xmap = xmap.extract(residue.coor, padding=5)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):

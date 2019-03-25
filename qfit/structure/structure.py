@@ -57,6 +57,12 @@ class Structure(_BaseStructure):
             data[attr] = np.asarray(array)
         coor = np.asarray(list(zip(dd['x'], dd['y'], dd['z'])),
                           dtype=np.float64)
+
+        dl = pdbfile.link
+        link_data = {}
+        for attr, array in dl.items():
+            link_data[attr] = np.asarray(array)
+
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=np.bool)
@@ -82,7 +88,7 @@ class Structure(_BaseStructure):
                                      'gamma', 'spg']]
             cls.unit_cell = UnitCell(*values)
 
-        return cls(data)
+        return cls(data, link_data=link_data)
 
     @classmethod
     def fromstructurelike(cls, structure_like):
@@ -337,7 +343,7 @@ class Structure(_BaseStructure):
         data = {}
         for attr, value in self.data.items():
             data[attr] = value[ordering]
-        return Structure(data)
+        return Structure(data, link_data=self.link_data)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}

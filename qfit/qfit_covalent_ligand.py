@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 from . import MapScaler, Structure, XMap, Covalent_Ligand
+from . import QFitCovalentLigand, QFitCovalentLigandOptions
 
 
 def parse_args():
@@ -77,6 +78,22 @@ def parse_args():
                  "This option creates an OMIT map and uses it as a default.")
 
     # Sampling options
+    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
+            help="Sample backbone using inverse kinematics.")
+    p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
+            type=float, default=0.1, metavar="<float>",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
+            type=float, default=0.3, metavar="<float>",
+           help="Sample N-CA-CB angle.")
+    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
+            type=float, default=3.75, metavar="<float>",
+            help="Sample N-CA-CB angle.")
+    p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
+            type=float, default=7.5, metavar="<float>",
+            help="Sample N-CA-CB angle.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
 
@@ -135,10 +152,12 @@ def main():
     if args.cif_file:
         covalent_ligand = Covalent_Ligand(structure_ligand.data,
                                           structure_ligand._selection,
+                                          link_data=structure_ligand.link_data,
                                           cif_file=args.cif_file)
     else:
         covalent_ligand = Covalent_Ligand(structure_ligand.data,
-                                          structure_ligand._selection)
+                                          structure_ligand._selection,
+                                          link_data=structure_ligand.link_data)
     if covalent_ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            "selection input.")
@@ -164,6 +183,9 @@ def main():
     sel_str = f"not ({sel_str})"
     receptor = structure.extract(sel_str)
 
+    options = QFitCovalentLigandOptions()
+    options.apply_command_args(args)
+
     # Load and process the electron density map:
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
@@ -187,7 +209,5 @@ def main():
     scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
 
-    print(covalent_ligand.rigid_clusters())
-
-
-    print("Under development!")
+    qfit = QFitCovalentLigand(covalent_ligand, receptor, xmap, options)
+    qfit.run()

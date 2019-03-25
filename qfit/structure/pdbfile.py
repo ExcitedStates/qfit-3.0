@@ -34,6 +34,7 @@ class PDBFile:
     def read(cls, fname):
         cls.coor = defaultdict(list)
         cls.anisou = defaultdict(list)
+        cls.link = defaultdict(list)
         cls.cryst1 = {}
         cls.resolution = None
         if fname.endswith('.gz'):
@@ -61,6 +62,10 @@ class PDBFile:
                         cls.resolution = values['resolution']
                     except:
                         pass
+                elif line.startswith('LINK'):
+                    values = LinkRecord.parse_line(line)
+                    for field in LinkRecord.fields:
+                        cls.link[field].append(values[field])
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
         return cls
@@ -99,6 +104,20 @@ class ModelRecord(Record):
     dtypes = (str, int)
     line = '{:6s}' + ' ' * 5 + '{:6d}\n'
 
+class LinkRecord(Record):
+    fields = ('record name1 altloc1 resn1 chain1 resi1 icode1 name2 '
+              'altloc2 resn2 chain2 resi2 icode2 sym1 sym2 length').split()
+    columns = [(0, 6), (12, 16), (16, 17), (17, 20), (21, 22),
+               (22, 26), (26, 27), (42, 46), (46, 47), (47, 50),
+               (51, 52), (52, 56), (56, 57), (59, 65), (66, 72),
+               (73, 78),
+               ]
+    dtypes = (str, str, str, str, str, int, str,
+                   str, str, str, str, int, str,
+                   str, str, float)
+    line = ('{:6s}' + ' ' * 6 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s}' + ' ' * 15 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5.2f}')
 
 class CoorRecord(Record):
     fields = 'record atomid name altloc resn chain resi icode x y z q b e charge'.split()

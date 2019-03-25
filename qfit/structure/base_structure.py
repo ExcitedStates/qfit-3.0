@@ -62,6 +62,10 @@ class _BaseStructure:
             prop = self._structure_property(hattr)
             setattr(self.__class__, attr, prop)
 
+        for key, value in kwargs.items():
+            if key == "link_data":
+                self.link_data = value
+
         if selection is None:
             self.natoms = self._coor.shape[0]
         else:
