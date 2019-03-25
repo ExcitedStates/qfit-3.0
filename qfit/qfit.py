@@ -363,7 +363,7 @@ class QFitRotamericResidue(_BaseQFit):
                 params.write("      }\n    }\n  }\n}\n")
             params.close()
 
-            # Set the occupancy of structure to zero for omit map calculation
+            # Set the occupancy of the side chain to zero for omit map calculation
             out_root= f'out_{self.chain}_{self.resi}'
             structure.tofile(f'{out_root}.pdb')
             subprocess.run(["phenix.pdbtools",
@@ -753,10 +753,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
-<<<<<<< HEAD
             print(f"Nconf: {len(self._coor_set)}. Excluded = {ex}")
-=======
->>>>>>> 6a824104d4b2d2e5024cc240bb1daaf389a6fdb1
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
