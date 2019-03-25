@@ -68,6 +68,8 @@ def parse_args():
     # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
+    p.add_argument("-sv", "--scale-rmask", type=float, dest="scale_rmask", default=1.0, metavar="<float>",
+            help="Radius mask for the map scaling.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
@@ -165,6 +167,9 @@ def main():
     if ':' in resi:
         resi, icode = resi.split(':')
         residue_id = (int(resi), icode)
+    elif '_' in resi:
+        resi, icode = resi.split('_')
+        residue_id = (int(resi), icode)
     else:
         residue_id = int(resi)
         icode = ''
@@ -218,7 +223,7 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=radius)
+        scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=5)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):

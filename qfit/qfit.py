@@ -633,9 +633,14 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue._active[selection] = True
         self.residue.update_clash_mask()
         active = self.residue.active
-        angles = np.arange(-self.options.sample_angle_range,
-                           self.options.sample_angle_range+0.001,
-                           self.options.sample_angle_step)
+        if self.residue.resn[0] == "TYR" or self.residue.resn[0] == "PHE" or self.residue.resn[0] == "HIS":
+            angles = np.arange(-self.options.sample_angle_range-2.5,
+                            self.options.sample_angle_range+2.501,
+                            self.options.sample_angle_step)
+        else:
+            angles = np.arange(-self.options.sample_angle_range,
+                            self.options.sample_angle_range+0.001,
+                            self.options.sample_angle_step)
         new_coor_set = []
         for coor in self._coor_set:
             self.residue.coor = coor
@@ -674,7 +679,6 @@ class QFitRotamericResidue(_BaseQFit):
 
         rotamers = self.residue.rotamers
         rotamers.append([self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)])
-
         iteration = 0
         while True:
             chis_to_sample = opt.dofs_per_iteration
@@ -719,17 +723,17 @@ class QFitRotamericResidue(_BaseQFit):
 
                         # The starting chi angles are similar for many
                         # rotamers, make sure we are not sampling double
-                        unique = True
-                        residue_coor = self.residue.coor
-                        for rotamer_coor in sampled_rotamers:
-                            if np.allclose(rotamer_coor,
-                                           residue_coor,
-                                           atol=0.01):
-                                unique = False
-                                break
-                        if not unique:
-                            continue
-                        sampled_rotamers.append(residue_coor)
+                        # unique = True
+                        # residue_coor = self.residue.coor
+                        # for rotamer_coor in sampled_rotamers:
+                        #    if np.allclose(rotamer_coor,
+                        #                   residue_coor,
+                        #                   atol=0.01):
+                        #        unique = False
+                        #        break
+                        #if not unique:
+                        #    continue
+                        #sampled_rotamers.append(residue_coor)
 
                         # Sample around the neighborhood of the rotamer
                         chi_rotator = ChiRotator(self.residue, chi_index)
@@ -741,14 +745,35 @@ class QFitRotamericResidue(_BaseQFit):
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < opt.density_cutoff:
-                                    ex+=1
+                                    ex += 1
                                     continue
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
-                                    new_coor_set.append(self.residue.coor)
+                                    if new_coor_set:
+                                        delta = np.array(new_coor_set)-np.array(self.residue.coor)
+                                        if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                            new_coor_set.append(self.residue.coor)
+                                    else:
+                                        new_coor_set.append(self.residue.coor)
                             elif self.residue.clashes() == 0:
-                                new_coor_set.append(self.residue.coor)
+                                if new_coor_set:
+                                    delta = np.array(new_coor_set)-np.array(self.residue.coor)
+                                    if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                        new_coor_set.append(self.residue.coor)
+                                else:
+                                    new_coor_set.append(self.residue.coor)
+
                 self._coor_set = new_coor_set
+
+            #A = np.array(self._coor_set)
+            #a, b = np.where(np.sqrt((np.square(A[:,np.newaxis]-A).sum(axis=2)).sum(axis=2)) < 0.01)
+            #mask = np.ones(len(self._coor_set), dtype=bool)
+            #for i in range( len(self._coor_set) ):
+            #    for j in b[np.where(a == i)]:
+            #        if mask[i] and i != j:
+            #            mask[j] = False
+            #self._coor_set = list(A[mask])
+
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             # print(f"Nconf: {len(self._coor_set)}. Excluded = {ex}")
             if not self._coor_set:
@@ -760,6 +785,9 @@ class QFitRotamericResidue(_BaseQFit):
                                       f'_conformer_{iteration}.pdb')
                 self._write_intermediate_conformers(prefix=prefix)
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
+            # print(f"{len(self._coor_set)} {ex}")
+            #print(f"{self.residue.resn[0]} {len(self._coor_set)}")
+            #exit()
             # QP
             logger.debug("Converting densities.")
             self._convert()

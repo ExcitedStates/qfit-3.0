@@ -371,13 +371,7 @@ def main():
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale:
-        # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
-        footprint = structure.extract('record', 'ATOM')
-        scaler.scale(footprint, radius=1)
-        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
-    xmap = xmap.extract(structure.coor, padding=5)
+    
 
 
     time0 = time.time()

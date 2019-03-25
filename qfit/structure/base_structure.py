@@ -51,6 +51,7 @@ class _BaseStructure:
         self._selection = selection
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
+        self.link_data = None
         for attr, array in data.items():
             hattr = '_' + attr
             setattr(self, hattr, array)
@@ -133,8 +134,33 @@ class _BaseStructure:
         coor2 = structure.coor
         if coor1.shape != coor2.shape:
             raise ValueError("Coordinate shapes are not equivalent")
-        diff = (coor1 - coor2).ravel()
-        return np.sqrt(3 * np.inner(diff, diff) / diff.size)
+        if "TYR" in self.resn:
+            idx_cd1 = structure.name.tolist().index("CD1")
+            idx_cd2 = structure.name.tolist().index("CD2")
+            idx_ce1 = structure.name.tolist().index("CE1")
+            idx_ce2 = structure.name.tolist().index("CE2")
+            coor3 = np.copy(coor2)
+            coor3[idx_cd1],coor3[idx_cd2] = coor2[idx_cd2],coor2[idx_cd1]
+            coor3[idx_ce1],coor3[idx_ce2] = coor2[idx_ce2],coor2[idx_ce1]
+            diff = (coor1 - coor2).ravel()
+            diff2 = (coor1 - coor3).ravel()
+            return min(np.sqrt(3 * np.inner(diff, diff) / diff.size),
+                       np.sqrt(3 * np.inner(diff2, diff2) / diff2.size))
+        if "PHE" in self.resn:
+            idx_cd1 = structure.name.tolist().index("CD1")
+            idx_cd2 = structure.name.tolist().index("CD2")
+            idx_ce1 = structure.name.tolist().index("CE1")
+            idx_ce2 = structure.name.tolist().index("CE2")
+            coor3 = np.copy(coor2)
+            coor3[idx_cd1],coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
+            coor3[idx_ce1],coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]
+            diff = (coor1 - coor2).ravel()
+            diff2 = (coor1 - coor3).ravel()
+            return min(np.sqrt(3 * np.inner(diff, diff) / diff.size),
+                       np.sqrt(3 * np.inner(diff2, diff2) / diff2.size))
+        else:
+            diff = (coor1 - coor2).ravel()
+            return np.sqrt(3 * np.inner(diff, diff) / diff.size)
 
     def select(self, string, values=None, comparison="=="):
         if values is None:

@@ -63,9 +63,13 @@ class PDBFile:
                     except:
                         pass
                 elif line.startswith('LINK'):
-                    values = LinkRecord.parse_line(line)
-                    for field in LinkRecord.fields:
-                        cls.link[field].append(values[field])
+                    try:
+                        values = LinkRecord.parse_line(line)
+                        for field in LinkRecord.fields:
+                            cls.link[field].append(values[field])
+                    except:
+                        print("Error parsing LINK data.")
+                        pass
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
         return cls
