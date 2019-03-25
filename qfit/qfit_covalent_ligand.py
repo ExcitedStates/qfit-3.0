@@ -28,6 +28,7 @@ IN THE SOFTWARE.
 import argparse
 import logging
 import os.path
+import os
 import sys
 import time
 from string import ascii_uppercase
@@ -37,6 +38,8 @@ import numpy as np
 
 from . import MapScaler, Structure, XMap, Covalent_Ligand
 from . import QFitCovalentLigand, QFitCovalentLigandOptions
+
+os.environ["OMP_NUM_THREADS"] = "1"
 
 
 def parse_args():
