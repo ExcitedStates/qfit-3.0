@@ -25,7 +25,7 @@ IN THE SOFTWARE.
 
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitCovalentLigand, QFitCovalentLigandOptions
-# from .qfit import QFitLigand, QFitLigandOptions
+from .qfit import QFitLigand, QFitLigandOptions
 from .scaler import MapScaler
 from .structure import Structure
 from .structure.ligand import Covalent_Ligand, _Ligand

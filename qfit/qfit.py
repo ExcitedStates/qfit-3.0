@@ -436,7 +436,7 @@ class QFitRotamericResidue(_BaseQFit):
         for atom in residue._rotamers['atoms']:
             if atom not in atoms:
                 residue.complete_residue()
-                residue._init_clash_detection()
+                # residue._init_clash_detection()
                 self.incomplete = True
                 break
 
@@ -459,12 +459,10 @@ class QFitRotamericResidue(_BaseQFit):
             if segment.chain[0] == chainid and self.residue in segment:
                 self.segment = segment
                 break
-        if self.segment is None:
-            raise RuntimeError("Could not determine segment.")
-
         if self.segment == None:
             raise RuntimeError(f"Could not determine the protein segment of "
                                f"residue {self.chain}, {self.resi}.")
+
         # Identify the neighboring atoms of the residue:
         sel_str = f"resi {self.resi} and chain {self.chain}"
         sel_str = f"not ({sel_str})"
@@ -580,7 +578,6 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_backbone(self):
         # Check if residue has enough neighboring residues
         index = self.segment.find(self.residue.id)
-        self.residue.update_clash_mask()
         active = self.residue.active
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
@@ -753,7 +750,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 new_coor_set.append(self.residue.coor)
                 self._coor_set = new_coor_set
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
-            print(f"Nconf: {len(self._coor_set)}. Excluded = {ex}")
+            # print(f"Nconf: {len(self._coor_set)}. Excluded = {ex}")
             if not self._coor_set:
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
@@ -770,7 +767,6 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
-            print(f"Nconf post QP: {len(self._coor_set)}.")
 
             # self._write_intermediate_conformers(f"qp_{iteration}")
             # MIQP

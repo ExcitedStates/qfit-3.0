@@ -208,7 +208,6 @@ def main():
             if icode:
                 sel_str += f" and icode {icode}"
             sel_str = f"not ({sel_str})"
-            print(sel_str)
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
         radius = 1.5
