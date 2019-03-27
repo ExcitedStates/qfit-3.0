@@ -38,8 +38,8 @@ class Structure(_BaseStructure):
     def __init__(self, data, **kwargs):
         for attr in self.REQUIRED_ATTRIBUTES:
             if attr not in data:
-                raise ValueError("Not all attributes are given to \
-                                 build the structure")
+                raise ValueError(f"Not all attributes are given to "
+                                 f"build the structure: {attr}")
         super().__init__(data, **kwargs)
         self._chains = []
 
@@ -741,6 +741,8 @@ class _Conformer(_BaseStructure):
                 else:
                     segments.append(segment)
                     segment = [res]
+                #print(res,segment)
+
         segments.append(segment)
 
         for segment in segments:

@@ -171,7 +171,7 @@ class _RotamerResidue(_BaseResidue):
         angle = dihedral_angle(coor)
         return angle
 
-    def set_chi(self, chi_index, value):
+    def set_chi(self, chi_index, value, covalent=None):
         atoms = self._rotamers['chi'][chi_index]
         selection = self.select('name', atoms)
         coor = self._coor[selection]
@@ -190,81 +190,126 @@ class _RotamerResidue(_BaseResidue):
 
         atoms_to_rotate = self._rotamers['chi-rotate'][chi_index]
         selection = self.select('name', atoms_to_rotate)
+        if covalent in atoms_to_rotate:
+            # If we are rotating the atom that is covalently bonded
+            # to the ligand, we should also rotate the ligand.
+            atoms_to_rotate2 = self.name[6:]
+            selection2 = self.select('name', atoms_to_rotate2)
+            tmp = list(selection)
+            tmp += list(selection2)
+            selection = np.array(tmp, dtype=int)
         coor_to_rotate = np.dot(self._coor[selection] - origin, backward.T)
         rotation = Rz(np.deg2rad(value - self.get_chi(chi_index)))
 
         R = forward * rotation
         self._coor[selection] = coor_to_rotate.dot(R.T) + origin
 
-
     def print_residue(self):
-        for atom,coor,element,b,q in zip(self.name,self.coor,self.e,self.b,self.q):
-            print("{} {} {} {} {}".format(atom,coor,element,b,q))
+        for atom, coor, element, b, q in zip(
+          self.name, self.coor, self.e, self.b, self.q):
+            print("{} {} {} {} {}".format(atom, coor, element, b, q))
 
     def complete_residue(self):
         self.visited = []
         if residue_type(self) != "rotamer-residue":
-            msg = "Cannot complete non-aminoacid residue. Please, complete the missing atoms of the residue for qFiting!"
+            msg = ("Cannot complete non-aminoacid residue. Please, "
+                   "complete the missing atoms of the residue for qFiting!")
             raise RuntimeError(msg)
 
-        for atom, position in zip(self._rotamers['atoms'],self._rotamers['positions']):
+        for atom, position in zip(self._rotamers['atoms'],
+                                  self._rotamers['positions']):
             # Found a missing atom!:
             if atom not in self.name:
                 self.complete_residue_recursive(atom)
 
-    def complete_residue_recursive(self,atom):
+    def complete_residue_recursive(self, atom):
+        if atom in ['N', 'C', 'CA', 'O']:
+            msg = ("Cannot complete missing backbone atoms. Please, "
+                   "complete the missing backbone atoms of the residue"
+                   " for qFiting!")
+            raise RuntimeError(msg)
         ref_atom = self._rotamers['connectivity'][atom][0]
-
         if ref_atom not in self.name:
             self.complete_residue_recursive(ref_atom)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
-        bond_length,bond_length_sd = self._rotamers['bond_dist'][ref_atom][atom]
+        bond_length, bond_length_sd = (
+            self._rotamers['bond_dist'][ref_atom][atom])
         # Identify a suitable atom for the bond angle:
         for angle in self._rotamers['bond_angle']:
             if angle[0][1] == ref_atom and angle[0][2] == atom:
                 if angle[0][0][0] is "H":
                     continue
                 bond_angle_atom = angle[0][0]
-                bond_angle,bond_angle_sd = angle[1]
+                bond_angle, bond_angle_sd = angle[1]
                 if bond_angle_atom not in self.name:
                     self.complete_residue_recursive(bond_angle_atom)
-                bond_angle_coor = self.coor[np.argwhere(self.name == bond_angle_atom)[0]]
+                bond_angle_coor = self.coor[np.argwhere(
+                  self.name == bond_angle_atom)[0]]
                 dihedral_atom = None
-                # If the atom's position is dependent on a rotamer, identify the fourth dihedral angle atom:
-                for i,chi in self._rotamers['chi'].items():
-                    if chi[1] == bond_angle_atom and chi[2] == ref_atom and chi[3] == atom:
+                # If the atom's position is dependent on a rotamer,
+                # identify the fourth dihedral angle atom:
+                for i, chi in self._rotamers['chi'].items():
+                    if (chi[1] == bond_angle_atom and
+                       chi[2] == ref_atom and
+                       chi[3] == atom):
                         dihedral_atom = chi[0]
                         dihed_angle = self._rotamers['rotamers'][0][i-1]
 
-                # If the atom's position is not dependent on a rotamer, identify the fourth dihedral angle atom:
+                # If the atom's position is not dependent on a rotamer,
+                # identify the fourth dihedral angle atom:
                 if dihedral_atom is None:
                     for dihedral in self._rotamers['dihedral']:
-                        if dihedral[0][1] == bond_angle_atom and dihedral[0][2] == ref_atom and dihedral[0][3] == atom:
+                        if (dihedral[0][1] == bond_angle_atom and
+                           dihedral[0][2] == ref_atom and
+                           dihedral[0][3] == atom):
                             dihedral_atom = dihedral[0][0]
                             if dihedral[1][0] in self._rotamers['atoms']:
                                 other_dihedral_atom = dihedral[1][0]
                                 if dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(dihedral_atom)
-                                dihedral_atom_coor = self.coor[np.argwhere(self.name == dihedral_atom)[0]]
+                                    self.complete_residue_recursive(
+                                     dihedral_atom)
+                                dihedral_atom_coor = self.coor[np.argwhere(
+                                 self.name == dihedral_atom)[0]]
                                 if other_dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(other_dihedral_atom)
-                                other_dihedral_atom_coor = self.coor[np.argwhere(self.name == other_dihedral_atom)[0]]
+                                    self.complete_residue_recursive(
+                                     other_dihedral_atom)
+                                other_dihedral_atom_coor = self.coor[
+                                 np.argwhere(
+                                  self.name == other_dihedral_atom)[0]]
                                 try:
-                                    dihed_angle = dihedral[1][1] + dihedral_angle([dihedral_atom_coor[0],bond_angle_coor[0],ref_coor[0],other_dihedral_atom_coor[0]])
+                                    dihed_angle = dihedral[1][1]
+                                    dihed_angle += dihedral_angle([
+                                                    dihedral_atom_coor[0],
+                                                    bond_angle_coor[0],
+                                                    ref_coor[0],
+                                                    other_dihedral_atom_coor[0]
+                                                    ])
                                 except:
-                                    dihed_angle = 180 + dihedral_angle([dihedral_atom_coor[0],bond_angle_coor[0],ref_coor[0],other_dihedral_atom_coor[0]])
+                                    dihed_angle = 180
+                                    dihed_angle += dihedral_angle([
+                                                    dihedral_atom_coor[0],
+                                                    bond_angle_coor[0],
+                                                    ref_coor[0],
+                                                    other_dihedral_atom_coor[0]
+                                                    ])
                             else:
                                 dihed_angle = dihedral[1][0]
                             break
                 if dihedral_atom is not None:
                     if dihedral_atom not in self.name:
                         self.complete_residue_recursive(dihedral_atom)
-                    dihedral_atom_coor = self.coor[np.argwhere(self.name == dihedral_atom)[0]]
+                    dihedral_atom_coor = self.coor[np.argwhere(
+                                            self.name == dihedral_atom)[0]]
                     break
-        new_coor = self.calc_coordinates(dihedral_atom_coor[0], bond_angle_coor[0],ref_coor[0], bond_length, bond_angle, dihed_angle)
-        new_coor = [round(x,3) for x in new_coor]
-        self.add_atom(atom,atom[0],new_coor)
+        new_coor = self.calc_coordinates(dihedral_atom_coor[0],
+                                         bond_angle_coor[0],
+                                         ref_coor[0],
+                                         bond_length,
+                                         bond_angle,
+                                         dihed_angle)
+        new_coor = [round(x, 3) for x in new_coor]
+        self.add_atom(atom, atom[0], new_coor)
 
     def calc_coordinates(self,u, v, Origin, L, bond_angle, dihedral):
         a=u-Origin
@@ -295,20 +340,31 @@ class _RotamerResidue(_BaseResidue):
         # Rotate the dihedral angle by 'dihedral' degrees and translate the vector back:
         return np.squeeze(np.asarray(np.dot(Rotation,(D-v))+v))
 
-    def add_atom(self,name,element,coor):
-        index = np.ndarray((1,),dtype='int')
-        index[0,]=np.array(self.__dict__['_selection'][-1],dtype='int')
-        for attr in ["record", "name", "b", "q", "coor", "resn", "resi","icode", "e", "charge", "chain", "altloc"]:
-            if attr != "coor":
-                self.__dict__['_'+attr]=np.insert(self.__dict__['_'+attr],index+1 , self.__dict__['_'+attr][index])
+    def add_atom(self, name, element, coor):
+        index = self._selection[-1]
+        if index < len(self.data['record']):
+            index = len(self.data['record'])-1
+        for attr in self.data:
+            if attr == "e":
+                setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
+                                                  element))
+            elif attr == "atomid":
+
+                setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
+                                                  index+1))
+            elif attr == "name":
+                setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
+                                                  name))
+            elif attr == 'coor':
+                setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
+                                                  np.expand_dims(coor, axis=0),
+                                                  axis=0))
             else:
-                self.__dict__['_'+attr]=np.reshape(np.insert(self.__dict__['_'+attr],3*index+3 , self.__dict__['_'+attr][index][0]),[-1,3])
-        self.__dict__['_selection']=np.append(self.__dict__['_selection'],int(index[0]+1))
-        self.__dict__['_selection']=np.array(self.__dict__['_selection'],dtype='int')
-        self.__dict__['_name'][index+1]=name
-        self.__dict__['_coor'][index+1]=coor
-        self.__dict__['_e'][index+1]=element
-        self.__dict__['natoms']+=1
+                setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
+                                                  getattr(self, attr)[-1]))
+        setattr(self, '_selection', np.append(self.__dict__['_selection'],
+                                              index+1 ))
+        setattr(self, 'natoms', self.natoms+1)
 
     def reorder(self):
         for idx,atom2 in enumerate(self._rotamers['atoms']+self._rotamers['hydrogens']):

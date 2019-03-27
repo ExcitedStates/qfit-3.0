@@ -341,7 +341,8 @@ class Covalent_Ligand(_BaseStructure):
                 self.covalent_partners.append(
                     [self.link_data['chain2'][i],
                      self.link_data['resi2'][i],
-                     self.link_data['icode2'][i]])
+                     self.link_data['icode2'][i],
+                     self.link_data['name2'][i]])
 
         # self.type = args[0].data["type"]
 

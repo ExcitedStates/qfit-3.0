@@ -97,8 +97,34 @@ def parse_args():
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
             type=float, default=7.5, metavar="<float>",
             help="Sample N-CA-CB angle.")
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
+            help="Number of internal degrees that are sampled/build per iteration.")
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degree.")
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float,
+            default=60, metavar="<float>",
+            help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+                   dest="remove_conformers_below_cutoff",
+            help=("Remove conformers during sampling that have atoms that have "
+                  "no density support for, i.e. atoms are positioned at density "
+                  "values below cutoff value."))
+    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
+            help="Set clash scaling factor. Default = 0.75")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
+            help="Enable external clash detection during sampling.")
+    p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
+            help="Bulk solvent level in absolute values.")
+    p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
+            help="Cardinality constraint used during MIQP.")
+    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
+            help="Treshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
+    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
+            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
+            help="Use BIC to select the most parsimonious MIQP threshold")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -214,3 +240,33 @@ def main():
 
     qfit = QFitCovalentLigand(covalent_ligand, receptor, xmap, options)
     qfit.run()
+    conformers = qfit.get_conformers_covalent()
+    nconformers = len(conformers)
+    altloc = ''
+    for n, conformer in enumerate(conformers, start=0):
+        if nconformers > 1:
+            altloc = ascii_uppercase[n]
+        #skip = False
+        #for conf in conformers[:n]:
+        #    print("Checking RMSD")
+        #    if conformer.rmsd(conf) < 0.2:
+        #        skip = True
+        #        print("Skipping")
+        #        break
+        #if skip:
+        #    continue
+        conformer.altloc = ''
+        fname = os.path.join(options.directory, f'conformer_{n}.pdb')
+        conformer.tofile(fname)
+        conformer.altloc = altloc
+        try:
+            multiconformer = multiconformer.combine(conformer)
+        except Exception:
+            multiconformer = Structure.fromstructurelike(conformer.copy())
+    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    if icode:
+        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+    multiconformer.tofile(fname)
+
+    passed = time.time() - time0
+    logger.info(f"Time passed: {passed}s")

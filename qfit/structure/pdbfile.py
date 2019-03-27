@@ -62,7 +62,7 @@ class PDBFile:
                         cls.resolution = values['resolution']
                     except:
                         pass
-                elif line.startswith('LINK'):
+                elif line.startswith('LINK '):
                     try:
                         values = LinkRecord.parse_line(line)
                         for field in LinkRecord.fields:

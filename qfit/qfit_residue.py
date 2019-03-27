@@ -176,6 +176,7 @@ def main():
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_resi = structure_resi.extract('icode', icode)
+
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
@@ -191,11 +192,27 @@ def main():
             altlocs.remove('')
         except ValueError:
             pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure = structure.extract(sel_str)
 
+        # If more than 1 conformer were included, we want to select the
+        # most complete conformer. If more than one conformers are complete,
+        # Select the one with the highest occupancy:
+        longest_conf = 0
+        best_q = -1
+        for i, altloc in enumerate(altlocs):
+            conformer = structure_resi.extract('altloc', ('',altloc))
+            if len(conformer.name) > longest_conf:
+                idx = i
+                longest_conf = len(conformer.name)
+            elif len(conformer.name) == longest_conf:
+                if conformer.q[0] > best_q:
+                    idx = i
+                    best_q = conformer.q[0]
+        # Delete all the unwanted conformers:
+        for altloc in altlocs:
+            if altloc != altlocs[idx]:
+                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                sel_str = f"not ({sel_str})"
+                structure = structure.extract(sel_str)
     residue_name = residue.resn[0]
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
 
@@ -223,8 +240,9 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=args.scale_rmask*radius)
+        cutoff_dict = scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=5)
+    setattr(xmap,'cutoff_dict',cutoff_dict)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'

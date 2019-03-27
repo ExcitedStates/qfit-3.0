@@ -43,7 +43,6 @@ class BackboneRotator:
         self._origins = []
         selections = []
         for n, residue in enumerate(self.segment.residues[::-1]):
-
             psi_sel = residue.select('name', ('O', 'OXT'))
             if n > 0:
                 psi_sel = np.concatenate((psi_sel, self.segment.residues[-n]._selection))
@@ -71,7 +70,8 @@ class BackboneRotator:
 
     def __call__(self, torsions):
 
-        assert len(torsions) == self.ndofs, "Number of torsions should equal degrees of freedom"
+        assert len(torsions) == self.ndofs, "Number of torsions should equal "
+        " degrees of freedom"
 
         # We start with the last torsion as this is more efficient
         torsions = np.deg2rad(torsions[::-1])
@@ -230,7 +230,7 @@ class ChiRotator:
 
     """Rotate a residue around a chi-angle"""
 
-    def __init__(self, residue, chi_index):
+    def __init__(self, residue, chi_index, covalent=None):
         self.residue = residue
         self.chi_index = chi_index
         # Get the coordinates that define the torsion angle
@@ -263,6 +263,14 @@ class ChiRotator:
         # Save the coordinates aligned along the Z-axis for fast future rotation
         atoms_to_rotate = self.residue._rotamers['chi-rotate'][chi_index]
         self._atom_selection = self.residue.select('name', atoms_to_rotate)
+        if covalent in atoms_to_rotate:
+            # If we are rotating the atom that is covalently bonded
+            # to the ligand, we should also rotate the ligand.
+            atoms_to_rotate2 = self.residue.name[6:]
+            atom_selection2 = self.residue.select('name', atoms_to_rotate2)
+            tmp = list(self._atom_selection)
+            tmp += list(atom_selection2)
+            self._atom_selection = np.array(tmp, dtype=int)
         self._coor_to_rotate = np.dot(
             self.residue._coor[self._atom_selection] - self._origin, self._backward.T)
         self._tmp = np.zeros_like(self._coor_to_rotate)
