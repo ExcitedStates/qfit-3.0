@@ -171,7 +171,7 @@ class _RotamerResidue(_BaseResidue):
         angle = dihedral_angle(coor)
         return angle
 
-    def set_chi(self, chi_index, value, covalent=None):
+    def set_chi(self, chi_index, value, covalent=None, length=None):
         atoms = self._rotamers['chi'][chi_index]
         selection = self.select('name', atoms)
         coor = self._coor[selection]
@@ -193,7 +193,7 @@ class _RotamerResidue(_BaseResidue):
         if covalent in atoms_to_rotate:
             # If we are rotating the atom that is covalently bonded
             # to the ligand, we should also rotate the ligand.
-            atoms_to_rotate2 = self.name[6:]
+            atoms_to_rotate2 = self.name[length:]
             selection2 = self.select('name', atoms_to_rotate2)
             tmp = list(selection)
             tmp += list(selection2)

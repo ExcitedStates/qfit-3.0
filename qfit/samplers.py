@@ -26,6 +26,7 @@ IN THE SOFTWARE.
 import os.path
 
 import numpy as np
+import copy
 
 
 class BackboneRotator:
@@ -230,7 +231,7 @@ class ChiRotator:
 
     """Rotate a residue around a chi-angle"""
 
-    def __init__(self, residue, chi_index, covalent=None):
+    def __init__(self, residue, chi_index, covalent=None, length=None):
         self.residue = residue
         self.chi_index = chi_index
         # Get the coordinates that define the torsion angle
@@ -266,7 +267,7 @@ class ChiRotator:
         if covalent in atoms_to_rotate:
             # If we are rotating the atom that is covalently bonded
             # to the ligand, we should also rotate the ligand.
-            atoms_to_rotate2 = self.residue.name[6:]
+            atoms_to_rotate2 = self.residue.name[length:]
             atom_selection2 = self.residue.select('name', atoms_to_rotate2)
             tmp = list(self._atom_selection)
             tmp += list(atom_selection2)
@@ -326,12 +327,15 @@ class BondRotator:
                 self._find_neighbours_recursively(b)
 
     def __call__(self, angle):
-
+        # print(self.ligand.coor)
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate them and perform the inverse operation to realign the
         # axis to the real world frame.
         R = self._forward * np.asmatrix(Rz(angle))
-        self.ligand.coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._t
+        rotated = (R * self._coor_to_rotate.T).T + self._t
+        coor = copy.deepcopy(self.ligand.coor)
+        coor[self.atoms_to_rotate] = rotated
+        return coor
 
 
 class ZAxisAligner:

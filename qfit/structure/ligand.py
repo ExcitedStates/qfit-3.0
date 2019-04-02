@@ -23,14 +23,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
-from collections import defaultdict
 from itertools import product
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
 from .base_structure import _BaseStructure
-from .residue import residue_type
 from .mmCIF import mmCIFDictionary
 from .math import aa_to_rotmat
 
@@ -99,6 +97,7 @@ class _Ligand(_BaseStructure):
         for a, b in zip(*indices):
             print(self.name[a], self.name[b])
 
+
     def ring_paths(self):
         def ring_path(T, v1, v2):
             v1path = []
@@ -142,12 +141,15 @@ class _Ligand(_BaseStructure):
         A rotatable bond is currently described as two neighboring atoms with
         more than 1 neighbor and which are not part of the same ring.
         """
-
         conn = self.connectivity
+        print(self.connectivity)
+        print(self.natoms)
         rotatable_bonds = []
         rings = self.ring_paths()
         for atom in range(self.natoms):
             neighbors = np.flatnonzero(conn[atom])
+            print(np.sum(conn[atom]))
+            print(neighbors)
             if len(neighbors) == 1:
                 continue
             for neighbor in neighbors:
@@ -170,6 +172,7 @@ class _Ligand(_BaseStructure):
                             break
                 if new_bond:
                     rotatable_bonds.append((atom, neighbor))
+                print(rotatable_bonds)
         return rotatable_bonds
 
     def rigid_clusters(self):
@@ -326,14 +329,19 @@ class Covalent_Ligand(_BaseStructure):
         super().__init__(*args, **kwargs)
         self.id = (args[0]['resi'], args[0]['icode'])
         self.ligand_name = self.resn[0]
-        self.bonds = None
+        self.nbonds = None
         self.covalent_bonds = 0
         self.covalent_partners = []
+        self.covalent_atoms = []
+        self.bond_types = {}
 
         if "cif_file" in kwargs:
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:
             self._get_connectivity()
+
+        #self.bond_list = self.rotatable_bonds()
+
 
         for i, res1 in enumerate(self.link_data['resn1']):
             if res1 == self.ligand_name:
@@ -343,7 +351,14 @@ class Covalent_Ligand(_BaseStructure):
                      self.link_data['resi2'][i],
                      self.link_data['icode2'][i],
                      self.link_data['name2'][i]])
-
+                self.covalent_atoms.append(
+                    [self.link_data['chain1'][i],
+                     self.link_data['resi1'][i],
+                     self.link_data['icode1'][i],
+                     self.link_data['name1'][i]])
+                self.root = np.argwhere(self.name == self.link_data['name1'][i])
+                self.order = self.rotation_order(self.root)
+                self.bond_list = self.convert_rotation_tree_to_list(self.order)
         # self.type = args[0].data["type"]
 
     def __repr__(self):
@@ -356,7 +371,7 @@ class Covalent_Ligand(_BaseStructure):
         cutoff matrix for later clash detection.
         """
         coor = self.coor
-        self.bonds = {}
+        self.bond_types = {}
         dist_matrix = squareform(pdist(coor))
         covrad = self.covalent_radius
         natoms = self.natoms
@@ -384,12 +399,12 @@ class Covalent_Ligand(_BaseStructure):
                                     index2 = index2[0,0]
                                 except:
                                     continue
-                                if index1 not in self.bonds:
-                                    self.bonds[index1] = {}
-                                if index2 not in self.bonds:
-                                    self.bonds[index2] = {}
-                                self.bonds[index1][index2] = cif_row['type']
-                                self.bonds[index2][index1] = cif_row['type']
+                                if index1 not in self.bond_types:
+                                    self.bond_types[index1] = {}
+                                if index2 not in self.bond_types:
+                                    self.bond_types[index2] = {}
+                                self.bond_types[index1][index2] = cif_row['type']
+                                self.bond_types[index2][index1] = cif_row['type']
 
         self._cutoff_matrix = cutoff_matrix
         self.connectivity = connectivity_matrix
@@ -407,7 +422,6 @@ class Covalent_Ligand(_BaseStructure):
         np.fill_diagonal(connectivity_matrix, False)
         self.connectivity = connectivity_matrix
         self._cutoff_matrix = cutoff_matrix
-        #print(self.connectivity)
 
     def clashes(self):
         """Checks if there are any internal clashes."""
@@ -429,10 +443,10 @@ class Covalent_Ligand(_BaseStructure):
             print(self.name[a], self.name[b])
 
     def rigid_clusters(self):
-        """Find rigid clusters / seeds in the molecule.
-
-        Currently seeds are either rings or terminal ends of the molecule, i.e.
-        the last two atoms.
+        """
+            Find rigid clusters / seeds in the molecule.
+            Currently seeds are either rings or terminal ends of the molecule,
+            i.e. the last two atoms.
         """
 
         conn = self.connectivity
@@ -440,6 +454,7 @@ class Covalent_Ligand(_BaseStructure):
         clusters = []
         proc_queue = []
         clustered = np.zeros(self.natoms, dtype=int)
+
         for root in range(self.natoms):
             # Ignore root if it is a Hydrogen
             if self.e[root] == 'H':
@@ -483,13 +498,15 @@ class Covalent_Ligand(_BaseStructure):
 
                     # If bond type was provided via CIF file, check for
                     # double and aromatic bonds:
-                    if self.bonds is not None:
-                        if self.bonds[root][n] != "single" and n not in cluster:
+                    if self.bond_types:
+                        if self.bond_types[root][n] != "single" and n not in cluster:
                             cluster.append(n)
                             clustered[n] = 1
 
-            if len(cluster) > 1:
+            if len(cluster) > 1 and cluster not in clusters:
                 clusters.append(cluster)
+
+            clustered[root] = 2
 
         # Add all left-over single unclustered atoms
         for atom in range(self.natoms):
@@ -540,3 +557,132 @@ class Covalent_Ligand(_BaseStructure):
                         T[n] = a
                         fringe.append(n)
         return ring_paths
+
+
+    def rotatable_bonds(self):
+
+        """Determine all rotatable bonds.
+
+        A rotatable bond is currently described as two neighboring atoms with
+        more than 1 neighbor and which are not part of the same ring.
+        """
+        conn = self.connectivity
+        rotatable_bonds = []
+        rings = self.ring_paths()
+        for atom in range(self.natoms):
+            neighbors = np.flatnonzero(conn[atom])
+            if len(neighbors) == 1:
+                continue
+            for neighbor in neighbors:
+                neighbor_neighbors = np.flatnonzero(conn[neighbor])
+                new_bond = False
+                if len(neighbor_neighbors) == 1:
+                    continue
+                # Check whether the two atoms are part of the same ring.
+                same_ring = False
+                for ring in rings:
+                    if atom in ring and neighbor in ring:
+                        same_ring = True
+                        break
+                if not same_ring:
+                    new_bond = True
+                    for b in rotatable_bonds:
+                        # Check if we already found this bond.
+                        if atom in b and neighbor in b:
+                            new_bond = False
+                            break
+                if new_bond:
+                    rotatable_bonds.append((atom, neighbor))
+        return rotatable_bonds
+
+    def atoms_to_rotate(self, bond_or_root, neighbor=None):
+        """Return indices of atoms to rotate given a bond."""
+
+        if neighbor is None:
+            root, neighbor = bond_or_root
+        else:
+            root = bond_or_root
+
+        neighbors = [root]
+        atoms_to_rotate = self._find_neighbors_recursively(neighbor, neighbors)
+        atoms_to_rotate.remove(root)
+        return atoms_to_rotate
+
+    def _find_neighbors_recursively(self, neighbor, neighbors):
+        conn = self.connectivity
+        neighbors.append(neighbor)
+        local_neighbors = np.flatnonzero(conn[neighbor])
+        for ln in local_neighbors:
+            if ln not in neighbors:
+                self._find_neighbors_recursively(ln, neighbors, conn)
+        return neighbors
+
+    def rotate_along_bond(self, bond, angle):
+        coor = self.coor
+        atoms_to_rotate = self.atoms_to_rotate(bond)
+        origin = coor[bond[0]]
+        end = coor[bond[1]]
+        axis = end - origin
+        axis /= np.linalg.norm(axis)
+
+        coor = coor[atoms_to_rotate]
+        coor -= origin
+        rotmat = aa_to_rotmat(axis, angle)
+        selection = self._selection[atoms_to_rotate]
+        self._coor[selection] = coor.dot(rotmat.T) + origin
+
+    def rotation_order(self, root):
+
+        def _rotation_order(clusters, checked_clusters, atom, bonds, checked_bonds, tree):
+            # Find cluster to which atom belongs to
+            for cluster in clusters:
+                if atom in cluster:
+                    break
+            if cluster in checked_clusters:
+                return
+            checked_clusters.append(cluster)
+            # Get all neighboring atoms of the cluster
+            neighbors = []
+            for atom in cluster:
+                neighbors.extend(np.flatnonzero(self.connectivity[atom]))
+
+            for n in neighbors:
+                # Find the cluster to which the neighbor belongs to
+                for ncluster in clusters:
+                    if n in ncluster:
+                        break
+                if ncluster == cluster:
+                    continue
+                for b in bonds:
+                    # Check if bond is between the current and neighboring cluster
+                    if b[0] in cluster and b[1] in ncluster:
+                        bond = tuple(b)
+                    elif b[1] in cluster and b[0] in ncluster:
+                        bond = b[::-1]
+                    else:
+                        continue
+                    # We dont want to go back, so make sure the backward bond
+                    # is not already checked.
+                    reversed_bond = bond[::-1]
+                    if reversed_bond in checked_bonds:
+                        continue
+                    tree[bond] = {}
+                    checked_bonds.append(bond)
+                    _rotation_order(clusters, checked_clusters, bond[1],
+                                    bonds, checked_bonds, tree[bond])
+
+        rotation_tree = {}
+        clusters = self.rigid_clusters()
+        bonds = self.rotatable_bonds()
+        checked_clusters = []
+        checked_bonds = []
+        _rotation_order(clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree)
+        return rotation_tree
+
+    def convert_rotation_tree_to_list(self, parent_tree):
+        bond_list = []
+        for bond, child_trees in parent_tree.items():
+            bond_list += [bond]
+            if child_trees:
+                bond_list += self.convert_rotation_tree_to_list(child_trees)
+        return bond_list

@@ -240,9 +240,8 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        cutoff_dict = scaler.scale(footprint, radius=args.scale_rmask*radius)
+        scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=5)
-    setattr(xmap,'cutoff_dict',cutoff_dict)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'

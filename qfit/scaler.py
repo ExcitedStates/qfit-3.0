@@ -26,7 +26,6 @@ IN THE SOFTWARE.
 import logging
 
 import numpy as np
-from .atomsf import ATOM_STRUCTURE_FACTORS
 from .transformer import Transformer, FFTTransformer
 
 
@@ -79,24 +78,6 @@ class MapScaler:
         self.xmap.array *= scaling_factor
         self.xmap.array += model_masked_mean
         transformer.reset(full=True)
-    
-        cutoff_dict = {}
-        four_pi2 = 4 * np.pi * np.pi
-        for atom in ["O", "C", "N", "S"]:
-            asf = ATOM_STRUCTURE_FACTORS[atom]
-            density = np.zeros(100)
-            bfactor = np.linspace(1,100,100)
-            for i in range(6):
-                mask = asf[1][i] + bfactor > 1e-4
-                bw = -four_pi2 / (asf[1][i] + bfactor[mask])
-                density[mask] += (asf[0][i] * (-bw / np.pi) ** 1.5)
-            density -= xmap_masked_mean
-            density *= scaling_factor
-            density += model_masked_mean
-            density *= 0.15
-            cutoff_dict[atom] = density
-        return cutoff_dict
-        
 
     def cutoff(self, cutoff_value, value=-1):
         cutoff_mask = self.xmap.array < cutoff_value

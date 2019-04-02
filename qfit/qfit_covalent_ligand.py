@@ -85,25 +85,30 @@ def parse_args():
             help="Sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
             type=float, default=0.1, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="Backbone sampling step (default = 0.1)")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
             type=float, default=0.3, metavar="<float>",
-           help="Sample N-CA-CB angle.")
+           help="Backbone sampling amplitude (default = 0.3)")
     p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
             help="Sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
             type=float, default=3.75, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="Bond angle sampling step (default = 3.75)")
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
             type=float, default=7.5, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="Bond angle sampling range (default = 7.5)."
+                 "Sampling is carried out in the [-x,x] range, where x is"
+                 " determined by this sampling parameter.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=60, metavar="<float>",
-            help="Neighborhood of rotamer to sample in degree.")
+                   default=60, metavar="<float>",
+                   help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("-nl", "--no-ligand",
+                   dest="sample_ligand", action="store_false",
+                   help="Disable ligand sampling.")
     p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
@@ -246,15 +251,6 @@ def main():
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
-        #skip = False
-        #for conf in conformers[:n]:
-        #    print("Checking RMSD")
-        #    if conformer.rmsd(conf) < 0.2:
-        #        skip = True
-        #        print("Skipping")
-        #        break
-        #if skip:
-        #    continue
         conformer.altloc = ''
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')
         conformer.tofile(fname)

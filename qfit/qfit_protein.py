@@ -371,7 +371,6 @@ def main():
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
-    
 
 
     time0 = time.time()
