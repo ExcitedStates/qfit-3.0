@@ -283,6 +283,47 @@ class ChiRotator:
         self.residue._coor[self._atom_selection] = self._tmp
 
 
+class CovalentBondRotator:
+
+    """Rotate ligand along the bond of two atoms."""
+
+    def __init__(self, covalent_residue, ligand, a1, a2, key='name'):
+        # Atoms connected to a1 will stay fixed.
+        self.ligand = ligand
+        self.residue = covalent_residue
+        self.atom1 = a1
+        self.atom2 = a2
+
+        # Determine which atoms will be moved by the rotation.
+        self._root = getattr(covalent_residue, key).tolist().index(a1)
+        self._conn = ligand.connectivity
+        self.atoms_to_rotate = [range(len(ligand.name))]
+
+        # Find the rigid motion that aligns the axis of rotation onto the z-axis.
+        self._coor_to_rotate = self.ligand.coor[self.atoms_to_rotate].copy()
+        # Move root to origin
+        self._t = self.residue.coor[self._root]
+        self._coor_to_rotate -= self._t
+        # Find angle between rotation axis and x-axis
+        axis = self._coor_to_rotate[1] / np.linalg.norm(self._coor_to_rotate[1,:-1])
+        aligner = ZAxisAligner(axis)
+
+        # Align the rotation axis to the z-axis for the coordinates
+        self._forward = aligner.forward_rotation
+        self._coor_to_rotate = (aligner.backward_rotation *
+                np.asmatrix(self._coor_to_rotate.T)).T
+
+    def __call__(self, angle):
+        # Since the axis of rotation is already aligned with the z-axis, we can
+        # freely rotate them and perform the inverse operation to realign the
+        # axis to the real world frame.
+        R = self._forward * np.asmatrix(Rz(angle))
+        rotated = (R * self._coor_to_rotate.T).T + self._t
+        coor = copy.deepcopy(self.ligand.coor)
+        coor[self.atoms_to_rotate] = rotated
+        return coor
+
+
 class BondRotator:
 
     """Rotate ligand along the bond of two atoms."""

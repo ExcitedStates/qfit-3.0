@@ -142,14 +142,10 @@ class _Ligand(_BaseStructure):
         more than 1 neighbor and which are not part of the same ring.
         """
         conn = self.connectivity
-        print(self.connectivity)
-        print(self.natoms)
         rotatable_bonds = []
         rings = self.ring_paths()
         for atom in range(self.natoms):
             neighbors = np.flatnonzero(conn[atom])
-            print(np.sum(conn[atom]))
-            print(neighbors)
             if len(neighbors) == 1:
                 continue
             for neighbor in neighbors:
@@ -340,9 +336,6 @@ class Covalent_Ligand(_BaseStructure):
         else:
             self._get_connectivity()
 
-        #self.bond_list = self.rotatable_bonds()
-
-
         for i, res1 in enumerate(self.link_data['resn1']):
             if res1 == self.ligand_name:
                 self.covalent_bonds += 1
@@ -441,6 +434,14 @@ class Covalent_Ligand(_BaseStructure):
         indices = np.nonzero(self.connectivity)
         for a, b in zip(*indices):
             print(self.name[a], self.name[b])
+
+    def get_bonds(self):
+        """Print bonds"""
+        bonds = []
+        indices = np.nonzero(self.connectivity)
+        for a, b in zip(*indices):
+            bonds.append([self.name[a], self.name[b]])
+        return bonds
 
     def rigid_clusters(self):
         """
@@ -571,7 +572,7 @@ class Covalent_Ligand(_BaseStructure):
         rings = self.ring_paths()
         for atom in range(self.natoms):
             neighbors = np.flatnonzero(conn[atom])
-            if len(neighbors) == 1:
+            if len(neighbors) == 1 and atom != self.root:
                 continue
             for neighbor in neighbors:
                 neighbor_neighbors = np.flatnonzero(conn[neighbor])
