@@ -63,6 +63,8 @@ class _BaseQFitOptions:
         # Density preparation options
         self.density_cutoff = 0.3
         self.density_cutoff_value = -1
+        self.subtract = False
+        self.padding = 5.0
 
         # Density creation options
         self.map_type = None
@@ -161,9 +163,12 @@ class _BaseQFit:
             self._smin = 1 / (2 * options.resolution_min)
 
         self._xmap_model = xmap.zeros_like(self.xmap)
+        self._xmap_model2 = xmap.zeros_like(self.xmap)
+
         # To speed up the density creation steps, reduce space group symmetry
         # to P1
         self._xmap_model.set_space_group("P1")
+        self._xmap_model2.set_space_group("P1")
         self._voxel_volume = self.xmap.unit_cell.calc_volume()
         self._voxel_volume /= self.xmap.array.size
 
@@ -185,6 +190,36 @@ class _BaseQFit:
             randomize_b=self.options.randomize_b)
         logger.debug("Initializing radial density lookup table.")
         self._transformer.initialize()
+
+    def _subtract_transformer(self, residue, structure):
+        sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
+        sel_str = f"not ({sel_str})"
+        neighbors = structure.extract(sel_str)
+        mask = (neighbors.coor[:, 1] < -np.inf)
+        for coor in residue.coor:
+            diffs = neighbors.coor - np.array(coor)
+            dists = np.linalg.norm(diffs, axis=1)
+            mask = np.logical_or(mask, dists < self.options.padding)
+
+        data = {}
+        for attr in neighbors.data:
+            array1 = getattr(neighbors, attr)
+            data[attr] = array1[mask]
+        subtract_structure = Structure(data)
+
+        self._subtransformer = Transformer(
+            subtract_structure,
+            self._xmap_model2, smax=self._smax, smin=self._smin,
+            simple=self._simple, scattering=self.options.scattering,
+            randomize_b=self.options.randomize_b)
+        self._subtransformer.initialize()
+        self._subtransformer.reset(full=True)
+        self._subtransformer.density()
+        model = copy.deepcopy(self._subtransformer.xmap.array)
+        model = np.maximum(self.options.bulk_solvent_level, self._subtransformer.xmap.array, model)
+        self._subtransformer.xmap.array = 2*model
+        self.xmap.array -= self._subtransformer.xmap.array
+
 
     def _convert(self):
         """Convert structures to densities and extract relevant values for
@@ -474,7 +509,10 @@ class QFitRotamericResidue(_BaseQFit):
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
         self._setup_clash_detector()
+        if options.subtract:
+            self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
+
 
     def _setup_clash_detector(self):
 

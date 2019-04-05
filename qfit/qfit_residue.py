@@ -77,6 +77,11 @@ def parse_args():
     p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
             help="Use phenix to perform anisotropic refinement of individual sites."
                  "This option creates an OMIT map and uses it as a default.")
+    p.add_argument("-sub", "--subtract", action="store_true", dest="subtract",
+            help="Subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=5.0, metavar="<float>",
+            help="Padding size for map creation.")
+
 
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
@@ -241,7 +246,7 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=args.scale_rmask*radius)
-    xmap = xmap.extract(residue.coor, padding=5)
+    xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'
