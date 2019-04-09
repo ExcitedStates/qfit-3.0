@@ -70,6 +70,10 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-sub", "--subtract", action="store_true", dest="subtract",
+            help="Subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=5.0, metavar="<float>",
+            help="Padding size for map creation.")
 
     # Sampling options
     p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
@@ -266,7 +270,8 @@ class QFitProtein:
                 reso = options.resolution
             if reso is not None:
                 radius = 0.5 + reso / 3.0
-            scaler.scale(footprint, radius=radius)
+            #scaler.scale(footprint, radius=radius)
+            scaler.scale(self.structure, radius=radius)
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
@@ -333,10 +338,11 @@ class QFitProtein:
                         reso = options.resolution
                     if reso is not None:
                         radius = 0.5 + reso / 3.0
-                    scaler.scale(footprint, radius=radius)
+                    #scaler.scale(footprint, radius=radius)
+                    scaler.scale(structure, radius=radius)
                     # scaler.cutoff(options.density_cutoff,
                     #                options.density_cutoff_value)
-                xmap_reduced = xmap.extract(residue.coor, padding=5)
+                xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
 
                 qfit = QFitRotamericResidue(residue, structure_new,
                                             xmap_reduced, options)

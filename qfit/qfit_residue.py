@@ -126,7 +126,7 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
+    p.add_argument("-T", "--threshold-selection", dest="bic_threshold", action="store_true",
             help="Use BIC to select the most parsimonious MIQP threshold")
 
     # Output options
@@ -245,7 +245,8 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=args.scale_rmask*radius)
+        #scaler.scale(footprint, radius=args.scale_rmask*radius)
+        scaler.scale(structure, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):

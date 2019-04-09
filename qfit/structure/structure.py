@@ -453,6 +453,29 @@ class Structure(_BaseStructure):
         nclashes = self._clashing.sum()
         return nclashes
 
+    def extract_neighbors(self, residue, distance=5.0):
+        # Remove the residue of interest from the structure:
+        sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
+        sel_str = f"not ({sel_str})"
+
+        # Identify all atoms within distance of the residue of interest
+        neighbors = self.extract(sel_str)
+        mask = (neighbors.coor[:, 1] < -np.inf)
+        for coor in residue.coor:
+            diffs = neighbors.coor - np.array(coor)
+            dists = np.linalg.norm(diffs, axis=1)
+            mask = np.logical_or(mask, dists < distance)
+
+        # Copy the attributes of the masked atoms:
+        data = {}
+        for attr in neighbors.data:
+            array1 = getattr(neighbors, attr)
+            data[attr] = array1[mask]
+
+        # Return the new object:
+        return Structure(data)
+
+
 
 class _Chain(_BaseStructure):
 

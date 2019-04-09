@@ -192,21 +192,11 @@ class _BaseQFit:
         self._transformer.initialize()
 
     def _subtract_transformer(self, residue, structure):
-        sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
-        sel_str = f"not ({sel_str})"
-        neighbors = structure.extract(sel_str)
-        mask = (neighbors.coor[:, 1] < -np.inf)
-        for coor in residue.coor:
-            diffs = neighbors.coor - np.array(coor)
-            dists = np.linalg.norm(diffs, axis=1)
-            mask = np.logical_or(mask, dists < self.options.padding)
+        # Select the atoms whose density we are going to subtract:
+        subtract_structure = structure.extract_neighbors(residue,
+                                                         self.options.padding)
 
-        data = {}
-        for attr in neighbors.data:
-            array1 = getattr(neighbors, attr)
-            data[attr] = array1[mask]
-        subtract_structure = Structure(data)
-
+        # Calculate the density that we are going to subtract:
         self._subtransformer = Transformer(
             subtract_structure,
             self._xmap_model2, smax=self._smax, smin=self._smin,
@@ -215,10 +205,16 @@ class _BaseQFit:
         self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
+
+
+        # Set the lowest values in the map to the bulk solvent level:
         model = copy.deepcopy(self._subtransformer.xmap.array)
         model = np.maximum(self.options.bulk_solvent_level, self._subtransformer.xmap.array, model)
-        self._subtransformer.xmap.array = 2*model
+        self._subtransformer.xmap.array = model
+
+        # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
+
 
 
     def _convert(self):
@@ -462,7 +458,7 @@ class QFitRotamericResidue(_BaseQFit):
                 footprint = structure.extract(sel_str)
                 footprint = footprint.extract('record', 'ATOM')
                 scaler.scale(footprint, radius=1)
-            xmap = xmap.extract(residue.coor, padding=5)
+            xmap = xmap.extract(residue.coor, padding=options.padding)
 
         # Check if residue is complete. If not, complete it:
         atoms = residue.name
