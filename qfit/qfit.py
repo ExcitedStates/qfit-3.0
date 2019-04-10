@@ -1076,61 +1076,170 @@ class QFitLigandOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
 
+        self.bulk_solvent_level = 0.3
+        self.dofs_per_iteration = 1
+        self.remove_conformers_below_cutoff = True
+
+
+        self.local_search = False
+        self.sample_ligand_stepsize = 8
+
+
+
 class QFitLigand(_BaseQFit):
 
-    def __init__(self, ligand, root, receptor, xmap, options):
-        super().__init__(ligand, xmap, options)
+    def __init__(self, ligand, receptor, xmap, options):
+        # Initialize using the base qfit class
+        super().__init__(ligand, receptor, xmap, options)
+
+        # This list will be used to combine coor_sets output for
+        # each of the clusters that we sample:
+        self._all_coor_set = []
+
+        # Populate useful attributes:
         self.ligand = ligand
         self.receptor = receptor
+        self.xmap = xmap
+        self.options = options
         csf = self.options.clash_scaling_factor
+
+        # Internal clash detection, currently not implemented:
+        # self.ligand._init_clash_detection(self.options.clash_scaling_factor)
+
+        # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=csf)
+
+        # Determine which roots to start building from
         self._rigid_clusters = ligand.rigid_clusters()
+        self.roots = None
+        if self.roots is None:
+            self._clusters_to_sample = []
+            for cluster in self._rigid_clusters:
+                nhydrogen = (self.ligand.e[cluster] == 'H').sum()
+                if len(cluster) - nhydrogen > 1:
+                    self._clusters_to_sample.append(cluster)
+        msg = f"Number of clusters to sample: {len(self._clusters_to_sample)}"
+        print(msg)
+
+        # Initialize the transformer
+        if options.subtract:
+            self._subtract_transformer(self.ligand, self.receptor)
         self._update_transformer(ligand)
 
     def run(self):
+        for self._cluster_index, self._cluster in enumerate(
+          self._clusters_to_sample):
+            if self.options.local_search:
+                self._local_search()
+            self._sample_internal_dofs()
+            self._write_intermediate_conformers(f"root_{self._cluster_index}")
 
-        if self.options.local_search:
-            self._local_search()
-        self._sample_internal_dofs()
+            exit()
+
+            self._all_coor_set += self._coor_set
+            logger.info("Number of conformers: {:}".format(len(self._coor_set)))
+            logger.info("Number of final conformers: {:}".format(len(self._all_coor_set)))
+
 
     def _local_search(self):
         pass
 
     def _sample_internal_dofs(self):
+        opt = self.options
+        sampling_range = np.deg2rad(
+          np.arange(0, 360, self.options.sample_ligand_stepsize))
 
-        nbonds = None
+        bond_order = self.ligand.rotation_order(self._cluster[0])
+        bond_list = self.ligand.convert_rotation_tree_to_list(bond_order)
+        nbonds = len(bond_list)
         if nbonds == 0:
             return
-
         starting_bond_index = 0
 
+        sel_str = f"chain {self.ligand.chain[0]} and resi {self.ligand.resi[0]}"
+        if self.ligand.icode[0]:
+            sel_str = f"{sel_str} and icode {self.ligand.icode[0]}"
+        selection = self.ligand.select(sel_str)
+        iteration = 1
         while True:
             end_bond_index = min(starting_bond_index + self.options.dofs_per_iteration, nbonds)
             for bond_index in range(starting_bond_index, end_bond_index):
 
                 nbonds_sampled = bond_index + 1
                 self.ligand.active = False
-                for cluster in self._rigid_clusters:
-                    for sampled_bond in bonds[:nbonds_sampled]:
-                        if sampled_bond[0] in cluster or sampled_bond[1] in cluster:
-                            self.ligand.active[cluster] = True
-                            for atom in cluster:
-                                self.ligand.active[self.ligand.connectivity[atom]] = True
+                active = np.zeros_like(self.ligand.active, dtype=bool)
 
-                bond = bonds[bond_index]
+                # Activate all the atoms of the ligand that have been sampled
+                # up until the bond we are currently sampling:
+                for cluster in self._rigid_clusters:
+                    for sampled_bond in bond_list[:nbonds_sampled]:
+                        if sampled_bond[0] in cluster or sampled_bond[1] in cluster:
+                            active[cluster] = True
+                            for atom in cluster:
+                                active[self.ligand.connectivity[atom]] = True
+                self.ligand._active[selection] = active
+                # self.ligand.update_clash_mask()
+                bond = bond_list[bond_index]
                 atoms = [self.ligand.name[bond[0]], self.ligand.name[bond[1]]]
                 new_coor_set = []
                 for coor in self._coor_set:
                     self.ligand.coor = coor
                     rotator = BondRotator(self.ligand, *atoms)
                     for angle in sampling_range:
-                        rotator(angle)
-                        if not self._cd() and self.ligand.clashes():
-                            new_coor_set.append(self.ligand.coor)
+                        new_coor = rotator(angle)
+                        if opt.remove_conformers_below_cutoff:
+                            values = self.xmap.interpolate(new_coor[active])
+                            mask = (self.ligand.e[active] != "H")
+                            if np.min(values[mask]) < self.options.density_cutoff:
+                                continue
+                        if self.options.external_clash:
+                            if not self._cd(): # and self.ligand.clashes() == 0:
+                                if new_coor_set:
+                                    delta = np.array(new_coor_set)-np.array(new_coor)
+                                    if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                        new_coor_set.append(new_coor)
+                                else:
+                                    new_coor_set.append(new_coor)
+                        elif True: # self.ligand.clashes() == 0:
+                            if new_coor_set:
+                                delta = np.array(new_coor_set)-np.array(new_coor)
+                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                    new_coor_set.append(new_coor)
+                            else:
+                                new_coor_set.append(new_coor)
                 self._coor_set = new_coor_set
 
-                if not self._coor_set:
-                    return
+            self.conformer = self.ligand
+            print(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
+            logger.info("Nconf: {:d}".format(len(self._coor_set)))
+            if not self._coor_set:
+                msg = (f"No conformers could be generated. Check for initial "
+                       f"clashes and density support.")
+                raise RuntimeError(msg)
+
+            # QP
+            logger.debug("Converting densities.")
+            self._convert()
+            logger.info("Solving QP.")
+            self._solve()
+            logger.debug("Updating conformers")
+            self._update_conformers()
+            # MIQP
+            self._convert()
+            logger.info("Solving MIQP.")
+            self._solve(cardinality=opt.cardinality,
+                        threshold=opt.threshold)
+            self._update_conformers()
+
+            logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
+
+            # Check if we are done
+            if end_bond_index == nbonds:
+                break
+
+            # Go to the next bonds to be sampled
+            starting_bond_index += self.options.dofs_per_iteration
+            iteration += 1
 
 
 class QFitCovalentLigandOptions(_BaseQFitOptions):
@@ -1585,7 +1694,6 @@ class QFitCovalentLigand(_BaseQFit):
         self._solve(cardinality=opt.cardinality,
                     threshold=opt.threshold)
         self._update_conformers()
-        self._write_intermediate_conformers(f"miqp_")
 
 
     def _sample_ligand(self):

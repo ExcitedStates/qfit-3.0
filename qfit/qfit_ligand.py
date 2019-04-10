@@ -36,10 +36,8 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 
-#from .builders import HierarchicalBuilder
-#from .helpers import mkdir_p
-#from .validator import Validator
 from . import MapScaler, Structure, XMap, _Ligand
+from . import QFitLigand, QFitLigandOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -52,6 +50,8 @@ def parse_args():
                  "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
             help="PDB-file containing structure.")
+    p.add_argument('-cif', "--cif_file", type=str, default=None,
+            help="CIF file describing the ligand")
     p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
@@ -69,7 +69,6 @@ def parse_args():
     p.add_argument('-o', '--omit', action="store_true",
             help="Map file is an OMIT map. This affects the scaling procedure of the map.")
 
-
     # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
@@ -86,6 +85,17 @@ def parse_args():
             help="Do not build ligand.")
     p.add_argument("-nl", "--no-local", action="store_true",
             help="Do not perform a local search.")
+    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+                   dest="remove_conformers_below_cutoff",
+            help=("Remove conformers during sampling that have atoms that have "
+                  "no density support for, i.e. atoms are positioned at density "
+                  "values below cutoff value."))
+    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
+            help="Set clash scaling factor. Default = 0.75")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
+            help="Enable external clash detection during sampling.")
+    p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
+            help="Bulk solvent level in absolute values.")
     p.add_argument("-b", "--build-stepsize", type=int, default=1, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
     p.add_argument("-s", "--stepsize", type=float, default=1, metavar="<float>",
@@ -98,6 +108,12 @@ def parse_args():
             help="Threshold constraint during intermediate MIQP.")
     p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during intermediate MIQP.")
+    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
+            help="Include hydrogens during calculations.")
+    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
+            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
+            help="Use BIC to select the most parsimonious MIQP threshold")
 
 
     # Output options
@@ -134,13 +150,12 @@ def main():
         console_out.setLevel(level)
         logging.getLogger('').addHandler(console_out)
 
+    # Load structure and prepare it
+    structure = Structure.fromfile(args.structure).reorder()
+    if not args.hydro:
+        structure = structure.extract('e', 'H', '!=')
 
-
-
-    # Extract ligand and rest of structure
-    structure = Structure.fromfile(args.structure)
     logger.info("Extracting receptor and ligand from input structure.")
-
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -153,12 +168,20 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
-    ligand = _Ligand(structure_ligand.data,
-                     structure_ligand._selection)
+    if args.cif_file:
+        ligand = _Ligand(structure_ligand.data,
+                         structure_ligand._selection,
+                         link_data=structure_ligand.link_data,
+                         cif_file=args.cif_file)
+    else:
+        ligand = _Ligand(structure_ligand.data,
+                         structure_ligand._selection,
+                         link_data=structure_ligand.link_data)
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            " selection input.")
 
+    # Select all ligand conformers:
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
     altlocs = sorted(list(set(ligand.altloc)))
@@ -170,7 +193,6 @@ def main():
         for altloc in altlocs[1:]:
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
-#            structure = structure.extract(sel_str)
             ligand = ligand.extract(sel_str)
     ligand.altloc.fill('')
     ligand.q.fill(1)
@@ -180,7 +202,10 @@ def main():
     receptor = structure.extract(sel_str)
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
+    options = QFitLigandOptions()
+    options.apply_command_args(args)
 
+    # Load and process the electron density map:
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:
@@ -195,8 +220,15 @@ def main():
             sel_str = f"not ({sel_str})"
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
-        scaler.scale(footprint, radius=1)
-        #scaler.cutoff(options.density_cutoff, options.density_cutoff_value)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(footprint, radius=radius)
     xmap = xmap.extract(ligand.coor, padding=5)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
@@ -204,8 +236,31 @@ def main():
     scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
 
-    print("Under development!")
+    qfit = QFitLigand(ligand, receptor, xmap, options)
+    qfit.run()
+    exit()
 
+    conformers = qfit.get_conformers_covalent()
+    nconformers = len(conformers)
+    altloc = ''
+    for n, conformer in enumerate(conformers, start=0):
+        if nconformers > 1:
+            altloc = ascii_uppercase[n]
+        conformer.altloc = ''
+        fname = os.path.join(options.directory, f'conformer_{n}.pdb')
+        conformer.tofile(fname)
+        conformer.altloc = altloc
+        try:
+            multiconformer = multiconformer.combine(conformer)
+        except Exception:
+            multiconformer = Structure.fromstructurelike(conformer.copy())
+    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    if icode:
+        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+    multiconformer.tofile(fname)
+
+    passed = time.time() - time0
+    logger.info(f"Time passed: {passed}s")
 
     '''
     builder = HierarchicalBuilder(

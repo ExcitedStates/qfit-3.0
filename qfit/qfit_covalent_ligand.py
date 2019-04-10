@@ -171,6 +171,7 @@ def main():
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
 
+    logger.info("Extracting receptor and ligand from input structure.")
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -208,7 +209,6 @@ def main():
         for altloc in altlocs[1:]:
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
-#            structure = structure.extract(sel_str)
             covalent_ligand = covalent_ligand.extract(sel_str)
     covalent_ligand.altloc.fill('')
     covalent_ligand.q.fill(1)
@@ -216,6 +216,7 @@ def main():
     sel_str = f"resi {resi} and chain {chainid}"
     sel_str = f"not ({sel_str})"
     receptor = structure.extract(sel_str)
+    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
     options = QFitCovalentLigandOptions()
     options.apply_command_args(args)
@@ -235,7 +236,15 @@ def main():
             sel_str = f"not ({sel_str})"
             footprint = structure.extract(sel_str)
             footprint = footprint.extract('record', 'ATOM')
-        scaler.scale(footprint, radius=1)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(footprint, radius=radius)
     xmap = xmap.extract(covalent_ligand.coor, padding=5)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):

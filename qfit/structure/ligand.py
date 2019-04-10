@@ -39,15 +39,21 @@ class _Ligand(_BaseStructure):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._get_connectivity()
         try:
             self.id = (kwargs['resi'], kwargs['icode'])
         except KeyError:
             self.id = (args[0]['resi'], args[0]['icode'])
-        try:
-            self.type = kwargs["type"]
-        except:
-            pass
+            self.ligand_name = self.resn[0]
+        self.nbonds = None
+
+        if "cif_file" in kwargs:
+            self._get_connectivity_from_cif(kwargs["cif_file"])
+        else:
+            self._get_connectivity()
+
+        #self.root = np.argwhere(self.name == self.link_data['name1'][i])
+        #self.order = self.rotation_order(self.root)
+        #self.bond_list = self.convert_rotation_tree_to_list(self.order)
 
     def __repr__(self):
         string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
@@ -78,6 +84,49 @@ class _Ligand(_BaseStructure):
         np.fill_diagonal(connectivity_matrix, False)
         self.connectivity = connectivity_matrix
         self._cutoff_matrix = cutoff_matrix
+
+    def _get_connectivity_from_cif(self, cif_file):
+        """Determine connectivity matrix of ligand and associated distance
+        cutoff matrix for later clash detection.
+        """
+        coor = self.coor
+        self.bond_types = {}
+        dist_matrix = squareform(pdist(coor))
+        covrad = self.covalent_radius
+        natoms = self.natoms
+        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
+        connectivity_matrix = np.zeros_like(dist_matrix,dtype=bool)
+        cif = mmCIFDictionary()
+        cif.load_file(cif_file)
+        for cif_data in cif:
+            if cif_data.name == f'comp_{self.ligand_name}':
+                for cif_table in cif_data:
+                    if cif_table.name == "chem_comp_bond":
+                        for cif_row in cif_table:
+                            a1 = cif_row['atom_id_1']
+                            a2 = cif_row['atom_id_2']
+                            index1 = np.argwhere(self.name == a1)
+                            index2 = np.argwhere(self.name == a2)
+                            try:
+                                connectivity_matrix[index1,index2] = True
+                                connectivity_matrix[index2,index1] = True
+                            except:
+                                pass
+                            else:
+                                try:
+                                    index1 = index1[0,0]
+                                    index2 = index2[0,0]
+                                except:
+                                    continue
+                                if index1 not in self.bond_types:
+                                    self.bond_types[index1] = {}
+                                if index2 not in self.bond_types:
+                                    self.bond_types[index2] = {}
+                                self.bond_types[index1][index2] = cif_row['type']
+                                self.bond_types[index2][index1] = cif_row['type']
+
+        self._cutoff_matrix = cutoff_matrix
+        self.connectivity = connectivity_matrix
 
     def clashes(self):
         """Checks if there are any internal clashes."""
@@ -168,7 +217,6 @@ class _Ligand(_BaseStructure):
                             break
                 if new_bond:
                     rotatable_bonds.append((atom, neighbor))
-                print(rotatable_bonds)
         return rotatable_bonds
 
     def rigid_clusters(self):
@@ -315,6 +363,14 @@ class _Ligand(_BaseStructure):
         checked_bonds = []
         _rotation_order(clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree)
         return rotation_tree
+
+    def convert_rotation_tree_to_list(self, parent_tree):
+        bond_list = []
+        for bond, child_trees in parent_tree.items():
+            bond_list += [bond]
+            if child_trees:
+                bond_list += self.convert_rotation_tree_to_list(child_trees)
+        return bond_list
 
 
 class Covalent_Ligand(_BaseStructure):
