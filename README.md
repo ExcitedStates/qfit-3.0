@@ -20,21 +20,26 @@ As an open source alternative to IBM ILOG CPLEX Optimization Studio:
 
 ## Installation
 
-If you have access to the `conda` package manager ([Python 3.7 64bit miniconda](https://conda.io/en/latest/miniconda.html)),
-installing all dependencies is straightforward:
+If you have access to the `conda` package manager ([Python 3.7 64bit Anaconda 2019.03](https://www.anaconda.com/distribution/)),
+installing all dependencies can be done by issuing the following commands:
 
     conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
+    conda install -c oxfordcontrol osqp
 
 Installation instructions using `pip` can be found in the `docs` folder.
+
 Instructions using `miniconda` can be found
 [here](https://github.com/fraser-lab/holton_scripts/blob/master/qfit_stuff/qfit_install_guide.txt).
 
 qFit also **requires** an open-source MIQP implementation, MIOSQP, which is based on the OSQP package.
 Installation instructions for MIOSQP can be found on its
-[GitHub Repository](https://github.com/oxfordcontrol/miosqp).
+[GitHub Repository](https://github.com/oxfordcontrol/miosqp). Here is a simplified version:
 
-You are now all set now to install `qfit`. Installation of `qfit` is
-as simple as
+    git clone https://github.com/oxfordcontrol/miosqp.git
+    cd miosqp
+    python setup.py install
+
+You are now all set now to install `qfit`. Installation of `qfit` can be performed by:
 
     git clone https://github.com/excitedstates/qfit-3.0
     cd qfit-3.0
@@ -60,7 +65,7 @@ An example test case (3K0N) can be found in the *example* directory.
 To model alternate conformers for all residues in a protein of interest using qFit,
 the following command should be used:
 
-`qfit_protein [MAP_FILE] -l FWT,PHWT [PDB_FILE] -bb -sa -T -s 5 -rb`
+`qfit_protein [MAP_FILE] -l [LABELS] [PDB_FILE]`
 
 This command will produce a multiconformer model that spans the entirety of the
 input target protein. You will encounter two output files of interest in the
@@ -87,7 +92,7 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -T -s 5 -rb`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
@@ -96,16 +101,16 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. We plan to remove this dependency in future releases.
 
-### 2. Modelling alternate conformers for a residue of interest (faster, not as precise)
+### 2. Modelling alternate conformers for a residue of interest
 
 
-`qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN]`
+`qfit_residue [MAP_FILE] -l [LABELS] [PDB_FILE] [RESIDUE,CHAIN]`
 
 
 Using the example 3K0N:
 
 
-`qfit_residue /path/to/3K0N.mtz /path/to/3K0N.pdb A,113`
+`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113`
 
 
 This will produce a parsimonious model containing up to 5 alternate conformers
@@ -131,34 +136,30 @@ Using the example 3K0N:
 
 -------------
 
-### 4. Activate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (slower, more precise)
+### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
 
-In its default mode, *qfit_residue* only samples side chain conformations.
- While this is inherently faster, to take full advantage of qfit modeling
- capabilities, we recommend enabling backbone
-sampling using our KGS routine. This can be achieved using the *-bb* flag.
+In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
+using our KGS routine. This can be disabled using the *-bb* flag.
 
 
-For optimal results, we also recommend sampling the bond angle N-CA-CB, which can
-be activated by means of the *-sa* flag.
+For even faster (and less precise) results, one can also disable the sampling of
+the bond angle N-CA-CB, which can be deactivated by means of the *-sa* flag.
 
 
-Other useful sampling parameters that can be tweaked:
+Other useful sampling parameters that can be tweaked to make qFit run faster at
+the cost of precision:
 
 
-* Step size (in degrees) sampled around each rotamer: *-s* flag (default: 6)
-* Rotamer neighborhood sampled: *-rn* flag (default: 40)
-* Parsimonious selection of the number of conformers output by qFit using the Bayesian
+* Increase step size (in degrees) sampled around each rotamer: *-s* flag (default: 10).
+* Decrease rotamer neighborhood sampled: *-rn* flag (default: 80)
+* Disable parsimonious selection of the number of conformers output by qFit using the Bayesian
 Information Criterion (BIC): *-T* flag.
-* Randomize the b-factors of generated conformers: *-rb* flag (recommended).
 
 
 Using the example 3K0N:
 
-
-`qfit_residue /path/to/3K0N.mtz /path/to/3K0N.pdb A,113 -bb -sa -s 5 -T -rb -rn 45`
-
+`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113 -bb -sa -s 20 -T -rn 45`
 
 For a full list of options, run:
 
@@ -173,7 +174,7 @@ For a full list of options, run:
 Using the example 3K0N:
 
 
-`qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb -bb -sa -s 5 -T -rn 45`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -s 20 -T -rn 45`
 
 -------------
 
@@ -187,7 +188,7 @@ can be adjusted using the *-p* flag.
 Using the example 3K0N, spawning 30 parallel threads:
 
 
-`qfit_protein /path/to/3K0N.mtz /path/to/3K0N.pdb -bb -sa -s 5 -T -rn 45 -p 30`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb  -p 30`
 
 -------------
 
@@ -205,18 +206,17 @@ In the meantime, if you notice that your conformer of interest is present in
 can re-process the initial model with less stringent parameters using the *qfit_segment* routine:
 
 
-`qfit_segment /path/to/3K0N.mtz /path/to/multiconformer_model.pdb -Ts -T 14 -f 3`
+`qfit_segment /path/to/3K0N.mtz  -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb -Ts -f 3`
 
 -------------
 
-### 8. Modeling alternate conformers of a ligand
-
+### 8. Modeling alternate conformers of a ligand (under development)
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
 
-`qfit_ligand [MAP_FILE] [PDB_FILE] [LIGAND,CHAIN]`
+`qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [LIGAND,CHAIN]`
 
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB

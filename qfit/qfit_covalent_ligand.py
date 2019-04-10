@@ -76,21 +76,22 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
-            help="Use phenix to perform anisotropic refinement of individual sites."
-                 "This option creates an OMIT map and uses it as a default.")
+    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
+            help="Do not subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
+            help="Padding size for map creation.")
 
     # Sampling options
-    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
-            help="Sample backbone using inverse kinematics.")
+    p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
+            help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
             type=float, default=0.1, metavar="<float>",
             help="Backbone sampling step (default = 0.1)")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
             type=float, default=0.3, metavar="<float>",
            help="Backbone sampling amplitude (default = 0.3)")
-    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
-            help="Sample N-CA-CB angle.")
+    p.add_argument('-sa', "--no-sample-angle", dest="sample_angle", action="store_false",
+            help="Do not sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
             type=float, default=3.75, metavar="<float>",
             help="Bond angle sampling step (default = 3.75)")
@@ -101,15 +102,15 @@ def parse_args():
                  " determined by this sampling parameter.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-                   default=60, metavar="<float>",
+                   default=80, metavar="<float>",
                    help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("-nl", "--no-ligand",
                    dest="sample_ligand", action="store_false",
                    help="Disable ligand sampling.")
-    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
@@ -128,8 +129,8 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
-            help="Use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold", action="store_false",
+            help="Do not use BIC to select the most parsimonious MIQP threshold")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",

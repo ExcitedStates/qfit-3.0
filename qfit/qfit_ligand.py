@@ -76,16 +76,17 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
-            help="Use phenix to perform anisotropic refinement of individual sites."
-                 "This option creates an OMIT map and uses it as a default.")
+    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
+            help="Do not subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
+            help="Padding size for map creation.")
 
     # Sampling options
-    p.add_argument("-nb", "--no-build", action="store_true",
+    p.add_argument("-nb", "--no-build", action="store_false", dest="build",
             help="Do not build ligand.")
-    p.add_argument("-nl", "--no-local", action="store_true",
+    p.add_argument("-nl", "--no-local", action="store_false", dest="local_search",
             help="Do not perform a local search.")
-    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_truee",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
@@ -98,7 +99,8 @@ def parse_args():
             help="Bulk solvent level in absolute values.")
     p.add_argument("-b", "--build-stepsize", type=int, default=1, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--stepsize", type=float, default=1, metavar="<float>",
+    p.add_argument("-s", "--stepsize", type=float, default=8,
+            metavar="<float>", dest="sample_ligand_stepsize",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
@@ -112,8 +114,8 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
-            help="Use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_false",
+            help="Do not use BIC to select the most parsimonious MIQP threshold")
 
 
     # Output options

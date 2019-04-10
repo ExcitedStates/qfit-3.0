@@ -63,8 +63,8 @@ class _BaseQFitOptions:
         # Density preparation options
         self.density_cutoff = 0.3
         self.density_cutoff_value = -1
-        self.subtract = False
-        self.padding = 5.0
+        self.subtract = True
+        self.padding = 8.0
 
         # Density creation options
         self.map_type = None
@@ -74,6 +74,7 @@ class _BaseQFitOptions:
         self.omit = False
         self.scale = True
         self.randomize_b = False
+        self.bulk_solvent_level = 0.3
 
         # Sampling options
         self.clash_scaling_factor = 0.75
@@ -81,12 +82,14 @@ class _BaseQFitOptions:
         self.dofs_per_iteration = 2
         self.dofs_stepsize = 6
         self.hydro = False
+        self.rmsd_cutoff = 0.01
+
 
         # MIQP options
         self.cplex = True
         self.cardinality = 5
         self.threshold = 0.20
-        self.bic_threshold = False
+        self.bic_threshold = True
         self.seg_bic_threshold = True
 
     def apply_command_args(self, args):
@@ -103,23 +106,21 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
-        self.sample_backbone = False
+        self.sample_backbone = True
         self.neighbor_residues_required = 2
         self.sample_backbone_amplitude = 0.30
         self.sample_backbone_step = 0.1
         self.sample_backbone_sigma = 0.125
 
         # N-CA-CB angle sampling
-        self.sample_angle = False
+        self.sample_angle = True
         self.sample_angle_range = 7.5
         self.sample_angle_step = 3.75
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60
-        self.remove_conformers_below_cutoff = True
-
-        self.bulk_solvent_level = 0.3
+        self.rotamer_neighborhood = 80
+        self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
         self.phenix_aniso = False
@@ -879,9 +880,7 @@ class QFitSegmentOptions(_BaseQFitOptions):
 
     def __init__(self):
         super().__init__()
-        self.bulk_solvent_level = 0.3
         self.fragment_length = None
-        self.rmsd_cutoff = 0.01
 
 
 class QFitSegment(_BaseQFit):
@@ -1076,11 +1075,8 @@ class QFitLigandOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
 
-        self.bulk_solvent_level = 0.3
         self.dofs_per_iteration = 1
-        self.remove_conformers_below_cutoff = True
-
-
+        self.remove_conformers_below_cutoff = False
         self.local_search = False
         self.sample_ligand_stepsize = 8
 
@@ -1248,23 +1244,21 @@ class QFitCovalentLigandOptions(_BaseQFitOptions):
         super().__init__()
 
         # Backbone sampling
-        self.sample_backbone = False
+        self.sample_backbone = True
         self.neighbor_residues_required = 2
         self.sample_backbone_amplitude = 0.30
         self.sample_backbone_step = 0.1
         self.sample_backbone_sigma = 0.125
 
         # N-CA-CB angle sampling
-        self.sample_angle = False
+        self.sample_angle = True
         self.sample_angle_range = 7.5
         self.sample_angle_step = 3.75
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60
-        self.remove_conformers_below_cutoff = True
-
-        self.bulk_solvent_level = 0.3
+        self.rotamer_neighborhood = 80
+        self.remove_conformers_below_cutoff = False
 
         # Ligand sampling
         self.sample_ligand = True

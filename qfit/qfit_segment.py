@@ -69,6 +69,7 @@ def parse_args():
             metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
 
+
     # Sampling options
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
@@ -82,6 +83,8 @@ def parse_args():
                    help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
+            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int, default=4, metavar="<int>",
@@ -89,8 +92,6 @@ def parse_args():
     p.add_argument("-Ts","--no-segment-threshold-selection", dest="seg_bic_threshold",
                    action="store_false",
                    help="Do not use BIC to select the most parsimonious MIQP threshold")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
-            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
