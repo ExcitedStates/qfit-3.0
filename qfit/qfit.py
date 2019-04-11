@@ -690,7 +690,7 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        #print(f"\nBond angle sampling generated {len(self._coor_set)}/{total} conformers.\n"
+        # print(f"\nBond angle sampling generated {len(self._coor_set)} conformers.\n")
         if len(self._coor_set) > 1000:
             print("[WARNING] Large number of conformers have been generated. Run times may be slow."
                   "Please, consider changing sampling parameters and re-running qFit.")

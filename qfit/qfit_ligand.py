@@ -86,7 +86,7 @@ def parse_args():
             help="Do not build ligand.")
     p.add_argument("-nl", "--no-local", action="store_false", dest="local_search",
             help="Do not perform a local search.")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_truee",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "

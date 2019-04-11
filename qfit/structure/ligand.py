@@ -46,6 +46,11 @@ class _Ligand(_BaseStructure):
             self.ligand_name = self.resn[0]
         self.nbonds = None
 
+        try:
+            self.type = kwargs["type"]
+        except:
+            pass
+
         if "cif_file" in kwargs:
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:
