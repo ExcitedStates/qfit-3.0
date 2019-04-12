@@ -65,6 +65,7 @@ class _BaseQFitOptions:
         self.density_cutoff_value = -1
         self.subtract = True
         self.padding = 8.0
+        self.nowaters = False
 
         # Density creation options
         self.map_type = None
@@ -80,7 +81,7 @@ class _BaseQFitOptions:
         self.clash_scaling_factor = 0.75
         self.external_clash = False
         self.dofs_per_iteration = 2
-        self.dofs_stepsize = 6
+        self.dofs_stepsize = 10
         self.hydro = False
         self.rmsd_cutoff = 0.01
 
@@ -196,7 +197,8 @@ class _BaseQFit:
         # Select the atoms whose density we are going to subtract:
         subtract_structure = structure.extract_neighbors(residue,
                                                          self.options.padding)
-
+        if self.options.nowaters:
+            subtract_structure = subtract_structure.extract("resn",'HOH',"!=")
         # Calculate the density that we are going to subtract:
         self._subtransformer = Transformer(
             subtract_structure,
@@ -560,8 +562,6 @@ class QFitRotamericResidue(_BaseQFit):
         # receptor.tofile('clash_receptor.pdb')
 
     def run(self):
-        # if self.incomplete:
-        #    raise RuntimeError("Incomplete residue")
         if self.options.sample_backbone:
             self._sample_backbone()
         if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0] != 'GLY':
@@ -690,10 +690,24 @@ class QFitRotamericResidue(_BaseQFit):
                     continue
                 new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
-        # print(f"\nBond angle sampling generated {len(self._coor_set)} conformers.\n")
-        if len(self._coor_set) > 1000:
-            print("[WARNING] Large number of conformers have been generated. Run times may be slow."
-                  "Please, consider changing sampling parameters and re-running qFit.")
+        #if self.options.dofs_per_iteration == 1 or (
+        #  self.options.dofs_per_iteration == 2
+        #  and self.options.sample_backbone):
+        #    # QP
+        #    logger.debug("Converting densities.")
+        #    self._convert()
+        #    logger.info("Solving QP.")
+        #    self._solve()
+        #    logger.debug("Updating conformers")
+        #    self._update_conformers()
+
+            # MIQP
+        #    self._convert()
+        #    logger.info("Solving MIQP.")
+        #    self._solve(cardinality=self.options.cardinality,
+        #                threshold=self.options.threshold)
+        #    self._update_conformers()
+        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
 
     def _sample_sidechain(self):
@@ -750,20 +764,6 @@ class QFitRotamericResidue(_BaseQFit):
                             continue
                         # Set the chi angle to the standard rotamer value.
                         self.residue.set_chi(chi_index, rotamer[chi_index - 1])
-
-                        # The starting chi angles are similar for many
-                        # rotamers, make sure we are not sampling double
-                        # unique = True
-                        # residue_coor = self.residue.coor
-                        # for rotamer_coor in sampled_rotamers:
-                        #    if np.allclose(rotamer_coor,
-                        #                   residue_coor,
-                        #                   atol=0.01):
-                        #        unique = False
-                        #        break
-                        #if not unique:
-                        #    continue
-                        #sampled_rotamers.append(residue_coor)
 
                         # Sample around the neighborhood of the rotamer
                         chi_rotator = ChiRotator(self.residue, chi_index)
@@ -927,10 +927,15 @@ class QFitSegment(_BaseQFit):
         self._voxel_volume /= self.xmap.array.size
 
     def __call__(self):
-        # Create an empty structure:
-        hetatms = self.segment.extract('record', "HETATM")
         print(f'Average number of conformers before qfit_segment run: '
-              f'{self.segment.average_conformers():.2f}')
+            f'{self.segment.average_conformers():.2f}')
+        # Extract hetatms
+        hetatms = self.segment.extract('record', "HETATM")
+        # Deal with waters with an ATOM record
+        waters = self.segment.extract('record', "ATOM")
+        waters = waters.extract('resn', "HOH")
+        hetatms = hetatms.combine(waters)
+        # Create an empty structure:
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))
         segment = []
@@ -1449,7 +1454,7 @@ class QFitCovalentLigand(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -1481,6 +1486,22 @@ class QFitCovalentLigand(_BaseQFit):
                     continue
                 new_coor_set.append(self.covalent_residue.coor)
         self._coor_set = new_coor_set
+        if self.dofs_per_iteration == 1 or (self.dofs_per_iteration == 2
+                                            and self.sample_backbone):
+            # QP
+            logger.debug("Converting densities.")
+            self._convert()
+            logger.info("Solving QP.")
+            self._solve()
+            logger.debug("Updating conformers")
+            self._update_conformers()
+
+            # MIQP
+            self._convert()
+            logger.info("Solving MIQP.")
+            self._solve(cardinality=opt.cardinality,
+                        threshold=opt.threshold)
+            self._update_conformers()
         print(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):

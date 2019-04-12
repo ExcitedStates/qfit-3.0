@@ -74,6 +74,8 @@ def parse_args():
             help="Do not subtract Fcalc of the neighboring residues when running qFit.")
     p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
             help="Padding size for map creation.")
+    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
+        help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
     p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
@@ -257,21 +259,8 @@ class QFitProtein:
         self.options.bic_threshold = self.options.seg_bic_threshold
         if self.options.seg_bic_threshold:
             self.options.fragment_length = 3
-        self.options.threshold = 0.2
-        if self.options.scale:
-            # Prepare X-ray map
-            scaler = MapScaler(self.xmap, scattering=self.options.scattering)
-            footprint = self.structure.extract('record', 'ATOM')
-            radius = 1.5
-            reso = None
-            if self.xmap.resolution.high is not None:
-                reso = self.xmap.resolution.high
-            elif options.resolution is not None:
-                reso = options.resolution
-            if reso is not None:
-                radius = 0.5 + reso / 3.0
-            #scaler.scale(footprint, radius=radius)
-            scaler.scale(self.structure, radius=radius)
+        else:
+            self.options.threshold = 0.2
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
@@ -317,37 +306,12 @@ class QFitProtein:
                         structure_new = structure_new.extract(sel_str)
 
                 xmap.array = copy.deepcopy(base_density)
-                # Prepare X-ray map
-                if options.scale:
-                    # Prepare X-ray map
-                    scaler = MapScaler(xmap, scattering=options.scattering)
-                    if options.omit:
-                        footprint = structure_resi
-                    else:
-                        sel_str = f"resi {resi} and chain {chainid}"
-                        if icode:
-                            sel_str += f" and icode {icode}"
-                        sel_str = f"not ({sel_str})"
-                        footprint = structure_new.extract(sel_str)
-                        footprint = footprint.extract('record', 'ATOM')
-                    radius = 1.5
-                    reso = None
-                    if xmap.resolution.high is not None:
-                        reso = xmap.resolution.high
-                    elif options.resolution is not None:
-                        reso = options.resolution
-                    if reso is not None:
-                        radius = 0.5 + reso / 3.0
-                    #scaler.scale(footprint, radius=radius)
-                    scaler.scale(structure, radius=radius)
-                    # scaler.cutoff(options.density_cutoff,
-                    #                options.density_cutoff_value)
                 xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
 
-                qfit = QFitRotamericResidue(residue, structure_new,
-                                            xmap_reduced, options)
                 # Exception handling in case qFit-residue fails:
                 try:
+                    qfit = QFitRotamericResidue(residue, structure_new,
+                                                xmap_reduced, options)
                     qfit.run()
                 except RuntimeError:
                     print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
@@ -356,6 +320,10 @@ class QFitProtein:
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
                 qfit.tofile()
+            else:
+                # This is the case where the residue is either a ligand
+                # or water
+                pass
             counter.increment()
 
 
@@ -377,7 +345,18 @@ def main():
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
-
+    if args.scale == True:
+        # Prepare X-ray map
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(structure, radius=radius)
 
     time0 = time.time()
     qfit = QFitProtein(structure, xmap, options)

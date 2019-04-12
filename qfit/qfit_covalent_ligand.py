@@ -80,6 +80,8 @@ def parse_args():
             help="Do not subtract Fcalc of the neighboring residues when running qFit.")
     p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
             help="Padding size for map creation.")
+    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
+        help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
     p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
