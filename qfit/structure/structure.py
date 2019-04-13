@@ -38,8 +38,8 @@ class Structure(_BaseStructure):
     def __init__(self, data, **kwargs):
         for attr in self.REQUIRED_ATTRIBUTES:
             if attr not in data:
-                raise ValueError("Not all attributes are given to \
-                                 build the structure")
+                raise ValueError(f"Not all attributes are given to "
+                                 f"build the structure: {attr}")
         super().__init__(data, **kwargs)
         self._chains = []
 
@@ -57,6 +57,12 @@ class Structure(_BaseStructure):
             data[attr] = np.asarray(array)
         coor = np.asarray(list(zip(dd['x'], dd['y'], dd['z'])),
                           dtype=np.float64)
+
+        dl = pdbfile.link
+        link_data = {}
+        for attr, array in dl.items():
+            link_data[attr] = np.asarray(array)
+
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=np.bool)
@@ -82,7 +88,7 @@ class Structure(_BaseStructure):
                                      'gamma', 'spg']]
             cls.unit_cell = UnitCell(*values)
 
-        return cls(data)
+        return cls(data, link_data=link_data)
 
     @classmethod
     def fromstructurelike(cls, structure_like):
@@ -337,7 +343,7 @@ class Structure(_BaseStructure):
         data = {}
         for attr, value in self.data.items():
             data[attr] = value[ordering]
-        return Structure(data)
+        return Structure(data, link_data=self.link_data)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
@@ -446,6 +452,29 @@ class Structure(_BaseStructure):
         self._clashing &= self._active_mask
         nclashes = self._clashing.sum()
         return nclashes
+
+    def extract_neighbors(self, residue, distance=5.0):
+        # Remove the residue of interest from the structure:
+        sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
+        sel_str = f"not ({sel_str})"
+
+        # Identify all atoms within distance of the residue of interest
+        neighbors = self.extract(sel_str)
+        mask = (neighbors.coor[:, 1] < -np.inf)
+        for coor in residue.coor:
+            diffs = neighbors.coor - np.array(coor)
+            dists = np.linalg.norm(diffs, axis=1)
+            mask = np.logical_or(mask, dists < distance)
+
+        # Copy the attributes of the masked atoms:
+        data = {}
+        for attr in neighbors.data:
+            array1 = getattr(neighbors, attr)
+            data[attr] = array1[mask]
+
+        # Return the new object:
+        return Structure(data)
+
 
 
 class _Chain(_BaseStructure):
@@ -735,6 +764,8 @@ class _Conformer(_BaseStructure):
                 else:
                     segments.append(segment)
                     segment = [res]
+                #print(res,segment)
+
         segments.append(segment)
 
         for segment in segments:

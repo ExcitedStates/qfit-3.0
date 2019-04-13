@@ -68,6 +68,8 @@ def parse_args():
     # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
+    p.add_argument("-sv", "--scale-rmask", type=float, dest="scale_rmask", default=1.0, metavar="<float>",
+            help="Radius mask for the map scaling.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
@@ -75,32 +77,38 @@ def parse_args():
     p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
             help="Use phenix to perform anisotropic refinement of individual sites."
                  "This option creates an OMIT map and uses it as a default.")
+    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
+            help="Do not subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
+            help="Padding size for map creation.")
+    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
+        help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
-    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
-            help="Sample backbone using inverse kinematics.")
+    p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
+            help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
             type=float, default=0.1, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="Stepsize for the amplitude of backbone sampling")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
             type=float, default=0.3, metavar="<float>",
-           help="Sample N-CA-CB angle.")
-    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
+            help="Maximum backbone amplitude.")
+    p.add_argument('-sa', "--no-sample-angle", dest="sample_angle", action="store_false",
             help="Sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
             type=float, default=3.75, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="N-CA-CB bond angle sampling step in degrees")
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
             type=float, default=7.5, metavar="<float>",
-            help="Sample N-CA-CB angle.")
+            help="N-CA-CB bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=60, metavar="<float>",
+            default=80, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
-    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
@@ -119,8 +127,10 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_true",
-            help="Use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold", action="store_false",
+            help="Do not use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
+            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -165,12 +175,16 @@ def main():
     if ':' in resi:
         resi, icode = resi.split(':')
         residue_id = (int(resi), icode)
+    elif '_' in resi:
+        resi, icode = resi.split('_')
+        residue_id = (int(resi), icode)
     else:
         residue_id = int(resi)
         icode = ''
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_resi = structure_resi.extract('icode', icode)
+
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue_id]
@@ -186,11 +200,27 @@ def main():
             altlocs.remove('')
         except ValueError:
             pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure = structure.extract(sel_str)
 
+        # If more than 1 conformer were included, we want to select the
+        # most complete conformer. If more than one conformers are complete,
+        # Select the one with the highest occupancy:
+        longest_conf = 0
+        best_q = -1
+        for i, altloc in enumerate(altlocs):
+            conformer = structure_resi.extract('altloc', ('',altloc))
+            if len(conformer.name) > longest_conf:
+                idx = i
+                longest_conf = len(conformer.name)
+            elif len(conformer.name) == longest_conf:
+                if conformer.q[0] > best_q:
+                    idx = i
+                    best_q = conformer.q[0]
+        # Delete all the unwanted conformers:
+        for altloc in altlocs:
+            if altloc != altlocs[idx]:
+                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                sel_str = f"not ({sel_str})"
+                structure = structure.extract(sel_str)
     residue_name = residue.resn[0]
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
 
@@ -198,7 +228,7 @@ def main():
     options.apply_command_args(args)
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale:
+    if args.scale == True:
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         if args.omit:
@@ -218,8 +248,9 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(residue.coor, padding=5)
+        #scaler.scale(footprint, radius=args.scale_rmask*radius)
+        scaler.scale(structure, radius=args.scale_rmask*radius)
+    xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'

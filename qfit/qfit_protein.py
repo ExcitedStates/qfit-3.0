@@ -70,32 +70,38 @@ def parse_args():
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
+    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
+            help="Do not subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
+            help="Padding size for map creation.")
+    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
+        help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
-    p.add_argument('-bb', "--backbone", dest="sample_backbone", action="store_true",
-            help="Sample backbone using inverse kinematics.")
+    p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
+            help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
                    type=float, default=0.1, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
+                   help="Stepsize for the amplitude of backbone sampling")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
                    type=float, default=0.3, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
-    p.add_argument('-sa', "--sample-angle", dest="sample_angle", action="store_true",
-            help="Sample N-CA-CB angle.")
+                   help="Maximum backbone amplitude.")
+    p.add_argument('-sa', "--no-sample-angle", dest="sample_angle", action="store_false",
+            help="Do not sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
                    type=float, default=3.75, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
+                   help="N-CA-CB bond angle sampling step in degrees")
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
                    type=float, default=7.5, metavar="<float>",
-                   help="Sample N-CA-CB angle.")
+                   help="N-CA-CB bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=6, metavar="<float>",
+    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=60, metavar="<float>",
-            help="Neighborhood of rotamer to sample in degree.")
-    p.add_argument("--no-remove-conformers-below-cutoff", action="store_false",
+                   default=80, metavar="<float>",
+                   help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
                          "that have no density support for, ie atoms are "
@@ -114,16 +120,16 @@ def parse_args():
                    help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
                    help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T", "--threshold-selection", dest="bic_threshold",
-                   action="store_true", help="Use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
+            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
+    p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold",
+                   action="store_false", help="Do not use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
                    help="Number of processors to use.")
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", type=int, dest="fragment_length",
                    default=4, metavar="<int>", help="Fragment length used during qfit_segment.")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
-            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
     p.add_argument("-Ts", "--no-segment-threshold-selection", dest="seg_bic_threshold",
                    action="store_false", help="Do not use BIC to select the most "
                    "parsimonious MIQP threshold (segment)")
@@ -253,20 +259,8 @@ class QFitProtein:
         self.options.bic_threshold = self.options.seg_bic_threshold
         if self.options.seg_bic_threshold:
             self.options.fragment_length = 3
-        self.options.threshold = 0.2
-        if self.options.scale:
-            # Prepare X-ray map
-            scaler = MapScaler(self.xmap, scattering=self.options.scattering)
-            footprint = self.structure.extract('record', 'ATOM')
-            radius = 1.5
-            reso = None
-            if self.xmap.resolution.high is not None:
-                reso = self.xmap.resolution.high
-            elif options.resolution is not None:
-                reso = options.resolution
-            if reso is not None:
-                radius = 0.5 + reso / 3.0
-            scaler.scale(footprint, radius=radius)
+        else:
+            self.options.threshold = 0.2
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
@@ -312,36 +306,12 @@ class QFitProtein:
                         structure_new = structure_new.extract(sel_str)
 
                 xmap.array = copy.deepcopy(base_density)
-                # Prepare X-ray map
-                if options.scale:
-                    # Prepare X-ray map
-                    scaler = MapScaler(xmap, scattering=options.scattering)
-                    if options.omit:
-                        footprint = structure_resi
-                    else:
-                        sel_str = f"resi {resi} and chain {chainid}"
-                        if icode:
-                            sel_str += f" and icode {icode}"
-                        sel_str = f"not ({sel_str})"
-                        footprint = structure_new.extract(sel_str)
-                        footprint = footprint.extract('record', 'ATOM')
-                    radius = 1.5
-                    reso = None
-                    if xmap.resolution.high is not None:
-                        reso = xmap.resolution.high
-                    elif options.resolution is not None:
-                        reso = options.resolution
-                    if reso is not None:
-                        radius = 0.5 + reso / 3.0
-                    scaler.scale(footprint, radius=radius)
-                    # scaler.cutoff(options.density_cutoff,
-                    #                options.density_cutoff_value)
-                xmap_reduced = xmap.extract(residue.coor, padding=5)
+                xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
 
-                qfit = QFitRotamericResidue(residue, structure_new,
-                                            xmap_reduced, options)
                 # Exception handling in case qFit-residue fails:
                 try:
+                    qfit = QFitRotamericResidue(residue, structure_new,
+                                                xmap_reduced, options)
                     qfit.run()
                 except RuntimeError:
                     print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
@@ -349,7 +319,12 @@ class QFitProtein:
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
+                
                 qfit.tofile()
+            else:
+                # This is the case where the residue is either a ligand
+                # or water
+                pass
             counter.increment()
 
 
@@ -371,7 +346,18 @@ def main():
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
-
+    if args.scale == True:
+        # Prepare X-ray map
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(structure, radius=radius)
 
     time0 = time.time()
     qfit = QFitProtein(structure, xmap, options)

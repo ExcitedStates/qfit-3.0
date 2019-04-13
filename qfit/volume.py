@@ -151,6 +151,7 @@ class XMap(_BaseVolume):
         self.unit_cell = unit_cell
         self.hkl = hkl
         self.resolution = resolution
+        self.cutoff_dict = {}
         if origin is None:
             self.origin = np.zeros(3, np.float64)
         else:
