@@ -178,7 +178,7 @@ class _BaseQFit:
         conformers = []
         for q, coor in zip(self._occupancies, self._coor_set):
             conformer = self.conformer.copy()
-            conformer = conformer.extract(f"resi {self.resi} and chain {self.chain}")
+            conformer = conformer.extract(f"resi {self.conformer.resi[0]} and chain {self.conformer.chain[0]}")
             conformer.coor = coor
             conformer.q = q
             conformers.append(conformer)

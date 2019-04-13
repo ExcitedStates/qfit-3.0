@@ -319,6 +319,7 @@ class QFitProtein:
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
+                
                 qfit.tofile()
             else:
                 # This is the case where the residue is either a ligand
