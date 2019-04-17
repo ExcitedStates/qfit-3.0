@@ -36,7 +36,8 @@ import pkg_resources  # part of setuptools
 from .backbone import NullSpaceOptimizer, move_direction_adp
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
-from .samplers import CovalentBondRotator
+from .samplers import CovalentBondRotator, GlobalRotator
+from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, QPSolver2, MIQPSolver2
 from .structure import Structure
 from .transformer import Transformer
@@ -1082,7 +1083,7 @@ class QFitLigandOptions(_BaseQFitOptions):
 
         self.dofs_per_iteration = 1
         self.remove_conformers_below_cutoff = False
-        self.local_search = False
+        self.local_search = True
         self.sample_ligand_stepsize = 8
 
 
@@ -1103,9 +1104,8 @@ class QFitLigand(_BaseQFit):
         self.xmap = xmap
         self.options = options
         csf = self.options.clash_scaling_factor
+        self._trans_box = [(-0.2, 0.21, 0.1)] * 3
 
-        # Internal clash detection, currently not implemented:
-        # self.ligand._init_clash_detection(self.options.clash_scaling_factor)
 
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=csf)
@@ -1119,8 +1119,8 @@ class QFitLigand(_BaseQFit):
                 nhydrogen = (self.ligand.e[cluster] == 'H').sum()
                 if len(cluster) - nhydrogen > 1:
                     self._clusters_to_sample.append(cluster)
-        msg = f"Number of clusters to sample: {len(self._clusters_to_sample)}"
-        print(msg)
+        # msg = f"Number of clusters to sample: {len(self._clusters_to_sample)}"
+        # print(msg)
 
         # Initialize the transformer
         if options.subtract:
@@ -1133,17 +1133,87 @@ class QFitLigand(_BaseQFit):
             if self.options.local_search:
                 self._local_search()
             self._sample_internal_dofs()
-            self._write_intermediate_conformers(f"root_{self._cluster_index}")
-
-            exit()
-
             self._all_coor_set += self._coor_set
             logger.info("Number of conformers: {:}".format(len(self._coor_set)))
             logger.info("Number of final conformers: {:}".format(len(self._all_coor_set)))
+        # Find consensus across roots:
+        self.conformer = self.ligand
+        self._coor_set = self._all_coor_set
+        # QP
+        logger.debug("Converting densities.")
+        self._convert()
+        logger.info("Solving QP.")
+        self._solve()
+        logger.debug("Updating conformers")
+        self._update_conformers()
+        # MIQP
+        self._convert()
+        logger.info("Solving MIQP.")
+        self._solve(cardinality=self.options.cardinality,
+                    threshold=self.options.threshold)
+        self._update_conformers()
 
 
     def _local_search(self):
-        pass
+        """Perform a local rigid body search on the cluster."""
+
+        # Set occupancies of rigid cluster and its direct neighboring atoms to
+        # 1 for clash detection and MIQP
+        self.ligand.q.fill(0)
+        self.ligand.q[self._cluster] = 1
+        for atom in self._cluster:
+            self.ligand.q[self.ligand.connectivity[atom]] = 1
+        center = self.ligand.coor[self._cluster].mean(axis=0)
+        new_coor_set = []
+        for coor in self._coor_set:
+            self.ligand.coor[:] = coor
+            rotator = GlobalRotator(self.ligand, center=center)
+            for rotmat in RotationSets.get_local_set():
+                rotator(rotmat)
+                translator = Translator(self.ligand)
+                iterator = itertools.product(*[
+                    np.arange(*trans) for trans in self._trans_box])
+                for translation in iterator:
+                        translator(translation)
+                        new_coor = self.ligand.coor
+                        if self.options.remove_conformers_below_cutoff:
+                            values = self.xmap.interpolate(new_coor)
+                            mask = (self.ligand.e != "H")
+                            if np.min(values[mask]) < self.options.density_cutoff:
+                                continue
+                        if self.options.external_clash:
+                            if not self._cd() and not self.ligand.clashes():
+                                if new_coor_set:
+                                    delta = np.array(new_coor_set)-np.array(new_coor)
+                                    if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                        new_coor_set.append(new_coor)
+                                else:
+                                    new_coor_set.append(new_coor)
+                        elif not self.ligand.clashes():
+                            if new_coor_set:
+                                delta = np.array(new_coor_set)-np.array(new_coor)
+                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                    new_coor_set.append(new_coor)
+                            else:
+                                new_coor_set.append(new_coor)
+        self.conformer = self.ligand
+        self._coor_set = new_coor_set
+        # print(f"Local search generated {len(self._coor_set)} conformers")
+        #self._write_intermediate_conformers(prefix='intermediate')
+        # QP
+        logger.debug("Converting densities.")
+        self._convert()
+        logger.info("Solving QP.")
+        self._solve()
+        logger.debug("Updating conformers")
+        self._update_conformers()
+        # MIQP
+        self._convert()
+        logger.info("Solving MIQP.")
+        self._solve(cardinality=self.options.cardinality,
+                    threshold=self.options.threshold)
+        self._update_conformers()
+        # self._write_intermediate_conformers(prefix='miqp')
 
     def _sample_internal_dofs(self):
         opt = self.options
@@ -1194,14 +1264,14 @@ class QFitLigand(_BaseQFit):
                             if np.min(values[mask]) < self.options.density_cutoff:
                                 continue
                         if self.options.external_clash:
-                            if not self._cd(): # and self.ligand.clashes() == 0:
+                            if not self._cd() and not self.ligand.clashes():
                                 if new_coor_set:
                                     delta = np.array(new_coor_set)-np.array(new_coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                         new_coor_set.append(new_coor)
                                 else:
                                     new_coor_set.append(new_coor)
-                        elif True: # self.ligand.clashes() == 0:
+                        elif not self.ligand.clashes():
                             if new_coor_set:
                                 delta = np.array(new_coor_set)-np.array(new_coor)
                                 if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
@@ -1211,7 +1281,7 @@ class QFitLigand(_BaseQFit):
                 self._coor_set = new_coor_set
 
             self.conformer = self.ligand
-            print(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
+            # print(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
                 msg = (f"No conformers could be generated. Check for initial "

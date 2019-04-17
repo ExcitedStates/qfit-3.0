@@ -144,7 +144,7 @@ class GlobalRotator:
         self._intermediate = np.zeros_like(ligand_coor)
 
     def __call__(self, rotmat):
-        np.dot(rotmat, self._coor_to_rotate.T, self._intermediate.T)
+        self._intermediate = np.dot(rotmat, self._coor_to_rotate.T).T
         self._intermediate += self._center
         self.ligand.coor = self._intermediate
 

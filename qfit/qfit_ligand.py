@@ -242,9 +242,8 @@ def main():
 
     qfit = QFitLigand(ligand, receptor, xmap, options)
     qfit.run()
-    exit()
 
-    conformers = qfit.get_conformers_covalent()
+    conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
@@ -267,22 +266,6 @@ def main():
     logger.info(f"Time passed: {passed}s")
 
     '''
-    builder = HierarchicalBuilder(
-            ligand, xmap, args.resolution, receptor=receptor,
-            build=(not args.no_build), build_stepsize=args.build_stepsize,
-            stepsize=args.stepsize, local_search=(not args.no_local),
-            cardinality=args.intermediate_cardinality,
-            threshold=args.intermediate_threshold,
-            directory=args.directory, debug=args.debug
-    )
-    builder()
-    fnames = builder.write_results(base='conformer', cutoff=0)
-
-    conformers = builder.get_conformers()
-    nconformers = len(conformers)
-    if nconformers == 0:
-        raise RuntimeError("No conformers were generated or selected. Check whether initial configuration of ligand is severely clashing.")
-
     validator = Validator(xmap, args.resolution)
     # Order conformers based on rscc
     for fname, conformer in izip(fnames, conformers):
@@ -298,23 +281,6 @@ def main():
     rscc_cutoff = 0.9 * best_rscc
     conformers = [conformer for conformer in conformers_sorted if conformer.rscc >= rscc_cutoff]
     logger.info("Number of conformers after RSCC filtering: {:d}".format(len(conformers)))
-
-    ## Remove geometrically similar ligands
-    #noH = np.logical_not(conformers[0].select('e', 'H', return_ind=True))
-    #coor_set = [conformers[0].coor]
-    #filtered_conformers = [conformers[0]]
-    #for conformer in conformers[1:]:
-    #    max_dist = min([np.abs(
-    #        np.linalg.norm(conformer.coor[noH] - coor[noH], axis=1).max()
-    #        ) for coor in coor_set]
-    #    )
-    #    if max_dist < 1.5:
-    #        continue
-    #    coor_set.append(conformer.coor)
-    #    filtered_conformers.append(conformer)
-    #logger.info("Removing redundant conformers.".format(len(conformers)))
-    #conformers = filtered_conformers
-    #logger.info("Number of conformers: {:d}".format(len(conformers)))
 
     iteration = 1
     while True:

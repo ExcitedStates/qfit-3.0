@@ -151,6 +151,12 @@ class _Ligand(_BaseStructure):
         for a, b in zip(*indices):
             print(self.name[a], self.name[b])
 
+    def get_bonds(self):
+        bonds = []
+        indices = np.nonzero(self.connectivity)
+        for a, b in zip(*indices):
+            bonds.append([self.name[a], self.name[b]])
+        return bonds
 
     def ring_paths(self):
         def ring_path(T, v1, v2):
@@ -497,7 +503,6 @@ class Covalent_Ligand(_BaseStructure):
             print(self.name[a], self.name[b])
 
     def get_bonds(self):
-        """Print bonds"""
         bonds = []
         indices = np.nonzero(self.connectivity)
         for a, b in zip(*indices):
