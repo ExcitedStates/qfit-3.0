@@ -1153,6 +1153,37 @@ class QFitLigand(_BaseQFit):
                     threshold=self.options.threshold)
         self._update_conformers()
 
+        # Validation:
+        validator = Validator(self.xmap, self.xmap.resolution,
+                              self.options.directory)
+
+        # Order conformers based on rscc
+        conformers = np.array(self.get_conformers())
+        rsccs = np.array([validator.rscc(conformer, rmask=1.5) for
+                          conformer in conformers])
+
+        mask = (rsccs >= np.max(rsccs) * 0.9)
+        conformers_filtered = conformers[mask]
+        conformers_filtered[0].zscore = float('inf')
+        multiconformer = Structure(conformers_filtered[0].data)
+        multiconformer.data['altloc'].fill('A')
+        nconformers = 1
+        self._coor_set = [conformers_filtered[0].coor]
+        self._occupancies = [conformers_filtered[0].q]
+        for conformer in conformers_filtered[1:]:
+            conformer.data['altloc'].fill(ascii_uppercase[nconformers])
+            new_multiconformer = multiconformer.combine(conformer)
+            diff = validator.fisher_z_difference(multiconformer,
+                                                 new_multiconformer,
+                                                 rmask=1.5, simple=True)
+            if diff < 0.1:
+                continue
+            multiconformer = new_multiconformer
+            conformer.zscore = diff
+            self._coor_set.append(conformer.coor)
+            self._occupancies.append(conformer.q)
+            nconformers += 1
+
 
     def _local_search(self):
         """Perform a local rigid body search on the cluster."""
