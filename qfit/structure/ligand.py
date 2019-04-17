@@ -398,7 +398,7 @@ class Covalent_Ligand(_BaseStructure):
             self._get_connectivity()
 
         for i, res1 in enumerate(self.link_data['resn1']):
-            if res1 == self.ligand_name:
+            if res1 == self.ligand_name and self.chain[0] == self.link_data['chain1'][i]:
                 self.covalent_bonds += 1
                 self.covalent_partners.append(
                     [self.link_data['chain2'][i],

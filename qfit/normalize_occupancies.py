@@ -64,29 +64,31 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     to_remove = []
 
-    for rg in structure.extract('record',"ATOM").residue_groups:
+    for chain in structure:
+      for residue in chain:
         total_occupancy = 0.0
-        altlocs = list(set(rg.altloc))
+        altlocs = list(set(residue.altloc))
         # If the alternate conformer has collapsed atoms:
         if '' in altlocs and len(altlocs) > 1:
-            mask = ( rg.altloc == '' )
-            rg.q[mask] = 1.0
+            mask = ( residue.altloc == '' )
+            residue.q[mask] = 1.0
             altlocs.remove('')
 
         # If only a single conformer
         if len(altlocs) == 1:
-            rg.q = 1.0
+            residue.q = 1.0
         else:
             for altloc in altlocs:
-                mask = (rg.altloc == altloc)
-                if rg.q[mask][0] < args.occ_cutoff:
-                    to_remove.append([rg.resi[mask][0], rg.chain[mask][0],
-                                      rg.altloc[mask][0]])
+                mask = (residue.altloc == altloc)
+                if residue.q[mask][0] < args.occ_cutoff:
+                    to_remove.append([residue.resi[mask][0], residue.chain[mask][0],
+                                      residue.altloc[mask][0]])
                 else:
-                    total_occupancy += rg.q[mask][0]
+                    total_occupancy += residue.q[mask][0]
             if total_occupancy > 0.01:
-                rg.q = np.divide(rg.q,total_occupancy)
-                rg.q = np.clip(rg.q, 0,1)
+                residue.q = np.divide(residue.q,total_occupancy)
+                residue.q = np.clip(residue.q, 0,1)
+    
     # Remove conformers with 0 occupancy
     for conformer in to_remove:
         res, chain, altloc = conformer

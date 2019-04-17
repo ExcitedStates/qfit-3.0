@@ -67,7 +67,8 @@ def main():
                   'compare_apo_holo = qfit.compare_apo_holo:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'normalize_occupancies = qfit.normalize_occupancies:main',
-                  'get_metrics = qfit.get_metrics:main',    
+                  'fix_restraints = qfit.fix_restraints:main',
+                  'get_metrics = qfit.get_metrics:main',
             ]
           },)
 

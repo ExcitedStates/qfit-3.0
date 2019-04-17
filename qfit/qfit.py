@@ -1277,7 +1277,6 @@ class QFitCovalentLigand(_BaseQFit):
         self.resi = covalent_ligand.resi[0]
         self.covalent_ligand = covalent_ligand
         self._rigid_clusters = covalent_ligand.rigid_clusters()
-
         if covalent_ligand.covalent_bonds == 0:
             pass
         elif covalent_ligand.covalent_bonds == 1:
@@ -1486,22 +1485,6 @@ class QFitCovalentLigand(_BaseQFit):
                     continue
                 new_coor_set.append(self.covalent_residue.coor)
         self._coor_set = new_coor_set
-        if self.dofs_per_iteration == 1 or (self.dofs_per_iteration == 2
-                                            and self.sample_backbone):
-            # QP
-            logger.debug("Converting densities.")
-            self._convert()
-            logger.info("Solving QP.")
-            self._solve()
-            logger.debug("Updating conformers")
-            self._update_conformers()
-
-            # MIQP
-            self._convert()
-            logger.info("Solving MIQP.")
-            self._solve(cardinality=opt.cardinality,
-                        threshold=opt.threshold)
-            self._update_conformers()
         print(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):
@@ -1658,7 +1641,12 @@ class QFitCovalentLigand(_BaseQFit):
         partner_length = self.covalent_partner.name.shape[0]
         self._sampling_range = np.deg2rad(
           np.arange(0, 360, self.options.sample_ligand_stepsize))
-
+        sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
+        if self.covalent_residue.icode[0]:
+            sel_str = f"{sel_str} and icode {self.covalent_residue.icode[0]}"
+        selection = self.covalent_residue.select(sel_str)
+        self.covalent_residue._active[selection] = True
+        self.covalent_ligand._active[selection] = True
         new_coor_set = []
         for coor in self._coor_set:
             self.covalent_residue.coor = coor
