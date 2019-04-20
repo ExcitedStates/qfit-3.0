@@ -293,6 +293,9 @@ class _BaseQFit:
                         k = 4 * confs * natoms
                     except AttributeError:
                         k = 4 * confs
+                    except:
+                        natoms = len(self.ligand.name)
+                        k = 4 * confs * natoms
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
@@ -1126,19 +1129,29 @@ class QFitLigand(_BaseQFit):
         if options.subtract:
             self._subtract_transformer(self.ligand, self.receptor)
         self._update_transformer(ligand)
+        self._starting_coor_set = [ligand.coor.copy()]
 
     def run(self):
         for self._cluster_index, self._cluster in enumerate(
           self._clusters_to_sample):
+            self._coor_set = list(self._starting_coor_set)
             if self.options.local_search:
                 self._local_search()
+            self._coor_set.append(self._starting_coor_set)
+            self.ligand._q[self.ligand._selection] = 1.0
+            self.ligand._active[self.ligand._selection] = True
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             logger.info("Number of conformers: {:}".format(len(self._coor_set)))
             logger.info("Number of final conformers: {:}".format(len(self._all_coor_set)))
         # Find consensus across roots:
         self.conformer = self.ligand
+        self.ligand._q[self.ligand._selection] = 1.0
+        self.ligand._active[self.ligand._selection] = True
         self._coor_set = self._all_coor_set
+        if len(self._coor_set) < 1:
+            print("[ERROR] qFit-ligand failed to produce a valid conformer.")
+            exit()
         # QP
         logger.debug("Converting densities.")
         self._convert()
@@ -1190,10 +1203,12 @@ class QFitLigand(_BaseQFit):
 
         # Set occupancies of rigid cluster and its direct neighboring atoms to
         # 1 for clash detection and MIQP
-        self.ligand.q.fill(0)
-        self.ligand.q[self._cluster] = 1
+        self.ligand._active[self.ligand._selection] = False
+        selection = self.ligand._selection[self._cluster]
+        self.ligand._active[selection] = True
         for atom in self._cluster:
-            self.ligand.q[self.ligand.connectivity[atom]] = 1
+            atom_sel = self.ligand._selection[self.ligand.connectivity[atom]]
+            self.ligand._active[atom_sel] = True
         center = self.ligand.coor[self._cluster].mean(axis=0)
         new_coor_set = []
         for coor in self._coor_set:
@@ -1229,8 +1244,8 @@ class QFitLigand(_BaseQFit):
                                 new_coor_set.append(new_coor)
         self.conformer = self.ligand
         self._coor_set = new_coor_set
-        # print(f"Local search generated {len(self._coor_set)} conformers")
-        #self._write_intermediate_conformers(prefix='intermediate')
+        if len(self._coor_set) < 1:
+            return
         # QP
         logger.debug("Converting densities.")
         self._convert()
@@ -1238,6 +1253,8 @@ class QFitLigand(_BaseQFit):
         self._solve()
         logger.debug("Updating conformers")
         self._update_conformers()
+        if len(self._coor_set) < 1:
+            return
         # MIQP
         self._convert()
         logger.info("Solving MIQP.")
@@ -1261,16 +1278,14 @@ class QFitLigand(_BaseQFit):
         sel_str = f"chain {self.ligand.chain[0]} and resi {self.ligand.resi[0]}"
         if self.ligand.icode[0]:
             sel_str = f"{sel_str} and icode {self.ligand.icode[0]}"
-        selection = self.ligand.select(sel_str)
+        selection = self.ligand._selection
         iteration = 1
         while True:
             end_bond_index = min(starting_bond_index + self.options.dofs_per_iteration, nbonds)
             for bond_index in range(starting_bond_index, end_bond_index):
-
                 nbonds_sampled = bond_index + 1
-                self.ligand.active = False
+                self.ligand._active[selection] = False
                 active = np.zeros_like(self.ligand.active, dtype=bool)
-
                 # Activate all the atoms of the ligand that have been sampled
                 # up until the bond we are currently sampling:
                 for cluster in self._rigid_clusters:
@@ -1312,12 +1327,11 @@ class QFitLigand(_BaseQFit):
                 self._coor_set = new_coor_set
 
             self.conformer = self.ligand
-            # print(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
+
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
+
             if not self._coor_set:
-                msg = (f"No conformers could be generated. Check for initial "
-                       f"clashes and density support.")
-                raise RuntimeError(msg)
+                return
 
             # QP
             logger.debug("Converting densities.")
@@ -1326,6 +1340,9 @@ class QFitLigand(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
+            if not self._coor_set:
+                return
+
             # MIQP
             self._convert()
             logger.info("Solving MIQP.")

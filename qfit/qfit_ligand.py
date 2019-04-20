@@ -31,16 +31,14 @@ import os.path
 import os
 import sys
 import time
-from string import ascii_uppercase
-logger = logging.getLogger(__name__)
-
 import numpy as np
-
+from string import ascii_uppercase
+from .qfit import print_run_info
 from . import MapScaler, Structure, XMap, _Ligand
 from . import QFitLigand, QFitLigandOptions
 
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
-
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -100,7 +98,7 @@ def parse_args():
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
     p.add_argument("-b", "--build-stepsize", type=int, default=1, metavar="<int>",
-            help="Number of internal degrees that are sampled/build per iteration.")
+            help="Number of internal degrees that are sampled/built per iteration.")
     p.add_argument("-s", "--stepsize", type=float, default=8,
             metavar="<float>", dest="sample_ligand_stepsize",
             help="Stepsize for dihedral angle sampling in degree.")
@@ -138,6 +136,7 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
+    print_run_info(args)
     time0 = time.time()
 
     # Setup logger
@@ -155,11 +154,9 @@ def main():
         logging.getLogger('').addHandler(console_out)
 
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
+    structure = Structure.fromfile(args.structure)
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
-
-    logger.info("Extracting receptor and ligand from input structure.")
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -172,6 +169,25 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
+    receptor = receptor.extract("record", "ATOM")
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+    altlocs = sorted(list(set(structure_ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_ligand = structure_ligand.extract(sel_str)
+            receptor = receptor.extract(f"not altloc {altloc}")
+    altloc = structure_ligand.altloc[-1]
+
     if args.cif_file:
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
@@ -185,25 +201,11 @@ def main():
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            " selection input.")
 
-    # Select all ligand conformers:
-    # Check which altlocs are present in the ligand. If none, take the
-    # A-conformer as default.
-    altlocs = sorted(list(set(ligand.altloc)))
-    if len(altlocs) > 1:
-        try:
-            altlocs.remove('')
-        except ValueError:
-            pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            ligand = ligand.extract(sel_str)
-    ligand.altloc.fill('')
-    ligand.q.fill(1)
 
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-    receptor = structure.extract(sel_str)
+
+    ligand.altloc = ''
+    ligand.q = 1
+
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
     options = QFitLigandOptions()
@@ -218,12 +220,7 @@ def main():
         if args.omit:
             footprint = structure_ligand
         else:
-            sel_str = f"resi {resi} and chain {chainid}"
-            if icode:
-                sel_str += f" and icode {icode}"
-            sel_str = f"not ({sel_str})"
-            footprint = structure.extract(sel_str)
-            footprint = footprint.extract('record', 'ATOM')
+            footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -233,7 +230,7 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(ligand.coor, padding=5)
+    xmap = xmap.extract(ligand.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'

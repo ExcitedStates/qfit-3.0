@@ -181,6 +181,8 @@ def main():
     else:
         residue_id = int(resi)
         icode = ''
+
+    # Extract the residue:
     structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_resi = structure_resi.extract('icode', icode)
@@ -228,18 +230,13 @@ def main():
     options.apply_command_args(args)
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale == True:
+    if args.scale:
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         if args.omit:
             footprint = structure_resi
         else:
-            sel_str = f"resi {resi} and chain {chainid}"
-            if icode:
-                sel_str += f" and icode {icode}"
-            sel_str = f"not ({sel_str})"
-            footprint = structure.extract(sel_str)
-            footprint = footprint.extract('record', 'ATOM')
+            footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -249,7 +246,7 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         #scaler.scale(footprint, radius=args.scale_rmask*radius)
-        scaler.scale(structure, radius=args.scale_rmask*radius)
+        scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
