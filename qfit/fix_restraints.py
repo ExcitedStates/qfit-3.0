@@ -41,10 +41,6 @@ def parse_args():
                    help="PDB-file containing structure.")
     p.add_argument("restraint", type=str,
                    help="EFF file containing the restraints.")
-    p.add_argument('selection1', type=str,
-                    help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
-    p.add_argument('selection2', type=str,
-                    help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
 
     # Output options
@@ -63,23 +59,11 @@ def main():
     args = parse_args()
     try:
         os.makedirs(args.directory)
-        output_file = os.path.join(args.directory,
-                                 args.structure[:-4]+"_norm.pdb")
     except OSError:
-        output_file = args.structure[:-4]+"_norm.pdb"
+        pass
 
-    structure = Structure.fromfile(args.structure).reorder()
+    structure = Structure.fromfile(args.structure)
 
-    chainid1, resi1 = args.selection1.split(',')
-    chainid2, resi2 = args.selection2.split(',')
-
-    structure_res1 = structure.extract(f'resi {resi1} and chain {chainid1}')
-    structure_res2 = structure.extract(f'resi {resi2} and chain {chainid2}')
-
-    altlocs1 = list(set(structure_res1.altloc))
-    altlocs2 = list(set(structure_res2.altloc))
-    altlocs1.sort()
-    altlocs2.sort()
 
     with open(args.restraint,"r") as restraint_file:
         for line in restraint_file.readlines():
@@ -99,20 +83,27 @@ def main():
                     dist = fields[2]
                 elif "sigma" in fields:
                     sigma = fields[2]
+                    
+                    structure_res1 = structure.extract(f'resi {resi3} and chain {chainid3}')
+                    structure_res2 = structure.extract(f'resi {resi4} and chain {chainid4}')
 
-                    # Decide if this is the case we care about:
-                    if (resi3 == resi1 and chainid3 == chainid1 and resi4 == resi2 and chainid4 == chainid2):
+                    altlocs1 = list(set(structure_res1.altloc))
+                    altlocs2 = list(set(structure_res2.altloc))
+                    altlocs1.sort()
+                    altlocs2.sort()
+                    # Decide if this is a case we care about:
+                    if (len(altlocs1)>1 or len(altlocs2) > 1 ):
                         first = True
                         for alt1, alt2 in zip(altlocs1, altlocs2):
                                 if not first:
                                      print("   }\n   bond {")
                                 print(f"     atom_selection_1 = chain {chainid3} and resseq {resi3} and name {name3} and altloc {alt1}")
                                 print(f"     atom_selection_2 = chain {chainid4} and resseq {resi4} and name {name4} and altloc {alt2}")
-                                print(f"     distance_ideal = {dist:.1}")
-                                print(f"     sigma = {sigma:.1}")
+                                print(f"     distance_ideal = {dist}")
+                                print(f"     sigma = {sigma}")
                                 first = False
                     else:
                         print(f"     atom_selection_1 = chain {chainid3} and resseq {resi3} and name {name3}")
                         print(f"     atom_selection_2 = chain {chainid4} and resseq {resi4} and name {name4}")
-                        print(f"     distance_ideal = {dist:.1}")
-                        print(f"     sigma = {sigma:.1}")
+                        print(f"     distance_ideal = {dist}")
+                        print(f"     sigma = {sigma}")
