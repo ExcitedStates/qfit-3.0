@@ -69,6 +69,7 @@ def main():
                   'normalize_occupancies = qfit.normalize_occupancies:main',
                   'fix_restraints = qfit.fix_restraints:main',
                   'get_metrics = qfit.get_metrics:main',
+                  'find_altlocs = qfit.find_altlocs_near_ligand:main',
             ]
           },)
 
