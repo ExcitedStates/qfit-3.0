@@ -97,9 +97,9 @@ def parse_args():
             help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
-    p.add_argument("-b", "--build-stepsize", type=int, default=1, metavar="<int>",
+    p.add_argument("-b", "--build-stepsize", type=int, default=2, metavar="<int>", dest="dofs_per_iteration",
             help="Number of internal degrees that are sampled/built per iteration.")
-    p.add_argument("-s", "--stepsize", type=float, default=8,
+    p.add_argument("-s", "--stepsize", type=float, default=10,
             metavar="<float>", dest="sample_ligand_stepsize",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",

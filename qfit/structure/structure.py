@@ -194,15 +194,17 @@ class Structure(_BaseStructure):
             data[attr] = combined
         return Structure(data)
 
-    def collapse_backbone(self, resid):
+    def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
         mask = (
                 (self.data['resi'] == resid)
+                & (self.data['chain'] == chainid)
                 & np.isin(self.data['name'], ['CA', 'C', 'N', 'O', 'H', 'HA'])
                 & np.isin(self.data['altloc'], ['B', 'C', 'D', 'E']))
         mask2 = (
                  (self.data['resi'] == resid)
+                 & (self.data['chain'] == chainid)
                  & np.isin(self.data['name'], ['CA', 'C', 'N', 'O'])
                  & np.isin(self.data['altloc'], ['A']))
 
