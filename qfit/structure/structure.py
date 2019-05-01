@@ -366,7 +366,7 @@ class Structure(_BaseStructure):
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
-        for chain in multiconformer:
+        for chain in self:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 try:
@@ -375,15 +375,24 @@ class Structure(_BaseStructure):
                     pass
                 sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                 conformers = [self.extract(sel_str + x) for x in altlocs]
-                for i in range(len(conformers)):
-                    for j in range(i+1,len(conformers)):
-                        if np.sum( np.linalg.norm(conformers[i].coor - conformers[j].coor, axis=1) ) < rmsd_cutoff:
-                            multiconformer = multiconformer.remove_conformer(
-                                residue.resi[0],
-                                residue.chain[0],
-                                conformers[i].altloc[0],
-                                conformers[j].altloc[0]
-                            )
+                all_identical = True
+                for i in range(1,len(conformers)):
+                    diff = conformers[0].coor - conformers[i].coor
+                    dist = np.sum(np.linalg.norm(diff, axis=1))
+                    if dist > rmsd_cutoff:
+                        all_identical = False
+                        break
+                if all_identical:
+                    for i in range(1,len(conformers)):
+                        multiconformer = multiconformer.remove_conformer(
+                                         residue.resi[0],
+                                         residue.chain[0],
+                                         conformers[0].altloc[0],
+                                         conformers[i].altloc[0])
+                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
+                    residue2 = multiconformer.extract(sel_str)
+                    residue2._q[residue2._selection] = 1.0
+                    residue2._altloc[residue2._selection] = ''
         return multiconformer
 
     def average_conformers(self):
