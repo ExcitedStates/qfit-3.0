@@ -140,6 +140,7 @@ def parse_args():
                    help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument("--pdb", help="Name of the input PDB.") 
 
     args = p.parse_args()
     return args
@@ -167,6 +168,7 @@ class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
         self.nproc = 1
         self.verbose = True
         self.omit = False
+        self.pdb = None
 
 
 class QFitProtein:
@@ -178,8 +180,12 @@ class QFitProtein:
         self.options = options
 
     def run(self):
+        if not self.options.pdb==None:
+            self.pdb=self.options.pdb+'_'
+        else:
+            self.pdb=''
         multiconformer = self._run_qfit_residue()
-        structure = Structure.fromfile('multiconformer_model.pdb').reorder()
+        structure = Structure.fromfile(self.pdb + 'multiconformer_model.pdb').reorder()
         structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
@@ -233,7 +239,7 @@ class QFitProtein:
                                      f"{chain}_{resid}")
             if icode:
                 directory += f"_{icode}"
-            fname = os.path.join(directory, 'multiconformer_residue.pdb')
+            fname = os.path.join(directory, self.pdb + 'multiconformer_residue.pdb')
             if not os.path.exists(fname):
                 continue
             residue_multiconformer = Structure.fromfile(fname)
@@ -249,7 +255,7 @@ class QFitProtein:
         waters = waters.extract('resn', "HOH")
         hetatms = hetatms.combine(waters)
         multiconformer = multiconformer.combine(hetatms)
-        fname = os.path.join(self.options.directory,
+        fname = os.path.join(self.options.directory, self.pdb +
                              "multiconformer_model.pdb")
         multiconformer.tofile(fname)
         return multiconformer
@@ -264,8 +270,8 @@ class QFitProtein:
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
-        fname = os.path.join(self.options.directory,
-                             "multiconformer_model2.pdb")
+        fname = os.path.join(self.options.directory, self.pdb +
+                             "multiconformer2.pdb")
         multiconformer.tofile(fname)
         return multiconformer
 
