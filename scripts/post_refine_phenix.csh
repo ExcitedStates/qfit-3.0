@@ -48,10 +48,7 @@ while ($zeroes > 10 )
               write_maps=false\
               --overwrite
 
-   set z  = `awk '{ if(substr($0,1,6)=="CRYST1"||(substr($0,1,4)=="ATOM"||substr($0,1,6)=="HETATM")&&substr($0,57,4)+0<0.09) print $0}' ${bspdb}_003.pdb | wc` 
-   set zeroes = $z[1]
-
-   normalize_occupancies -occ 0.09 ${bspdb}_003.pdb
+   set zeroes = `normalize_occupancies -occ 0.09 ${bspdb}_003.pdb`
    mv ${bspdb}_003_norm.pdb ${bspdb}_002.pdb
 end
 

@@ -27,6 +27,7 @@ IN THE SOFTWARE.
 import numpy as np
 import argparse
 import logging
+import copy
 import os
 import sys
 import time
@@ -47,6 +48,7 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument('-occ', "--occ_cutoff", type=float, default=0.01, metavar="<float>",
             help="Remove conformers with occupancies below occ_cutoff. Default = 0.01")
+    p.add_argument('-rmsd',"--rmsd_cutoff", type=float, default=0.01, metavar="<float>")
     args = p.parse_args()
 
     return args
@@ -64,36 +66,105 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     to_remove = []
 
+    # Iterate over every residue...
     for chain in structure:
-      for residue in chain:
-        total_occupancy = 0.0
-        altlocs = list(set(residue.altloc))
-        # If the alternate conformer has collapsed atoms:
-        if '' in altlocs and len(altlocs) > 1:
-            mask = ( residue.altloc == '' )
-            residue.q[mask] = 1.0
-            altlocs.remove('')
+        for residue in chain:
+            altlocs = list(set(residue.altloc))
+            # Deal with the simplest case first: only a single conformer
+            if len(altlocs) == 1:
+                residue._q[residue._selection] = 1.0
+                continue       
 
-        # If only a single conformer
-        if len(altlocs) == 1:
-            residue.q = 1.0
-        else:
-            for altloc in altlocs:
-                mask = (residue.altloc == altloc)
-                if residue.q[mask][0] < args.occ_cutoff:
-                    to_remove.append([residue.resi[mask][0], residue.chain[mask][0],
-                                      residue.altloc[mask][0]])
-                else:
-                    total_occupancy += residue.q[mask][0]
-            if total_occupancy > 0.01:
-                residue.q = np.divide(residue.q,total_occupancy)
-                residue.q = np.clip(residue.q, 0,1)
+            # Should we collapse the backbone for the current residue?
+            altloc1 = altlocs[0]
+            if not altloc1:
+                altloc1 = altlocs[1]
+            conf1 = residue.extract("altloc",altloc1)
+            conf1 = conf1.extract("name",('N','CA','C','O'))
+            should_collapse = True
+            for altloc2 in altlocs[1:]:
+                if altloc1 == altloc2:
+                    continue
+                conf2 = residue.extract("altloc",altloc2)  
+                conf2 = conf2.extract("name",('N','CA','C','O'))
+                if np.mean(np.linalg.norm(conf2.coor-conf1.coor,axis=1)) > 0.05 and np.min(conf2.q) > args.occ_cutoff :
+                    should_collapse = False
+        
+            # Add the atoms of the collapsed backbone to the to_remove list
+            # and fix altloc and occupancy of the backbone
+            if should_collapse:
+                conf1._q[conf1._selection] = 1.0
+                for altloc2 in altlocs[1:]:
+                    conf2 = residue.extract("altloc",altloc2)  
+                    conf2 = conf2.extract("name",('N','CA','C','O'))
+                    [to_remove.append(x) for x in conf2._selection]
+                
+            # If the backbone is collapsed, we can remove identical side chain conformers
+            # or side chain conformers that fall below the occupancy cutoff:
+            if '' in altlocs or should_collapse:
+                try:
+                    altlocs.remove('')
+                except ValueError:
+                    conf = copy.deepcopy(conf1)
+                    pass
+                for i,altloc1 in enumerate(altlocs):
+                    conf1 = residue.extract("altloc",altloc1)
+                    if np.min(conf1.q) < args.occ_cutoff:
+                       [to_remove.append(x) for x in conf1._selection]
+                       continue
+                    for altloc2 in altlocs[i+1:]:
+                       conf2 = residue.extract("altloc",altloc2)
+                       if conf1.rmsd(conf2) < args.rmsd_cutoff:
+                            [to_remove.append(x) for x in conf2._selection]
+                try:
+                    structure._altloc[conf._selection] = ''
+                except:
+                    pass
+            # Now, to the case where the backbone is not collapsed
+            else:
+                # Here, we only want to remove if ALL conformers are identical or below 
+                # occupancy cutoff
+                is_identical = True
+                for i,altloc1 in enumerate(altlocs):
+                    conf1 = residue.extract("altloc", altloc1)
+                    for altloc2 in altlocs[i+1:]:
+                        conf2 = residue.extract("altloc", altloc2)
+                        # If the conformer has occupancy greater than the cutoff
+                        # and if it is not identical to all                         
+                        if np.min(conf2.q) > args.occ_cutoff and conf1.rmsd(conf2) > args.rmsd_cutoff:
+                                is_identical = False
+                                break
+                # If all conformers converged (either because of RMSD or occupancy) 
+                if is_identical:
+                    for altloc1 in altlocs[1:]:
+                        conf1 = residue.extract("altloc",altloc1)
+                        [to_remove.append(x) for x in conf1._selection]
+
+                
     
-    # Remove conformers with 0 occupancy
-    for conformer in to_remove:
-        res, chain, altloc = conformer
-        sel_str = f"resi {res} and chain {chain} and altloc {altloc}"
-        sel_str = f"not ({sel_str})"
-        structure = structure.extract(sel_str)
-    structure.altloc[structure.q>0.99]=''
+    # Remove conformers in to_remove list:
+    mask = structure.active
+    mask[to_remove] = False
+    data = {}
+    for attr in structure.data:
+            data[attr] = getattr(structure, attr).copy()[mask]
+    structure = Structure(data)
+    # Normalize occupancies and fix altlocs:
+    for chain in structure:
+        for residue in chain:
+            altlocs=list(set(residue.altloc))
+            try:
+                altlocs.remove('')
+            except ValueError:
+                pass
+            naltlocs = len(altlocs)
+            if naltlocs < 2:
+                residue._q[residue._selection] = 1.0
+                residue._altloc[residue._selection] = ''
+            else:
+                conf = residue.extract('altloc',altlocs)
+                natoms = len(residue.extract('altloc',altlocs[-1]).name)
+                factor = natoms/np.sum(conf.q)
+                residue._q[conf._selection] *= factor
     structure.tofile(output_file)
+    print(len(to_remove))
