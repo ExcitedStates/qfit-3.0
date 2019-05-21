@@ -942,9 +942,9 @@ class QFitSegment(_BaseQFit):
         # Extract hetatms
         hetatms = self.segment.extract('record', "HETATM")
         # Deal with waters with an ATOM record
-        waters = self.segment.extract('record', "ATOM")
-        waters = waters.extract('resn', "HOH")
-        hetatms = hetatms.combine(waters)
+        #waters = self.segment.extract('record', "ATOM")
+        #waters = waters.extract('resn', "HOH")
+        #hetatms = hetatms.combine(waters)
         # Create an empty structure:
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))

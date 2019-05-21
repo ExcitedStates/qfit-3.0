@@ -90,6 +90,7 @@ class Relabeller:
 
     def initNodes(self):
         node = 0
+        segment = []
         for chain in self.structure:
             for residue in chain:
                 resInd=[]
@@ -150,9 +151,41 @@ class Relabeller:
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
-            for x in np.random.choice(tmpPerm,5):
-            #x = random.choice(tmpPerm)
-                np.random.shuffle(x)
+            # Choose five residues to swap:
+            for x in np.random.choice(range(len(tmpPerm)),5):
+                # If the residue has a single conformer:
+                if not tmpPerm[x]:
+                    continue
+                # Identify the indexes of the segment the residue belongs to:
+                l_index = x - 1
+                while l_index >= 0:
+                    if not tmpPerm[l_index]:
+                        break
+                    if len(tmpPerm[l_index]) != len(tmpPerm[x]):
+                        break
+                    occ1 = np.min(self.nodes[tmpPerm[l_index][0]].q )
+                    occ2 = np.min(self.nodes[tmpPerm[x][0]].q )
+                    if occ1 != occ2 or occ1 > 0.95:
+                        break
+                    l_index -= 1
+                l_index += 1
+                u_index = x + 1
+                while u_index < len(tmpPerm):
+                    if not tmpPerm[u_index]:
+                        break
+                    if len(tmpPerm[u_index]) != len(tmpPerm[x]):
+                        break
+                    occ1 = np.min(self.nodes[tmpPerm[u_index][-1]].q )
+                    occ2 = np.min(self.nodes[tmpPerm[x][-1]].q )
+                    if occ1 != occ2 or occ1 > 0.95:
+                        break
+                    u_index += 1
+                u_index -= 1
+                ordering = list(range(len(tmpPerm[x])))
+                np.random.shuffle(ordering)
+                for counter in range(l_index,u_index+1):
+                    tmpPerm[counter] = [tmpPerm[counter][li] for li in ordering]
+                # np.random.shuffle(tmpPerm[x])
 
             # Calculate the new clusters:
             tmpCluster  = [[] for x in clusters]
@@ -188,7 +221,6 @@ class Relabeller:
             perm.append(permutation)
 
         minIdx = energyList.index(min(energyList))
-
         # Relabel the residues:
         Altlocs = ['A','B','C','D','E']
         node = 0
