@@ -39,9 +39,6 @@ phenix.refine $mtz\
              write_maps=false\
              --overwrite > phenix.log
 
-
-exit
-tail phenix.log
 # REFINE UNTIL OCCUPANCIES CONVERGE
 set zeroes = 50
 
