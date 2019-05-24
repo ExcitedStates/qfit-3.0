@@ -7,13 +7,8 @@ set mtz = $2
 set F = $3
 set SF = $4
 set elbow = $5
-# set restraints = $6
+
 set bspdb = `basename $pdb .pdb`
-set bsres = `basename $6 .eff`
-
-fix_restraints $1 $6 > ${bsres}.out
-
-set restraints = ${bsres}.out
 
 # DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT
 set resrange = `phenix.mtz.dump $mtz | grep "Resolution range:"`
@@ -35,17 +30,13 @@ phenix.refine $mtz\
              main.number_of_macro_cycles=5\
              refinement.input.xray_data.labels=$F,$SF\
              $elbow\
-             $restraints\
              write_maps=false\
-             --overwrite > phenix.log
+             --overwrite
 
-
-exit
-tail phenix.log
 # REFINE UNTIL OCCUPANCIES CONVERGE
 set zeroes = 50
 
-while ($zeroes > 1 )
+while ($zeroes > 10 )
    phenix.refine $mtz\
               ${bspdb}_002.pdb\
               output.prefix=${bspdb}\
@@ -54,13 +45,11 @@ while ($zeroes > 1 )
               main.number_of_macro_cycles=5\
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
-              $restraints\
               write_maps=false\
-              --overwrite >> phenix.log
+              --overwrite
 
    set zeroes = `normalize_occupancies -occ 0.09 ${bspdb}_003.pdb`
    mv ${bspdb}_003_norm.pdb ${bspdb}_002.pdb
-   fix_restraints ${bspdb}_002.pdb $6 > $restraints;
 end
 
 # ADD HYDROGENS
@@ -76,12 +65,11 @@ phenix.refine $mtz\
               main.number_of_macro_cycles=5\
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
-              $restraints\
               write_maps=false\
-              --overwrite >> phenix.log
+              --overwrite
 
-cp multiconformer_model2_005.pdb qFit.pdb
-cp multiconformer_model2_005.mtz qFit.mtz
-cp multiconformer_model2_005.log qFit.log
+cp ${bspdb}_005.pdb Single.pdb
+cp ${bspdb}_005.mtz Single.mtz
+cp ${bspdb}_005.log Single.log
 
 exit

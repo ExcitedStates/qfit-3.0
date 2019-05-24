@@ -7,13 +7,15 @@ import sys
 import time
 from string import ascii_uppercase
 from . import Structure
-from .structure import residue_type
+from .structure.rotamers import ROTAMERS
 
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+    p.add_argument("model", type=str,
+                   help="PDB-file containing the model to be fixed.")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
@@ -33,20 +35,11 @@ def main():
         pass
 
     structure = Structure.fromfile(args.structure).reorder()
+    structure = structure.extract("record","ATOM","==")
+    model = Structure.fromfile(args.model).reorder()
     for chain in structure:
         for residue in chain:
-            altlocs = sorted(list(set(residue.altloc)))
-            resi = residue.resi[0]
-            chainid = residue.chain[0]
-            if len(altlocs) > 1:
-                try:
-                    altlocs.remove('')
-                except ValueError:
-                    pass
-                for altloc in altlocs[1:]:
-                    sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                    sel_str = f"not ({sel_str})"
-                    structure = structure.extract(sel_str)
-    structure.q = 1.0
-    structure.altloc = ''
-    structure.tofile(f"{args.structure[:-4]}.single.pdb")
+            if residue.resn[0] not in ROTAMERS:
+                model = model.combine(residue)
+
+    model.tofile(f"multiconformer_model_fixed.pdb")

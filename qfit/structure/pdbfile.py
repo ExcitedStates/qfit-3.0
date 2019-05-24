@@ -25,7 +25,7 @@ IN THE SOFTWARE.
 
 import gzip
 from collections import defaultdict
-
+import sys
 import numpy as np
 
 class PDBFile:
@@ -68,7 +68,7 @@ class PDBFile:
                         for field in LinkRecord.fields:
                             cls.link[field].append(values[field])
                     except:
-                        print("Error parsing LINK data.")
+                        sys.stderr.write("Error parsing LINK data.\n")
                         pass
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)

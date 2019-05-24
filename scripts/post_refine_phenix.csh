@@ -16,7 +16,7 @@ set res = `echo $resrange[4] | cut -c 1-5`
 set res1000 = `echo $res | awk '{tot = $1*1000}{print tot }'`
 
 if ( $res1000 < 1550 ) then
-  set adp = 'adp.individual.anisotropic="not (water or element H)"' 
+  set adp = 'adp.individual.anisotropic="not (water or element H)"'
 else
   set adp = 'adp.individual.isotropic=all'
 endif
@@ -31,12 +31,12 @@ phenix.refine $mtz\
              refinement.input.xray_data.labels=$F,$SF\
              $elbow\
              write_maps=false\
-             --overwrite
+             --overwrite > $pdb.phenix.log
 
 # REFINE UNTIL OCCUPANCIES CONVERGE
 set zeroes = 50
 
-while ($zeroes > 10 )
+while ($zeroes > 1 )
    phenix.refine $mtz\
               ${bspdb}_002.pdb\
               output.prefix=${bspdb}\
@@ -46,7 +46,7 @@ while ($zeroes > 10 )
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
               write_maps=false\
-              --overwrite
+              --overwrite >> $pdb.phenix.log
 
    set zeroes = `normalize_occupancies -occ 0.09 ${bspdb}_003.pdb`
    mv ${bspdb}_003_norm.pdb ${bspdb}_002.pdb
@@ -66,10 +66,10 @@ phenix.refine $mtz\
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
               write_maps=false\
-              --overwrite
+              --overwrite >> $pdb.phenix.log
 
 cp multiconformer_model2_005.pdb qFit.pdb
 cp multiconformer_model2_005.mtz qFit.mtz
 cp multiconformer_model2_005.log qFit.log
 
-exit 
+exit
