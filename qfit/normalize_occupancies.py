@@ -153,7 +153,8 @@ def main():
     data = {}
     for attr in structure.data:
             data[attr] = getattr(structure, attr).copy()[mask]
-    structure = Structure(data)
+    structure = Structure(data).reorder()
+
     # Normalize occupancies and fix altlocs:
     for chain in structure:
         for residue in chain:
