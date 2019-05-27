@@ -73,7 +73,7 @@ def main():
             # Deal with the simplest case first: only a single conformer
             if len(altlocs) == 1:
                 residue._q[residue._selection] = 1.0
-                continue       
+                continue
 
             # Should we collapse the backbone for the current residue?
             altloc1 = altlocs[0]
@@ -85,20 +85,20 @@ def main():
             for altloc2 in altlocs[1:]:
                 if altloc1 == altloc2:
                     continue
-                conf2 = residue.extract("altloc",altloc2)  
+                conf2 = residue.extract("altloc",altloc2)
                 conf2 = conf2.extract("name",('N','CA','C','O'))
                 if np.mean(np.linalg.norm(conf2.coor-conf1.coor,axis=1)) > 0.05 and np.min(conf2.q) > args.occ_cutoff :
                     should_collapse = False
-        
+
             # Add the atoms of the collapsed backbone to the to_remove list
             # and fix altloc and occupancy of the backbone
             if should_collapse:
                 conf1._q[conf1._selection] = 1.0
                 for altloc2 in altlocs[1:]:
-                    conf2 = residue.extract("altloc",altloc2)  
+                    conf2 = residue.extract("altloc",altloc2)
                     conf2 = conf2.extract("name",('N','CA','C','O'))
                     [to_remove.append(x) for x in conf2._selection]
-                
+
             # If the backbone is collapsed, we can remove identical side chain conformers
             # or side chain conformers that fall below the occupancy cutoff:
             if '' in altlocs or should_collapse:
@@ -122,7 +122,7 @@ def main():
                     pass
             # Now, to the case where the backbone is not collapsed
             else:
-                # Here, we only want to remove if ALL conformers are identical or below 
+                # Here, we only want to remove if ALL conformers are identical or below
                 # occupancy cutoff
                 is_identical = True
                 for i,altloc1 in enumerate(altlocs):
@@ -130,25 +130,31 @@ def main():
                     for altloc2 in altlocs[i+1:]:
                         conf2 = residue.extract("altloc", altloc2)
                         # If the conformer has occupancy greater than the cutoff
-                        # and if it is not identical to all                         
+                        # and if it is not identical to all
                         if np.min(conf2.q) > args.occ_cutoff and conf1.rmsd(conf2) > args.rmsd_cutoff:
                                 is_identical = False
                                 break
-                # If all conformers converged (either because of RMSD or occupancy) 
+                # If all conformers converged (either because of RMSD or occupancy)
                 if is_identical:
                     for altloc1 in altlocs[1:]:
                         conf1 = residue.extract("altloc",altloc1)
                         [to_remove.append(x) for x in conf1._selection]
 
-                
-    
+                # If the occupancy of the conformer fell below the cutoff...
+                for altloc in altlocs:
+                    conf = residue.extract("altloc", altloc)
+                    if np.min(conf.q) < args.occ_cutoff:
+                        [to_remove.append(x) for x in conf._selection]
+
+
     # Remove conformers in to_remove list:
     mask = structure.active
     mask[to_remove] = False
     data = {}
     for attr in structure.data:
             data[attr] = getattr(structure, attr).copy()[mask]
-    structure = Structure(data)
+    structure = Structure(data).reorder()
+
     # Normalize occupancies and fix altlocs:
     for chain in structure:
         for residue in chain:

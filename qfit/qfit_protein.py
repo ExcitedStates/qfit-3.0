@@ -36,6 +36,7 @@ import copy
 from argparse import ArgumentParser
 from math import ceil
 from . import MapScaler, Structure, XMap
+from .structure.rotamers import ROTAMERS
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -223,9 +224,14 @@ class QFitProtein:
         for p in processes:
             p.join()
 
+        hetatms = self.structure.extract('record', 'HETATM', '==')
+        waters = self.structure.extract('record', "ATOM")
+        waters = waters.extract('resn', "HOH")
+        hetatms = hetatms.combine(waters)
         # Combine all multiconformer residues into one structure
         for residue in residues:
-            if residue.type == 'ligand':
+            if residue.resn[0] not in ROTAMERS:
+                hetatms = hetatms.combine(residue)
                 continue
             chain = residue.chain[0]
             resid, icode = residue.id
@@ -244,10 +250,7 @@ class QFitProtein:
             except FileNotFoundError:
                 print("File not found!", fname)
                 pass
-        hetatms = self.structure.extract('record', 'HETATM', '==')
-        waters = self.structure.extract('record', "ATOM")
-        waters = waters.extract('resn', "HOH")
-        hetatms = hetatms.combine(waters)
+
         multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
@@ -319,7 +322,7 @@ class QFitProtein:
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
-                
+
                 qfit.tofile()
             else:
                 # This is the case where the residue is either a ligand
