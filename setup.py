@@ -70,6 +70,8 @@ def main():
                   'fix_restraints = qfit.fix_restraints:main',
                   'get_metrics = qfit.get_metrics:main',
                   'find_altlocs = qfit.find_altlocs_near_ligand:main',
+                  'relabel = qfit.relabel:main',
+                  'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
             ]
           },)
 
