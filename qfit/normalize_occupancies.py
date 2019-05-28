@@ -69,6 +69,8 @@ def main():
     # Iterate over every residue...
     for chain in structure:
         for residue in chain:
+            if residue_type(residue) != ('aa-residue' and 'rotamer-residue'):
+                continue
             altlocs = list(set(residue.altloc))
             # Deal with the simplest case first: only a single conformer
             if len(altlocs) == 1:
@@ -76,28 +78,29 @@ def main():
                 continue
 
             # Should we collapse the backbone for the current residue?
-            altloc1 = altlocs[0]
-            if not altloc1:
-                altloc1 = altlocs[1]
-            conf1 = residue.extract("altloc",altloc1)
-            conf1 = conf1.extract("name",('N','CA','C','O'))
-            should_collapse = True
-            for altloc2 in altlocs[1:]:
-                if altloc1 == altloc2:
-                    continue
-                conf2 = residue.extract("altloc",altloc2)
-                conf2 = conf2.extract("name",('N','CA','C','O'))
-                if np.mean(np.linalg.norm(conf2.coor-conf1.coor,axis=1)) > 0.05 and np.min(conf2.q) > args.occ_cutoff :
-                    should_collapse = False
-
-            # Add the atoms of the collapsed backbone to the to_remove list
-            # and fix altloc and occupancy of the backbone
-            if should_collapse:
-                conf1._q[conf1._selection] = 1.0
-                for altloc2 in altlocs[1:]:
+            if not '' in altlocs:
+                altloc1 = altlocs[0]
+                print(residue.resi[0], altlocs, altloc1)
+                conf1 = residue.extract("altloc",altloc1)
+                conf1 = conf1.extract("name",('N','CA','C','O'))
+                should_collapse = True
+                for altloc2 in altlocs:
+                    if altloc1 == altloc2:
+                        continue
                     conf2 = residue.extract("altloc",altloc2)
                     conf2 = conf2.extract("name",('N','CA','C','O'))
-                    [to_remove.append(x) for x in conf2._selection]
+                    if ((np.mean(np.linalg.norm(conf2.coor-conf1.coor,axis=1)) > 0.05) or (np.min(conf2.q) > args.occ_cutoff)):
+                        should_collapse = False
+
+                # Add the atoms of the collapsed backbone to the to_remove list
+                # and fix altloc and occupancy of the backbone
+                if should_collapse:
+                    print("collapse!")
+                    conf1._q[conf1._selection] = 1.0
+                    for altloc2 in altlocs[1:]:
+                        conf2 = residue.extract("altloc",altloc2)
+                        conf2 = conf2.extract("name",('N','CA','C','O'))
+                        [to_remove.append(x) for x in conf2._selection]
 
             # If the backbone is collapsed, we can remove identical side chain conformers
             # or side chain conformers that fall below the occupancy cutoff:
