@@ -941,10 +941,6 @@ class QFitSegment(_BaseQFit):
             f'{self.segment.average_conformers():.2f}')
         # Extract hetatms
         hetatms = self.segment.extract('record', "HETATM")
-        # Deal with waters with an ATOM record
-        #waters = self.segment.extract('record', "ATOM")
-        #waters = waters.extract('resn', "HOH")
-        #hetatms = hetatms.combine(waters)
         # Create an empty structure:
         multiconformers = Structure.fromstructurelike(
                     self.segment.extract('altloc', "Z"))
@@ -1020,9 +1016,9 @@ class QFitSegment(_BaseQFit):
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
         print(f'Average number of conformers after removal of identical conformers: {multiconformers.average_conformers():.2f}')
-        relab_options = RelabellerOptions()
-        relabeller = Relabeller(multiconformers, relab_options)
-        multiconformers = relabeller.run()
+        #relab_options = RelabellerOptions()
+        #relabeller = Relabeller(multiconformers, relab_options)
+        #multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
         return multiconformers

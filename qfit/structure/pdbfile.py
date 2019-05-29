@@ -78,6 +78,15 @@ class PDBFile:
     def write(fname, structure):
         with open(fname, 'w') as f:
             atomid = 1
+            if structure.link_data:
+                fields = list(LinkRecord.fields)
+                for field in zip(*[structure.link_data[x] for x in fields]):
+                    field = list(field)
+                    if not field[-1]:
+                        field[-1] = ''
+                        f.write(LinkRecord.line2.format(*field))
+                    else:
+                        f.write(LinkRecord.line.format(*field))
             fields = list(CoorRecord.fields)
             del fields[1]
             #for fields in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
@@ -98,7 +107,10 @@ class Record:
     def parse_line(cls, line):
         values = {}
         for field, column, dtype in zip(cls.fields, cls.columns, cls.dtypes):
-            values[field] = dtype(line[slice(*column)].strip())
+            try:
+                values[field] = dtype(line[slice(*column)].strip())
+            except ValueError:
+                values[field] = None
         return values
 
 
@@ -119,9 +131,12 @@ class LinkRecord(Record):
     dtypes = (str, str, str, str, str, int, str,
                    str, str, str, str, int, str,
                    str, str, float)
-    line = ('{:6s}' + ' ' * 6 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s}' + ' ' * 15 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5.2f}')
+    line = ('{:6s}' + ' ' * 7 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s}' + ' ' * 16 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5.2f}\n')
+    line2 = ('{:6s}' + ' ' * 7 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s}' + ' ' * 16 + '{:3s}{:1s}{:3s} '
+            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5s}\n')
 
 class CoorRecord(Record):
     fields = 'record atomid name altloc resn chain resi icode x y z q b e charge'.split()

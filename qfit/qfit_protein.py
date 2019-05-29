@@ -225,11 +225,12 @@ class QFitProtein:
             p.join()
 
         hetatms = self.structure.extract('record', 'HETATM', '==')
-        waters = self.structure.extract('record', "ATOM")
-        waters = waters.extract('resn', "HOH")
+        waters = self.structure.extract('record', 'ATOM', '==')
+        waters = waters.extract('resn', 'HOH', '==')
         hetatms = hetatms.combine(waters)
         # Combine all multiconformer residues into one structure
         for residue in residues:
+            print(residue.resn[0])
             if residue.resn[0] not in ROTAMERS:
                 hetatms = hetatms.combine(residue)
                 continue
