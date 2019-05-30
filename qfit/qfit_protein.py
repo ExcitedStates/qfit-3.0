@@ -230,7 +230,6 @@ class QFitProtein:
         hetatms = hetatms.combine(waters)
         # Combine all multiconformer residues into one structure
         for residue in residues:
-            print(residue.resn[0])
             if residue.resn[0] not in ROTAMERS:
                 hetatms = hetatms.combine(residue)
                 continue

@@ -26,7 +26,7 @@ IN THE SOFTWARE.
 import itertools
 import logging
 import os
-from sys import argv
+from sys import argv, stderr
 import copy
 from string import ascii_uppercase
 import subprocess
@@ -39,7 +39,8 @@ from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, QPSolver2, MIQPSolver2
-from .structure import Structure
+from .structure import Structure, _Segment
+from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
 from .validator import Validator
@@ -488,6 +489,10 @@ class QFitRotamericResidue(_BaseQFit):
                     data[attr] = np.concatenate((getattr(structure, attr),
                                                  getattr(residue, attr)[mask]))
                 structure = Structure(data)
+                chain1 = structure[self.chain]
+                conformer1 = chain1.conformers[0]
+                residue.id = (int(self.resi), residue.icode[0])
+                residue = conformer1[residue.id]
                 break
 
         # If including hydrogens:
@@ -512,8 +517,15 @@ class QFitRotamericResidue(_BaseQFit):
                     self.segment = segment
                     break
         if self.segment is None:
-            raise RuntimeError(f"Could not determine the protein segment of "
-                               f"residue {self.chain}, {self.resi}.")
+            rtype = residue_type(residue)
+            if rtype == "rotamer-residue":
+                selection = residue._selection
+                segment = _Segment(structure.data, selection=selection,
+                                   parent=self, residues=[residue])
+                self.segment = segment
+                stderr.write(f"[WARNING] Could not determine the protein"
+                             f" segment of residue {self.chain}, "
+                             f"{self.resi}.")
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -1016,9 +1028,9 @@ class QFitSegment(_BaseQFit):
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
         print(f'Average number of conformers after removal of identical conformers: {multiconformers.average_conformers():.2f}')
-        #relab_options = RelabellerOptions()
-        #relabeller = Relabeller(multiconformers, relab_options)
-        #multiconformers = relabeller.run()
+        relab_options = RelabellerOptions()
+        relabeller = Relabeller(multiconformers, relab_options)
+        multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
         multiconformers = multiconformers.reorder()
         return multiconformers
@@ -1040,7 +1052,14 @@ class QFitSegment(_BaseQFit):
                     fragment = fragment_conformer[0].set_backbone_occ()
                     for element in fragment_conformer[1:]:
                         fragment = fragment.combine(element.set_backbone_occ())
-                    fragments.append(fragment)
+                    combine = True
+                    for fragment2 in fragments:
+                        diff = (fragment.coor - fragment2.coor).ravel()
+                        if np.sqrt(3 * np.inner(diff, diff) / diff.size) < np.min([0.005 * diff.size, 0.3]):
+                            combine = False
+                            break
+                    if combine:
+                        fragments.append(fragment)
 
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])

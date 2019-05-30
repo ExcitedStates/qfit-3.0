@@ -775,7 +775,6 @@ class _Conformer(_BaseStructure):
                 else:
                     segments.append(segment)
                     segment = [res]
-                #print(res,segment)
 
         segments.append(segment)
 
