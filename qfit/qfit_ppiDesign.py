@@ -162,6 +162,32 @@ class QFit_ppiDesignResidue():
         fname = os.path.join(self.options.directory,
                              f"multiconformer_residue.pdb")
         mc_residue.tofile(fname)
+
+class QFit_FF():
+   def initMetric(self):
+        # print("Calculating all possible Van der Waals interactions:")
+        for i in range(len(self.nodes)):
+            for j in range(i+1,len(self.nodes)):
+                if self.nodes[i].resi[0]!=self.nodes[j].resi[0] or self.nodes[i].chain[0]!=self.nodes[j].chain[0]:
+                    self.metric[i][j] = self.calc_energy(self.nodes[i],self.nodes[j])
+                    self.metric[j][i] = self.metric[i][j]
+            # update_progress(i/len(self.nodes))
+
+
+    def vdw_energy(self,atom1, atom2, coor1, coor2):
+        e = EpsilonTable[atom1][atom2]
+        s = (vdwRadiiTable[atom1]+vdwRadiiTable[atom2]) / 1.122
+        r = np.linalg.norm(coor1 - coor2)
+        return 4 * e * (np.power(s/r, 12) - np.power(s/r, 6))
+
+    def calc_energy(self, node1, node2):
+        energy = 0.0
+        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 16.0:
+            for name1,ele1,coor1 in zip(node1.name,node1.e,node1.coor):
+                for name2,ele2,coor2 in zip(node2.name,node2.e,node2.coor):
+                    if name1 not in ["N","CA","C","O","H","HA"] or name2 not in ["N","CA","C","O","H","HA"] or np.abs(node1.resi[0] - node2.resi[0]) != 1:
+                        energy += self.vdw_energy(ele1,ele2,coor1,coor2)
+        return energy
  
 def main():
     args = parse_args()
