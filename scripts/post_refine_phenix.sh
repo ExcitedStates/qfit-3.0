@@ -62,7 +62,7 @@ phenix.refine ${pdb_name}_002.pdb ${pdb_name}.mtz \
               #refinement.input.xray_data.labels=$F,$SF\
               write_maps=false --overwrite
 
-zeroes=`normalize_occupancies -occ 0.09 ${bspdb}_003.pdb`
+zeroes=`normalize_occupancies -occ 0.09 ${pdb_name}_003.pdb`
    #z=`awk '{ if(ubstr($0,1,6)=="CRYST1"||(substr($0,1,4)=="ATOM"||substr($0,1,6)=="HETATM")&&substr($0,57,4)+0<0.09) print $0}' ${pdb_name}_003.pdb | wc`
    #zeroes=$z[1]
 
