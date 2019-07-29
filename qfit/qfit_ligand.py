@@ -31,16 +31,14 @@ import os.path
 import os
 import sys
 import time
-from string import ascii_uppercase
-logger = logging.getLogger(__name__)
-
 import numpy as np
-
+from string import ascii_uppercase
+from .qfit import print_run_info
 from . import MapScaler, Structure, XMap, _Ligand
 from . import QFitLigand, QFitLigandOptions
 
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
-
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -99,9 +97,9 @@ def parse_args():
             help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
-    p.add_argument("-b", "--build-stepsize", type=int, default=1, metavar="<int>",
-            help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--stepsize", type=float, default=8,
+    p.add_argument("-b", "--build-stepsize", type=int, default=2, metavar="<int>", dest="dofs_per_iteration",
+            help="Number of internal degrees that are sampled/built per iteration.")
+    p.add_argument("-s", "--stepsize", type=float, default=10,
             metavar="<float>", dest="sample_ligand_stepsize",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
@@ -138,6 +136,7 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
+    print_run_info(args)
     time0 = time.time()
 
     # Setup logger
@@ -155,11 +154,9 @@ def main():
         logging.getLogger('').addHandler(console_out)
 
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
+    structure = Structure.fromfile(args.structure)
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
-
-    logger.info("Extracting receptor and ligand from input structure.")
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -172,6 +169,25 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
+    receptor = receptor.extract("record", "ATOM")
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+    altlocs = sorted(list(set(structure_ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_ligand = structure_ligand.extract(sel_str)
+            receptor = receptor.extract(f"not altloc {altloc}")
+    altloc = structure_ligand.altloc[-1]
+
     if args.cif_file:
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
@@ -185,25 +201,11 @@ def main():
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            " selection input.")
 
-    # Select all ligand conformers:
-    # Check which altlocs are present in the ligand. If none, take the
-    # A-conformer as default.
-    altlocs = sorted(list(set(ligand.altloc)))
-    if len(altlocs) > 1:
-        try:
-            altlocs.remove('')
-        except ValueError:
-            pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            ligand = ligand.extract(sel_str)
-    ligand.altloc.fill('')
-    ligand.q.fill(1)
 
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-    receptor = structure.extract(sel_str)
+
+    ligand.altloc = ''
+    ligand.q = 1
+
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
     options = QFitLigandOptions()
@@ -218,12 +220,7 @@ def main():
         if args.omit:
             footprint = structure_ligand
         else:
-            sel_str = f"resi {resi} and chain {chainid}"
-            if icode:
-                sel_str += f" and icode {icode}"
-            sel_str = f"not ({sel_str})"
-            footprint = structure.extract(sel_str)
-            footprint = footprint.extract('record', 'ATOM')
+            footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -233,7 +230,7 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(ligand.coor, padding=5)
+    xmap = xmap.extract(ligand.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'
@@ -242,9 +239,8 @@ def main():
 
     qfit = QFitLigand(ligand, receptor, xmap, options)
     qfit.run()
-    exit()
 
-    conformers = qfit.get_conformers_covalent()
+    conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
@@ -262,111 +258,6 @@ def main():
     if icode:
         fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
-
-    passed = time.time() - time0
-    logger.info(f"Time passed: {passed}s")
-
-    '''
-    builder = HierarchicalBuilder(
-            ligand, xmap, args.resolution, receptor=receptor,
-            build=(not args.no_build), build_stepsize=args.build_stepsize,
-            stepsize=args.stepsize, local_search=(not args.no_local),
-            cardinality=args.intermediate_cardinality,
-            threshold=args.intermediate_threshold,
-            directory=args.directory, debug=args.debug
-    )
-    builder()
-    fnames = builder.write_results(base='conformer', cutoff=0)
-
-    conformers = builder.get_conformers()
-    nconformers = len(conformers)
-    if nconformers == 0:
-        raise RuntimeError("No conformers were generated or selected. Check whether initial configuration of ligand is severely clashing.")
-
-    validator = Validator(xmap, args.resolution)
-    # Order conformers based on rscc
-    for fname, conformer in izip(fnames, conformers):
-        conformer.rscc = validator.rscc(conformer, rmask=1.5)
-        conformer.fname = fname
-    conformers_sorted = sorted(conformers, key=lambda conformer: conformer.rscc, reverse=True)
-    logger.info("Number of conformers before RSCC filtering: {:d}".format(len(conformers)))
-    logger.info("RSCC values:")
-    for conformer in conformers_sorted:
-        logger.info("{fname}: {rscc:.3f}".format(fname=conformer.fname, rscc=conformer.rscc))
-    # Remove conformers with significantly lower rscc
-    best_rscc = conformers_sorted[0].rscc
-    rscc_cutoff = 0.9 * best_rscc
-    conformers = [conformer for conformer in conformers_sorted if conformer.rscc >= rscc_cutoff]
-    logger.info("Number of conformers after RSCC filtering: {:d}".format(len(conformers)))
-
-    ## Remove geometrically similar ligands
-    #noH = np.logical_not(conformers[0].select('e', 'H', return_ind=True))
-    #coor_set = [conformers[0].coor]
-    #filtered_conformers = [conformers[0]]
-    #for conformer in conformers[1:]:
-    #    max_dist = min([np.abs(
-    #        np.linalg.norm(conformer.coor[noH] - coor[noH], axis=1).max()
-    #        ) for coor in coor_set]
-    #    )
-    #    if max_dist < 1.5:
-    #        continue
-    #    coor_set.append(conformer.coor)
-    #    filtered_conformers.append(conformer)
-    #logger.info("Removing redundant conformers.".format(len(conformers)))
-    #conformers = filtered_conformers
-    #logger.info("Number of conformers: {:d}".format(len(conformers)))
-
-    iteration = 1
-    while True:
-        logger.info("Consistency iteration: {}".format(iteration))
-        # Use builder class to perform MIQP
-        builder._coor_set = [conformer.coor for conformer in conformers]
-        builder._convert()
-        builder._MIQP(threshold=args.threshold, maxfits=args.cardinality)
-
-        # Check if adding a conformer increasing the cross-correlation
-        # sufficiently through the Fisher z transform
-        filtered_conformers = []
-        for occ, conformer in izip(builder._occupancies, conformers):
-            if occ > 0.0001:
-                conformer.data['q'].fill(occ)
-                filtered_conformers.append(conformer)
-        conformers = filtered_conformers
-        logger.info("Number of conformers after MIQP: {}".format(len(conformers)))
-        conformers[0].zscore = float('inf')
-        multiconformer = conformers[0]
-        multiconformer.data['altloc'].fill('A')
-        nconformers = 1
-        filtered_conformers = [conformers[0]]
-        for conformer in conformers[1:]:
-            conformer.data['altloc'].fill(ascii_uppercase[nconformers])
-            new_multiconformer = multiconformer.combine(conformer)
-            diff = validator.fisher_z_difference(
-                multiconformer, new_multiconformer, rmask=1.5, simple=True
-            )
-            if diff < 0.1:
-                continue
-            multiconformer = new_multiconformer
-            conformer.zscore = diff
-            filtered_conformers.append(conformer)
-            nconformers += 1
-        logger.info("Number of conformers after Fisher zscore filtering: {}".format(len(filtered_conformers)))
-        if len(filtered_conformers) == len(conformers):
-            conformers = filtered_conformers
-            break
-        conformers = filtered_conformers
-        iteration += 1
-    if nconformers == 1:
-        logger.info("No alternate conformer found.")
-        multiconformer.data['altloc'].fill('')
-    else:
-        logger.info("Number of alternate conformers found: {}".format(len(conformers)))
-        logger.info("Fisher z scores:")
-        for conformer in conformers[1:]:
-            logger.info("{altloc}: {score:.2f}".format(altloc=conformer.altloc[0], score=conformer.zscore))
-
-    fname = os.path.join(args.directory, 'multiconformer.pdb')
-    multiconformer.tofile(fname)'''
 
     m, s = divmod(time.time() - time0, 60)
     logger.info('Time passed: {m:.0f}m {s:.0f}s'.format(m=m, s=s))

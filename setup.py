@@ -63,11 +63,17 @@ def main():
                   'qfit_density = qfit.qfit_density:main',
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
                   'edia = qfit.edia:main',
+                  'relabel = qfit.relabel:main',
                   'remove_altconfs = qfit.remove_altconfs:main',
                   'compare_apo_holo = qfit.compare_apo_holo:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'normalize_occupancies = qfit.normalize_occupancies:main',
-                  'get_metrics = qfit.get_metrics:main',    
+                  'fix_restraints = qfit.fix_restraints:main',
+                  'get_metrics = qfit.get_metrics:main',
+                  'find_altlocs = qfit.find_altlocs_near_ligand:main',
+                  'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
+                  'find_largest_lig = qfit.find_largest_lig:main',
+                  'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
             ]
           },)
 

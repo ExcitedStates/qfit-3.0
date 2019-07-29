@@ -118,7 +118,7 @@ def main():
     options = QFitSegmentOptions()
     options = options.apply_command_args(args)
 
-    structure = Structure.fromfile(args.structure).reorder()
+    structure = Structure.fromfile(args.structure)#.reorder()
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
 

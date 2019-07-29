@@ -151,6 +151,12 @@ class _Ligand(_BaseStructure):
         for a, b in zip(*indices):
             print(self.name[a], self.name[b])
 
+    def get_bonds(self):
+        bonds = []
+        indices = np.nonzero(self.connectivity)
+        for a, b in zip(*indices):
+            bonds.append([self.name[a], self.name[b]])
+        return bonds
 
     def ring_paths(self):
         def ring_path(T, v1, v2):
@@ -378,6 +384,52 @@ class _Ligand(_BaseStructure):
         return bond_list
 
 
+
+class BondOrder(object):
+
+    """Determine bond rotation order given a ligand and root."""
+
+    def __init__(self, ligand, atom):
+        self.ligand = ligand
+        self._conn = self.ligand.connectivity
+        self.clusters = self.ligand.rigid_clusters()
+        self.bonds = self.ligand.rotatable_bonds()
+        self._checked_clusters = []
+        self.order = []
+        self.depth = []
+        self._bondorder(atom)
+
+    def _bondorder(self, atom, depth=0):
+        for cluster in self.clusters:
+            if atom in cluster:
+                break
+        if cluster in self._checked_clusters:
+            return
+        depth += 1
+        self._checked_clusters.append(cluster)
+        neighbors = []
+        for atom in cluster:
+            neighbors += np.flatnonzero(self._conn[atom]).tolist()
+
+        for n in neighbors:
+            for ncluster in self.clusters:
+                if n in ncluster:
+                    break
+            if ncluster == cluster:
+                continue
+            for b in self.bonds:
+                if b[0] in cluster and b[1] in ncluster:
+                    bond = (b[0], b[1])
+                elif b[1] in cluster and b[0] in ncluster:
+                    bond = (b[1], b[0])
+                try:
+                    if (bond[1], bond[0]) not in self.order and bond not in self.order:
+                        self.order.append(bond)
+                        self.depth.append(depth)
+                except UnboundLocalError:
+                    pass
+            self._bondorder(n, depth)
+
 class Covalent_Ligand(_BaseStructure):
 
     """ Covalent Ligand class """
@@ -398,7 +450,7 @@ class Covalent_Ligand(_BaseStructure):
             self._get_connectivity()
 
         for i, res1 in enumerate(self.link_data['resn1']):
-            if res1 == self.ligand_name:
+            if res1 == self.ligand_name and self.chain[0] == self.link_data['chain1'][i]:
                 self.covalent_bonds += 1
                 self.covalent_partners.append(
                     [self.link_data['chain2'][i],
@@ -497,7 +549,6 @@ class Covalent_Ligand(_BaseStructure):
             print(self.name[a], self.name[b])
 
     def get_bonds(self):
-        """Print bonds"""
         bonds = []
         indices = np.nonzero(self.connectivity)
         for a, b in zip(*indices):

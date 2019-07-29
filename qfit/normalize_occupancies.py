@@ -27,6 +27,7 @@ IN THE SOFTWARE.
 import numpy as np
 import argparse
 import logging
+import copy
 import os
 import sys
 import time
@@ -45,8 +46,9 @@ def parse_args():
                    metavar="<dir>", help="Directory to store results.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
-    p.add_argument('-occ', "--occ_cutoff", type=float, default=0.01, metavar="<float>",
+    p.add_argument('-occ', "--occ_cutoff", type=float, default=0.10, metavar="<float>",
             help="Remove conformers with occupancies below occ_cutoff. Default = 0.01")
+    p.add_argument('-rmsd',"--rmsd_cutoff", type=float, default=0.01, metavar="<float>")
     args = p.parse_args()
 
     return args
@@ -61,37 +63,32 @@ def main():
     except OSError:
         output_file = args.structure[:-4]+"_norm.pdb"
 
-    structure = Structure.fromfile(args.structure).reorder()
-    to_remove = []
+    structure = Structure.fromfile(args.structure)#.reorder()
+    # Remove conformers whose occupancy fall below cutoff
+    link_data = structure.link_data
+    mask = structure.q < args.occ_cutoff
+    removed = np.sum(mask)
+    data = {}
+    for attr in structure.data:
+            data[attr] = getattr(structure, attr).copy()[~mask]
+    structure = Structure(data).reorder()
+    structure.link_data = link_data
 
-    for rg in structure.extract('record',"ATOM").residue_groups:
-        total_occupancy = 0.0
-        altlocs = list(set(rg.altloc))
-        # If the alternate conformer has collapsed atoms:
-        if '' in altlocs and len(altlocs) > 1:
-            mask = ( rg.altloc == '' )
-            rg.q[mask] = 1.0
-            altlocs.remove('')
+    for chain_id in np.unique(structure.chain):
+        chain = structure.extract("chain",chain_id,'==')
+        for res_id in np.unique(chain.resi):
+            residue = chain.extract("resi",res_id,'==')
+            # Normalize occupancies and fix altlocs:
+            altlocs = np.unique(residue.altloc)
+            altlocs = altlocs[altlocs != '']
+            if len(altlocs):
+                conf = residue.extract('altloc',altlocs)
+                natoms = len(residue.extract('altloc',altlocs[-1]).name)
+                factor = natoms/np.sum(conf.q)
+                residue._q[conf._selection] *= factor
+            else:
+                residue._q[residue._selection] = 1.0
+                residue._altloc[residue._selection] = ''
 
-        # If only a single conformer
-        if len(altlocs) == 1:
-            rg.q = 1.0
-        else:
-            for altloc in altlocs:
-                mask = (rg.altloc == altloc)
-                if rg.q[mask][0] < args.occ_cutoff:
-                    to_remove.append([rg.resi[mask][0], rg.chain[mask][0],
-                                      rg.altloc[mask][0]])
-                else:
-                    total_occupancy += rg.q[mask][0]
-            if total_occupancy > 0.01:
-                rg.q = np.divide(rg.q,total_occupancy)
-                rg.q = np.clip(rg.q, 0,1)
-    # Remove conformers with 0 occupancy
-    for conformer in to_remove:
-        res, chain, altloc = conformer
-        sel_str = f"resi {res} and chain {chain} and altloc {altloc}"
-        sel_str = f"not ({sel_str})"
-        structure = structure.extract(sel_str)
-    structure.altloc[structure.q>0.99]=''
     structure.tofile(output_file)
+    print(removed)

@@ -112,6 +112,9 @@ def parse_args():
     p.add_argument("-nl", "--no-ligand",
                    dest="sample_ligand", action="store_false",
                    help="Disable ligand sampling.")
+    p.add_argument("-ls", "--sample-ligand-stepsize", type=float, default=10,
+                   metavar="<float>", dest="sample_ligand_stepsize",
+                   help="Stepsize for ligand sampling in degrees.")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
@@ -170,7 +173,7 @@ def main():
         logging.getLogger('').addHandler(console_out)
 
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
+    structure = Structure.fromfile(args.structure)
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
 
@@ -187,6 +190,21 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
+
+    # Select all ligand conformers:
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+    altlocs = sorted(list(set(structure_ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_ligand = structure_ligand.extract(sel_str)
+
     if args.cif_file:
         covalent_ligand = Covalent_Ligand(structure_ligand.data,
                                           structure_ligand._selection,
@@ -199,22 +217,8 @@ def main():
     if covalent_ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            "selection input.")
-
-    # Select all ligand conformers:
-    # Check which altlocs are present in the ligand. If none, take the
-    # A-conformer as default.
-    altlocs = sorted(list(set(covalent_ligand.altloc)))
-    if len(altlocs) > 1:
-        try:
-            altlocs.remove('')
-        except ValueError:
-            pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            covalent_ligand = covalent_ligand.extract(sel_str)
-    covalent_ligand.altloc.fill('')
-    covalent_ligand.q.fill(1)
+    covalent_ligand.altloc = ''
+    covalent_ligand.q = 1
 
     sel_str = f"resi {resi} and chain {chainid}"
     sel_str = f"not ({sel_str})"
@@ -233,12 +237,7 @@ def main():
         if args.omit:
             footprint = structure_ligand
         else:
-            sel_str = f"resi {resi} and chain {chainid}"
-            if icode:
-                sel_str += f" and icode {icode}"
-            sel_str = f"not ({sel_str})"
-            footprint = structure.extract(sel_str)
-            footprint = footprint.extract('record', 'ATOM')
+            footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -248,7 +247,7 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(covalent_ligand.coor, padding=5)
+    xmap = xmap.extract(covalent_ligand.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'

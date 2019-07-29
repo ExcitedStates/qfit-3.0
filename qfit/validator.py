@@ -88,7 +88,9 @@ class Validator(object):
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
-        mv = nvoxels * self.xmap.voxel_volume
+        #mv = nvoxels * self.xmap.voxel_volume
+        mv = nvoxels * np.product(self.xmap.voxelspacing) * self.xmap.unit_cell.calc_v()
+
 
         # Get density values of xmap, and both structures
         target_values = self.xmap.array[mask]
@@ -115,7 +117,7 @@ class Validator(object):
         corr2 = ((target_values * (model2_values - model2_mean)).sum() /
                  model2_std) / nvoxels
         # Transform to Fisher Z-score
-        sigma = 1.0 / np.sqrt(mv / self.resolution - 3)
+        sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
         fisher1 = 0.5 * np.log((1 + corr1) / (1 - corr1))
         fisher2 = 0.5 * np.log((1 + corr2) / (1 - corr2))
         return (fisher2 - fisher1) / sigma

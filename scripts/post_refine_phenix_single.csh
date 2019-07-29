@@ -31,12 +31,12 @@ phenix.refine $mtz\
              refinement.input.xray_data.labels=$F,$SF\
              $elbow\
              write_maps=false\
-             --overwrite > $pdb.phenix.log
+             --overwrite
 
 # REFINE UNTIL OCCUPANCIES CONVERGE
 set zeroes = 50
 
-while ($zeroes > 1 )
+while ($zeroes > 10 )
    phenix.refine $mtz\
               ${bspdb}_002.pdb\
               output.prefix=${bspdb}\
@@ -46,7 +46,7 @@ while ($zeroes > 1 )
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
               write_maps=false\
-              --overwrite >> $pdb.phenix.log
+              --overwrite
 
    set zeroes = `normalize_occupancies -occ 0.09 ${bspdb}_003.pdb`
    mv ${bspdb}_003_norm.pdb ${bspdb}_002.pdb
@@ -66,10 +66,10 @@ phenix.refine $mtz\
               refinement.input.xray_data.labels=$F,$SF\
               $elbow\
               write_maps=false\
-              --overwrite >> $pdb.phenix.log
+              --overwrite
 
-cp multiconformer_model2_005.pdb qFit.pdb
-cp multiconformer_model2_005.mtz qFit.mtz
-cp multiconformer_model2_005.log qFit.log
+cp ${bspdb}_005.pdb Single.pdb
+cp ${bspdb}_005.mtz Single.mtz
+cp ${bspdb}_005.log Single.log
 
 exit
