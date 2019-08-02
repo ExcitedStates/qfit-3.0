@@ -22,7 +22,7 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
-
+import gc
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
@@ -100,7 +100,7 @@ def parse_args():
     p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
             help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-                   default=80, metavar="<float>",
+                   default=60, metavar="<float>",
                    help="Neighborhood of rotamer to sample in degree.")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
@@ -141,6 +141,8 @@ def parse_args():
                    help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument("-cp", "--checkpoint", action="store_true",
+                   help="Resume a run of qFit that has failed.")
 
     args = p.parse_args()
     return args
@@ -168,6 +170,7 @@ class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
         self.nproc = 1
         self.verbose = True
         self.omit = False
+        self.checkpoint = False
 
 
 class QFitProtein:
@@ -289,6 +292,12 @@ class QFitProtein:
                     os.makedirs(options.directory)
                 except OSError:
                     pass
+                if options.checkpoint:
+                    fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+                    if os.path.exists(fname):
+                        continue
+                    else:
+                        print(f"{identifier} {residue.resn[0]}")
 
                 structure_new = copy.deepcopy(structure)
                 structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
@@ -324,6 +333,18 @@ class QFitProtein:
                     qfit._coor_set = [residue.coor]
 
                 qfit.tofile()
+
+                # Freeing up some memory to avoid memory issues:
+                del structure_new
+                del xmap.array
+                del xmap_reduced
+                del qfit
+                # structure_new = None
+                # xmap.array = None
+                # xmap_reduced = None
+                # qfit = None
+
+                gc.collect()
             else:
                 # This is the case where the residue is either a ligand
                 # or water
