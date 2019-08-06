@@ -698,7 +698,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._coor_set.append(self.segment[index].coor)
             self._bs.append(self.conformer.b)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)}"
+        #print(f"Backbone sampling generated {len(self._coor_set)}"
         #      f" conformers.")
 
     def _sample_angle(self):
@@ -740,7 +740,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
-        # print(f"Bond angle sampling generated {len(self._coor_set)} "
+        #print(f"Bond angle sampling generated {len(self._coor_set)} "
         #      f"conformers.")
 
 
@@ -763,7 +763,6 @@ class QFitRotamericResidue(_BaseQFit):
         for b in self._bs:
             new_bs.append(self._randomize_bs(b, ['N', 'CA', 'C', 'O', 'CB', 'H', 'HA']))
         self._bs = new_bs
-
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
@@ -842,7 +841,6 @@ class QFitRotamericResidue(_BaseQFit):
                                 else:
                                     new_coor_set.append(self.residue.coor)
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
-
                 self._coor_set = new_coor_set
                 self._bs = new_bs
             # print("Nconf: {:d}".format(len(self._coor_set)))
@@ -857,8 +855,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(prefix=prefix)
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
             # print(f"{len(self._coor_set)} {ex}")
-            #print(f"{self.residue.resn[0]} {len(self._coor_set)}")
-            #exit()
             # QP
             logger.debug("Converting densities.")
             self._convert()
@@ -880,9 +876,11 @@ class QFitRotamericResidue(_BaseQFit):
             # Check if we are done
             if chi_index == self.residue.nchi:
                 break
+
             # Use the next chi angle as starting point, except when we are in
             # the first iteration and have selected backbone sampling and we
             # are sampling more than 1 dof per iteration
+
             increase_chi = not ((opt.sample_backbone or opt.sample_angle) and
                 iteration == 0 and opt.dofs_per_iteration > 1)
             if increase_chi:
@@ -950,6 +948,7 @@ class QFitSegment(_BaseQFit):
         self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
+        self._bs = [self.conformer.b]
         self.orderings = []
         self.charseq = []
         self._smax = None
@@ -1094,6 +1093,7 @@ class QFitSegment(_BaseQFit):
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]
+                self._bs = [fragment.b for fragment in fragments]
                 # QP
                 self._convert()
                 self._solve()
@@ -1102,6 +1102,7 @@ class QFitSegment(_BaseQFit):
                 mask = self._occupancies >= 0.002
                 fragments = fragments[mask]
                 self._coor_set = [fragment.coor for fragment in fragments]
+                self._bs = [fragment.b for fragment in fragments]
                 self._occupancies = self._occupancies[mask]
                 # MIQP
                 self._convert()
