@@ -752,7 +752,6 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             sampling_window = [0]
 
-
         rotamers = self.residue.rotamers
         rotamers.append([self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)])
         iteration = 0
@@ -766,6 +765,7 @@ class QFitRotamericResidue(_BaseQFit):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample,
                                 self.residue.nchi + 1)
+            iter_coor_set = []
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -846,10 +846,15 @@ class QFitRotamericResidue(_BaseQFit):
                                     new_coor_set.append(self.residue.coor)
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
                             else:
-                                ex+=1
-
+                                ex += 1
+                iter_coor_set.append(new_coor_set)
                 self._coor_set = new_coor_set
                 self._bs = new_bs
+
+            if len(self._coor_set) > 15000:
+                print(f"[WARNING] Too many conformers generated ({len(self._coor_set)}).")
+                self._coor_set = iter_coor_set[0]
+                print(f"Reverting back to previous iteration of degrees of freedom.")
             # print(f"Excluded ({ex}/{n}) conformations.")
             # print("Nconf: {:d}".format(len(self._coor_set)))
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
