@@ -213,15 +213,12 @@ class _BaseQFit:
         self._subtransformer.density()
 
         # Set the lowest values in the map to the bulk solvent level:
-        #np.maximum(self._subtransformer.xmap.array,
-        #           self.options.bulk_solvent_level,
-        #           out=self._subtransformer.xmap.array)
+        np.maximum(self._subtransformer.xmap.array,
+                   self.options.bulk_solvent_level,
+                   out=self._subtransformer.xmap.array)
 
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
-        np.maximum(self.xmap.array,
-                   0,
-                   out=self.xmap.array)
 
 
     def _convert(self):
@@ -698,7 +695,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._coor_set.append(self.segment[index].coor)
             self._bs.append(self.conformer.b)
             segment.coor = starting_coor
-        #print(f"Backbone sampling generated {len(self._coor_set)}"
+        # print(f"Backbone sampling generated {len(self._coor_set)}"
         #      f" conformers.")
 
     def _sample_angle(self):
@@ -740,7 +737,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
-        #print(f"Bond angle sampling generated {len(self._coor_set)} "
+        # print(f"Bond angle sampling generated {len(self._coor_set)} "
         #      f"conformers.")
 
 
@@ -755,10 +752,10 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             sampling_window = [0]
 
+
         rotamers = self.residue.rotamers
         rotamers.append([self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)])
         iteration = 0
-
         new_bs = []
         for b in self._bs:
             new_bs.append(self._randomize_bs(b, ['N', 'CA', 'C', 'O', 'CB', 'H', 'HA']))
@@ -792,7 +789,6 @@ class QFitRotamericResidue(_BaseQFit):
                 n = 0
                 ex = 0
                 for coor, b in zip(self._coor_set, self._bs):
-                    n += 1
                     self.residue.coor = coor
                     self.residue.b = b
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
@@ -815,12 +811,14 @@ class QFitRotamericResidue(_BaseQFit):
                         chi_rotator = ChiRotator(self.residue, chi_index)
 
                         for angle in sampling_window:
+                            n += 1
                             chi_rotator(angle)
                             coor = self.residue.coor
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < self.options.density_cutoff:
+                                    ex+=1
                                     continue
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
@@ -829,20 +827,30 @@ class QFitRotamericResidue(_BaseQFit):
                                         if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                             new_coor_set.append(self.residue.coor)
                                             new_bs.append(self._randomize_bs(b, bs_atoms))
+                                        else:
+                                            ex+=1
                                     else:
                                         new_coor_set.append(self.residue.coor)
                                         new_bs.append(self._randomize_bs(b, bs_atoms))
+                                else:
+                                    ex+=1
                             elif self.residue.clashes() == 0:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set)-np.array(self.residue.coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                         new_coor_set.append(self.residue.coor)
                                         new_bs.append(self._randomize_bs(b, bs_atoms))
+                                    else:
+                                        ex+=1
                                 else:
                                     new_coor_set.append(self.residue.coor)
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
+                            else:
+                                ex+=1
+
                 self._coor_set = new_coor_set
                 self._bs = new_bs
+            # print(f"Excluded ({ex}/{n}) conformations.")
             # print("Nconf: {:d}".format(len(self._coor_set)))
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
@@ -872,7 +880,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
             # self._write_intermediate_conformers(f"miqp_{iteration}")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
-
+            # print("Nconf after MIQP: {:d}".format(len(self._coor_set)))
             # Check if we are done
             if chi_index == self.residue.nchi:
                 break
