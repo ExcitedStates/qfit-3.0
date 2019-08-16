@@ -75,6 +75,8 @@ def main():
                   'find_largest_lig = qfit.find_largest_lig:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main',
+                  'RMSF = qfit.qfit_RMSF:main',
+                  'b_factor = qfit.b_factor:main',
             ]
           },)
 
