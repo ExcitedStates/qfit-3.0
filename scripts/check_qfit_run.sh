@@ -11,7 +11,7 @@ NUM_RESIDUES=$(grep "^ATOM" $input_pdb | cut -c 22-26 | sort | uniq | wc -l);
 HET_RESIDUES=$(grep "^HETATM" $input_pdb | cut -c 22-26 | sort | uniq | wc -l);
 
 if [ -f $qfit_output_dir/multiconformer_model.pdb ]
-then 
+then
     if [ -f $qfit_output_dir/multiconformer_model2.pdb ]
     then
         echo "[STATUS] qFit run has finished.";
@@ -26,7 +26,15 @@ then
     then
         echo "[ERROR] qFit has produced models for ($NUM_RESIDUES2/$NUM_RESIDUES) residues and ($HET_RESIDUES2/$HET_RESIDUES) hetatom entries.";
     else
-        echo "[SUCCESS] qFit has been run successfully.";
+        numAs=$(cut -c 17,21-26 $qfit_output_dir/multiconformer_model2.pdb | sed "s/^ /_/" | sort -k 3,3n -k 2,2 -k 1,1 | uniq | grep "^A" | wc -l)
+        numBs=$(cut -c 17,21-26 $qfit_output_dir/multiconformer_model2.pdb | sed "s/^ /_/" | sort -k 3,3n -k 2,2 -k 1,1 | uniq | grep "^B" | wc -l)
+        if [ ! $numAs -eq $numBs ]
+        then
+          echo "[ERROR] There are single conformer residues with an 'A' altloc identifier."
+          echo "Please, fix this before running refinement."
+        else
+          echo "[SUCCESS] qFit has been run successfully.";
+        fi
     fi
 else
     echo -e "[STATUS] qFit should still be running.\nPlease, make sure the qFit executable is still running (e.g. ps ux OR pgrep qfit).";
