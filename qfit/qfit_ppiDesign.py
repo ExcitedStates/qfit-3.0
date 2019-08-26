@@ -27,6 +27,7 @@ from .relabel import RelabellerOptions, Relabeller
 from .qfit import QFitRotamericResidueOptions
 from .structure.rotamers import ROTAMERS
 from .vdw_radii import vdwRadiiTable, EpsilonTable
+from itertools import groupby
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -41,6 +42,10 @@ def parse_args():
     args = p.parse_args()
 
     return args
+
+def split_text(s):
+    for k, g in groupby(s, str.isalpha):
+        yield ''.join(g)
 
 """ for rotamer in resilist chainID1:
     for AA in AAlist chainID2:
@@ -239,47 +244,92 @@ def main():
     args = parse_args()
 
     #Extract chains from command line options
-    chainID1, chainID2 = args.selection.split(',')
+    interFaces = args.selection.split('-')
+
+    if len(interFaces) != 2:
+        print ("Exactly two interfaces required")
+        exit
+
+    L_IDs = []
+    R_IDs = []
+
+    #Get residue IDs from comma-separated format 'A101,A102' etc.
+    for interface in interFaces:
+        if not L_IDs:
+            L_IDs = interface.split(',') 
+        else:
+            R_IDs = interface.split(',')
+
+    L_Chn_Resi_IDs = []
+    for l_id in L_IDs:
+        L_Chn_Resi_IDs.append(list(split_text(l_id)))
+
+    L_ChnID =set([item[0] for item in L_Chn_Resi_IDs])
+    if len(L_ChnID) != 1:
+        print ("Error: First interface has multiple chain IDs.")
     
+    chainID1 = L_ChnID.pop()
+ 
+    R_Chn_Resi_IDs = []
+    for r_id in R_IDs:
+        R_Chn_Resi_IDs.append(list(split_text(r_id)))
+    
+    R_ChnID =set([item[0] for item in R_Chn_Resi_IDs])
+    if len(R_ChnID) != 1:
+        print ("Error: First interface has multiple chain IDs.")
+
+    chainID2 = R_ChnID.pop()
+
     #Load structure from file
     structure = Structure.fromfile(args.structure)
 
-    sel_str = f"chain {chainID1}"
+    """     sel_str = f"chain {chainID1}"
     prot1 = structure.extract(sel_str)
 
     sel_str = f"chain {chainID2}"
     prot2 = structure.extract(sel_str)
-
+    """
     options = QFitRotamericResidueOptions()
 
     L_res = []
-    for chainID, resid in zip([chainID1, chainID2], [485, 72]):
-        resi = structure.extract(f'resi {resid} and chain {chainID}')
-        chain = resi[chainID]
-        conformer = chain.conformers[0]
-        conf_resi = conformer[int(resid)]
-        L_res.append (QFit_ppiResidueSampler(conf_resi, structure, options))
-
-    for res in L_res:
-        res.run()
-        #res1.tofile("485.pdb")
-        #res2.tofile("72.pdb")
-
-    conf1 = res1.get_conformers()
-    conf2 = res2.get_conformers()
-
-    print(len(conf1))
-    print(len(conf2))
-
-    #int i = (n * r) + c – ((r * (r+1)) / 2)
-
-    ee = np.empty((len(conf1),len(conf2)))
-    #print(ee)
+    R_res = []
+    for Chn_Resi_IDs in [L_Chn_Resi_IDs,R_Chn_Resi_IDs]:
+        for chainID, resid in Chn_Resi_IDs:
+            resi = structure.extract(f'resi {resid} and chain {chainID}')
+            print(chainID,resid)
+            chain = resi[chainID]
+            conformer = chain.conformers[0]
+            conf_resi = conformer[int(resid)]
+            if Chn_Resi_IDs == L_Chn_Resi_IDs:
+                L_res.append (QFit_ppiResidueSampler(conf_resi, structure, options))
+            else:
+                R_res.append (QFit_ppiResidueSampler(conf_resi, structure, options))
 
     E = QFit_FF()
 
-    for n1, c1 in enumerate(conf1, start=1):
-        for n2, c2 in enumerate(conf2, start=1):
-            ee[n1-1,n2-1] = E.calc_energy (c1,c2)
+    for lres in L_res:
+        lres.run()
+        lconf = lres.get_conformers()
+        print(len(lconf))
+        for rres in R_res:
+            rres.run()
+            rconf = rres.get_conformers()
+            print(len(rconf))
+            ee = np.empty((len(lconf),len(rconf)))
+            for n1, c1 in enumerate(lconf, start=1):
+                for n2, c2 in enumerate(rconf, start=1):
+                    ee[n1-1,n2-1] = E.calc_energy (c1,c2)
+            print(ee.min())
 
-    print(ee)
+        #res1.tofile("485.pdb")
+        #res2.tofile("72.pdb")
+
+    #int i = (n * r) + c – ((r * (r+1)) / 2)
+
+    
+    #print(ee)
+
+    
+
+ 
+    
