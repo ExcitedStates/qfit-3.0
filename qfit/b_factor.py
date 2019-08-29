@@ -180,7 +180,7 @@ class B_factor():
             B_factor.loc[n, 'Averaage_Bfactor'] = np.average(b_factor)
             n+=1
         #print(B_factor)
-        B_factor.to_csv(args.pdb_name+'_B_factors.csv', index=False)
+        B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)
 
 def main():
     args = parse_args()
