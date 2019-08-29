@@ -143,6 +143,7 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument("-cp", "--checkpoint", action="store_true",
                    help="Resume a run of qFit that has failed.")
+     p.add_argument("--pdb", help="Name of the input PDB.")
 
     args = p.parse_args()
     return args
@@ -182,6 +183,10 @@ class QFitProtein:
         self.options = options
 
     def run(self):
+        if not self.options.pdb==None:
+            self.pdb=self.options.pdb+'_'
+        else:
+            self.pdb=''
         multiconformer = self._run_qfit_residue()
         structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
         structure = structure.extract('e', 'H', '!=')
@@ -271,7 +276,7 @@ class QFitProtein:
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
-                             "multiconformer_model2.pdb")
+                             self.pdb + "multiconformer_model2.pdb")
         multiconformer.tofile(fname)
         return multiconformer
 
