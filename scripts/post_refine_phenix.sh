@@ -82,7 +82,8 @@ while [ $zeroes -gt 10 ]; do
      echo 'normalize occupanies did not work!'
      exit
   fi
-  mv ${pdb_name}_003_norm.pdb ${pdb_name}_002.pdb
+  remove_duplicates ${pdb_name}_003_norm.pdb
+  mv ${pdb_name}_003_norm.pdb.fixed ${pdb_name}_002.pdb
 done
 
 #__________________________________ADD HYDROGENS__________________________________
