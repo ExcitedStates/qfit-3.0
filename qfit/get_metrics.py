@@ -54,7 +54,7 @@ def main():
                         rmsd = conf1.rmsd(conf2)
                         tot_rmsd += rmsd
                         numlocs += 1
-                if numlocs > 0:
-		    print(resi,chainid,round(tot_rmsd/numlocs,2),len(altlocs))
+            if numlocs > 0:
+		print(resi,chainid,round(tot_rmsd/numlocs,2),len(altlocs))
         else:
             print(resi,chainid,0.0,len(altlocs))
