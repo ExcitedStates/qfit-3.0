@@ -143,7 +143,7 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument("-cp", "--checkpoint", action="store_true",
                    help="Resume a run of qFit that has failed.")
-     p.add_argument("--pdb", help="Name of the input PDB.")
+    p.add_argument("--pdb", help="Name of the input PDB.")
 
     args = p.parse_args()
     return args
