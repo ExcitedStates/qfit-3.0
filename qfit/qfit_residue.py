@@ -28,6 +28,7 @@ IN THE SOFTWARE.
 import argparse
 import logging
 import os
+from os import path
 import sys
 import time
 import numpy as np
@@ -152,7 +153,16 @@ def main():
         pass
     print_run_info(args)
     time0 = time.time()
-
+    
+    #Skip over if everything is completed
+    #try:
+    print(args.directory)
+    if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
+        print('This residue has completed')
+        exit()
+    else:
+        print('Beginning qfit_residue')
+     
     # Setup logger
     logging_fname = os.path.join(args.directory, 'qfit_residue.log')
     if args.debug:

@@ -4,7 +4,6 @@
 Excited States software: qFit 3.0
 Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
 Contact: vdbedem@stanford.edu
-
 How to run:
 b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 '''
