@@ -256,7 +256,7 @@ class _BaseQFit:
         # print("Target sum:", target_sum)
         # print("Model sum:", model_sum)
         # self._transformer.reset(full=True)
-        for n, coor in enumerate(self._coor_set):
+       for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
             if self.options.randomize_b:
@@ -1162,9 +1162,10 @@ class QFitLigand(_BaseQFit):
         # Initialize using the base qfit class
         super().__init__(ligand, receptor, xmap, options)
 
-        # This list will be used to combine coor_sets output for
+        # These lists will be used to combine coor_sets output for
         # each of the clusters that we sample:
         self._all_coor_set = []
+        self._all_bs = []
 
         # Populate useful attributes:
         self.ligand = ligand
@@ -1173,7 +1174,7 @@ class QFitLigand(_BaseQFit):
         self.options = options
         csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
-
+        self._bs = [self.ligand.b]
 
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=csf)
@@ -1195,6 +1196,7 @@ class QFitLigand(_BaseQFit):
             self._subtract_transformer(self.ligand, self.receptor)
         self._update_transformer(ligand)
         self._starting_coor_set = [ligand.coor.copy()]
+        self._starting_bs = [ligand.b.copy()]
 
     def run(self):
         for self._cluster_index, self._cluster in enumerate(
@@ -1206,6 +1208,7 @@ class QFitLigand(_BaseQFit):
             self.ligand._active[self.ligand._selection] = True
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
+            self._all_bs += self._bs
             logger.info("Number of conformers: {:}".format(len(self._coor_set)))
             logger.info("Number of final conformers: {:}".format(len(self._all_coor_set)))
         # Find consensus across roots:
@@ -1213,6 +1216,7 @@ class QFitLigand(_BaseQFit):
         self.ligand._q[self.ligand._selection] = 1.0
         self.ligand._active[self.ligand._selection] = True
         self._coor_set = self._all_coor_set
+        self._bs = self._all_bs
         if len(self._coor_set) < 1:
             print("[ERROR] qFit-ligand failed to produce a valid conformer.")
             exit()
@@ -1264,8 +1268,11 @@ class QFitLigand(_BaseQFit):
         self.ligand._active[selection] = True
         center = self.ligand.coor[self._cluster].mean(axis=0)
         new_coor_set = []
-        for coor in self._coor_set:
+        new_bs = []
+        print(self._bs)
+        for coor, b in zip(self._coor_set, self._bs):
             self.ligand._coor[selection] = coor
+            self.ligand._b[selection] = b
             rotator = GlobalRotator(self.ligand, center=center)
             for rotmat in RotationSets.get_local_set():
                 rotator(rotmat)
@@ -1286,15 +1293,19 @@ class QFitLigand(_BaseQFit):
                                     delta = np.array(new_coor_set)-np.array(new_coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                         new_coor_set.append(new_coor)
+                                        new_bs.append(b)
                                 else:
                                     new_coor_set.append(new_coor)
+                                    new_bs.append(b)
                         elif not self.ligand.clashes():
                             if new_coor_set:
                                 delta = np.array(new_coor_set)-np.array(new_coor)
                                 if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                     new_coor_set.append(new_coor)
+                                    new_bs.append(b)
                             else:
                                 new_coor_set.append(new_coor)
+                                new_bs.append(b)
         self.ligand._active[self.ligand._selection] = False
         selection = self.ligand._selection[self._cluster]
         self.ligand._active[selection] = True
@@ -1303,6 +1314,8 @@ class QFitLigand(_BaseQFit):
             self.ligand._active[atom_sel] = True
         self.conformer = self.ligand
         self._coor_set = new_coor_set
+        self._bs = new_bs
+        print(self._bs)
         if len(self._coor_set) < 1:
             print(f"{self.ligand.resn[0]}: Local search {self._cluster_index}: {len(self._coor_set)} conformers")
             return
@@ -1360,8 +1373,10 @@ class QFitLigand(_BaseQFit):
                 bond = bonds[bond_index]
                 atoms = [self.ligand.name[bond[0]], self.ligand.name[bond[1]]]
                 new_coor_set = []
-                for coor in self._coor_set:
+                new_bs = []
+                for coor, b in zip(self._coor_set, self._bs):
                     self.ligand._coor[selection] = coor
+                    self.ligand._b[selection] = b
                     rotator = BondRotator(self.ligand, *atoms)
                     for angle in sampling_range:
                         new_coor = rotator(angle)
@@ -1376,16 +1391,21 @@ class QFitLigand(_BaseQFit):
                                     delta = np.array(new_coor_set)-np.array(new_coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                         new_coor_set.append(new_coor)
+                                        new_bs.append(b)
                                 else:
                                     new_coor_set.append(new_coor)
+                                    new_bs.append(b)
                         elif not self.ligand.clashes():
                             if new_coor_set:
                                 delta = np.array(new_coor_set)-np.array(new_coor)
                                 if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                     new_coor_set.append(new_coor)
+                                    new_bs.append(b)
                             else:
                                 new_coor_set.append(new_coor)
+                                new_bs.append(b)
                 self._coor_set = new_coor_set
+                self._bs = new_bs
 
             self.ligand._active[selection] = False
             active = np.zeros_like(self.ligand.active, dtype=bool)
