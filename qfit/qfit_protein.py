@@ -172,6 +172,7 @@ class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
         self.verbose = True
         self.omit = False
         self.checkpoint = False
+        self.pdb = None
 
 
 class QFitProtein:
