@@ -256,7 +256,7 @@ class _BaseQFit:
         # print("Target sum:", target_sum)
         # print("Model sum:", model_sum)
         # self._transformer.reset(full=True)
-       for n, coor in enumerate(self._coor_set):
+        for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
             if self.options.randomize_b:
@@ -1689,6 +1689,7 @@ class QFitCovalentLigand(_BaseQFit):
                             self.options.sample_angle_range + 0.001,
                             self.options.sample_angle_step)
         new_coor_set = []
+        new_bs = []
         for coor in self._coor_set:
             self.covalent_residue.coor = coor
             rotator = CBAngleRotator(self.covalent_residue)
@@ -1706,7 +1707,10 @@ class QFitCovalentLigand(_BaseQFit):
                 elif self.covalent_residue.clashes():
                     continue
                 new_coor_set.append(self.covalent_residue.coor)
+                new_bs.append(self.conformer.b)
+
         self._coor_set = new_coor_set
+        self._bs = new_bs
         # print(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):
@@ -1725,6 +1729,10 @@ class QFitCovalentLigand(_BaseQFit):
         rotamers.append([self.covalent_residue.get_chi(i) for i in range(1,
                         self.covalent_residue.nchi + 1)])
         iteration = 0
+        new_bs = []
+        for b in self._bs:
+            new_bs.append(self._randomize_bs(b, ['N', 'CA', 'C', 'O', 'CB', 'H', 'HA']))
+        self._bs = new_bs
 
         while True:
             chis_to_sample = opt.dofs_per_iteration
@@ -1732,6 +1740,7 @@ class QFitCovalentLigand(_BaseQFit):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample,
                                 self.covalent_residue.nchi + 1)
+            iter_coor_set = []
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1741,6 +1750,7 @@ class QFitCovalentLigand(_BaseQFit):
                     deactivate = self.covalent_residue._rotamers['chi-rotate'][chi_index + 1]
                     selection = self.covalent_residue.select('name', deactivate)
                     self.covalent_residue._active[selection] = False
+                    bs_atoms = list(set(current) - set(deactivate))
                 if self.options.sample_ligand:
                     sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
                     if self.covalent_residue.icode[0]:
@@ -1754,10 +1764,12 @@ class QFitCovalentLigand(_BaseQFit):
                 self.covalent_residue.update_clash_mask()
 
                 new_coor_set = []
+                new_bs = []
                 n = 0
-                for coor in self._coor_set:
+                for coor, b in zip(self._coor_set, self._bs):
                     n += 1
                     self.covalent_residue.coor = coor
+                    self.covalent_residue.b = b
                     chis = [self.covalent_residue.get_chi(i) for i in range(
                             1, chi_index)]
                     sampled_rotamers = []
@@ -1785,6 +1797,7 @@ class QFitCovalentLigand(_BaseQFit):
                                                  length=partner_length)
 
                         for angle in sampling_window:
+                            n += 1
                             chi_rotator(angle)
                             atoms = self.covalent_residue.name
                             atom_selection = self.covalent_residue.select(
@@ -1801,17 +1814,22 @@ class QFitCovalentLigand(_BaseQFit):
                                         delta = np.array(new_coor_set)-np.array(coor)
                                         if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                             new_coor_set.append(coor)
+                                            new_bs.append(self._randomize_bs(b, bs_atoms))
                                     else:
                                         new_coor_set.append(coor)
+                                        new_bs.append(self._randomize_bs(b, bs_atoms))
                             elif self.covalent_residue.clashes() == 0:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set)-np.array(coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                         new_coor_set.append(coor)
+                                        new_bs.append(self._randomize_bs(b, bs_atoms))
                                 else:
                                     new_coor_set.append(coor)
+                                    new_bs.append(self._randomize_bs(b, bs_atoms))
 
                 self._coor_set = new_coor_set
+                self._bs = new_bs
 
             # print(("Side chain sampling produced {:d} conformers".format(len(self._coor_set))))
 
