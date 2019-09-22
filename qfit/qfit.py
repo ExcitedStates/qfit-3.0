@@ -1269,7 +1269,6 @@ class QFitLigand(_BaseQFit):
         center = self.ligand.coor[self._cluster].mean(axis=0)
         new_coor_set = []
         new_bs = []
-        print(self._bs)
         for coor, b in zip(self._coor_set, self._bs):
             self.ligand._coor[selection] = coor
             self.ligand._b[selection] = b
@@ -1315,7 +1314,6 @@ class QFitLigand(_BaseQFit):
         self.conformer = self.ligand
         self._coor_set = new_coor_set
         self._bs = new_bs
-        print(self._bs)
         if len(self._coor_set) < 1:
             print(f"{self.ligand.resn[0]}: Local search {self._cluster_index}: {len(self._coor_set)} conformers")
             return
@@ -1491,6 +1489,7 @@ class QFitCovalentLigandOptions(_BaseQFitOptions):
 class QFitCovalentLigand(_BaseQFit):
 
     def __init__(self, covalent_ligand, receptor, xmap, options):
+
         self.chain = covalent_ligand.chain[0]
         self.resi = covalent_ligand.resi[0]
         self.covalent_ligand = covalent_ligand
@@ -1751,6 +1750,8 @@ class QFitCovalentLigand(_BaseQFit):
                     selection = self.covalent_residue.select('name', deactivate)
                     self.covalent_residue._active[selection] = False
                     bs_atoms = list(set(current) - set(deactivate))
+                else:
+                    bs_atoms = self.covalent_residue._rotamers['chi-rotate'][chi_index]
                 if self.options.sample_ligand:
                     sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
                     if self.covalent_residue.icode[0]:
@@ -1887,13 +1888,19 @@ class QFitCovalentLigand(_BaseQFit):
         selection = self.covalent_residue.select(sel_str)
         self.covalent_residue._active[selection] = True
         self.covalent_ligand._active[selection] = True
+        bs_atoms = list(set(current))
         new_coor_set = []
-        for coor in self._coor_set:
+        new_bs = []
+        n = 0
+        for coor, b in zip(self._coor_set, self._bs):
+            n += 1
             self.covalent_residue.coor = coor
+            self.covalent_residue.b = b
             self.covalent_ligand.coor = coor[partner_length:]
             rotator = CovalentBondRotator(self.covalent_residue,
                                           self.covalent_ligand, *atoms)
             for angle in self._sampling_range:
+                n += 1
                 new_coor = np.concatenate((coor[:partner_length], rotator(angle)), axis=0)
                 if opt.remove_conformers_below_cutoff:
                     values = self.xmap.interpolate(new_coor[active])
@@ -1906,16 +1913,21 @@ class QFitCovalentLigand(_BaseQFit):
                             delta = np.array(new_coor_set)-np.array(new_coor)
                             if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                 new_coor_set.append(new_coor)
+                                new_bs.append(self._randomize_bs(b, bs_atoms))
                         else:
                             new_coor_set.append(new_coor)
+                            new_bs.append(self._randomize_bs(b, bs_atoms))
                 elif self.covalent_residue.clashes() == 0:
                     if new_coor_set:
                         delta = np.array(new_coor_set)-np.array(new_coor)
                         if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                             new_coor_set.append(new_coor)
+                            new_bs.append(self._randomize_bs(b, bs_atoms))
                     else:
                         new_coor_set.append(new_coor)
+                        new_bs.append(self._randomize_bs(b, bs_atoms))
         self._coor_set = new_coor_set
+        self._bs = new_bs
         self.conformer = self.covalent_residue
 
         if not self._coor_set:
