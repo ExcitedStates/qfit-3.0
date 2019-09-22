@@ -337,6 +337,7 @@ class QFitProtein:
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
+                    qfit._bs = [residue.b]
 
                 qfit.tofile()
 
