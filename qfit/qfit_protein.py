@@ -141,8 +141,6 @@ def parse_args():
                    help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
-    p.add_argument("-cp", "--checkpoint", action="store_true",
-                   help="Resume a run of qFit that has failed.")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
     args = p.parse_args()
@@ -298,8 +296,7 @@ class QFitProtein:
                     os.makedirs(options.directory)
                 except OSError:
                     pass
-                if options.checkpoint:
-                    fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+                fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
                     if os.path.exists(fname):
                         continue
                     else:
