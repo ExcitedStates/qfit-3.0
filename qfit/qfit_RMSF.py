@@ -193,7 +193,6 @@ class RMSF():
         rmsf['Chain'] = rmsf['Chain'].str.replace(']', '')
         rmsf['Chain'] = rmsf['Chain'].str.replace('\'', '')
         rmsf['PDB_name']=self.options.pdb
-        print(rmsf)
         rmsf.to_csv(self.pdb+'qfit_RMSF.csv')
 
 
@@ -204,12 +203,11 @@ def main():
     except OSError:
         pass
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder() #put H20 on the bottom
+    structure = Structure.fromfile(args.structure).reorder() #put HOH on the bottom
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
     R_options = RMSF_options()
     R_options.apply_command_args(args)
 
-    time0 = time.time()
     rmsf = RMSF(structure, R_options)
-    test = rmsf.run()
+    rmsf_run = rmsf.run()

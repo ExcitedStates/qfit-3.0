@@ -5,6 +5,7 @@ import os.path
 import os
 import sys
 import time
+import itertools
 from string import ascii_uppercase
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ from .scaler import MapScaler
 from .relabel import RelabellerOptions, Relabeller
 from .qfit import QFitRotamericResidueOptions
 from .structure.rotamers import ROTAMERS
+from .vdw_radii import vdwRadiiTable, EpsilonTable
+from itertools import groupby
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -40,6 +43,10 @@ def parse_args():
 
     return args
 
+def split_text(s):
+    for k, g in groupby(s, str.isalpha):
+        yield ''.join(g)
+
 """ for rotamer in resilist chainID1:
     for AA in AAlist chainID2:
         for rotamer in AA:
@@ -47,7 +54,7 @@ def parse_args():
             compute pairwise energies
  """
 
-class QFit_ppiDesignResidue():
+class QFit_ppiResidueSampler():
 
     def __init__(self, residue, structure, options):
         self.chain = residue.chain[0]
@@ -107,8 +114,6 @@ class QFit_ppiDesignResidue():
     def run(self):
         if self.options.sample_backbone:
             self._sample_backbone()
-        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0] != 'GLY':
-            self._sample_angle()
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
 
@@ -128,6 +133,53 @@ class QFit_ppiDesignResidue():
                     new_coor_set.append(self.residue.coor)
         self._coor_set = new_coor_set
 
+    def _sample_backbone(self):
+        # Check if residue has enough neighboring residues
+        index = self.segment.find(self.residue.id)
+        # active = self.residue.active
+        nn = self.options.neighbor_residues_required
+        if index < nn or index + nn > len(self.segment):
+            return
+        segment = self.segment[index - nn: index + nn + 1]
+        atom_name = "CB"
+        if self.residue.resn[0] == "GLY":
+            atom_name = "O"
+        atom = self.residue.extract('name', atom_name)
+        directions = np.identity(3)
+
+        for n, residue in enumerate(self.segment.residues[::-1]):
+            for backbone_atom in ['N', 'CA', 'C', 'O']:
+                if backbone_atom not in residue.name:
+                    print(f"[WARNING] Missing backbone atom for residue "
+                          f"{residue.resi[0]} of chain {residue.chain[0]}.\n"
+                          f"Skipping backbone sampling for residue "
+                          f"{self.residue.resi[0]} of chain {residue.chain[0]}.")
+                    self._coor_set.append(self.segment[index].coor)
+                    return
+
+        optimizer = NullSpaceOptimizer(segment)
+
+        start_coor = atom.coor[0]
+        torsion_solutions = []
+        amplitudes = np.arange(0.1, self.options.sample_backbone_amplitude + 0.01,
+                                 self.options.sample_backbone_step)
+        sigma = self.options.sample_backbone_sigma
+        for amplitude, direction in itertools.product(amplitudes, directions):
+            endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
+            optimize_result = optimizer.optimize(atom_name, endpoint)
+            torsion_solutions.append(optimize_result['x'])
+
+            endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
+            optimize_result = optimizer.optimize(atom_name, endpoint)
+            torsion_solutions.append(optimize_result['x'])
+        starting_coor = segment.coor
+
+        for solution in torsion_solutions:
+            optimizer.rotator(solution)
+            self._coor_set.append(self.segment[index].coor)
+            segment.coor = starting_coor
+        # print(f"\nBackbone sampling generated {len(self._coor_set)} conformers.\n"        
+
     def get_conformers(self):
         conformers = []
         for coor in self._coor_set:
@@ -138,10 +190,10 @@ class QFit_ppiDesignResidue():
             conformers.append(conformer)
         return conformers
 
-    def tofile(self):
+    def tofile(self, fn):
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
-            fname = os.path.join(self.options.directory, f'conformer_{n}.pdb')
+            fname = os.path.join(self.options.directory, f'{fn}_{n}.pdb')
             conformer.tofile(fname)
         # Make a multiconformer residue
         nconformers = len(conformers)
@@ -160,11 +212,11 @@ class QFit_ppiDesignResidue():
 
         mc_residue = mc_residue.reorder()
         fname = os.path.join(self.options.directory,
-                             f"multiconformer_residue.pdb")
+                             fn)
         mc_residue.tofile(fname)
 
 class QFit_FF():
-   def initMetric(self):
+    def initMetric(self):
         # print("Calculating all possible Van der Waals interactions:")
         for i in range(len(self.nodes)):
             for j in range(i+1,len(self.nodes)):
@@ -173,14 +225,13 @@ class QFit_FF():
                     self.metric[j][i] = self.metric[i][j]
             # update_progress(i/len(self.nodes))
 
-
     def vdw_energy(self,atom1, atom2, coor1, coor2):
         e = EpsilonTable[atom1][atom2]
         s = (vdwRadiiTable[atom1]+vdwRadiiTable[atom2]) / 1.122
         r = np.linalg.norm(coor1 - coor2)
         return 4 * e * (np.power(s/r, 12) - np.power(s/r, 6))
-
-    def calc_energy(self, node1, node2):
+ 
+    def calc_energy(self,node1, node2):
         energy = 0.0
         if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 16.0:
             for name1,ele1,coor1 in zip(node1.name,node1.e,node1.coor):
@@ -193,36 +244,92 @@ def main():
     args = parse_args()
 
     #Extract chains from command line options
-    chainID1, chainID2 = args.selection.split(',')
+    interFaces = args.selection.split('-')
+
+    if len(interFaces) != 2:
+        print ("Exactly two interfaces required")
+        exit
+
+    L_IDs = []
+    R_IDs = []
+
+    #Get residue IDs from comma-separated format 'A101,A102' etc.
+    for interface in interFaces:
+        if not L_IDs:
+            L_IDs = interface.split(',') 
+        else:
+            R_IDs = interface.split(',')
+
+    L_Chn_Resi_IDs = []
+    for l_id in L_IDs:
+        L_Chn_Resi_IDs.append(list(split_text(l_id)))
+
+    L_ChnID =set([item[0] for item in L_Chn_Resi_IDs])
+    if len(L_ChnID) != 1:
+        print ("Error: First interface has multiple chain IDs.")
     
+    chainID1 = L_ChnID.pop()
+ 
+    R_Chn_Resi_IDs = []
+    for r_id in R_IDs:
+        R_Chn_Resi_IDs.append(list(split_text(r_id)))
+    
+    R_ChnID =set([item[0] for item in R_Chn_Resi_IDs])
+    if len(R_ChnID) != 1:
+        print ("Error: First interface has multiple chain IDs.")
+
+    chainID2 = R_ChnID.pop()
+
     #Load structure from file
     structure = Structure.fromfile(args.structure)
 
-    sel_str = f"chain {chainID1}"
+    """     sel_str = f"chain {chainID1}"
     prot1 = structure.extract(sel_str)
 
     sel_str = f"chain {chainID2}"
     prot2 = structure.extract(sel_str)
-
+    """
     options = QFitRotamericResidueOptions()
 
-    # Get first residue
-    resid = 181
-    resi = structure.extract(f'resi {resid} and chain {chainID1}')
-    chain1 = resi[chainID1]
-    conformer1 = chain1.conformers[0]
-    conf_resi = conformer1[int(resid)]
-    res1 = QFit_ppiDesignResidue(conf_resi, structure, options)
+    L_res = []
+    R_res = []
+    for Chn_Resi_IDs in [L_Chn_Resi_IDs,R_Chn_Resi_IDs]:
+        for chainID, resid in Chn_Resi_IDs:
+            resi = structure.extract(f'resi {resid} and chain {chainID}')
+            print(chainID,resid)
+            chain = resi[chainID]
+            conformer = chain.conformers[0]
+            conf_resi = conformer[int(resid)]
+            if Chn_Resi_IDs == L_Chn_Resi_IDs:
+                L_res.append (QFit_ppiResidueSampler(conf_resi, structure, options))
+            else:
+                R_res.append (QFit_ppiResidueSampler(conf_resi, structure, options))
 
-    # Get second residue
-    resid = 142
-    resi = structure.extract(f'resi {resid} and chain {chainID2}')
-    chain2 = resi[chainID2]
-    conformer2 = chain2.conformers[0]
-    conf_resi = conformer2[int(resid)]
-    res2 = QFit_ppiDesignResidue(conf_resi, structure, options)
+    E = QFit_FF()
+
+    for lres in L_res:
+        lres.run()
+        lconf = lres.get_conformers()
+        print(len(lconf))
+        for rres in R_res:
+            rres.run()
+            rconf = rres.get_conformers()
+            print(len(rconf))
+            ee = np.empty((len(lconf),len(rconf)))
+            for n1, c1 in enumerate(lconf, start=1):
+                for n2, c2 in enumerate(rconf, start=1):
+                    ee[n1-1,n2-1] = E.calc_energy (c1,c2)
+            print(ee.min())
+
+        #res1.tofile("485.pdb")
+        #res2.tofile("72.pdb")
+
+    #int i = (n * r) + c – ((r * (r+1)) / 2)
+
     
+    #print(ee)
+
     
-    res1._sample_sidechain()
-    res2._sample_sidechain()
-    #qfit.tofile()
+
+ 
+    

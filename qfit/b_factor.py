@@ -4,6 +4,8 @@
 Excited States software: qFit 3.0
 Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
 Contact: vdbedem@stanford.edu
+How to run:
+b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 '''
 
 import pkg_resources  # part of setuptools
@@ -147,37 +149,28 @@ class B_factor():
         n=0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
-            print('select 2:')
-            print(select2)
             residues = set(list(select2.resi))
             residue_ids = []
             for i in residues:
-                print(i)
                 tmp_i = str(i)
                 if ':' in tmp_i:
                     resi = int(tmp_i.split(':')[1][1:])
                 else:
                     resi = tmp_i
-                print(resi)
                 residue_ids.append(resi)
         n=1
         for id in residue_ids:
-            print(id)
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
-            print(res_tmp)
             #is this going to give us the alternative coordinate for everything?
             resn_name = (np.array2string(np.unique(res_tmp.resi)), np.array2string(np.unique(res_tmp.resn)),np.array2string(np.unique(res_tmp.chain)))
-            #print(resn_name)
             b_factor = res_tmp.b
-            #print(type(b_factor))
             B_factor.loc[n,'resseq'] = resn_name[0]
             B_factor.loc[n,'AA'] = resn_name[1]
             B_factor.loc[n,'Chain'] = resn_name[2]
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
             B_factor.loc[n, 'Averaage_Bfactor'] = np.average(b_factor)
             n+=1
-        #print(B_factor)
-        B_factor.to_csv(args.pdb_name+'_B_factors.csv', index=False)
+        B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
 
 def main():
     args = parse_args()
@@ -193,21 +186,4 @@ def main():
     B_options.apply_command_args(args)
     time0 = time.time()
     b_factor = B_factor(structure, B_options)
-    test = b_factor.run()
-
-
-
-'''
-for model in Bio.PDB.PDBParser().get_structure(args.pdb_name, args.pdb):
-    for chain in model.get_list():
-        for residue in chain.get_list():
-            for atom in residue.get_list():
-                model_number.append(model)
-                atom_name.append(atom.get_name())
-                chain_ser.append(chain.get_id())
-                residue_name.append(str(residue)[9:13])
-                #print(str(residue)[9:13])
-                residue_num.append(residue.get_full_id()[3][1])
-                b_factor.append(atom.get_bfactor())
-                n=+1
-'''
+    done = b_factor.run()

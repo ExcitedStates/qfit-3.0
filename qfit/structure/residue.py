@@ -31,7 +31,6 @@ from .math import *
 from .rotamers import ROTAMERS
 import time
 
-
 _PROTEIN_BACKBONE_ATOMS = ['N', 'CA', 'C']
 _NUCLEOTIDE_BACKBONE_ATOMS = ['P', "O5'", "C5'", "C4'", "C3'", "O3"]
 _SOLVENTS = ['HOH']
@@ -354,7 +353,6 @@ class _RotamerResidue(_BaseResidue):
                 setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
                                                   element))
             elif attr == "atomid":
-
                 setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
                                                   index+1))
             elif attr == "name":
