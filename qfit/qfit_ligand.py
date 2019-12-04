@@ -259,7 +259,7 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
