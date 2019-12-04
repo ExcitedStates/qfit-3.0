@@ -125,6 +125,7 @@ def parse_args():
             help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
+    p.add_argument("--pdb", help="Name of the input PDB.")
     args = p.parse_args()
 
     return args
@@ -136,6 +137,10 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
+    if not args.pdb==None:
+        pdb_id=args.pdb + '_'
+    else:
+       pdb_id=''
     print_run_info(args)
     time0 = time.time()
 
@@ -256,7 +261,7 @@ def main():
             multiconformer = Structure.fromstructurelike(conformer.copy())
     fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
-        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+        fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
 
     m, s = divmod(time.time() - time0, 60)
