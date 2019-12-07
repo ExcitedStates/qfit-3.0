@@ -43,17 +43,21 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+    p.add_argument("pdb_name", type=str, help="name of PDB.")
     args = p.parse_args()
     return args
 
 def main():
     args = parse_args()
-
+    if not args.pdb_name==None:
+            pdb_name=args.pdb_name+'_'
+    else:
+            pdb_name=''
     try:
         structure = Structure.fromfile(args.structure)
     except:
         return
-
+    alt_loc = pd.DataFrame()
     ligands = structure.extract('record', 'HETATM')
     receptor = structure.extract('record', 'ATOM')
     receptor = receptor.extract('resn', 'HOH', '!=')
@@ -93,5 +97,16 @@ def main():
                 else:
                     near_homo += 1
             near_total = near_homo + near_hetero
-            print(args.structure, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total)
+            n=1
+            alt_loc.loc[n,'PDB'] = args.structure
+            alt_loc.loc[n,'ligand'] = ligand_name
+            alt_loc.loc[n,'Num_Single_Conf'] = homo
+            alt_loc.loc[n,'Num_Multi_Conf'] = hetero
+            alt_loc.loc[n, 'Total_Residues'] = total
+            alt_loc.loc[n, 'Num_Single_Conf_Near_Ligand'] = near_homo
+            alt_loc.loc[n, 'Num_Multi_Conf_Near_Ligand'] = near_hetero
+            alt_loc.loc[n, 'Total_Residues_Near_Ligand'] = near_total
+            n+=1
+    alt_loc.to_csv(args.structure + '_Alt_Loc.csv', index=False)
+    print(args.structure, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total)
 
