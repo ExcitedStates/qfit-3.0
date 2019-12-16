@@ -297,10 +297,10 @@ class QFitProtein:
                 except OSError:
                     pass
                 fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
-                    if os.path.exists(fname):
-                        continue
-                    else:
-                        print(f"{identifier} {residue.resn[0]}")
+                if os.path.exists(fname):
+                    continue
+                else:
+                    print(f"{identifier} {residue.resn[0]}")
 
                 structure_new = copy.deepcopy(structure)
                 structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
