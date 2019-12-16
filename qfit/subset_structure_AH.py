@@ -75,8 +75,8 @@ class QFitMultiResidue:
         self.close_atoms_chain_apo = None
         self.close_hetatoms_apo = None
         self.options = options #user input
-    
-     def run(self):
+
+    def run(self):
         if not self.options.pdb_holo==None:
             self.pdb_holo=self.options.pdb_holo + '_'
         else:
@@ -113,7 +113,7 @@ class QFitMultiResidue:
         #print(self.lig_center)
         return lig_structure
 
-   def select_close_ligands(self):
+    def select_close_ligands(self):
         self.hetatoms_apo = self.apo_structure.extract('record', 'HETATOM', '==')
         dist_apo=np.linalg.norm(self.hetatoms_apo.coor[:][:]-self.lig_center, axis=1)
         mask_apo = dist_apo < 10.0#self.options.distance
@@ -131,7 +131,7 @@ class QFitMultiResidue:
                     self.close_hetatoms_apo = self.hetatoms_apo.extract(f'chain {chain} and resi {residue}')
         return self.close_hetatoms_apo
         
-   def select_close_residues(self):
+    def select_close_residues(self):
         self.atoms_holo = self.holo_structure.extract('record', 'ATOM', '==')
         self.atoms_apo = self.apo_structure.extract('record', 'ATOM', '==')
         dist_holo=np.linalg.norm(self.atoms_holo.coor[:][:]-self.lig_center, axis=1)
