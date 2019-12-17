@@ -38,7 +38,7 @@ from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver, QPSolver2, MIQPSolver2
+from .solvers import QPSolver, MIQPSolver
 from .structure import Structure, _Segment
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
@@ -276,18 +276,12 @@ class _BaseQFit:
                loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
         do_qp = cardinality is threshold is None
         if do_qp:
-            if self.options.cplex:
-                solver = QPSolver(self._target, self._models)
-            else:
-                solver = QPSolver2(self._target, self._models)
+            solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
             solver()
             if self.options.bic_threshold:
                 self._occupancies = solver.weights
         else:
-            if self.options.cplex:
-                solver = MIQPSolver(self._target, self._models)
-            else:
-                solver = MIQPSolver2(self._target, self._models)
+            solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
 
             # Treshold Selection by BIC:
             if self.options.bic_threshold:

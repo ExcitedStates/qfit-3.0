@@ -26,24 +26,46 @@ IN THE SOFTWARE.
 import numpy as np
 from scipy import sparse
 
+# Try load solver sets
 try:
     import osqp
     import miosqp
-    OSQP = True
 except ImportError:
     OSQP = False
+else:
+    OSQP = True
 
 try:
     import cvxopt
     import cplex
-    CPLEX = True
 except ImportError:
     CPLEX = False
+else:
+    CPLEX = True
 
 
+# Only these classes should be "public"
+__all__ = ['QPSolver', 'MIQPSolver']
 
+
+# Define the required functions for (MI)QP solver objects
+class _Base_QPSolver(object):
+    """Base class for Quadratic Programming solvers.
+
+    Declares required interface functions for child classes to overwrite."""
+
+    def initialise(self):
+        raise NotImplementedError
+
+    def __call__(self):
+        raise NotImplementedError
+
+
+# If we can load the OSQP solver set,
+# provide class definitions for a QP and MIQP solver.
 if OSQP:
-    class QPSolver2:
+    class OSQP_QPSolver(_Base_QPSolver):
+        """Quadratic Programming solver based on OSQP."""
 
         OSQP_SETTINGS = {
             'eps_abs': 1e-06,
@@ -95,8 +117,8 @@ if OSQP:
             self.weights = np.asarray(result.x).ravel()
             self.obj_value = 2 * result.info.obj_val + np.inner(self.target, self.target)
 
-
-    class MIQPSolver2:
+    class OSQP_MIQPSolver(_Base_QPSolver):
+        """Mixed-Integer Quadratic Programming solver based on OSQP."""
 
         MIOSQP_SETTINGS = {
             # integer feasibility tolerance
@@ -232,14 +254,16 @@ if OSQP:
             #print('rho2:', np.inner(self.target, self.target))
 
 
+# If we can load the CPLEX solver set,
+# provide class definitions for a QP and MIQP solver.
 if CPLEX:
     cvxopt.solvers.options['show_progress'] = False
     cvxopt.solvers.options['abstol'] = 1e-8
     cvxopt.solvers.options['reltol'] = 1e-7
     cvxopt.solvers.options['feastol'] = 1e-8
 
-
-    class QPSolver:
+    class CPLEX_QPSolver(_Base_QPSolver):
+        """Quadratic Programming solver based on CPLEX."""
 
         def __init__(self, target, models):
             self._target = target
@@ -251,7 +275,6 @@ if CPLEX:
             self.weights = None
 
         def initialize(self):
-
             # Set up the matrices and restraints
             self._quad_obj = cvxopt.matrix(0, (self._nconformers, self._nconformers), tc='d')
             self._lin_obj = cvxopt.matrix(self._nconformers * [0], tc='d')
@@ -287,10 +310,8 @@ if CPLEX:
             self.obj_value = 2 * self._solution['primal objective'] + np.inner(self._target, self._target)
             self.weights = np.asarray(self._solution['x']).ravel()
 
-
-    class MIQPSolver:
-
-        """Mixed Integer Quadratic Program based on CPLEX."""
+    class CPLEX_MIQPSolver(_Base_QPSolver):
+        """Mixed-Integer Quadratic Programming solver based on CPLEX."""
 
         def __init__(self, target, models, threads=1):
             self._target = target
@@ -399,3 +420,77 @@ if CPLEX:
             #print("calculated myself OBJ:", obj)
             #print('from solver OBJ:', self.obj_value)
             #print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
+
+
+# Create a "pseudo-class" to abstract the choice of solver.
+class QPSolver(object):
+    def __new__(cls, *args, **kwargs):
+        """Return a constructor for the appropriate solver."""
+
+        # Default to using cplex if not specified.
+        use_cplex = kwargs.pop("use_cplex", True)
+
+        # Walk through solver decision tree.
+        if use_cplex:
+            if CPLEX:
+                return CPLEX_QPSolver(*args, **kwargs)
+            elif OSQP:
+                print("WARNING: CPLEX solver requested, but only OSQP solvers found.\n"
+                      "         Using OSQP solver as fallback.")
+                return OSQP_QPSolver(*args, **kwargs)
+            else:
+                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
+                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+        else:
+            if OSQP:
+                return OSQP_QPSolver(*args, **kwargs)
+            elif CPLEX:
+                print("WARNING: OSQP solver requested, but only CPLEX solvers found.\n"
+                      "         Using CPLEX solver as fallback.")
+                return CPLEX_QPSolver(*args, **kwargs)
+            else:
+                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
+                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+
+    def __init__(self, *args, **kwargs):
+        # This pseudo-class does not generate class instances.
+        # As there are no instances of this class,
+        #   it does not need an instance initialiser.
+        raise NotImplementedError
+
+
+# Create a "pseudo-class" to abstract the choice of solver.
+class MIQPSolver(object):
+    def __new__(cls, *args, **kwargs):
+        """Construct an initialised instance of the appropriate solver."""
+
+        # Default to using cplex if not specified.
+        use_cplex = kwargs.pop("use_cplex", True)
+
+        # Walk through solver decision tree.
+        if use_cplex:
+            if CPLEX:
+                return CPLEX_MIQPSolver(*args, **kwargs)
+            elif OSQP:
+                print("WARNING: CPLEX solver requested, but only OSQP solvers found.\n"
+                      "         Using OSQP solver as fallback.")
+                return OSQP_MIQPSolver(*args, **kwargs)
+            else:
+                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
+                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+        else:
+            if OSQP:
+                return OSQP_MIQPSolver(*args, **kwargs)
+            elif CPLEX:
+                print("WARNING: OSQP solver requested, but only CPLEX solvers found.\n"
+                      "         Using CPLEX solver as fallback.")
+                return CPLEX_MIQPSolver(*args, **kwargs)
+            else:
+                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
+                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+
+    def __init__(self, *args, **kwargs):
+        # This pseudo-class does not generate class instances.
+        # As there are no instances of this class,
+        #   it does not need an instance initialiser.
+        raise NotImplementedError
