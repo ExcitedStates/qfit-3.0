@@ -165,22 +165,6 @@ def build_argparser():
     return p
 
 
-class _Counter:
-    """Thread-safe counter object to follow progress"""
-
-    def __init__(self):
-        self.val = mp.RawValue('i', 0)
-        self.lock = mp.Lock()
-
-    def increment(self):
-        with self.lock:
-            self.val.value += 1
-
-    def value(self):
-        with self.lock:
-            return self.val.value
-
-
 class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
     def __init__(self):
         super().__init__()
@@ -209,47 +193,36 @@ class QFitProtein:
         return multiconformer
 
     def _run_qfit_residue(self):
-        """Run qfit on each residue separately."""
-        processes = []
+        """Run qfit independently over all residues."""
+        # This function hands out the job in parallel to a Pool of Workers.
+        # We will use the default method to create our Workers.
+        ctx = mp.get_context(method=None)
+
+        # Print execution stats
         residues = list(self.structure.single_conformer_residues)
-        nresidues = len(residues)
-        print(f"RESIDUES: {nresidues}")
-        nproc = min(self.options.nproc, nresidues)
-        nresidues_per_job = int(ceil(nresidues / nproc))
-        counter = _Counter()
-        for n in range(nproc):
-            init_residue = n * nresidues_per_job
-            end_residue = min(init_residue + nresidues_per_job, nresidues)
-            residues_to_qfit = residues[init_residue: end_residue]
-            args = (residues_to_qfit, self.structure, self.xmap, self.options)
-            process = mp.Process(target=self._run_qfit_instance, args=args)
-            processes.append(process)
+        print(f"RESIDUES: {len(residues)}")
+        print(f"NPROC: {self.options.nproc}")
 
-        for p in processes:
-            p.start()
+        # Launch a Pool and run Jobs
+        # Here, we calculate alternate conformers for individual residues.
+        with ctx.Pool(processes=self.options.nproc) as pool:
+            futures = [pool.apply_async(QFitProtein._run_qfit_instance,
+                                        kwds={'residue': residue,
+                                              'structure': self.structure,
+                                              'xmap': self.xmap,
+                                              'options': self.options})
+                       for residue in residues]
 
-        # Update on progress
-        if self.options.verbose and sys.stdout.isatty():
-            line = '{n} / {total}  time passed: {passed:.0f}s        \r'
-            time0 = time.time()
-            while True:
-                n = counter.value()
-                time_passed = time.time() - time0
-                msg = line.format(n=n, total=nresidues, passed=time_passed)
-                sys.stdout.write(msg)
-                sys.stdout.flush()
-                if n >= nresidues:
-                    sys.stdout.write('\n')
-                    break
-                time.sleep(0.5)
+            # Make sure all jobs are finished
+            for f in futures:
+                f.wait()
 
-        for p in processes:
-            p.join()
-
+        # Extract non-protein atoms
         hetatms = self.structure.extract('record', 'HETATM', '==')
         waters = self.structure.extract('record', 'ATOM', '==')
         waters = waters.extract('resn', 'HOH', '==')
         hetatms = hetatms.combine(waters)
+
         # Combine all multiconformer residues into one structure
         for residue in residues:
             if residue.resn[0] not in ROTAMERS:
