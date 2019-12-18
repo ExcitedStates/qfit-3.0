@@ -46,6 +46,7 @@ def main():
         'numpy>=1.14',
         'scipy>=1.00',
         'pyparsing>=2.2.0',
+        'tqdm>=4.0.0',
     ]
 
     setup(name="qfit",

@@ -28,6 +28,7 @@ from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
 import multiprocessing as mp
+from tqdm import tqdm
 import os.path
 import os
 import sys
@@ -207,6 +208,23 @@ class QFitProtein:
         print(f"RESIDUES: {len(residues)}")
         print(f"NPROC: {self.options.nproc}")
 
+        # Initialise progress bar
+        progress = tqdm(total=len(residues),
+                        unit="residue",
+                        unit_scale=True,
+                        leave=True,
+                        miniters=1)
+
+        # Define callbacks and error callbacks to be attached to Jobs
+        def _cb(result):
+            progress.update()
+            if result:
+                progress.write(result)
+
+        def _error_cb(e):
+            progress.update()
+            raise e
+
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
         with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
@@ -214,12 +232,17 @@ class QFitProtein:
                                         kwds={'residue': residue,
                                               'structure': self.structure,
                                               'xmap': self.xmap,
-                                              'options': self.options})
+                                              'options': self.options},
+                                        callback=_cb,
+                                        error_callback=_error_cb)
                        for residue in residues]
 
             # Make sure all jobs are finished
             for f in futures:
                 f.wait()
+
+        # Close the progressbar
+        progress.close()
 
         # Extract non-protein atoms
         hetatms = self.structure.extract('record', 'HETATM', '==')
