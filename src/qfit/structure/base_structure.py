@@ -179,7 +179,7 @@ class _BaseStructure:
         mask = np.zeros(self.natoms, bool)
         for value in values:
             mask2 = comparison(data, value)
-            np.logical_or(mask, mask2, mask)
+            np.logical_or(mask, mask2, out=mask)
         if comparison_str == '!=':
             np.logical_not(mask, out=mask)
         if self._selection is None:
