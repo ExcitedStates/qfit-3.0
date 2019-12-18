@@ -279,6 +279,37 @@ class QFitProtein:
         if residue.type != 'rotamer-residue':
             return
 
+        # `residue` objects pickled and passed to subprocesses do not contain
+        #     attributes wrapped by @_structure_properties (WHY?).
+        # This includes:
+        #     (record, atomid, name, altloc, resn, chain, resi, icode,
+        #      q, b, e, charge, coor, active, u00, u11, u22, u01, u02, u12)
+        # These `residue` objects are also missing attributes wrapped by @property:
+        #     (covalent_radius, vdw_radius)
+        # Normally, these methods would be attached by __init__ of the
+        #     qfit.structure.base_structure._BaseStructure class.
+        # Here, we make sure to attach methods for residue @_structure_properties.
+        # We do not bother to attach covalent_radius and vdw_radius.
+        for attr, array in residue.data.items():
+            hattr = '_' + attr
+            setattr(residue, hattr, array)
+            prop = residue._structure_property(hattr)
+            setattr(residue.__class__, attr, prop)
+        for attr in 'xyz':
+            hattr = '_' + attr
+            prop = residue._structure_property(hattr)
+            setattr(residue.__class__, attr, prop)
+
+        for attr, array in structure.data.items():
+            hattr = '_' + attr
+            setattr(structure, hattr, array)
+            prop = structure._structure_property(hattr)
+            setattr(structure.__class__, attr, prop)
+        for attr in 'xyz':
+            hattr = '_' + attr
+            prop = structure._structure_property(hattr)
+            setattr(structure.__class__, attr, prop)
+
         # We don't want this subprocess to be verbose
         options.verbose = False
 
