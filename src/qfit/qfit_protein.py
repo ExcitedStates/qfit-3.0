@@ -221,8 +221,7 @@ class QFitProtein:
             init_residue = n * nresidues_per_job
             end_residue = min(init_residue + nresidues_per_job, nresidues)
             residues_to_qfit = residues[init_residue: end_residue]
-            args = (residues_to_qfit, self.structure, self.xmap,
-                    self.options, counter)
+            args = (residues_to_qfit, self.structure, self.xmap, self.options)
             process = mp.Process(target=self._run_qfit_instance, args=args)
             processes.append(process)
 
@@ -296,80 +295,86 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_instance(residues, structure, xmap, options, counter):
+    def _run_qfit_instance(residue, structure, xmap, options):
+        """Run qfit on a single residue to determine density-supported conformers."""
+
+        # Don't run qfit if we have a ligand or water
+        if residue.type != 'rotamer-residue':
+            return
+
+        # We don't want this subprocess to be verbose
         options.verbose = False
+
+        # Build the residue results directory
+        chainid = residue.chain[0]
+        resi, icode = residue.id
+        identifier = f"{chainid}_{resi}"
+        if icode:
+            identifier += f'_{icode}'
         base_directory = options.directory
-        base_density = xmap.array.copy()
-        for residue in residues:
-            if residue.type == 'rotamer-residue':
-                chainid = residue.chain[0]
-                resi, icode = residue.id
-                identifier = f"{chainid}_{resi}"
-                if icode:
-                    identifier += f'_{icode}'
-                options.directory = os.path.join(base_directory, identifier)
-                try:
-                    os.makedirs(options.directory)
-                except OSError:
-                    pass
-                fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
-                if os.path.exists(fname):
-                    continue
-                else:
-                    print(f"{identifier} {residue.resn[0]}")
+        options.directory = os.path.join(base_directory, identifier)
+        try:
+            os.makedirs(options.directory)
+        except OSError:
+            pass
 
-                structure_new = copy.deepcopy(structure)
-                structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
-                if icode:
-                    structure_resi = structure_resi.extract('icode', icode)
-                chain = structure_resi[chainid]
-                conformer = chain.conformers[0]
-                residue = conformer[residue.id]
-                altlocs = sorted(list(set(residue.altloc)))
-                if len(altlocs) > 1:
-                    try:
-                        altlocs.remove('')
-                    except ValueError:
-                        pass
-                    for altloc in altlocs[1:]:
-                        sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                        sel_str = f"not ({sel_str})"
-                        structure_new = structure_new.extract(sel_str)
+        # Exit early if we have already run qfit for this residue
+        fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+        if os.path.exists(fname):
+            return
 
-                xmap.array = copy.deepcopy(base_density)
-                xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
-
-                # Exception handling in case qFit-residue fails:
-                try:
-                    qfit = QFitRotamericResidue(residue, structure_new,
-                                                xmap_reduced, options)
-                    qfit.run()
-                except RuntimeError:
-                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
-                    print(f"Using deposited conformer A for this residue.")
-                    qfit.conformer = residue.copy()
-                    qfit._occupancies = [residue.q]
-                    qfit._coor_set = [residue.coor]
-                    qfit._bs = [residue.b]
-
-                qfit.tofile()
-
-                # Freeing up some memory to avoid memory issues:
-                del structure_new
-                del xmap.array
-                del xmap_reduced
-                del qfit
-                # structure_new = None
-                # xmap.array = None
-                # xmap_reduced = None
-                # qfit = None
-
-                gc.collect()
-            else:
-                # This is the case where the residue is either a ligand
-                # or water
+        # Copy the structure
+        structure_new = copy.deepcopy(structure)
+        structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+        if icode:
+            structure_resi = structure_resi.extract('icode', icode)
+        chain = structure_resi[chainid]
+        conformer = chain.conformers[0]
+        residue = conformer[residue.id]
+        altlocs = sorted(list(set(residue.altloc)))
+        if len(altlocs) > 1:
+            try:
+                altlocs.remove('')
+            except ValueError:
                 pass
-            counter.increment()
+            for altloc in altlocs[1:]:
+                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                sel_str = f"not ({sel_str})"
+                structure_new = structure_new.extract(sel_str)
+
+        # Copy the map
+        base_density = xmap.array.copy()
+        xmap.array = copy.deepcopy(base_density)
+        xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
+
+        # Exception handling in case qFit-residue fails:
+        qfit = QFitRotamericResidue(residue, structure_new,
+                                    xmap_reduced, options)
+        try:
+            qfit.run()
+        except RuntimeError:
+            print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
+            print(f"Using deposited conformer A for this residue.")
+            qfit.conformer = residue.copy()
+            qfit._occupancies = [residue.q]
+            qfit._coor_set = [residue.coor]
+            qfit._bs = [residue.b]
+
+        # Save multiconformer_residue
+        qfit.tofile()
+
+        # How many conformers were found?
+        n_conformers = len(qfit.get_conformers())
+
+        # Freeing up some memory to avoid memory issues:
+        del structure_new
+        del xmap.array
+        del xmap_reduced
+        del qfit
+        gc.collect()
+
+        # Return a string about the residue that was completed.
+        return f"{identifier} {residue.resn[0]}: {n_conformers} conformers"
 
 
 def prepare_qfit_protein(options):
