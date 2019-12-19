@@ -13,17 +13,14 @@ from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
 from .qfit_protein import QFitProteinOptions, QFitProtein
-import multiprocessing as mp
 import os.path
 import os
 import sys
-import time
 import copy
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from math import ceil
-from . import MapScaler, Structure, XMap
 from .structure.base_structure import _BaseStructure
 
 
