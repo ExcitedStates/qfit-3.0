@@ -116,7 +116,7 @@ def parse_args():
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
                    help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2,
-                   metavar="<float>", help="Treshold constraint used during MIQP.")
+                   metavar="<float>", help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
                    help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
@@ -141,8 +141,7 @@ def parse_args():
                    help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
-    p.add_argument("-cp", "--checkpoint", action="store_true",
-                   help="Resume a run of qFit that has failed.")
+    p.add_argument("--pdb", help="Name of the input PDB.")
 
     args = p.parse_args()
     return args
@@ -171,6 +170,7 @@ class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
         self.verbose = True
         self.omit = False
         self.checkpoint = False
+        self.pdb = None
 
 
 class QFitProtein:
@@ -182,6 +182,10 @@ class QFitProtein:
         self.options = options
 
     def run(self):
+        if not self.options.pdb==None:
+            self.pdb=self.options.pdb+'_'
+        else:
+            self.pdb=''
         multiconformer = self._run_qfit_residue()
         structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
         structure = structure.extract('e', 'H', '!=')
@@ -271,7 +275,7 @@ class QFitProtein:
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
-                             "multiconformer_model2.pdb")
+                             self.pdb + "multiconformer_model2.pdb")
         multiconformer.tofile(fname)
         return multiconformer
 
@@ -292,12 +296,11 @@ class QFitProtein:
                     os.makedirs(options.directory)
                 except OSError:
                     pass
-                if options.checkpoint:
-                    fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
-                    if os.path.exists(fname):
-                        continue
-                    else:
-                        print(f"{identifier} {residue.resn[0]}")
+                fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+                if os.path.exists(fname):
+                    continue
+                else:
+                    print(f"{identifier} {residue.resn[0]}")
 
                 structure_new = copy.deepcopy(structure)
                 structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
@@ -331,6 +334,7 @@ class QFitProtein:
                     qfit.conformer = residue.copy()
                     qfit._occupancies = [residue.q]
                     qfit._coor_set = [residue.coor]
+                    qfit._bs = [residue.b]
 
                 qfit.tofile()
 

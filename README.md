@@ -104,7 +104,7 @@ of the Phenix software suite. We plan to remove this dependency in future releas
 ### 2. Modelling alternate conformers for a residue of interest
 
 
-`qfit_residue [MAP_FILE] -l [LABELS] [PDB_FILE] [RESIDUE,CHAIN]`
+`qfit_residue [MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
 
 
 Using the example 3K0N:
@@ -216,7 +216,7 @@ To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
 
-`qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [LIGAND,CHAIN]`
+`qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
 
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB

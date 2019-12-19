@@ -4,6 +4,8 @@
 Excited States software: qFit 3.0
 Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
 Contact: vdbedem@stanford.edu
+How to run:
+b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 '''
 
 import pkg_resources  # part of setuptools
@@ -66,7 +68,7 @@ class B_factor():
         residue_num = []
         model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
-        n=0
+        n = 0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
             residues = set(list(select2.resi))
@@ -81,7 +83,6 @@ class B_factor():
         
         n=1
         for id in residue_ids:
-            print(id)
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
             #is this going to give us the alternative coordinate for everything?
             resn_name = (np.array2string(np.unique(res_tmp.resi)), np.array2string(np.unique(res_tmp.resn)),np.array2string(np.unique(res_tmp.chain)))
@@ -92,8 +93,7 @@ class B_factor():
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
             B_factor.loc[n, 'Averaage_Bfactor'] = np.average(b_factor)
             n+=1
-        
-        B_factor.to_csv(args.pdb_name+'_B_factors.csv', index=False)
+        B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
 
 def main():
     args = parse_args()
@@ -104,3 +104,4 @@ def main():
     time0 = time.time()
     b_factor = B_factor(structure, B_options)
     b_fin = b_factor.run()
+

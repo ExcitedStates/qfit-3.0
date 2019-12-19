@@ -105,7 +105,7 @@ def parse_args():
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
-            help="Treshold constraint used during MIQP.")
+            help="Threshold constraint used during MIQP.")
     p.add_argument("-it", "--intermediate-threshold", type=float, default=0.01, metavar="<float>",
             help="Threshold constraint during intermediate MIQP.")
     p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
@@ -114,7 +114,7 @@ def parse_args():
             help="Include hydrogens during calculations.")
     p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
             help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_false",
+    p.add_argument("-T","--no-threshold-selection", dest="bic_threshold", action="store_false",
             help="Do not use BIC to select the most parsimonious MIQP threshold")
 
 
@@ -125,6 +125,7 @@ def parse_args():
             help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
+    p.add_argument("--pdb", help="Name of the input PDB.")
     args = p.parse_args()
 
     return args
@@ -136,6 +137,10 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
+    if not args.pdb==None:
+        pdb_id=args.pdb + '_'
+    else:
+       pdb_id=''
     print_run_info(args)
     time0 = time.time()
 
@@ -254,9 +259,9 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
-        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+        fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
 
     m, s = divmod(time.time() - time0, 60)
