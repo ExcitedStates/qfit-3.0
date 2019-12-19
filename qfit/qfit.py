@@ -222,10 +222,7 @@ class _BaseQFit:
 
 
     def _convert(self):
-        """Convert structures to densities and extract rnp.maximum(self._subtransformer.xmap.array,
-                   self.options.bulk_solvent_level,
-                   out=self._subtransformer.xmap.array)elevant values for
-           (MI)QP."""
+        """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting")
         logger.debug("Masking")
         self._transformer.reset(full=True)
