@@ -12,6 +12,8 @@ HET_RESIDUES=$(grep "^HETATM" $input_pdb | cut -c 22-26 | sort | uniq | wc -l);
 
 if [ -f $qfit_output_dir/multiconformer_model.pdb ]
 then
+    echo "[QFIT VERSION]:"
+    echo $(cat ${input_pdb}/qfit_run_info.log | head -n 1 | tail -n 1)
     if [ -f $qfit_output_dir/multiconformer_model2.pdb ]
     then
         echo "[STATUS] qFit run has finished.";
