@@ -12,8 +12,6 @@ from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
 from .qfit_protein import QFitProteinOptions, QFitProtein
-import multiprocessing as mp
-import os.path
 import os
 import sys
 import time
