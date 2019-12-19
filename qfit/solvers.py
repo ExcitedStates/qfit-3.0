@@ -87,7 +87,6 @@ if OSQP:
             self.initialized = True
 
         def _setup_Pq(self):
-
             shape = (self.nconformers, self.nconformers)
             P = np.zeros(shape, np.float64)
             q = np.zeros(self.nconformers, np.float64)
@@ -156,7 +155,6 @@ if OSQP:
             self.initialized = True
 
         def _setup_Pq(self):
-
             shape = (self.nvariables, self.nvariables)
             data = []
             row_idx = []
@@ -280,9 +278,9 @@ if CPLEX:
             self._lin_obj = cvxopt.matrix(self._nconformers * [0], tc='d')
             for i in range(self._nconformers):
                 for j in range(i, self._nconformers):
-                    self._quad_obj[i,j] = np.inner(self._models[i], self._models[j])
+                    self._quad_obj[i, j] = np.inner(self._models[i], self._models[j])
                     # Matrix is symmetric
-                    self._quad_obj[j,i] = self._quad_obj[i,j]
+                    self._quad_obj[j, i] = self._quad_obj[i, j]
                 self._lin_obj[i] = -np.inner(self._models[i], self._target)
 
             # lower-equal constraints.
@@ -290,23 +288,23 @@ if CPLEX:
             # There are 2 * nconformers bounds + 1 constraint
             # Make a sparse matrix to represent this information.
             self._le_constraints = cvxopt.spmatrix(
-                    self._nconformers * [-1.0] + 2 * self._nconformers * [1.0],
-                    list(range(2 * self._nconformers)) + self._nconformers * [2 * self._nconformers],
-                    3 * list(range(self._nconformers)),
-                    )
+                self._nconformers * [-1.0] + 2 * self._nconformers * [1.0],
+                list(range(2 * self._nconformers)) + self._nconformers * [2 * self._nconformers],
+                3 * list(range(self._nconformers)),
+            )
             self._le_bounds = cvxopt.matrix(
-                    self._nconformers * [0.0] + (self._nconformers + 1) * [1.0], tc='d')
+                self._nconformers * [0.0] + (self._nconformers + 1) * [1.0],
+                tc='d')
             self.initialized = True
 
         def __call__(self):
-
             if not self.initialized:
                 self.initialize()
 
             self._solution = cvxopt.solvers.qp(
-                    self._quad_obj, self._lin_obj,
-                    self._le_constraints, self._le_bounds
-                    )
+                self._quad_obj, self._lin_obj,
+                self._le_constraints, self._le_bounds
+            )
             self.obj_value = 2 * self._solution['primal objective'] + np.inner(self._target, self._target)
             self.weights = np.asarray(self._solution['x']).ravel()
 
@@ -326,15 +324,14 @@ if CPLEX:
             self._lin_obj = np.zeros(self._nconformers)
             for i in range(self._nconformers):
                 for j in range(i, self._nconformers):
-                    self._quad_obj[i,j] = np.inner(self._models[i], self._models[j])
+                    self._quad_obj[i, j] = np.inner(self._models[i], self._models[j])
                     # Matrix is symmetric
-                    self._quad_obj[j,i] = self._quad_obj[i,j]
+                    self._quad_obj[j, i] = self._quad_obj[i, j]
                 self._lin_obj[i] = -np.inner(self._models[i], self._target)
 
             self.initialized = True
 
         def __call__(self, cardinality=None, exact=False, threshold=None):
-
             if not self.initialized:
                 self.initialize()
 
@@ -343,6 +340,7 @@ if CPLEX:
             miqp.set_log_stream(None)
             miqp.set_warning_stream(None)
             miqp.set_error_stream(None)
+
             # Set number of threads to use
             if self.threads is not None:
                 miqp.parameters.threads.set(self.threads)
@@ -354,7 +352,7 @@ if CPLEX:
             miqp.variables.add(names=variable_names, ub=upper_bounds)
             for i in range(self._nconformers):
                 for j in range(i, self._nconformers):
-                    miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i,j])
+                    miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i, j])
                 miqp.objective.set_linear(i, self._lin_obj[i])
 
             # Sum of weights is <= 1
@@ -362,10 +360,10 @@ if CPLEX:
             val = [1] * self._nconformers
             lin_expr = [cplex.SparsePair(ind=ind, val=val)]
             miqp.linear_constraints.add(
-                    lin_expr=lin_expr,
-                    rhs=[1],
-                    senses=["L"],
-                    )
+                lin_expr=lin_expr,
+                rhs=[1],
+                senses=["L"],
+            )
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
             # a regular QP.
@@ -379,17 +377,17 @@ if CPLEX:
                     w = f"w{n}"
                     z = f"z{n}"
                     miqp.linear_constraints.add(
-                            lin_expr=[cplex.SparsePair(ind=[w, z], val=[1, -1])],
-                            rhs=[0],
-                            senses="L",
-                            )
+                        lin_expr=[cplex.SparsePair(ind=[w, z], val=[1, -1])],
+                        rhs=[0],
+                        senses="L",
+                    )
                     # Set the threshold constraint
                     if threshold not in (None, 0):
                         miqp.linear_constraints.add(
-                                lin_expr=[cplex.SparsePair(ind=[z, w], val=[threshold, -1])],
-                                rhs=[0],
-                                senses=["L"],
-                                )
+                            lin_expr=[cplex.SparsePair(ind=[z, w], val=[threshold, -1])],
+                            rhs=[0],
+                            senses=["L"],
+                        )
                 # Set the cardinality constraint
                 if cardinality not in (None, 0):
                     senses = "L"
@@ -398,10 +396,10 @@ if CPLEX:
                         cardinality = min(cardinality, self._nconformers)
                     lin_expr = [[list(range(self._nconformers, 2 * self._nconformers)), self._nconformers * [1]]]
                     miqp.linear_constraints.add(
-                            lin_expr=lin_expr,
-                            rhs=[cardinality],
-                            senses=senses,
-                            )
+                        lin_expr=lin_expr,
+                        rhs=[cardinality],
+                        senses=senses,
+                    )
             miqp.solve()
 
             self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(self._target, self._target)
