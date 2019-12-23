@@ -17,16 +17,18 @@ jobs:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.7', '3.6']
     steps:
-      - uses: goanpeca/setup-miniconda@v1
+      - name: Setup miniconda
+        uses: goanpeca/setup-miniconda@v1
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
+          activate-environment: qfit
       - name: Conda info
+        shell: bash -l {0}
         run: conda info
       - name: Conda create environment
+        shell: bash -l {0}
         run: |
-          conda create --name qfit
-          conda activate qfit
           conda install -c ibmdecisionoptimization cplex
           conda install -c anaconda mkl numpy scipy
       - name: Install package
@@ -44,4 +46,5 @@ jobs:
         python-version: ['3.7', '3.6']
     steps:
       - name: Check qfit_protein help
+        shell: bash -l {0}
         run: qfit_protein --help
