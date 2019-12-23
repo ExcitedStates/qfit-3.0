@@ -25,6 +25,7 @@ IN THE SOFTWARE.
 
 import os.path
 from setuptools import setup
+from setuptools import find_packages
 from setuptools.extension import Extension
 from version import get_version
 import numpy as np
@@ -32,7 +33,8 @@ import numpy as np
 
 def main():
 
-    packages = ['qfit', 'qfit.structure']
+    package_dir = {'': 'src'}
+    packages = find_packages('src')
     package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
 
     ext_modules = [Extension("qfit._extensions",
@@ -48,10 +50,12 @@ def main():
           version=get_version(),
           author='Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
           author_email='saulo@stanford.edu',
+          package_dir=package_dir,
           packages=packages,
           package_data=package_data,
           ext_modules=ext_modules,
           install_requires=install_requires,
+          zip_safe=False,
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
