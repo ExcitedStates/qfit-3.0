@@ -21,14 +21,17 @@ def get_version():
 
     if isdir(join(d, '.git')):
         # Get the version using "git describe".
-        cmd = 'git describe --tags --match %s[0-9]*' % PREFIX
+        # '--always' so if there's no tag, we get the commit SHA.
+        cmd = f"git describe --always --tags --match {PREFIX}[0-9]*"
         try:
-            version = check_output(cmd.split()).decode().strip()[len(PREFIX):]
+            version = check_output(cmd.split()).decode().strip()
         except CalledProcessError:
-            raise RuntimeError('Unable to get version number from git tags')
+            raise RuntimeError('Unable to get version number from git tags.')
 
         # PEP 440 compatibility
-        if '-' in version:
+        if '-' in version:  # We got tags
+            if version.startswith(PREFIX):
+                version = version[len(PREFIX):]  # Strip PREFIX from the front.
             if version.endswith('-dirty'):
                 raise RuntimeError('The working tree is dirty')
             version = '.post'.join(version.split('-')[:2])
