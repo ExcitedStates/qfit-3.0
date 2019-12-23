@@ -31,6 +31,8 @@ jobs:
         run: |
           conda install -c ibmdecisionoptimization cplex
           conda install -c anaconda mkl numpy scipy
+      - name: Checkout qfit
+        uses: actions/checkout@v2
       - name: Install package
         working-directory: .
         shell: bash -l -eo pipefail {0}
