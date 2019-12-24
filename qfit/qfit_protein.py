@@ -180,18 +180,16 @@ class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
 
 
 class QFitProtein:
-
     def __init__(self, structure, xmap, options):
-
         self.xmap = xmap
         self.structure = structure
         self.options = options
 
     def run(self):
-        if not self.options.pdb==None:
-            self.pdb=self.options.pdb+'_'
+        if self.options.pdb is not None:
+            self.pdb = self.options.pdb + '_'
         else:
-            self.pdb=''
+            self.pdb = ''
         multiconformer = self._run_qfit_residue()
         structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
         structure = structure.extract('e', 'H', '!=')
@@ -382,7 +380,7 @@ def main():
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale == True:
+    if args.scale is True:
         scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
         reso = None
