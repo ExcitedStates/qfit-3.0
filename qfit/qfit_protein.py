@@ -33,16 +33,22 @@ import os
 import sys
 import time
 import copy
-from argparse import ArgumentParser
+import argparse
 from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
-def parse_args():
 
-    p = ArgumentParser(description=__doc__)
+class CustomHelpFormatter(argparse.RawDescriptionHelpFormatter,
+                          argparse.ArgumentDefaultsHelpFormatter):
+    pass
+
+
+def parse_args():
+    p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
+                                description=__doc__)
     p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
