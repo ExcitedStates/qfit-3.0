@@ -363,25 +363,26 @@ class QFitProtein:
 
 
 def main():
+    # Collect and act on arguments
     args = parse_args()
     try:
         os.mkdir(args.directory)
     except OSError:
         pass
     print_run_info(args)
+    options = QFitProteinOptions()
+    options.apply_command_args(args)
+
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder()
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
 
-    options = QFitProteinOptions()
-    options.apply_command_args(args)
-
+    # Load map and prepare it
     xmap = XMap.fromfile(args.map, resolution=args.resolution,
                          label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale == True:
-        # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
         reso = None
@@ -393,6 +394,7 @@ def main():
             radius = 0.5 + reso / 3.0
         scaler.scale(structure, radius=radius)
 
+    # Start qFit run
     time0 = time.time()
     qfit = QFitProtein(structure, xmap, options)
     multiconformer = qfit.run()
