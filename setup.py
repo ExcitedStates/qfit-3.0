@@ -32,7 +32,6 @@ import numpy as np
 
 
 def main():
-
     package_dir = {'': 'src'}
     packages = find_packages('src')
     package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
@@ -74,7 +73,7 @@ def main():
                   'find_altlocs_near_ligand = qfit.find_altlocs_near_ligand:main',
                   'normalize_occupancies = qfit.normalize_occupancies:main',
                   'RMSF = qfit.qfit_RMSF:main',
-                  'b_factor = qfit.b_factor:main',   
+                  'b_factor = qfit.b_factor:main',
                   'fix_restraints = qfit.fix_restraints:main',
                   'get_metrics = qfit.get_metrics:main',
                   'find_altlocs = qfit.find_altlocs_near_ligand:main',
@@ -82,8 +81,8 @@ def main():
                   'find_largest_lig = qfit.find_largest_lig:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main'
-            ]
-          },)
+              ]},
+          )
 
 
 if __name__ == '__main__':
