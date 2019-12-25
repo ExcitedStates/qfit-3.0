@@ -43,7 +43,9 @@ You are now all set now to install `qfit`. Installation of `qfit` can be perform
 
     git clone https://github.com/excitedstates/qfit-3.0
     cd qfit-3.0
-    python setup.py install
+    pip install .
+
+(NB: `python setup.py install` will not work unless numpy is _already_ installed.)
 
 
 ## Usage examples:

@@ -36,7 +36,7 @@ jobs:
       - name: Install package
         working-directory: .
         shell: bash -l -eo pipefail {0}
-        run: python setup.py install
+        run: pip install .
       - name: Describe qfit environment
         shell: bash -l -eo pipefail {0}
         run: conda list
