@@ -46,10 +46,10 @@ class CustomHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def parse_args():
+def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
-    p.add_argument("map",
+    p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
                         "use the --label options to specify columns to read.")
@@ -162,8 +162,7 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
-    args = p.parse_args()
-    return args
+    return p
 
 
 class _Counter:
@@ -374,8 +373,12 @@ class QFitProtein:
 
 
 def main():
+    """Default entrypoint for qfit_protein."""
+
     # Collect and act on arguments
-    args = parse_args()
+    #   (When args==None, argparse will default to sys.argv[1:])
+    p = build_argparser()
+    args = p.parse_args(args=None)
     try:
         os.mkdir(args.directory)
     except OSError:
