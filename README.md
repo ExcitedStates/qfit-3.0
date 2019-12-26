@@ -1,5 +1,7 @@
 # qFit 3.1.0 (Version beta)
 
+![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
+
 ## Requirements
 
 * Python3.6+
