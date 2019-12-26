@@ -24,7 +24,8 @@ IN THE SOFTWARE.
 '''
 
 import logging
-from collections import defaultdict, Iterable
+from collections import defaultdict
+from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
 
 import numpy as np
