@@ -26,20 +26,28 @@ jobs:
       - name: Conda info
         shell: bash -l -eo pipefail {0}
         run: conda info
-      - name: Conda create environment
+      - name: Build conda environment
         shell: bash -l -eo pipefail {0}
         run: |
-          conda install -c ibmdecisionoptimization cplex
-          conda install -c anaconda mkl numpy scipy
+          # Set up channel priority
+          conda config --prepend channels conda-forge && \
+          conda config --prepend channels anaconda
+          # Read channels priority
+          conda config --show channels
+          # Install tox (testing automator)
+          conda install --yes tox-conda
       - name: Checkout qfit
         uses: actions/checkout@v2
-      - name: Install package
+      - name: Install qfit
         working-directory: .
         shell: bash -l -eo pipefail {0}
         run: pip install .
       - name: Describe qfit environment
         shell: bash -l -eo pipefail {0}
         run: conda list
-      - name: Check qfit_protein help
+      - name: TEST (Basic) Check qfit_protein can execute (test --help)
         shell: bash -l {0}
         run: qfit_protein --help
+      - name: TEST (Full) Thoroughly test qFit with tox
+        shell: bash -l {0}
+        run: tox
