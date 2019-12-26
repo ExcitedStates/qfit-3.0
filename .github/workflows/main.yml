@@ -16,6 +16,12 @@ jobs:
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.7', '3.6']
+        exclude:
+          # Sidestep the issue: (this problem appears to be with the runner).
+          #   conda can't install vs2015_runtime-14.16, can't build env
+          #   TO BE REMOVED LATER.
+          - os: windows-latest
+            python-version: '3.7'
     steps:
       - name: Setup miniconda
         uses: goanpeca/setup-miniconda@v1
