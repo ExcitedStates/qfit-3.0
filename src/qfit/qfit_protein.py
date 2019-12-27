@@ -205,7 +205,7 @@ class QFitProtein:
 
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
-        with ctx.Pool(processes=self.options.nproc) as pool:
+        with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
             futures = [pool.apply_async(QFitProtein._run_qfit_instance,
                                         kwds={'residue': residue,
                                               'structure': self.structure,
