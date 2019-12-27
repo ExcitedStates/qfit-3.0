@@ -195,8 +195,12 @@ class QFitProtein:
     def _run_qfit_residue(self):
         """Run qfit independently over all residues."""
         # This function hands out the job in parallel to a Pool of Workers.
-        # We will use the default method to create our Workers.
-        ctx = mp.get_context(method=None)
+        # To create Workers, we will use "forkserver" where possible,
+        #     and default to "spawn" elsewhere (e.g. on Windows).
+        try:
+            ctx = mp.get_context(method="forkserver")
+        except ValueError:
+            ctx = mp.get_context(method="spawn")
 
         # Print execution stats
         residues = list(self.structure.single_conformer_residues)
