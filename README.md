@@ -2,40 +2,66 @@
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 
-## Requirements
+qFit is a collection of programs for modeling multi-conformer protein structures.
 
-* Python3.6+
-* NumPy
-* SciPy
-* cvxopt
-* IBM ILOG CPLEX Optimization Studio (Community Edition)
+Electron density maps obtained from high-resolution X-ray diffraction data are a spatial and temporal average of all conformations within the crystal. qFit evaluates an extremely large number of combinations of sidechain conformers, backbone fragments and small-molecule ligands to locally explain the electron density.
 
-Optional requirements used for installation
+If you use this software, please cite:
+- [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
+- [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
+
+
+## Installation (conda recommended)
+
+We recommend using the _conda_ package manager to install _qFit_.
+
+You will need the following tools:
 
 * git
-* conda
-* pip
+* _conda_ package manager (which you can get by installing [Miniconda3](https://docs.conda.io/en/latest/miniconda.html))
 
-## Installation
+Once these are installed, you can:
 
-If you have access to the `conda` package manager ([Python 3.7 64bit Anaconda 2019.03](https://www.anaconda.com/distribution/)),
-installing all dependencies can be done by issuing the following commands:
+1. Create a new conda env & activate it
+   ```bash
+   conda create --name qfit
+   conda activate qfit
+   ```
 
-    conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
+1. Install dependencies
+   ```bash
+   conda install -c anaconda mkl
+   conda install -c anaconda -c ibmdecisionoptimization \
+                 cvxopt cplex
+   ```
 
-Instructions using `miniconda` can be found
-[here](https://github.com/fraser-lab/holton_scripts/blob/master/qfit_stuff/qfit_install_guide.txt).
+1. Clone the qFit source, and install to your conda env
+   ```bash
+   git clone https://github.com/ExcitedStates/qfit-3.0.git
+   cd qfit-3.0
+   pip install .
+   ```
 
-You are now all set now to install `qfit`. Installation of `qfit` can be performed by:
+1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
-    git clone https://github.com/excitedstates/qfit-3.0
-    cd qfit-3.0
-    pip install .
+### Advanced
 
-(NB: `python setup.py install` will not work unless numpy is _already_ installed.)
+If you prefer to manage your environments using other methods, qFit has the following prerequisites:
+
+* [Python 3.6+](https://python.org)
+* [numpy](https://numpy.org)
+* [scipy](https://scipy.org)
+* [cvxopt](https://cvxopt.org)
+* [IBM ILOG CPLEX Optimization Studio (Community Edition)](https://www.ibm.com/products/ilog-cplex-optimization-studio)
+
+Installation instructions using `pip` can be found in the `docs` folder.
+
+Once dependencies are installed, you can clone the qFit source, and install to your env as above.
+
+(Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
 
-## Usage examples:
+## Usage examples  {#sec:usage-examples}
 
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
