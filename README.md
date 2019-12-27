@@ -16,30 +16,15 @@ Optional requirements used for installation
 * conda
 * pip
 
-As an open source alternative to IBM ILOG CPLEX Optimization Studio:
-
-* [MIOSQP](https://github.com/oxfordcontrol/miosqp)
-
 ## Installation
 
 If you have access to the `conda` package manager ([Python 3.7 64bit Anaconda 2019.03](https://www.anaconda.com/distribution/)),
 installing all dependencies can be done by issuing the following commands:
 
     conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
-    conda install -c oxfordcontrol osqp
-
-Installation instructions using `pip` can be found in the `docs` folder.
 
 Instructions using `miniconda` can be found
 [here](https://github.com/fraser-lab/holton_scripts/blob/master/qfit_stuff/qfit_install_guide.txt).
-
-qFit also **requires** an open-source MIQP implementation, MIOSQP, which is based on the OSQP package.
-Installation instructions for MIOSQP can be found on its
-[GitHub Repository](https://github.com/oxfordcontrol/miosqp). Here is a simplified version:
-
-    git clone https://github.com/oxfordcontrol/miosqp.git
-    cd miosqp
-    python setup.py install
 
 You are now all set now to install `qfit`. Installation of `qfit` can be performed by:
 
