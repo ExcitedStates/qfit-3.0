@@ -84,7 +84,7 @@ class _BaseQFitOptions:
         self.clash_scaling_factor = 0.75
         self.external_clash = False
         self.dofs_per_iteration = 2
-        self.dofs_stepsize = 10
+        self.dihedral_stepsize = 10
         self.hydro = False
         self.rmsd_cutoff = 0.01
 
@@ -738,8 +738,8 @@ class QFitRotamericResidue(_BaseQFit):
         if self.residue.resn[0] != 'PRO':
             sampling_window = np.arange(
                 -opt.rotamer_neighborhood,
-                opt.rotamer_neighborhood + opt.dofs_stepsize,
-                opt.dofs_stepsize)
+                opt.rotamer_neighborhood + opt.dihedral_stepsize,
+                opt.dihedral_stepsize)
         else:
             sampling_window = [0]
 
@@ -1710,8 +1710,8 @@ class QFitCovalentLigand(_BaseQFit):
         if self.covalent_residue.resn[0] != 'PRO':
             sampling_window = np.arange(
                 -opt.rotamer_neighborhood,
-                opt.rotamer_neighborhood + opt.dofs_stepsize,
-                opt.dofs_stepsize)
+                opt.rotamer_neighborhood + opt.dihedral_stepsize,
+                opt.dihedral_stepsize)
         else:
             sampling_window = [0]
 

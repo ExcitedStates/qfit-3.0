@@ -104,8 +104,8 @@ def parse_args():
             help="N-CA-CB bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
-            help="Stepsize for dihedral angle sampling in degree.")
+    p.add_argument("-s", "--dihedral-stepsize", type=float, default=10, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degrees.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
             default=80, metavar="<float>",
             help="Neighborhood of rotamer to sample in degree.")
