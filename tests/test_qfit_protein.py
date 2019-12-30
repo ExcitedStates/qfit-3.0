@@ -22,6 +22,7 @@ class TestQFitProtein:
         self.args.structure = "../example/3K0N.pdb"  # relative directory from tests/
         self.args.hydro = False
         self.args.cplex = True
+        self.args.directory = f"{os.environ['QFIT_OUTPUT_DIR']}"
 
         # Load default options, override some to reduce computational load
         self.options = QFitProteinOptions()
