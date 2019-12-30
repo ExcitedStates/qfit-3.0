@@ -3,12 +3,15 @@ import pytest
 from qfit.solvers import *
 
 
-class TestForcedNoSolvers:
+def setup_module(module):
     import qfit.solvers
 
     # Manually set CPLEX to False
+    # in this module ONLY
     qfit.solvers.CPLEX = False
 
+
+class TestForcedNoSolvers:
     # QPSolver.__new__ should raise ImportError
     # when CPLEX flags are false
     def test_QPSolvers_fail(self):
