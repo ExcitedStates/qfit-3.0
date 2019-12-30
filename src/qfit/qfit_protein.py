@@ -119,8 +119,6 @@ def parse_args():
                    metavar="<float>", help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
                    help="Include hydrogens during calculations.")
-    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-                   help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
     p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold",

@@ -28,14 +28,6 @@ from scipy import sparse
 
 # Try load solver sets
 try:
-    import osqp
-    import miosqp
-except ImportError:
-    OSQP = False
-else:
-    OSQP = True
-
-try:
     import cvxopt
     import cplex
 except ImportError:
@@ -59,197 +51,6 @@ class _Base_QPSolver(object):
 
     def __call__(self):
         raise NotImplementedError
-
-
-# If we can load the OSQP solver set,
-# provide class definitions for a QP and MIQP solver.
-if OSQP:
-    class OSQP_QPSolver(_Base_QPSolver):
-        """Quadratic Programming solver based on OSQP."""
-
-        OSQP_SETTINGS = {
-            'eps_abs': 1e-06,
-            'eps_rel': 1e-06,
-            'eps_prim_inf': 1e-07,
-            'verbose': False}
-
-        def __init__(self, target, models):
-            self.target = target
-            self.models = models
-            self.nconformers = models.shape[0]
-            self.initialized = False
-            self.solution = None
-            self.weights = None
-
-        def initialize(self):
-            self._setup_Pq()
-            self._setup_constraints()
-            self.initialized = True
-
-        def _setup_Pq(self):
-            shape = (self.nconformers, self.nconformers)
-            P = np.zeros(shape, np.float64)
-            q = np.zeros(self.nconformers, np.float64)
-            for i in range(self.nconformers):
-                for j in range(i, self.nconformers):
-                    P[i, j] = np.inner(self.models[i], self.models[j])
-                q[i] = -np.inner(self.models[i], self.target)
-            self.P = sparse.csc_matrix(P)
-            self.q = q
-
-        def _setup_constraints(self):
-            self.l = np.zeros(self.nconformers + 1)
-            self.u = np.ones(self.nconformers + 1)
-
-            data = np.ones(2 * self.nconformers)
-            row_ind = list(range(self.nconformers)) + [self.nconformers] * self.nconformers
-            col_ind = list(range(self.nconformers))  * 2
-            shape = (self.nconformers + 1, self.nconformers)
-            self.A = sparse.csc_matrix((data, (row_ind, col_ind)), shape=shape)
-
-        def __call__(self):
-            if not self.initialized:
-                self.initialize()
-            qp = osqp.OSQP()
-            qp.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, **self.OSQP_SETTINGS)
-            result = qp.solve()
-            self.weights = np.asarray(result.x).ravel()
-            self.obj_value = 2 * result.info.obj_val + np.inner(self.target, self.target)
-
-    class OSQP_MIQPSolver(_Base_QPSolver):
-        """Mixed-Integer Quadratic Programming solver based on OSQP."""
-
-        MIOSQP_SETTINGS = {
-            # integer feasibility tolerance
-            'eps_int_feas': 1e-06,
-            # maximum number of iterations
-            'max_iter_bb': 10000,
-            # tree exploration rule
-            #   [0] depth first
-            #   [1] two-phase: depth first until first incumbent and then  best bound
-            'tree_explor_rule': 0,
-            # branching rule
-            #   [0] max fractional part
-            'branching_rule': 0,
-            'verbose': False,
-            'print_interval': 1}
-
-        OSQP_SETTINGS = {
-            'eps_abs': 1e-06,
-            'eps_rel': 1e-06,
-            'eps_prim_inf': 1e-07,
-            'verbose': False}
-
-        def __init__(self, target, models):
-            self.target = target
-            self.models = models
-            self.nconformers = models.shape[0]
-            self.nvariables = 2 * self.nconformers
-            self.nbinary = self.nconformers
-            self.initialized = False
-            self.solution = None
-            self.weights = None
-
-        def initialize(self):
-            self._setup_Pq()
-            self.initialized = True
-
-        def _setup_Pq(self):
-            shape = (self.nvariables, self.nvariables)
-            data = []
-            row_idx = []
-            col_idx = []
-            q = np.zeros(self.nvariables, np.float64)
-            for i in range(self.nconformers):
-                model_i = self.models[i]
-                q[i] = -np.inner(model_i, self.target)
-                value = np.inner(model_i, model_i)
-                data.append(value)
-                row_idx.append(i)
-                col_idx.append(i)
-                for j in range(i + 1, self.nconformers):
-                    value = np.inner(model_i, self.models[j])
-                    data.append(value)
-                    row_idx.append(i)
-                    col_idx.append(j)
-                    data.append(value)
-                    row_idx.append(j)
-                    col_idx.append(i)
-            self.P = sparse.csc_matrix((data, (row_idx, col_idx)), shape=shape)
-            self.q = q
-
-        def __call__(self, cardinality=None, threshold=None):
-            if cardinality is threshold is None:
-                raise ValueError("Set either cardinality or threshold.")
-            if not self.initialized:
-                self.initialize()
-            # The number of restraints are the upper and lower boundaries on
-            # each variable plus one for the sum(w_i) <= 1, plus nconformers to
-            # set a threshold constraint plus 1 for a cardinality constraint
-            # We set first the weights upper and lower bounds, then the sum
-            # constraint, then the binary variables upper and lower boundary
-            # and then the coupling restraints followed by the threshold
-            # contraints and finally a cardinality constraint.
-            # A_row effectively contains the constraint indices
-            # A_col holds which variables are involved in the constraint
-            A_data = [1] * (2 * self.nconformers)
-            A_row = list(range(self.nconformers)) + [self.nconformers] * self.nconformers
-            A_col = list(range(self.nconformers))  * 2
-            nconstraints = self.nconformers + 1
-
-            i_l = np.zeros(self.nconformers, np.int32)
-            i_u = np.ones(self.nconformers, np.int32)
-            i_idx = np.arange(self.nconformers, 2 * self.nconformers, dtype=np.int32)
-
-            # Introduce an implicit cardinality constraint
-            # 0 <= zi - wi <= 1
-            A_data += [-1] * self.nconformers + [1] * self.nconformers
-            # The wi and zi indices
-            start_row = self.nconformers + 1
-            A_row += list(range(start_row, start_row + self.nconformers)) * 2
-            A_col += list(range(2 * self.nconformers))
-            nconstraints += self.nconformers
-            if threshold is not None:
-                # Introduce threshold constraint
-                # 0 <= wi - t * zi <= 1
-                A_data += [1] * self.nconformers + [-threshold] * self.nconformers
-                start_row += self.nconformers
-                A_row += list(range(start_row, start_row + self.nconformers)) * 2
-                A_col += list(range(2 * self.nconformers))
-                nconstraints += self.nconformers
-            if cardinality is not None:
-                # Introduce explicit cardinality constraint
-                # 0 <= sum(zi) <= cardinality
-                A_data += [1] * self.nconformers
-                A_row += [nconstraints] * self.nconformers
-                A_col += list(range(self.nconformers, self.nconformers * 2))
-                nconstraints += 1
-            l = np.zeros(nconstraints)
-            u = np.ones(nconstraints)
-            if cardinality is not None:
-                u[-1] = cardinality
-            A = sparse.csc_matrix((A_data, (A_row, A_col)))
-
-            miqp = miosqp.MIOSQP()
-            miqp.setup(self.P, self.q, A, l, u, i_idx, i_l, i_u,
-                       self.MIOSQP_SETTINGS, self.OSQP_SETTINGS)
-            result = miqp.solve()
-            self.weights = np.asarray(result.x[:self.nconformers])
-            self.obj_value = 2 * result.upper_glob + np.inner(self.target, self.target)
-
-            #print("MIOSQP MIQP")
-            #w = result.x.reshape(-1, 1)
-            #q = self.q.reshape(-1, 1)
-            ##print('P:', self.P)
-            ##print('q:', self.q[:self.nconformers])
-            ##print('w:', w[:self.nconformers])
-
-            #obj = 0.5 * w.T @ self.P @ w + q.T @ w
-            #print("calculated myself OBJ:", obj)
-            #print('from solver OBJ:', self.obj_value)
-            #print('TOTAL:', np.inner(self.target, self.target) + 2 * (0.5 * w.T @ self.P @ w + q.T @ w))
-            #print('again:', np.inner(self.target, self.target) + 2 * self.obj_value)
-            #print('rho2:', np.inner(self.target, self.target))
 
 
 # If we can load the CPLEX solver set,
@@ -432,23 +233,17 @@ class QPSolver(object):
         if use_cplex:
             if CPLEX:
                 return CPLEX_QPSolver(*args, **kwargs)
-            elif OSQP:
-                print("WARNING: CPLEX solver requested, but only OSQP solvers found.\n"
-                      "         Using OSQP solver as fallback.")
-                return OSQP_QPSolver(*args, **kwargs)
             else:
                 raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+                                  "Please install cvxopt & CPLEX.")
         else:
-            if OSQP:
-                return OSQP_QPSolver(*args, **kwargs)
-            elif CPLEX:
-                print("WARNING: OSQP solver requested, but only CPLEX solvers found.\n"
+            if CPLEX:
+                print("WARNING: A different solver was requested, but only CPLEX solvers found.\n"
                       "         Using CPLEX solver as fallback.")
                 return CPLEX_QPSolver(*args, **kwargs)
             else:
                 raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+                                  "Please install cvxopt & CPLEX.")
 
     def __init__(self, *args, **kwargs):
         # This pseudo-class does not generate class instances.
@@ -469,23 +264,17 @@ class MIQPSolver(object):
         if use_cplex:
             if CPLEX:
                 return CPLEX_MIQPSolver(*args, **kwargs)
-            elif OSQP:
-                print("WARNING: CPLEX solver requested, but only OSQP solvers found.\n"
-                      "         Using OSQP solver as fallback.")
-                return OSQP_MIQPSolver(*args, **kwargs)
             else:
                 raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+                                  "Please install cvxopt & CPLEX.")
         else:
-            if OSQP:
-                return OSQP_MIQPSolver(*args, **kwargs)
-            elif CPLEX:
-                print("WARNING: OSQP solver requested, but only CPLEX solvers found.\n"
+            if CPLEX:
+                print("WARNING: A different solver was requested, but only CPLEX solvers found.\n"
                       "         Using CPLEX solver as fallback.")
                 return CPLEX_MIQPSolver(*args, **kwargs)
             else:
                 raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install either: cvxopt & CPLEX, or osqp & miosqp.")
+                                  "Please install cvxopt & CPLEX.")
 
     def __init__(self, *args, **kwargs):
         # This pseudo-class does not generate class instances.
