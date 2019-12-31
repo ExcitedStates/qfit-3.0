@@ -59,11 +59,11 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue(self):
+    def test_run_qfit_residue_parallel(self):
         qfit = self.mock_main()
 
         # Run qfit object
-        multiconformer = qfit._run_qfit_residue()
+        multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
         assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113

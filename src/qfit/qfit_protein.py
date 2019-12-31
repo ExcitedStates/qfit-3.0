@@ -187,13 +187,13 @@ class QFitProtein:
             self.pdb = self.options.pdb + '_'
         else:
             self.pdb = ''
-        multiconformer = self._run_qfit_residue()
+        multiconformer = self._run_qfit_residue_parallel()
         structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
         structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
 
-    def _run_qfit_residue(self):
+    def _run_qfit_residue_parallel(self):
         """Run qfit independently over all residues."""
         # This function hands out the job in parallel to a Pool of Workers.
         # To create Workers, we will use "forkserver" where possible,
@@ -228,7 +228,7 @@ class QFitProtein:
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
         with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
-            futures = [pool.apply_async(QFitProtein._run_qfit_instance,
+            futures = [pool.apply_async(QFitProtein._run_qfit_residue,
                                         kwds={'residue': residue,
                                               'structure': self.structure,
                                               'xmap': self.xmap,
@@ -297,7 +297,7 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_instance(residue, structure, xmap, options):
+    def _run_qfit_residue(residue, structure, xmap, options):
         """Run qfit on a single residue to determine density-supported conformers."""
 
         # Don't run qfit if we have a ligand or water
