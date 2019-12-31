@@ -372,6 +372,34 @@ class QFitProtein:
             counter.increment()
 
 
+def prepare_qfit_protein(options):
+    """Loads files to build a QFitProtein job."""
+
+    # Load structure and prepare it
+    structure = Structure.fromfile(options.structure).reorder()
+    if not options.hydro:
+        structure = structure.extract('e', 'H', '!=')
+
+    # Load map and prepare it
+    xmap = XMap.fromfile(
+        options.map, resolution=options.resolution, label=options.label
+    )
+    xmap = xmap.canonical_unit_cell()
+    if options.scale is True:
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(structure, radius=radius)
+
+    return QFitProtein(structure, xmap, options)
+
+
 def main():
     """Default entrypoint for qfit_protein."""
 
@@ -387,29 +415,10 @@ def main():
     options = QFitProteinOptions()
     options.apply_command_args(args)
 
-    # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
-    if not args.hydro:
-        structure = structure.extract('e', 'H', '!=')
+    # Build a QFitProtein job
+    qfit = prepare_qfit_protein(options)
 
-    # Load map and prepare it
-    xmap = XMap.fromfile(args.map, resolution=args.resolution,
-                         label=args.label)
-    xmap = xmap.canonical_unit_cell()
-    if args.scale is True:
-        scaler = MapScaler(xmap, scattering=options.scattering)
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(structure, radius=radius)
-
-    # Start qFit run
+    # Run the QFitProtein job
     time0 = time.time()
-    qfit = QFitProtein(structure, xmap, options)
     multiconformer = qfit.run()
     print(f"Total time: {time.time() - time0}s")
