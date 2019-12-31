@@ -31,14 +31,16 @@ import os.path
 import os
 import sys
 import time
-import numpy as np
 from string import ascii_uppercase
-from .qfit import print_run_info
-from . import MapScaler, Structure, XMap, _Ligand
-from . import QFitLigand, QFitLigandOptions
-
 logger = logging.getLogger(__name__)
+
+import numpy as np
+
+from . import MapScaler, Structure, XMap, Covalent_Ligand
+from . import QFitCovalentLigand, QFitCovalentLigandOptions
+
 os.environ["OMP_NUM_THREADS"] = "1"
+
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -82,10 +84,37 @@ def parse_args():
         help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
-    p.add_argument("-nb", "--no-build", action="store_false", dest="build",
-            help="Do not build ligand.")
-    p.add_argument("-nl", "--no-local", action="store_false", dest="local_search",
-            help="Do not perform a local search.")
+    p.add_argument('-bb', "--no-backbone", dest="sample_backbone", action="store_false",
+            help="Do not sample backbone using inverse kinematics.")
+    p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
+            type=float, default=0.1, metavar="<float>",
+            help="Backbone sampling step (default = 0.1)")
+    p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
+            type=float, default=0.3, metavar="<float>",
+           help="Backbone sampling amplitude (default = 0.3)")
+    p.add_argument('-sa', "--no-sample-angle", dest="sample_angle", action="store_false",
+            help="Do not sample N-CA-CB angle.")
+    p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
+            type=float, default=3.75, metavar="<float>",
+            help="Bond angle sampling step (default = 3.75)")
+    p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
+            type=float, default=7.5, metavar="<float>",
+            help="Bond angle sampling range (default = 7.5)."
+                 "Sampling is carried out in the [-x,x] range, where x is"
+                 " determined by this sampling parameter.")
+    p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
+            help="Number of internal degrees that are sampled/build per iteration.")
+    p.add_argument("-s", "--dihedral-stepsize", type=float, default=10, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degrees.")
+    p.add_argument("-rn", "--rotamer-neighborhood", type=float,
+                   default=80, metavar="<float>",
+                   help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("-nl", "--no-ligand",
+                   dest="sample_ligand", action="store_false",
+                   help="Disable ligand sampling.")
+    p.add_argument("-ls", "--sample-ligand-stepsize", type=float, default=10,
+                   metavar="<float>", dest="sample_ligand_stepsize",
+                   help="Stepsize for ligand sampling in degrees.")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
@@ -97,26 +126,14 @@ def parse_args():
             help="Enable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
-    p.add_argument("-b", "--build-stepsize", type=int, default=2, metavar="<int>", dest="dofs_per_iteration",
-            help="Number of internal degrees that are sampled/built per iteration.")
-    p.add_argument("-s", "--stepsize", type=float, default=10,
-            metavar="<float>", dest="sample_ligand_stepsize",
-            help="Stepsize for dihedral angle sampling in degree.")
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
             help="Threshold constraint used during MIQP.")
-    p.add_argument("-it", "--intermediate-threshold", type=float, default=0.01, metavar="<float>",
-            help="Threshold constraint during intermediate MIQP.")
-    p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
-            help="Cardinality constraint used during intermediate MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
-    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--no-threshold-selection", dest="bic_threshold", action="store_false",
+    p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold", action="store_false",
             help="Do not use BIC to select the most parsimonious MIQP threshold")
-
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -125,10 +142,10 @@ def parse_args():
             help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
-    p.add_argument("--pdb", help="Name of the input PDB.")
     args = p.parse_args()
 
     return args
+
 
 
 def main():
@@ -137,15 +154,10 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
-    if not args.pdb==None:
-        pdb_id=args.pdb + '_'
-    else:
-       pdb_id=''
-    print_run_info(args)
     time0 = time.time()
 
     # Setup logger
-    logging_fname = os.path.join(args.directory, 'qfit_ligand.log')
+    logging_fname = os.path.join(args.directory, 'qfit_covalent_ligand.log')
     if args.debug:
         level = logging.DEBUG
     else:
@@ -162,6 +174,8 @@ def main():
     structure = Structure.fromfile(args.structure)
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
+
+    logger.info("Extracting receptor and ligand from input structure.")
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
@@ -174,10 +188,8 @@ def main():
     structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
         structure_ligand = structure_ligand.extract('icode', icode)
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-    receptor = structure.extract(sel_str)
-    receptor = receptor.extract("record", "ATOM")
+
+    # Select all ligand conformers:
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
     altlocs = sorted(list(set(structure_ligand.altloc)))
@@ -190,30 +202,28 @@ def main():
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
             structure_ligand = structure_ligand.extract(sel_str)
-            receptor = receptor.extract(f"not altloc {altloc}")
-    altloc = structure_ligand.altloc[-1]
 
     if args.cif_file:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data,
-                         cif_file=args.cif_file)
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection,
+                                          link_data=structure_ligand.link_data,
+                                          cif_file=args.cif_file)
     else:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data)
-    if ligand.natoms == 0:
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection,
+                                          link_data=structure_ligand.link_data)
+    if covalent_ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
-                           " selection input.")
+                           "selection input.")
+    covalent_ligand.altloc = ''
+    covalent_ligand.q = 1
 
-
-
-    ligand.altloc = ''
-    ligand.q = 1
-
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
-    options = QFitLigandOptions()
+    options = QFitCovalentLigandOptions()
     options.apply_command_args(args)
 
     # Load and process the electron density map:
@@ -235,17 +245,16 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(ligand.coor, padding=args.padding)
+    xmap = xmap.extract(covalent_ligand.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'
     scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
 
-    qfit = QFitLigand(ligand, receptor, xmap, options)
+    qfit = QFitCovalentLigand(covalent_ligand, receptor, xmap, options)
     qfit.run()
-
-    conformers = qfit.get_conformers()
+    conformers = qfit.get_conformers_covalent()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
@@ -259,11 +268,10 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
+    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
-        fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
 
-    m, s = divmod(time.time() - time0, 60)
-    logger.info('Time passed: {m:.0f}m {s:.0f}s'.format(m=m, s=s))
-    logger.info(time.strftime("%c %Z"))
+    passed = time.time() - time0
+    logger.info(f"Time passed: {passed}s")
