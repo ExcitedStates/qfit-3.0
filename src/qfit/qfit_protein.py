@@ -136,8 +136,9 @@ def parse_args():
                    help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
                    help="Include hydrogens during calculations.")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
-            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
+    p.add_argument('-rmsd', "--rmsd_cutoff", default=0.01,
+                   metavar="<float>", type=float,
+                   help="RMSD cutoff for removal of identical conformers.")
     p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold",
                    action="store_false", help="Do not use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
