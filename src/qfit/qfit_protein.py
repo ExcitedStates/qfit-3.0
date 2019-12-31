@@ -242,6 +242,8 @@ class QFitProtein:
                 f.wait()
 
         # Close the progressbar
+        pool.close()
+        pool.join()
         progress.close()
 
         # Extract non-protein atoms

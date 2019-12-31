@@ -1,5 +1,6 @@
 import pytest
 import os
+import multiprocessing as mp
 
 from qfit.qfit_protein import (
     QFitProteinOptions,
@@ -7,6 +8,17 @@ from qfit.qfit_protein import (
     prepare_qfit_protein,
     print_run_info,
 )
+
+
+def setup_module(module):
+    # Here, we add compatibility for multiprocessing coverage reports.
+    # via: https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-use-multiprocessing-pool
+    try:
+        from pytest_cov.embed import cleanup_on_sigterm
+    except ImportError:
+        pass
+    else:
+        cleanup_on_sigterm()
 
 
 class TestQFitProtein:
