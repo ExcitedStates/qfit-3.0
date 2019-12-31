@@ -1,68 +1,56 @@
 import pytest
 import os
 
-from qfit import MapScaler, Structure, XMap
-from qfit.qfit_protein import QFitProtein, QFitProteinOptions
-
-
-class Args(object):
-    """An empty class to collect "command-line" attributes."""
-
-    pass
+from qfit.qfit_protein import (
+    QFitProteinOptions,
+    build_argparser,
+    prepare_qfit_protein,
+    print_run_info,
+)
 
 
 class TestQFitProtein:
     def mock_main(self):
-        # Pretend that we have done parse_args, set default args
-        self.args = Args()
-        self.args.map = "../example/3K0N.mtz"  # relative directory from tests/
-        self.args.label = "2FOFCWT,PH2FOFCWT"
-        self.args.resolution = None
-        self.args.scale = True
-        self.args.structure = "../example/3K0N.pdb"  # relative directory from tests/
-        self.args.hydro = False
-        self.args.cplex = True
-        self.args.directory = f"{os.environ['QFIT_OUTPUT_DIR']}"
+        # Prepare args
+        args = [
+            "../example/3K0N.mtz",  # mapfile, using relative directory from tests/
+            "../example/3K0N.pdb",  # structurefile, using relative directory from tests/
+            "-l", "2FOFCWT,PH2FOFCWT",
+            "--directory", f"{os.environ['QFIT_OUTPUT_DIR']}",
+        ]
 
-        # Load default options, override some to reduce computational load
-        self.options = QFitProteinOptions()
-        self.options.apply_command_args(self.args)
-        self.options.sample_backbone_amplitude = 0.10  # default: 0.30
-        self.options.rotamer_neighborhood = 30  # default: 60
+        # Add options to reduce computational load
+        args.extend([
+            "--backbone-amplitude", "0.10",  # default: 0.30
+            "--rotamer-neighborhood", "30",  # default: 60
+        ])
 
-        # Load structure and prepare it
-        self.structure = Structure.fromfile(self.args.structure).reorder()
-        if not self.args.hydro:
-            self.structure = self.structure.extract("e", "H", "!=")
+        # Collect and act on arguments
+        p = build_argparser()
+        args = p.parse_args(args=args)
+        try:
+            os.mkdir(args.directory)
+        except OSError:
+            pass
+        print_run_info(args)
+        options = QFitProteinOptions()
+        options.apply_command_args(args)
 
-        # Load & prepare X-ray map
-        self.xmap = XMap.fromfile(
-            self.args.map, resolution=self.args.resolution, label=self.args.label
-        )
-        self.xmap = self.xmap.canonical_unit_cell()
-        if self.args.scale:
-            scaler = MapScaler(self.xmap, scattering=self.options.scattering)
-            radius = 1.5
-            reso = None
-            if self.xmap.resolution.high is not None:
-                reso = self.xmap.resolution.high
-            elif self.options.resolution is not None:
-                reso = self.options.resolution
-            if reso is not None:
-                radius = 0.5 + reso / 3.0
-            scaler.scale(self.structure, radius=radius)
+        # Build a QFitProtein job
+        qfit = prepare_qfit_protein(options)
 
-    def test_qfit_protein_simple_run(self):
-        # Set up as if we have started in main()
-        self.mock_main()
+        # Reach into QFitProtein job,
+        # simplify to only run on two residues (reduce computational load)
+        qfit.structure = qfit.structure.extract("resi", (99, 113), "==")
+        qfit.structure = qfit.structure.reorder()
+        assert len(list(qfit.structure.single_conformer_residues)) == 2
 
-        # Only run qfit on two residues (reduce computational load)
-        self.structure = self.structure.extract("resi", (99, 113), "==")
-        self.structure = self.structure.reorder()
-        assert len(list(self.structure.single_conformer_residues)) == 2
+        return qfit
+
+    def test_run_qfit_residue(self):
+        qfit = self.mock_main()
 
         # Run qfit object
-        qfit = QFitProtein(self.structure, self.xmap, self.options)
         multiconformer = qfit._run_qfit_residue()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
