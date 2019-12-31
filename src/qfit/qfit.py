@@ -54,14 +54,13 @@ logger = logging.getLogger(__name__)
 
 
 class _BaseQFitOptions:
-
     def __init__(self):
-
         # General options
         self.directory = '.'
         self.debug = False
         self.label = None
         self.map = None
+        self.structure = None
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -87,7 +86,6 @@ class _BaseQFitOptions:
         self.dihedral_stepsize = 10
         self.hydro = False
         self.rmsd_cutoff = 0.01
-
 
         # MIQP options
         self.cplex = True
