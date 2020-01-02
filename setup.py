@@ -45,6 +45,7 @@ def main():
     install_requires = [
         'numpy>=1.14',
         'scipy>=1.00',
+        'pyparsing>=2.2.0',
     ]
 
     setup(name="qfit",

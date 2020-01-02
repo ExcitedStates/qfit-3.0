@@ -27,7 +27,7 @@ import operator
 
 import numpy as np
 
-from . import pyparsing as pp
+import pyparsing as pp
 
 class _Selector:
 
