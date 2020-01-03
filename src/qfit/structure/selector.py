@@ -124,7 +124,7 @@ class _Selector:
             return np.setdiff1d(self.curr_sel, self._evaluate_stack(s), True)
         elif token == 'resi':
             elements = s.pop()
-            resi = self.structure.resi
+            resi = getattr(self.structure, token)
             selections = []
             while elements:
                 if len(elements) > 1 and elements[-2] == '-':
@@ -152,8 +152,8 @@ class _Selector:
         elif token == 'resseq':
             picks = set(s.pop())
             selections = []
-            resi_data = self.structure.resi
-            icode_data = self.structure.icode
+            resi_data = getattr(self.structure, "resi")
+            icode_data = getattr(self.structure, "icode")
             for value in picks:
                 try:
                     resi, icode = value.split('.')
