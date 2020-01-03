@@ -279,36 +279,40 @@ class QFitProtein:
         if residue.type != 'rotamer-residue':
             return
 
-        # `residue` objects pickled and passed to subprocesses do not contain
-        #     attributes wrapped by @_structure_properties (WHY?).
+        # This function is run in a subprocess, so `structure` and `residue` have
+        #     been 'copied' (pickled+unpickled) as best as possible.
+
+        # However, `structure`/`residue` objects pickled and passed to subprocesses do
+        #     not contain attributes decorated by @_structure_properties.
+        #     This decorator attaches 'getter' and 'setter' _local_ functions to the attrs
+        #     (defined within, and local to the _structure_properties function).
+        #     Local functions are **unpickleable**, and as a result, so are these attrs.
         # This includes:
         #     (record, atomid, name, altloc, resn, chain, resi, icode,
         #      q, b, e, charge, coor, active, u00, u11, u22, u01, u02, u12)
-        # These `residue` objects are also missing attributes wrapped by @property:
+        # Similarly, these objects are also missing attributes wrapped by @property:
         #     (covalent_radius, vdw_radius)
-        # Normally, these methods would be attached by __init__ of the
-        #     qfit.structure.base_structure._BaseStructure class.
-        # Here, we make sure to attach methods for residue @_structure_properties.
-        # We do not bother to attach covalent_radius and vdw_radius.
-        for attr, array in residue.data.items():
-            hattr = '_' + attr
-            setattr(residue, hattr, array)
-            prop = residue._structure_property(hattr)
-            setattr(residue.__class__, attr, prop)
-        for attr in 'xyz':
-            hattr = '_' + attr
-            prop = residue._structure_property(hattr)
-            setattr(residue.__class__, attr, prop)
+        # Finally, the _selector object is only partially pickleable,
+        #     as it contains a few methods that are defined by a local lambda inside
+        #     pyparsing._trim_arity().
 
-        for attr, array in structure.data.items():
-            hattr = '_' + attr
-            setattr(structure, hattr, array)
-            prop = structure._structure_property(hattr)
-            setattr(structure.__class__, attr, prop)
-        for attr in 'xyz':
-            hattr = '_' + attr
-            prop = structure._structure_property(hattr)
-            setattr(structure.__class__, attr, prop)
+        # Since all these attributes are attached by __init__ of the
+        #     qfit.structure.base_structure._BaseStructure class,
+        #     here, we call __init__ again, to make sure these objects are
+        #     correctly initialised in a subprocess.
+        structure.__init__(
+            structure.data,
+            selection=structure._selection,
+            parent=structure.parent,
+        )
+        residue.__init__(
+            residue.data,
+            resi=residue.id[0],
+            icode=residue.id[1],
+            type=residue.type,
+            selection=residue._selection,
+            parent=residue.parent,
+        )
 
         # We don't want this subprocess to be verbose
         options.verbose = False
@@ -332,7 +336,7 @@ class QFitProtein:
             return
 
         # Copy the structure
-        structure_new = copy.deepcopy(structure)
+        structure_new = structure
         structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
         if icode:
             structure_resi = structure_resi.extract('icode', icode)
@@ -351,8 +355,6 @@ class QFitProtein:
                 structure_new = structure_new.extract(sel_str)
 
         # Copy the map
-        base_density = xmap.array.copy()
-        xmap.array = copy.deepcopy(base_density)
         xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
 
         # Exception handling in case qFit-residue fails:
@@ -375,8 +377,6 @@ class QFitProtein:
         n_conformers = len(qfit.get_conformers())
 
         # Freeing up some memory to avoid memory issues:
-        del structure_new
-        del xmap.array
         del xmap_reduced
         del qfit
         gc.collect()
