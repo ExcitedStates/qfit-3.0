@@ -28,6 +28,7 @@ from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit import print_run_info
 import multiprocessing as mp
+from tqdm import tqdm
 import os.path
 import os
 import sys
@@ -46,10 +47,10 @@ class CustomHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def parse_args():
+def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
-    p.add_argument("map",
+    p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
                         "use the --label options to specify columns to read.")
@@ -136,8 +137,9 @@ def parse_args():
                    help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
                    help="Include hydrogens during calculations.")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
-            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
+    p.add_argument('-rmsd', "--rmsd_cutoff", default=0.01,
+                   metavar="<float>", type=float,
+                   help="RMSD cutoff for removal of identical conformers.")
     p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold",
                    action="store_false", help="Do not use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
@@ -161,24 +163,7 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
-    args = p.parse_args()
-    return args
-
-
-class _Counter:
-    """Thread-safe counter object to follow progress"""
-
-    def __init__(self):
-        self.val = mp.RawValue('i', 0)
-        self.lock = mp.Lock()
-
-    def increment(self):
-        with self.lock:
-            self.val.value += 1
-
-    def value(self):
-        with self.lock:
-            return self.val.value
+    return p
 
 
 class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
@@ -202,55 +187,71 @@ class QFitProtein:
             self.pdb = self.options.pdb + '_'
         else:
             self.pdb = ''
-        multiconformer = self._run_qfit_residue()
+        multiconformer = self._run_qfit_residue_parallel()
         structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
         structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
 
-    def _run_qfit_residue(self):
-        """Run qfit on each residue separately."""
-        processes = []
+    def _run_qfit_residue_parallel(self):
+        """Run qfit independently over all residues."""
+        # This function hands out the job in parallel to a Pool of Workers.
+        # To create Workers, we will use "forkserver" where possible,
+        #     and default to "spawn" elsewhere (e.g. on Windows).
+        try:
+            ctx = mp.get_context(method="forkserver")
+        except ValueError:
+            ctx = mp.get_context(method="spawn")
+
+        # Print execution stats
         residues = list(self.structure.single_conformer_residues)
-        nresidues = len(residues)
-        print(f"RESIDUES: {nresidues}")
-        nproc = min(self.options.nproc, nresidues)
-        nresidues_per_job = int(ceil(nresidues / nproc))
-        counter = _Counter()
-        for n in range(nproc):
-            init_residue = n * nresidues_per_job
-            end_residue = min(init_residue + nresidues_per_job, nresidues)
-            residues_to_qfit = residues[init_residue: end_residue]
-            args = (residues_to_qfit, self.structure, self.xmap,
-                    self.options, counter)
-            process = mp.Process(target=self._run_qfit_instance, args=args)
-            processes.append(process)
+        print(f"RESIDUES: {len(residues)}")
+        print(f"NPROC: {self.options.nproc}")
 
-        for p in processes:
-            p.start()
+        # Initialise progress bar
+        progress = tqdm(total=len(residues),
+                        unit="residue",
+                        unit_scale=True,
+                        leave=True,
+                        miniters=1)
 
-        # Update on progress
-        if self.options.verbose and sys.stdout.isatty():
-            line = '{n} / {total}  time passed: {passed:.0f}s        \r'
-            time0 = time.time()
-            while True:
-                n = counter.value()
-                time_passed = time.time() - time0
-                msg = line.format(n=n, total=nresidues, passed=time_passed)
-                sys.stdout.write(msg)
-                sys.stdout.flush()
-                if n >= nresidues:
-                    sys.stdout.write('\n')
-                    break
-                time.sleep(0.5)
+        # Define callbacks and error callbacks to be attached to Jobs
+        def _cb(result):
+            progress.update()
+            if result:
+                progress.write(result)
 
-        for p in processes:
-            p.join()
+        def _error_cb(e):
+            progress.update()
+            raise e
 
+        # Launch a Pool and run Jobs
+        # Here, we calculate alternate conformers for individual residues.
+        with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
+            futures = [pool.apply_async(QFitProtein._run_qfit_residue,
+                                        kwds={'residue': residue,
+                                              'structure': self.structure,
+                                              'xmap': self.xmap,
+                                              'options': self.options},
+                                        callback=_cb,
+                                        error_callback=_error_cb)
+                       for residue in residues]
+
+            # Make sure all jobs are finished
+            for f in futures:
+                f.wait()
+
+        # Close the progressbar
+        pool.close()
+        pool.join()
+        progress.close()
+
+        # Extract non-protein atoms
         hetatms = self.structure.extract('record', 'HETATM', '==')
         waters = self.structure.extract('record', 'ATOM', '==')
         waters = waters.extract('resn', 'HOH', '==')
         hetatms = hetatms.combine(waters)
+
         # Combine all multiconformer residues into one structure
         for residue in residues:
             if residue.resn[0] not in ROTAMERS:
@@ -296,103 +297,133 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_instance(residues, structure, xmap, options, counter):
+    def _run_qfit_residue(residue, structure, xmap, options):
+        """Run qfit on a single residue to determine density-supported conformers."""
+
+        # Don't run qfit if we have a ligand or water
+        if residue.type != 'rotamer-residue':
+            return
+
+        # This function is run in a subprocess, so `structure` and `residue` have
+        #     been 'copied' (pickled+unpickled) as best as possible.
+
+        # However, `structure`/`residue` objects pickled and passed to subprocesses do
+        #     not contain attributes decorated by @_structure_properties.
+        #     This decorator attaches 'getter' and 'setter' _local_ functions to the attrs
+        #     (defined within, and local to the _structure_properties function).
+        #     Local functions are **unpickleable**, and as a result, so are these attrs.
+        # This includes:
+        #     (record, atomid, name, altloc, resn, chain, resi, icode,
+        #      q, b, e, charge, coor, active, u00, u11, u22, u01, u02, u12)
+        # Similarly, these objects are also missing attributes wrapped by @property:
+        #     (covalent_radius, vdw_radius)
+        # Finally, the _selector object is only partially pickleable,
+        #     as it contains a few methods that are defined by a local lambda inside
+        #     pyparsing._trim_arity().
+
+        # Since all these attributes are attached by __init__ of the
+        #     qfit.structure.base_structure._BaseStructure class,
+        #     here, we call __init__ again, to make sure these objects are
+        #     correctly initialised in a subprocess.
+        structure.__init__(
+            structure.data,
+            selection=structure._selection,
+            parent=structure.parent,
+        )
+        residue.__init__(
+            residue.data,
+            resi=residue.id[0],
+            icode=residue.id[1],
+            type=residue.type,
+            selection=residue._selection,
+            parent=residue.parent,
+        )
+
+        # We don't want this subprocess to be verbose
         options.verbose = False
+
+        # Build the residue results directory
+        chainid = residue.chain[0]
+        resi, icode = residue.id
+        identifier = f"{chainid}_{resi}"
+        if icode:
+            identifier += f'_{icode}'
         base_directory = options.directory
-        base_density = xmap.array.copy()
-        for residue in residues:
-            if residue.type == 'rotamer-residue':
-                chainid = residue.chain[0]
-                resi, icode = residue.id
-                identifier = f"{chainid}_{resi}"
-                if icode:
-                    identifier += f'_{icode}'
-                options.directory = os.path.join(base_directory, identifier)
-                try:
-                    os.makedirs(options.directory)
-                except OSError:
-                    pass
-                fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
-                if os.path.exists(fname):
-                    continue
-                else:
-                    print(f"{identifier} {residue.resn[0]}")
+        options.directory = os.path.join(base_directory, identifier)
+        try:
+            os.makedirs(options.directory)
+        except OSError:
+            pass
 
-                structure_new = copy.deepcopy(structure)
-                structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
-                if icode:
-                    structure_resi = structure_resi.extract('icode', icode)
-                chain = structure_resi[chainid]
-                conformer = chain.conformers[0]
-                residue = conformer[residue.id]
-                altlocs = sorted(list(set(residue.altloc)))
-                if len(altlocs) > 1:
-                    try:
-                        altlocs.remove('')
-                    except ValueError:
-                        pass
-                    for altloc in altlocs[1:]:
-                        sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                        sel_str = f"not ({sel_str})"
-                        structure_new = structure_new.extract(sel_str)
+        # Exit early if we have already run qfit for this residue
+        fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+        if os.path.exists(fname):
+            return
 
-                xmap.array = copy.deepcopy(base_density)
-                xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
-
-                # Exception handling in case qFit-residue fails:
-                try:
-                    qfit = QFitRotamericResidue(residue, structure_new,
-                                                xmap_reduced, options)
-                    qfit.run()
-                except RuntimeError:
-                    print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
-                    print(f"Using deposited conformer A for this residue.")
-                    qfit.conformer = residue.copy()
-                    qfit._occupancies = [residue.q]
-                    qfit._coor_set = [residue.coor]
-                    qfit._bs = [residue.b]
-
-                qfit.tofile()
-
-                # Freeing up some memory to avoid memory issues:
-                del structure_new
-                del xmap.array
-                del xmap_reduced
-                del qfit
-                # structure_new = None
-                # xmap.array = None
-                # xmap_reduced = None
-                # qfit = None
-
-                gc.collect()
-            else:
-                # This is the case where the residue is either a ligand
-                # or water
+        # Copy the structure
+        structure_new = structure
+        structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+        if icode:
+            structure_resi = structure_resi.extract('icode', icode)
+        chain = structure_resi[chainid]
+        conformer = chain.conformers[0]
+        residue = conformer[residue.id]
+        altlocs = sorted(list(set(residue.altloc)))
+        if len(altlocs) > 1:
+            try:
+                altlocs.remove('')
+            except ValueError:
                 pass
-            counter.increment()
+            for altloc in altlocs[1:]:
+                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                sel_str = f"not ({sel_str})"
+                structure_new = structure_new.extract(sel_str)
+
+        # Copy the map
+        xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
+
+        # Exception handling in case qFit-residue fails:
+        qfit = QFitRotamericResidue(residue, structure_new,
+                                    xmap_reduced, options)
+        try:
+            qfit.run()
+        except RuntimeError:
+            print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
+            print(f"Using deposited conformer A for this residue.")
+            qfit.conformer = residue.copy()
+            qfit._occupancies = [residue.q]
+            qfit._coor_set = [residue.coor]
+            qfit._bs = [residue.b]
+
+        # Save multiconformer_residue
+        qfit.tofile()
+
+        # How many conformers were found?
+        n_conformers = len(qfit.get_conformers())
+
+        # Freeing up some memory to avoid memory issues:
+        del xmap_reduced
+        del qfit
+        gc.collect()
+
+        # Return a string about the residue that was completed.
+        return f"{identifier} {residue.resn[0]}: {n_conformers} conformers"
 
 
-def main():
-    # Collect and act on arguments
-    args = parse_args()
-    try:
-        os.mkdir(args.directory)
-    except OSError:
-        pass
-    print_run_info(args)
-    options = QFitProteinOptions()
-    options.apply_command_args(args)
+def prepare_qfit_protein(options):
+    """Loads files to build a QFitProtein job."""
 
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
-    if not args.hydro:
+    structure = Structure.fromfile(options.structure).reorder()
+    if not options.hydro:
         structure = structure.extract('e', 'H', '!=')
 
     # Load map and prepare it
-    xmap = XMap.fromfile(args.map, resolution=args.resolution,
-                         label=args.label)
+    xmap = XMap.fromfile(
+        options.map, resolution=options.resolution, label=options.label
+    )
     xmap = xmap.canonical_unit_cell()
-    if args.scale is True:
+    if options.scale is True:
         scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
         reso = None
@@ -404,8 +435,28 @@ def main():
             radius = 0.5 + reso / 3.0
         scaler.scale(structure, radius=radius)
 
-    # Start qFit run
+    return QFitProtein(structure, xmap, options)
+
+
+def main():
+    """Default entrypoint for qfit_protein."""
+
+    # Collect and act on arguments
+    #   (When args==None, argparse will default to sys.argv[1:])
+    p = build_argparser()
+    args = p.parse_args(args=None)
+    try:
+        os.mkdir(args.directory)
+    except OSError:
+        pass
+    print_run_info(args)
+    options = QFitProteinOptions()
+    options.apply_command_args(args)
+
+    # Build a QFitProtein job
+    qfit = prepare_qfit_protein(options)
+
+    # Run the QFitProtein job
     time0 = time.time()
-    qfit = QFitProtein(structure, xmap, options)
     multiconformer = qfit.run()
     print(f"Total time: {time.time() - time0}s")
