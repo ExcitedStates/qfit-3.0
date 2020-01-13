@@ -43,12 +43,23 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+    p.add_argument("pdb_name", type=str, help="name of Holo PDB.")
+    p.add_argument("-dir", type=str, help="directory of output.")
     args = p.parse_args()
     return args
 
 def main():
     args = parse_args()
-
+    
+    if not args.pdb_name==None:
+            pdb_name=args.pdb_name
+    else:
+            pdb_name=''
+            
+    if not args.dir==None:
+            dir=args.dir
+    else:
+            dir=''
     try:
         structure = Structure.fromfile(args.structure)
     except:
@@ -58,6 +69,8 @@ def main():
     receptor = structure.extract('record', 'ATOM')
     receptor = receptor.extract('resn', 'HOH', '!=')
     homo = hetero = 0
+    close_res = pd.DataFrame()
+    alt_loc = pd.DataFrame()
     for chain in receptor:
         for residue in chain:
             if residue.resn[0] not in ROTAMERS:
@@ -67,7 +80,7 @@ def main():
                 hetero += 1
             else:
                 homo += 1
-    total = homo+hetero
+    total = homo + hetero
     for ligand_name in list(set(ligands.resn)):
         near_homo = near_hetero = 0
         if ligand_name not in Dict:
@@ -82,6 +95,14 @@ def main():
                     key = str(near_residue)+" "+near_chain
                     if key not in neighbors:
                         neighbors[key]=0
+            n=1
+            for key in neighbors.keys():
+                residue_id,chain = key.split()
+                close_res.loc[n, 'res_id'] = residue_id
+                close_res.loc[n, 'chain'] = chain
+                n+=1
+            close_res.to_csv(dir + pdb_name + '_' +ligand_name + '_closeres.csv', index=False)
+            
             for key in neighbors.keys():
                 residue_id,chain = key.split()
                 residue = structure.extract(f"chain {chain} and resi {residue_id}")
@@ -93,5 +114,18 @@ def main():
                 else:
                     near_homo += 1
             near_total = near_homo + near_hetero
-            print(args.structure, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total)
+            
+            near_total = near_homo + near_hetero
+            alt_loc.loc[m,'PDB'] = pdb_name
+            alt_loc.loc[m,'ligand'] = ligand_name
+            alt_loc.loc[m,'Num_Single_Conf'] = homo
+            alt_loc.loc[m,'Num_Multi_Conf'] = hetero
+            alt_loc.loc[m, 'Total_Residues'] = total
+            alt_loc.loc[m, 'Num_Single_Conf_Near_Ligand'] = near_homo
+            alt_loc.loc[m, 'Num_Multi_Conf_Near_Ligand'] = near_hetero
+            alt_loc.loc[m, 'Total_Residues_Near_Ligand'] = near_total
+            m+=1
+
+    alt_loc.to_csv(dir + pdb_name + '_Alt_Loc.csv', index=False)
+    print(pdb_name, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total)
 

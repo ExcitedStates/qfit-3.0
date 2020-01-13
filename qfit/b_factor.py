@@ -4,6 +4,8 @@
 Excited States software: qFit 3.0
 Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
 Contact: vdbedem@stanford.edu
+How to run:
+b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 '''
 
 import pkg_resources  # part of setuptools
@@ -31,7 +33,10 @@ def parse_args():
     p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3069973e5d2fe3ae019b565f0c625624e36df374
    # Output options
     p.add_argument("--pdb", help="Name of the input PDB.")
 
@@ -50,6 +55,7 @@ class B_factor():
     def __init__(self, structure, options):
         self.structure = structure #PDB with HOH at the bottom
         self.options = options #user input
+    
     def run(self):
         if not self.options.pdb==None:
             self.pdb=self.options.pdb
@@ -66,7 +72,7 @@ class B_factor():
         residue_num = []
         model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
-        n=0
+        n = 0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
             residues = set(list(select2.resi))
@@ -78,9 +84,14 @@ class B_factor():
                 else:
                     resi = tmp_i
                 residue_ids.append(resi)
+        
         n=1
         for id in residue_ids:
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
+<<<<<<< HEAD
+=======
+            #is this going to give us the alternative coordinate for everything?
+>>>>>>> 3069973e5d2fe3ae019b565f0c625624e36df374
             resn_name = (np.array2string(np.unique(res_tmp.resi)), np.array2string(np.unique(res_tmp.resn)),np.array2string(np.unique(res_tmp.chain)))
             b_factor = res_tmp.b
             B_factor.loc[n,'resseq'] = resn_name[0]
@@ -95,10 +106,17 @@ def main():
     args = parse_args()
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder() #put H20 on the bottom
+<<<<<<< HEAD
     structure = structure.extract('e', 'H', '!=')
+=======
+>>>>>>> 3069973e5d2fe3ae019b565f0c625624e36df374
     B_options = Bfactor_options()
     B_options.apply_command_args(args)
     time0 = time.time()
     b_factor = B_factor(structure, B_options)
+<<<<<<< HEAD
     b_output = b_factor.run()
+=======
+    b_fin = b_factor.run()
+>>>>>>> 3069973e5d2fe3ae019b565f0c625624e36df374
 

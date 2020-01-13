@@ -31,7 +31,6 @@ from .math import *
 from .rotamers import ROTAMERS
 import time
 
-
 _PROTEIN_BACKBONE_ATOMS = ['N', 'CA', 'C']
 _NUCLEOTIDE_BACKBONE_ATOMS = ['P', "O5'", "C5'", "C4'", "C3'", "O3"]
 _SOLVENTS = ['HOH']
@@ -243,7 +242,7 @@ class _RotamerResidue(_BaseResidue):
         # Identify a suitable atom for the bond angle:
         for angle in self._rotamers['bond_angle']:
             if angle[0][1] == ref_atom and angle[0][2] == atom:
-                if angle[0][0][0] is "H":
+                if angle[0][0][0] == "H":
                     continue
                 bond_angle_atom = angle[0][0]
                 bond_angle, bond_angle_sd = angle[1]
@@ -354,7 +353,6 @@ class _RotamerResidue(_BaseResidue):
                 setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
                                                   element))
             elif attr == "atomid":
-
                 setattr(self, '_'+attr, np.append(getattr(self, '_'+attr),
                                                   index+1))
             elif attr == "name":
