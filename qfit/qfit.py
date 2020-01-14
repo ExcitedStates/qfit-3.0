@@ -1217,37 +1217,18 @@ class QFitLigand(_BaseQFit):
         self._solve(cardinality=self.options.cardinality,
                     threshold=self.options.threshold)
         self._update_conformers()
-
-        '''# Validation:
+         
+        #validator from qFit Residue
         validator = Validator(self.xmap, self.xmap.resolution,
                               self.options.directory)
-
-        # Order conformers based on rscc
-        conformers = np.array(self.get_conformers())
-        rsccs = np.array([validator.rscc(conformer, rmask=1.5) for
-                          conformer in conformers])
-
-        mask = (rsccs >= np.max(rsccs) * 0.9)
-        conformers_filtered = conformers[mask]
-        conformers_filtered[0].zscore = float('inf')
-        multiconformer = Structure(conformers_filtered[0].data)
-        multiconformer.data['altloc'].fill('A')
-        nconformers = 1
-        self._coor_set = [conformers_filtered[0].coor]
-        self._occupancies = [conformers_filtered[0].q]
-        for conformer in conformers_filtered[1:]:
-            conformer.data['altloc'].fill(ascii_uppercase[nconformers])
-            new_multiconformer = multiconformer.combine(conformer)
-            diff = validator.fisher_z_difference(multiconformer,
-                                                 new_multiconformer,
-                                                 rmask=1.5, simple=True)
-            if diff < 0.1:
-                continue
-            multiconformer = new_multiconformer
-            conformer.zscore = diff
-            self._coor_set.append(conformer.coor)
-            self._occupancies.append(conformer.q)
-            nconformers += 1'''
+        if self.xmap.resolution.high < 3.0:
+            cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
+        else:
+            cutoff = 0.5 * self.xmap.resolution.high
+        self.validation_metrics = validator.GoodnessOfFit(self.conformer,
+                                                          self._coor_set,
+                                                          self._occupancies,
+                                                          cutoff)
 
 
     def _local_search(self):
@@ -1325,6 +1306,17 @@ class QFitLigand(_BaseQFit):
                     threshold=self.options.threshold)
         self._update_conformers()
         # self._write_intermediate_conformers(prefix='miqp')
+        #validator from qFit Residue
+        validator = Validator(self.xmap, self.xmap.resolution,
+                              self.options.directory)
+        if self.xmap.resolution.high < 3.0:
+            cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
+        else:
+            cutoff = 0.5 * self.xmap.resolution.high
+        self.validation_metrics = validator.GoodnessOfFit(self.conformer,
+                                                          self._coor_set,
+                                                          self._occupancies,
+                                                          cutoff)
 
     def _sample_internal_dofs(self):
         opt = self.options
@@ -1437,7 +1429,17 @@ class QFitLigand(_BaseQFit):
             self._update_conformers()
 
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
-
+            #validator from qFit Residue
+            validator = Validator(self.xmap, self.xmap.resolution,
+                              self.options.directory)
+            if self.xmap.resolution.high < 3.0:
+               cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
+            else:
+               cutoff = 0.5 * self.xmap.resolution.high
+            self.validation_metrics = validator.GoodnessOfFit(self.conformer,
+                                                          self._coor_set,
+                                                          self._occupancies,
+                                                          cutoff)
             # Check if we are done
             if end_bond_index == nbonds:
                 break
