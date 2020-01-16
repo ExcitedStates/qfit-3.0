@@ -32,7 +32,7 @@ Once these are installed, you can:
    ```bash
    conda install -c anaconda mkl
    conda install -c anaconda -c ibmdecisionoptimization \
-                 cvxopt cplex
+                 cvxopt cplex numpy scipy pandas
    ```
 
 1. Clone the qFit source, and install to your conda env
