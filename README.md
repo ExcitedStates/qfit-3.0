@@ -23,7 +23,8 @@ As an open source alternative to IBM ILOG CPLEX Optimization Studio:
 If you have access to the `conda` package manager ([Python 3.7 64bit Anaconda 2019.03](https://www.anaconda.com/distribution/)),
 installing all dependencies can be done by issuing the following commands:
 
-    conda install -c conda-forge -c ibmdecisionoptimization numpy scipy cvxopt cplex
+    conda install -c anaconda mkl
+    conda install -c anaconda -c ibmdecisionoptimization cvxopt cplex numpy scipy
     conda install -c oxfordcontrol osqp
 
 Installation instructions using `pip` can be found in the `docs` folder.
