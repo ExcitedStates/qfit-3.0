@@ -8,9 +8,6 @@ pdb_name=$1
 echo $pdb_name
 
 
-#REMOVE DUPLICATE HET ATOMS
-remove_duplicates multiconformer_model2.pdb
-
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates multiconformer_model2.pdb
 
