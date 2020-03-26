@@ -678,6 +678,7 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
             logger.error("[_sample_backbone] Got AttributeError for directions.")
+            # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             directions = np.identity(3)
 
         for n, residue in enumerate(self.segment.residues[::-1]):
@@ -695,20 +696,24 @@ class QFitRotamericResidue(_BaseQFit):
 
         start_coor = atom.coor[0]
         torsion_solutions = []
-        amplitudes = np.arange(0.1,
-                               self.options.sample_backbone_amplitude + 0.01,
-                               self.options.sample_backbone_step)
 
+        # Retrieve the amplitudes and stepsizes from options.
         sigma = self.options.sample_backbone_sigma
+        bba, bbs = self.options.sample_backbone_amplitude, self.options.sample_backbone_step
+        assert bba >= bbs > 0
+
+        # Create an array of amplitudes to scan:
+        #   We start from stepsize, making sure to stop only after bba.
+        #   Also include negative amplitudes.
+        amplitudes = np.arange(start=bbs, stop=bba + bbs, step=bbs)
+        amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
+
         for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
+            delta = sigma * (2 * np.random.random() - 1)  # random from interval [-1.0, 1.0)
+            endpoint = start_coor + (amplitude + delta) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
 
-            endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
-            optimize_result = optimizer.optimize(atom_name, endpoint)
-            torsion_solutions.append(optimize_result['x'])
-            logger.debug(f"[_sample_backbone] optimize_result={optimize_result}")
         starting_coor = segment.coor
 
         for solution in torsion_solutions:
