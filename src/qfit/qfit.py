@@ -146,11 +146,13 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
+
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
         elif options.resolution is not None:
             reso = options.resolution
+
         if reso is not None:
             self._smax = 1 / (2 * reso)
             self._simple = False
@@ -342,6 +344,7 @@ class _BaseQFit:
             ext = 'ccp4'
         else:
             ext = 'mrc'
+
         # Create maps
         # for q, coor in zip(self._occupancies, self._coor_set):
         #    self.conformer.q = q
@@ -430,6 +433,7 @@ class QFitRotamericResidue(_BaseQFit):
             # Generate CIF file of unknown ligands for refinement:
             subprocess.run(["phenix.elbow", "--do_all",
                             f"{out_root}_modified_H.pdb"])
+
             # Run the refinement protocol:
             if os.path.isfile(f'elbow.{out_root}_modified_H_pdb.all.001.cif'):
                 elbow = f'elbow.{out_root}_modified_H_pdb.all.001.cif'
@@ -448,6 +452,7 @@ class QFitRotamericResidue(_BaseQFit):
                                 "--overwrite",
                                 f'chain_{self.chain}_res_{self.resi}_adp.params',
                                 f'refinement.input.xray_data.labels=F-obs'])
+
             # Reload structure and xmap as omit map:
             structure = Structure.fromfile(f'{out_root}_modified_H_refine_001.pdb').reorder()
             if not options.hydro:
@@ -584,8 +589,10 @@ class QFitRotamericResidue(_BaseQFit):
     def run(self):
         if self.options.sample_backbone:
             self._sample_backbone()
+
         if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0] != 'GLY':
             self._sample_angle()
+
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
         else:
@@ -613,14 +620,17 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve(threshold=self.options.threshold,
                         cardinality=self.options.cardinality)
             self._update_conformers()
+
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
         validator = Validator(self.xmap, self.xmap.resolution,
                               self.options.directory)
+
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6) / 3.0
         else:
             cutoff = 0.5 * self.xmap.resolution.high
+
         self.validation_metrics = validator.GoodnessOfFit(self.conformer,
                                                           self._coor_set,
                                                           self._occupancies,
@@ -871,6 +881,7 @@ class QFitRotamericResidue(_BaseQFit):
             # self._write_intermediate_conformers(f"miqp_{iteration}")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
             # print("Nconf after MIQP: {:d}".format(len(self._coor_set)))
+
             # Check if we are done
             if chi_index == self.residue.nchi:
                 break
