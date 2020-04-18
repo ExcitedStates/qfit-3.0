@@ -186,8 +186,11 @@ class _BaseQFit:
     def _update_transformer(self, structure):
         self.conformer = structure
         self._transformer = Transformer(
-            structure, self._xmap_model, smax=self._smax, smin=self._smin,
-            simple=self._simple, scattering=self.options.scattering)
+            structure, self._xmap_model,
+            smax=self._smax, smin=self._smin,
+            simple=self._simple,
+            scattering=self.options.scattering,
+        )
         logger.debug("Initializing radial density lookup table.")
         self._transformer.initialize()
 
@@ -199,9 +202,11 @@ class _BaseQFit:
 
         # Calculate the density that we are going to subtract:
         self._subtransformer = Transformer(
-            subtract_structure,
-            self._xmap_model2, smax=self._smax, smin=self._smin,
-            simple=self._simple, scattering=self.options.scattering)
+            subtract_structure, self._xmap_model2,
+            smax=self._smax, smin=self._smin,
+            simple=self._simple,
+            scattering=self.options.scattering,
+        )
         self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
@@ -571,7 +576,8 @@ class QFitRotamericResidue(_BaseQFit):
             receptor = receptor.combine(self.structure)
             self.structure.coor = starting_coor
 
-        self._cd = ClashDetector(residue, receptor, exclude=exclude,
+        self._cd = ClashDetector(residue, receptor,
+                                 exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
         # receptor.tofile('clash_receptor.pdb')
 
@@ -726,7 +732,8 @@ class QFitRotamericResidue(_BaseQFit):
             sampling_window = np.arange(
                 -opt.rotamer_neighborhood,
                 opt.rotamer_neighborhood + opt.dihedral_stepsize,
-                opt.dihedral_stepsize)
+                opt.dihedral_stepsize,
+            )
         else:
             sampling_window = [0]
 
