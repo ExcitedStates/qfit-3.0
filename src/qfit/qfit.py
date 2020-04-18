@@ -317,19 +317,26 @@ class _BaseQFit:
         # residual = 0
         return solver.obj_value
 
-    def _update_conformers(self):
+    def _update_conformers(self, cutoff=0.002):
+        """Removes conformers with occupancy lower than cutoff.
+
+        Args:
+            cutoff (float, optional): Lowest acceptable occupancy for a conformer.
+                Cutoff should be in range (0 < cutoff < 1).
+        """
         logger.debug("Updating conformers based on occupancy")
-        new_coor_set = []
-        new_occupancies = []
-        new_bs = []
-        for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
-            if q >= 0.002:
-                new_coor_set.append(coor)
-                new_occupancies.append(q)
-                new_bs.append(b)
-        self._coor_set = new_coor_set
-        self._occupancies = np.asarray(new_occupancies)
-        self._bs = new_bs
+
+        # Check that all arrays match dimensions.
+        assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
+
+        # Filter all arrays & lists based on self._occupancies
+        # NB: _coor_set and _bs are lists (not arrays). We must compress, not slice.
+        filterarray = (self._occupancies >= cutoff)
+        self._occupancies = self._occupancies[filterarray]
+        self._coor_set = list(itertools.compress(self._coor_set, filterarray))
+        self._bs = list(itertools.compress(self._bs, filterarray))
+
+        logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
 
     def _write_intermediate_conformers(self, prefix="_conformer"):
         for n, coor in enumerate(self._coor_set):
