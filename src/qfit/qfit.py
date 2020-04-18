@@ -277,7 +277,7 @@ class _BaseQFit:
         else:
             solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
 
-            # Treshold Selection by BIC:
+            # Threshold selection by BIC:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in loop_range:
