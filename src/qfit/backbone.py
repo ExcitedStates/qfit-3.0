@@ -29,32 +29,30 @@ import scipy as sp
 from .samplers import BackboneRotator
 
 
-def move_direction_adp(u_matrix, unit_cell):
-    # u_matrix = np.asmatrix(u_matrix)                        # np.matrix is 'no longer recommended'
-    # orth_matrix = np.asmatrix(unit_cell.frac_to_orth)       # 
-    # metric_tensor = orth_matrix.T * orth_matrix             # Why do I need a metrix tensor?
-    # u_orth = metric_tensor * u_matrix * metric_tensor       # But the PDB contains ANISOU _already_ in cartesian coordinates. And this is what is in u_matrix!
-    # eigval, eigvec = np.linalg.eigh(u_orth)                 # Good! u_orth is a square symmetric matrix, so we can decompose with lower-triangle eigh (rather than more expensive eig)
-    # order = np.argsort(eigval)                              # 
-    # eigvec = np.asarray(eigvec[order])                      # Um... np.linalg.eig* create eigvectors as COLUMN vectors. This sorts them as if they were rows!
-    # if np.linalg.det(eigvec) < 0:                           # ... I guess we're trying to preserve orientation (right-handedness) by making sure det>0, but again, this is incorrectly flipping a colvec.
-    #     eigvec[:, 0] *= -1
+def adp_ellipsoid_axes(U_ij):
+    """Calculate principal axes of ADP ellipsoid.
 
-    # eigensum = np.zeros(3)                                  # What is eigensum for? (again, row≠col), why is it a direction?
-    # for i in range(3):
-    #     eigensum[i] = (eigval[i] * eigvec[i]).sum()
-    # eigensum /= np.linalg.norm(eigensum)
+    Args:
+        U_ij (np.ndarray[np.float32]): square symmetric matrix of anisotropic
+            displacement parameters (ADPs) in cartesian coordinates.
+            In a PDB, ANISOU cards contain the parameters
+                [u_11, u_22, u_33, u_12, u_13, u_23] / 1e-4 Å^2.
 
-    # directions = [eigvec[0], eigvec[1], eigvec[2], eigensum]
-    # return directions
+    Returns:
+        List[np.ndarray[np.float32]]: principal axes of the anisotropic
+            displacement ellipsoid, from largest to smallest.
+    """
+    # Unscale ADP parameters to Å^2
+    # U_ij = U_ij * 1e-4
 
-    ####  I DO NOT UNDERSTAND THE ABOVE CODE. ###
-    # We don't need unit_cell, we're already working with u_matrix==Uij_cart
-    # Uij_cart = u_matrix * 1e-4  #dbg PDB ANISOU scale factor, not necessary, because eigh gives unit vectors.
-    Uij_cart = u_matrix
-    eigvals, eigvecs = np.linalg.eigh(Uij_cart)
-    # directions = [e for e in (eigvals * eigvecs).T]  # Should we scale the unit vectors by eigvals? This would return the principal axes of the ADP ellipsoid.
+    # Eigendecompose U_ij matrix with lower-triangle eigh
+    eigvals, eigvecs = np.linalg.eigh(U_ij)
+
+    # Scale unit eigenvectors by associated eigenvalues to return principal axes
+    #   TODO: Should we? This would mean -bba/-bbs would not behave as expected.
+    # directions = [e for e in (eigvals * eigvecs).T]
     directions = [e for e in eigvecs.T]
+
     return directions
 
 
