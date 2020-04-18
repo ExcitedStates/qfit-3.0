@@ -701,8 +701,10 @@ class QFitRotamericResidue(_BaseQFit):
             self._coor_set.append(self.segment[index].coor)
             self._bs.append(self.conformer.b)
             segment.coor = starting_coor
-        self._write_intermediate_conformers(prefix=f"_sample_backbone_segment{index:03d}")
-        logger.debug(f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers.")
+
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix=f"_sample_backbone_segment{index:03d}")
+            logger.debug(f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -743,9 +745,10 @@ class QFitRotamericResidue(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
-        self._write_intermediate_conformers(prefix=f"_sample_angle")
-        # print(f"Bond angle sampling generated {len(self._coor_set)} "
-        #      f"conformers.")
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix=f"_sample_angle")
+            # print(f"Bond angle sampling generated {len(self._coor_set)} "
+            #      f"conformers.")
 
     def _sample_sidechain(self):
         opt = self.options
@@ -869,10 +872,10 @@ class QFitRotamericResidue(_BaseQFit):
                 msg = "No conformers could be generated. Check for initial \
                        clashes and density support."
                 raise RuntimeError(msg)
-            if opt.debug:
+            if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
-            # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
-            # print(f"{len(self._coor_set)} {ex}")
+                # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
+                # print(f"{len(self._coor_set)} {ex}")
 
             # QP
             logger.debug("Converting densities.")
@@ -881,7 +884,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
-            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
 
             # MIQP
             self._convert()
@@ -889,7 +893,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve(cardinality=opt.cardinality,
                         threshold=opt.threshold)
             self._update_conformers()
-            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
             # print("Nconf after MIQP: {:d}".format(len(self._coor_set)))
 
@@ -1793,7 +1798,7 @@ class QFitCovalentLigand(_BaseQFit):
                 msg = ("No conformers could be generated. Check for initial "
                        "clashes and density support.")
                 raise RuntimeError(msg)
-            if opt.debug:
+            if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
 
             # QP
