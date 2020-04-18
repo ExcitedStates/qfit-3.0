@@ -642,7 +642,6 @@ class QFitRotamericResidue(_BaseQFit):
             atom_name = "O"
         atom = self.residue.extract('name', atom_name)
         try:
-            unit_cell = self.xmap.unit_cell
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]]]
@@ -1633,7 +1632,6 @@ class QFitCovalentLigand(_BaseQFit):
             atom_name = "O"
         atom = self.covalent_residue.extract('name', atom_name)
         try:
-            unit_cell = self.xmap.unit_cell
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]]]
