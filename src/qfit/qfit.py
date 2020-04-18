@@ -177,8 +177,8 @@ class _BaseQFit:
             conformer = self.conformer.copy()
             conformer = conformer.extract(f"resi {self.conformer.resi[0]} and "
                                           f"chain {self.conformer.chain[0]}")
-            conformer.coor = coor
             conformer.q = q
+            conformer.coor = coor
             conformer.b = b
             conformers.append(conformer)
         return conformers
