@@ -620,13 +620,21 @@ class QFitRotamericResidue(_BaseQFit):
                     new_bs.append(b)
             self._coor_set = new_coor_set
             self._bs = new_bs
+
+            # QP score conformer occupancy
             self._convert()
             self._solve()
             self._update_conformers()
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix="qp_solution")
+
+            # MIQP score conformer occupancy
             self._convert()
             self._solve(threshold=self.options.threshold,
                         cardinality=self.options.cardinality)
             self._update_conformers()
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
@@ -881,26 +889,20 @@ class QFitRotamericResidue(_BaseQFit):
                 # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
                 # print(f"{len(self._coor_set)} {ex}")
 
-            # QP
-            logger.debug("Converting densities.")
+            # QP score conformer occupancy
             self._convert()
-            logger.info("Solving QP.")
             self._solve()
-            logger.debug("Updating conformers")
             self._update_conformers()
             if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
 
-            # MIQP
+            # MIQP score conformer occupancy
             self._convert()
-            logger.info("Solving MIQP.")
-            self._solve(cardinality=opt.cardinality,
-                        threshold=opt.threshold)
+            self._solve(threshold=self.options.threshold,
+                        cardinality=self.options.cardinality)
             self._update_conformers()
             if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
-            logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
-            # print("Nconf after MIQP: {:d}".format(len(self._coor_set)))
 
             # Check if we are done
             if chi_index == self.residue.nchi:
@@ -924,8 +926,8 @@ class QFitRotamericResidue(_BaseQFit):
         # Make a multiconformer residue
         nconformers = len(conformers)
         if nconformers < 1:
-            msg = "No conformers could be generated. \
-             Check for initial clashes."
+            msg = ("No conformers could be generated. "
+                   "Check for initial clashes.")
             raise RuntimeError(msg)
         mc_residue = Structure.fromstructurelike(conformers[0])
         if nconformers == 1:
@@ -1109,21 +1111,25 @@ class QFitSegment(_BaseQFit):
                 self._update_transformer(fragments[0])
                 self._coor_set = [fragment.coor for fragment in fragments]
                 self._bs = [fragment.b for fragment in fragments]
-                # QP
+
+                # QP score segment occupancy
                 self._convert()
                 self._solve()
+
                 # Update conformers
                 fragments = np.array(fragments)
                 mask = self._occupancies >= 0.002
                 fragments = fragments[mask]
+                self._occupancies = self._occupancies[mask]
                 self._coor_set = [fragment.coor for fragment in fragments]
                 self._bs = [fragment.b for fragment in fragments]
-                self._occupancies = self._occupancies[mask]
-                # MIQP
+
+                # MIQP score segment occupancy
                 self._convert()
-                self._solve(cardinality=self.options.cardinality,
-                            threshold=self.options.threshold,
+                self._solve(threshold=self.options.threshold,
+                            cardinality=self.options.cardinality,
                             loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+
                 # Update conformers
                 mask = self._occupancies >= 0.002
                 for fragment, occ in zip(fragments[mask],
@@ -1221,12 +1227,13 @@ class QFitLigand(_BaseQFit):
         if len(self._coor_set) < 1:
             print("[ERROR] qFit-ligand failed to produce a valid conformer.")
             exit()
-        # MIQP
+        # MIQP score conformer occupancy
         self._convert()
-        logger.info("Solving MIQP.")
-        self._solve(cardinality=self.options.cardinality,
-                    threshold=self.options.threshold)
+        self._solve(threshold=self.options.threshold,
+                    cardinality=self.options.cardinality)
         self._update_conformers()
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix="miqp_solution")
 
     def _local_search(self):
         """Perform a local rigid body search on the cluster."""
@@ -1287,24 +1294,25 @@ class QFitLigand(_BaseQFit):
             print(f"{self.ligand.resn[0]}: "
                   f"Local search {self._cluster_index}: {len(self._coor_set)} conformers")
             return
-        # QP
-        logger.debug("Converting densities.")
+
+        # QP score conformer occupancy
         self._convert()
-        logger.info("Solving QP.")
         self._solve()
-        logger.debug("Updating conformers")
         self._update_conformers()
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
         if len(self._coor_set) < 1:
             print(f"{self.ligand.resn[0]}: "
                   f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
             return
-        # MIQP
+
+        # MIQP score conformer occupancy
         self._convert()
-        logger.info("Solving MIQP.")
-        self._solve(cardinality=self.options.cardinality,
-                    threshold=self.options.threshold)
+        self._solve(threshold=self.options.threshold,
+                    cardinality=self.options.cardinality)
         self._update_conformers()
-        # self._write_intermediate_conformers(prefix='miqp')
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
 
     def _sample_internal_dofs(self):
         opt = self.options
@@ -1395,28 +1403,25 @@ class QFitLigand(_BaseQFit):
                       f"{len(self._coor_set)} conformers.")
                 return
 
-            # QP
-            logger.debug("Converting densities.")
+            # QP score conformer occupancy
             self._convert()
-            logger.info("Solving QP.")
             self._solve()
-            logger.debug("Updating conformers")
             self._update_conformers()
-
-            if not self._coor_set:
-                print(f"{self.ligand.resn[0]}: "
-                      f"QP search cluster {self._cluster_index} iteration {iteration}: "
-                      f"{len(self._coor_set)} conformers.")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_qp")
+            if len(self._coor_set) < 1:
+                logger.warning(f"{self.ligand.resn[0]}: "
+                               f"QP search cluster {self._cluster_index} iteration {iteration}: "
+                               f"{len(self._coor_set)} conformers")
                 return
 
-            # MIQP
+            # MIQP score conformer occupancy
             self._convert()
-            logger.info("Solving MIQP.")
-            self._solve(cardinality=opt.cardinality,
-                        threshold=opt.threshold)
+            self._solve(threshold=self.options.threshold,
+                        cardinality=self.options.cardinality)
             self._update_conformers()
-
-            logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
 
             # Check if we are done
             if end_bond_index == nbonds:
@@ -1805,23 +1810,20 @@ class QFitCovalentLigand(_BaseQFit):
             if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
 
-            # QP
-            logger.debug("Converting densities.")
+            # QP score conformer occupancy
             self._convert()
-            logger.info("Solving QP.")
             self._solve()
-            logger.debug("Updating conformers")
             self._update_conformers()
-            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
 
-            # MIQP
+            # MIQP score conformer occupancy
             self._convert()
-            logger.info("Solving MIQP.")
-            self._solve(cardinality=opt.cardinality,
-                        threshold=opt.threshold)
+            self._solve(threshold=self.options.threshold,
+                        cardinality=self.options.cardinality)
             self._update_conformers()
-            logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
-            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
 
             # Check if we are done
             if chi_index == self.covalent_residue.nchi:
@@ -1895,19 +1897,20 @@ class QFitCovalentLigand(_BaseQFit):
             raise RuntimeError(msg)
 
         # print(f"Covalent bond angle sampling generated {len(self._coor_set)} conformers")
-        # QP
-        logger.debug("Converting densities.")
+        # QP score conformer occupancy
         self._convert()
-        logger.info("Solving QP.")
         self._solve()
-        logger.debug("Updating conformers")
         self._update_conformers()
-        # MIQP
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix="_sample_covalent_bond_qp")
+
+        # MIQP score conformer occupancy
         self._convert()
-        logger.info("Solving MIQP.")
-        self._solve(cardinality=opt.cardinality,
-                    threshold=opt.threshold)
+        self._solve(threshold=self.options.threshold,
+                    cardinality=self.options.cardinality)
         self._update_conformers()
+        if self.options.debug:
+            self._write_intermediate_conformers(prefix="_sample_covalent_bond_miqp")
 
     def _sample_ligand(self):
         opt = self.options
@@ -1987,21 +1990,20 @@ class QFitCovalentLigand(_BaseQFit):
                        clashes and density support."
                 raise RuntimeError(msg)
 
-            # QP
-            logger.debug("Converting densities.")
+            # QP score conformer occupancy
             self._convert()
-            logger.info("Solving QP.")
             self._solve()
-            logger.debug("Updating conformers")
             self._update_conformers()
-            # MIQP
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_qp")
+
+            # MIQP score conformer occupancy
             self._convert()
-            logger.info("Solving MIQP.")
-            self._solve(cardinality=opt.cardinality,
-                        threshold=opt.threshold)
+            self._solve(threshold=self.options.threshold,
+                        cardinality=self.options.cardinality)
             self._update_conformers()
-            # self._write_intermediate_conformers(f"miqp_{iteration}")
-            # logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
 
             # Check if we are done
             if end_bond_index == nbonds:
