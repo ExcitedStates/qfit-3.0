@@ -33,7 +33,7 @@ import subprocess
 import numpy as np
 import pkg_resources  # part of setuptools
 
-from .backbone import NullSpaceOptimizer, move_direction_adp
+from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
@@ -642,11 +642,10 @@ class QFitRotamericResidue(_BaseQFit):
             atom_name = "O"
         atom = self.residue.extract('name', atom_name)
         try:
-            unit_cell = self.xmap.unit_cell
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]]]
-            directions = move_direction_adp(u_matrix, unit_cell)
+            directions = adp_ellipsoid_axes(u_matrix)
         except AttributeError:
             directions = np.identity(3)
 
@@ -1633,11 +1632,10 @@ class QFitCovalentLigand(_BaseQFit):
             atom_name = "O"
         atom = self.covalent_residue.extract('name', atom_name)
         try:
-            unit_cell = self.xmap.unit_cell
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]]]
-            directions = move_direction_adp(u_matrix, unit_cell)
+            directions = adp_ellipsoid_axes(u_matrix)
         except AttributeError:
             directions = np.identity(3)
 

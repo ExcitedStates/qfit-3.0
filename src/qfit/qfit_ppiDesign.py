@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 
-from .backbone import NullSpaceOptimizer, move_direction_adp
+from .backbone import NullSpaceOptimizer
 from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
