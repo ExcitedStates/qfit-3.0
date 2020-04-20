@@ -1093,7 +1093,7 @@ class QFitSegment(_BaseQFit):
                 segment.append(fragments[mask])
                 # self.print_paths(fragments[mask])
 
-        for path, altloc in zip(segment[0],possible_conformers ):
+        for path, altloc in zip(segment[0], possible_conformers):
             path.altloc = altloc
         return segment[0]
 
@@ -1105,7 +1105,7 @@ class QFitSegment(_BaseQFit):
                 if fragment.name[i] == "CA":
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
-            print(f"Path {k+1}:\t{ path }\t{fragment.q[-1]}")
+            print(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
 
 
 class QFitLigandOptions(_BaseQFitOptions):
