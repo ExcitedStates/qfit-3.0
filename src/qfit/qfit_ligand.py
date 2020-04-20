@@ -40,7 +40,7 @@ from . import QFitLigand, QFitLigandOptions
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
-def build_argparser():
+def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
             help="Density map in CCP4 or MRC format, or an MTZ file "
@@ -124,8 +124,9 @@ def build_argparser():
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
     p.add_argument("--pdb", help="Name of the input PDB.")
+    args = p.parse_args()
 
-    return p
+    return args
 
 def prepare_qfit_ligand(options):
     """Loads files to build a QFitLigand job."""
@@ -222,8 +223,7 @@ def prepare_qfit_ligand(options):
 
 
 def main():
-    p = build_argparser()
-    args = p.parse_args(args=None)
+    args = parse_args()
     try:
         os.makedirs(args.directory)
     except OSError:
