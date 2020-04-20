@@ -300,8 +300,8 @@ class _BaseQFit:
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
-#                    else:
-#                        break
+                    # else:
+                    #     break
                 self._occupancies = solver.weights
             else:
                 solver(cardinality=cardinality, threshold=threshold)
