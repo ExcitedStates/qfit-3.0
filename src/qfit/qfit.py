@@ -1160,8 +1160,7 @@ class QFitLigand(_BaseQFit):
         self._starting_bs = [ligand.b.copy()]
 
     def run(self):
-        for self._cluster_index, self._cluster in enumerate(
-          self._clusters_to_sample):
+        for self._cluster_index, self._cluster in enumerate(self._clusters_to_sample):
             self._coor_set = list(self._starting_coor_set)
             if self.options.local_search:
                 self._local_search()
