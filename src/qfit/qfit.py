@@ -513,8 +513,7 @@ class QFitRotamericResidue(_BaseQFit):
         if options.hydro:
             for atom in residue._rotamers['hydrogens']:
                 if atom not in atoms:
-                    print(f"[WARNING] Missing atom {atom} of residue "
-                          f"{residue.resi[0]},{residue.resn[0]}")
+                    logger.warning(f"Missing atom {atom} of residue {residue.resi[0]},{residue.resn[0]}")
                     continue
 
         super().__init__(residue, structure, xmap, options)
@@ -759,8 +758,7 @@ class QFitRotamericResidue(_BaseQFit):
         self._bs = new_bs
         if self.options.debug:
             self._write_intermediate_conformers(prefix=f"_sample_angle")
-            # print(f"Bond angle sampling generated {len(self._coor_set)} "
-            #      f"conformers.")
+            logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):
         opt = self.options
@@ -874,20 +872,18 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = new_bs
 
             if len(self._coor_set) > 15000:
-                print(f"[WARNING] Too many conformers generated ({len(self._coor_set)}).")
+                logger.warning(f"Too many conformers generated ({len(self._coor_set)})."
+                               f"Reverting back to previous iteration of degrees of freedom.")
                 self._coor_set = iter_coor_set[0]
-                print(f"Reverting back to previous iteration of degrees of freedom.")
-            # print(f"Excluded ({ex}/{n}) conformations.")
-            # print("Nconf: {:d}".format(len(self._coor_set)))
-            logger.info("Nconf: {:d}".format(len(self._coor_set)))
+
             if not self._coor_set:
-                msg = "No conformers could be generated. Check for initial \
-                       clashes and density support."
+                msg = ("No conformers could be generated. Check for initial "
+                       "clashes and density support.")
                 raise RuntimeError(msg)
+
             if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
-                # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
-                # print(f"{len(self._coor_set)} {ex}")
+                logger.debug(f"Side chain sampling generated {len(self._coor_set)} conformers")
 
             # QP score conformer occupancy
             self._convert()
@@ -1136,7 +1132,6 @@ class QFitSegment(_BaseQFit):
                                          self._occupancies[mask]):
                     fragment.q = occ
                 segment.append(fragments[mask])
-                # self.print_paths(fragments[mask])
 
         for path, altloc in zip(segment[0], possible_conformers):
             path.altloc = altloc
@@ -1216,8 +1211,9 @@ class QFitLigand(_BaseQFit):
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
-            logger.info("Number of conformers: {:}".format(len(self._coor_set)))
-            logger.info("Number of final conformers: {:}".format(len(self._all_coor_set)))
+            logger.info(f"Number of conformers: {len(self._coor_set)}")
+            logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
+
         # Find consensus across roots:
         self.conformer = self.ligand
         self.ligand._q[self.ligand._selection] = 1.0
@@ -1225,7 +1221,7 @@ class QFitLigand(_BaseQFit):
         self._coor_set = self._all_coor_set
         self._bs = self._all_bs
         if len(self._coor_set) < 1:
-            print("[ERROR] qFit-ligand failed to produce a valid conformer.")
+            logger.error("qFit-ligand failed to produce a valid conformer.")
             exit()
 
         # TODO: Check why we don't run QP here.
@@ -1294,8 +1290,8 @@ class QFitLigand(_BaseQFit):
         self._coor_set = new_coor_set
         self._bs = new_bs
         if len(self._coor_set) < 1:
-            print(f"{self.ligand.resn[0]}: "
-                  f"Local search {self._cluster_index}: {len(self._coor_set)} conformers")
+            logger.warning(f"{self.ligand.resn[0]}: "
+                           f"Local search {self._cluster_index}: {len(self._coor_set)} conformers")
             return
 
         # QP score conformer occupancy
@@ -1305,8 +1301,8 @@ class QFitLigand(_BaseQFit):
         if self.options.debug:
             self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
         if len(self._coor_set) < 1:
-            print(f"{self.ligand.resn[0]}: "
-                  f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
+            logger.warning(f"{self.ligand.resn[0]}: "
+                           f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
             return
 
         # MIQP score conformer occupancy
@@ -1398,12 +1394,12 @@ class QFitLigand(_BaseQFit):
             self.ligand._active[selection] = active
             self.conformer = self.ligand
 
-            logger.info("Nconf: {:d}".format(len(self._coor_set)))
+            logger.info(f"Nconf: {len(self._coor_set)}")
 
-            if not self._coor_set:
-                print(f"{self.ligand.resn[0]}: "
-                      f"DOF search cluster {self._cluster_index} iteration {iteration}: "
-                      f"{len(self._coor_set)} conformers.")
+            if len(self._coor_set) < 1:
+                logger.warning(f"{self.ligand.resn[0]}: "
+                               f"DOF search cluster {self._cluster_index} iteration {iteration}: "
+                               f"{len(self._coor_set)} conformers.")
                 return
 
             # QP score conformer occupancy
@@ -1803,13 +1799,13 @@ class QFitCovalentLigand(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-            # print(("Side chain sampling produced {:d} conformers".format(len(self._coor_set))))
-
-            logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
                 msg = ("No conformers could be generated. Check for initial "
                        "clashes and density support.")
                 raise RuntimeError(msg)
+            else:
+                logger.info(f"Side chain sampling produced {len(self._coor_set)} conformers")
+
             if self.options.debug:
                 self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
 
@@ -1895,11 +1891,12 @@ class QFitCovalentLigand(_BaseQFit):
         self.conformer = self.covalent_residue
 
         if not self._coor_set:
-            msg = "No conformers could be generated. Check for initial \
-                   clashes and density support."
+            msg = ("No conformers could be generated. Check for initial "
+                   "clashes and density support.")
             raise RuntimeError(msg)
+        else:
+            logger.info(f"Covalent bond angle sampling generated {len(self._coor_set)} conformers.")
 
-        # print(f"Covalent bond angle sampling generated {len(self._coor_set)} conformers")
         # QP score conformer occupancy
         self._convert()
         self._solve()
@@ -1986,12 +1983,12 @@ class QFitCovalentLigand(_BaseQFit):
                                 new_coor_set.append(new_coor)
                 self._coor_set = new_coor_set
 
-            # print(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
-            logger.info("Nconf: {:d}".format(len(self._coor_set)))
             if not self._coor_set:
-                msg = "No conformers could be generated. Check for initial \
-                       clashes and density support."
+                msg = ("No conformers could be generated. Check for initial "
+                       "clashes and density support.")
                 raise RuntimeError(msg)
+            else:
+                logger.info(f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers")
 
             # QP score conformer occupancy
             self._convert()
