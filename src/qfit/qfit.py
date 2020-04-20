@@ -908,18 +908,6 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue.tofile(fname)
 
 
-class QFitResidue(_BaseQFit):
-
-    def __call__(self):
-        pass
-
-    def _sample_backbone(self):
-        pass
-
-    def _sample_sidechain(self):
-        pass
-
-
 class QFitSegmentOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
