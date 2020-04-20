@@ -280,8 +280,6 @@ class _BaseQFit:
             logger.info("Solving QP")
             solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
             solver()
-            if self.options.bic_threshold:
-                self._occupancies = solver.weights
         else:
             logger.info("Solving MIQP")
             solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
@@ -307,11 +305,11 @@ class _BaseQFit:
                         self.BIC = BIC
                     # else:
                     #     break
-                self._occupancies = solver.weights
             else:
                 solver(cardinality=cardinality, threshold=threshold)
-        if not self.options.bic_threshold:
-            self._occupancies = solver.weights
+
+        # Update occupancies from solver weights
+        self._occupancies = solver.weights
 
         # logger.info(f"Residual under footprint: {residual:.4f}")
         # residual = 0
