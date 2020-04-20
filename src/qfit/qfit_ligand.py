@@ -128,6 +128,99 @@ def parse_args():
 
     return args
 
+def prepare_qfit_ligand(options):
+    """Loads files to build a QFitLigand job."""
+
+    # Load structure and prepare it
+    structure = Structure.fromfile(options.structure)
+    if not options.hydro:
+        structure = structure.extract('e', 'H', '!=')
+
+    chainid, resi = options.selection.split(',')
+    if ':' in resi:
+        resi, icode = resi.split(':')
+        residue_id = (int(resi), icode)
+    else:
+        residue_id = int(resi)
+        icode = ''
+
+    # Extract the ligand:
+    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+
+    if icode:
+        structure_ligand = structure_ligand.extract('icode', icode) #fix ligand name
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})" #TO DO COLLAPSE
+    receptor = structure.extract(sel_str) #selecting everything that is no the ligand of interest
+
+    receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
+
+    # Check which altlocs are present in the ligand. If none, take the
+    # A-conformer as default.
+
+    altlocs = sorted(list(set(structure_ligand.altloc)))
+    if len(altlocs) > 1:
+        try:
+            altlocs.remove('')
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_ligand = structure_ligand.extract(sel_str)
+            receptor = receptor.extract(f"not altloc {altloc}")
+    altloc = structure_ligand.altloc[-1]
+
+    if options.cif_file: #TO DO: STEPHANIE
+        ligand = _Ligand(structure_ligand.data,
+                         structure_ligand._selection,
+                         link_data=structure_ligand.link_data,
+                         cif_file=args.cif_file)
+    else:
+        ligand = _Ligand(structure_ligand.data,
+                         structure_ligand._selection,
+                         link_data=structure_ligand.link_data)
+    if ligand.natoms == 0:
+        raise RuntimeError("No atoms were selected for the ligand. Check "
+                           " the selection input.")
+
+    ligand.altloc = ''
+    ligand.q = 1
+
+    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
+    logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
+
+
+    # Load and process the electron density map:
+    xmap = XMap.fromfile(options.map, resolution=options.resolution, label=options.label)
+    xmap = xmap.canonical_unit_cell()
+    if options.scale:
+        # Prepare X-ray map
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        if options.omit:
+            footprint = structure_ligand
+        else:
+            footprint = structure
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        scaler.scale(footprint, radius=radius)
+
+    xmap = xmap.extract(ligand.coor, padding=options.padding)
+    ext = '.ccp4'
+
+    if not np.allclose(xmap.origin, 0):
+        ext = '.mrc'
+    scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
+    xmap.tofile(scaled_fname)
+
+    return QFitLigand(ligand, structure, xmap, options)
+
 
 def main():
     args = parse_args()
@@ -143,7 +236,7 @@ def main():
     time0 = time.time()
 
     # Setup logger
-    logging_fname = os.path.join(args.directory, 'qfit_ligand.log')
+    logging_fname = os.path.join(args.directory, 'qfit_ligand.log') #combine this with qfit log file
     if args.debug:
         level = logging.DEBUG
     else:
@@ -156,93 +249,20 @@ def main():
         console_out.setLevel(level)
         logging.getLogger('').addHandler(console_out)
 
-    # Load structure and prepare it
-    structure = Structure.fromfile(args.structure)
-    if not args.hydro:
-        structure = structure.extract('e', 'H', '!=')
-    chainid, resi = args.selection.split(',')
-    if ':' in resi:
-        resi, icode = resi.split(':')
-        residue_id = (int(resi), icode)
-    else:
-        residue_id = int(resi)
-        icode = ''
-
-    # Extract the ligand:
-    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
-    if icode:
-        structure_ligand = structure_ligand.extract('icode', icode)
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-    receptor = structure.extract(sel_str)
-    receptor = receptor.extract("record", "ATOM")
-    # Check which altlocs are present in the ligand. If none, take the
-    # A-conformer as default.
-    altlocs = sorted(list(set(structure_ligand.altloc)))
-    if len(altlocs) > 1:
-        try:
-            altlocs.remove('')
-        except ValueError:
-            pass
-        for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure_ligand = structure_ligand.extract(sel_str)
-            receptor = receptor.extract(f"not altloc {altloc}")
-    altloc = structure_ligand.altloc[-1]
-
-    if args.cif_file:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data,
-                         cif_file=args.cif_file)
-    else:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data)
-    if ligand.natoms == 0:
-        raise RuntimeError("No atoms were selected for the ligand. Check the "
-                           " selection input.")
-
-
-
-    ligand.altloc = ''
-    ligand.q = 1
-
-    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
-
     options = QFitLigandOptions()
     options.apply_command_args(args)
+    print(args.selection)
+    print(options.selection)
 
-    # Load and process the electron density map:
-    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
-    xmap = xmap.canonical_unit_cell()
-    if args.scale:
-        # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=args.scattering)
-        if args.omit:
-            footprint = structure_ligand
-        else:
-            footprint = structure
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(ligand.coor, padding=args.padding)
-    ext = '.ccp4'
-    if not np.allclose(xmap.origin, 0):
-        ext = '.mrc'
-    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
-    xmap.tofile(scaled_fname)
+    qfit_ligand= prepare_qfit_ligand(options)
 
-    qfit = QFitLigand(ligand, receptor, xmap, options)
-    qfit.run()
 
+    time0 = time.time()
+    qfit_ligand.run()
+    logger.info(f"Total time: {time.time() - time0}s")
+
+    
+    #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
@@ -262,6 +282,4 @@ def main():
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
 
-    m, s = divmod(time.time() - time0, 60)
-    logger.info('Time passed: {m:.0f}m {s:.0f}s'.format(m=m, s=s))
-    logger.info(time.strftime("%c %Z"))
+
