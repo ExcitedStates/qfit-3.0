@@ -95,7 +95,6 @@ class _BaseQFitOptions:
         self.seg_bic_threshold = True
 
     def apply_command_args(self, args):
-
         for key, value in vars(args).items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -103,7 +102,6 @@ class _BaseQFitOptions:
 
 
 class QFitRotamericResidueOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
 
@@ -135,7 +133,6 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
 
 class _BaseQFit:
-
     def __init__(self, conformer, structure, xmap, options):
         self.structure = structure
         self.conformer = conformer
@@ -217,7 +214,6 @@ class _BaseQFit:
 
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
-
 
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
@@ -378,7 +374,6 @@ class _BaseQFit:
 
 
 class QFitRotamericResidue(_BaseQFit):
-
     def __init__(self, residue, structure, xmap, options):
         self.chain = residue.chain[0]
         self.resi = residue.resi[0]
@@ -728,7 +723,6 @@ class QFitRotamericResidue(_BaseQFit):
         # print(f"Bond angle sampling generated {len(self._coor_set)} "
         #      f"conformers.")
 
-
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
@@ -888,7 +882,6 @@ class QFitRotamericResidue(_BaseQFit):
                 start_chi_index += 1
             iteration += 1
 
-
     def tofile(self):
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
@@ -928,7 +921,6 @@ class QFitResidue(_BaseQFit):
 
 
 class QFitSegmentOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
         self.fragment_length = None
@@ -937,7 +929,6 @@ class QFitSegmentOptions(_BaseQFitOptions):
 class QFitSegment(_BaseQFit):
     """Determines consistent protein segments based on occupancy and
        density fit"""
-
     def __init__(self, structure, xmap, options):
         self.segment = structure
         self.conformer = structure
@@ -1132,8 +1123,8 @@ class QFitSegment(_BaseQFit):
                     # coor.append(fragment.coor[i])
             print(f"Path {k+1}:\t{ path }\t{fragment.q[-1]}")
 
-class QFitLigandOptions(_BaseQFitOptions):
 
+class QFitLigandOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
 
@@ -1143,9 +1134,7 @@ class QFitLigandOptions(_BaseQFitOptions):
         self.sample_ligand_stepsize = 10
 
 
-
 class QFitLigand(_BaseQFit):
-
     def __init__(self, ligand, receptor, xmap, options):
         # Initialize using the base qfit class
         super().__init__(ligand, receptor, xmap, options)
@@ -1338,7 +1327,6 @@ class QFitLigand(_BaseQFit):
         depths = bond_order.depth
         nbonds = len(bonds)
 
-
         starting_bond_index = 0
 
         sel_str = f"chain {self.ligand.chain[0]} and resi {self.ligand.resi[0]}"
@@ -1448,7 +1436,6 @@ class QFitLigand(_BaseQFit):
 
 
 class QFitCovalentLigandOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
 
@@ -1475,9 +1462,7 @@ class QFitCovalentLigandOptions(_BaseQFitOptions):
 
 
 class QFitCovalentLigand(_BaseQFit):
-
     def __init__(self, covalent_ligand, receptor, xmap, options):
-
         self.chain = covalent_ligand.chain[0]
         self.resi = covalent_ligand.resi[0]
         self.covalent_ligand = covalent_ligand
@@ -1552,7 +1537,6 @@ class QFitCovalentLigand(_BaseQFit):
             if options.subtract:
                 self._subtract_transformer(self.covalent_residue, self.structure)
             self._update_transformer(self.covalent_residue)
-
 
         # More than one covalent bond:
         else:
@@ -1936,7 +1920,6 @@ class QFitCovalentLigand(_BaseQFit):
         self._solve(cardinality=opt.cardinality,
                     threshold=opt.threshold)
         self._update_conformers()
-
 
     def _sample_ligand(self):
         opt = self.options
