@@ -223,7 +223,7 @@ class _BaseQFit:
 
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
-        logger.info("Converting")
+        logger.info("Converting conformers to density")
         logger.debug("Masking")
         self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
@@ -274,13 +274,16 @@ class _BaseQFit:
 
     def _solve(self, cardinality=None, threshold=None,
                loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
+        # Create and run QP or MIQP solver
         do_qp = cardinality is threshold is None
         if do_qp:
+            logger.info("Solving QP")
             solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
             solver()
             if self.options.bic_threshold:
                 self._occupancies = solver.weights
         else:
+            logger.info("Solving MIQP")
             solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
 
             # Threshold selection by BIC:
@@ -315,6 +318,7 @@ class _BaseQFit:
         return solver.obj_value
 
     def _update_conformers(self):
+        logger.debug("Updating conformers based on occupancy")
         new_coor_set = []
         new_occupancies = []
         new_bs = []
