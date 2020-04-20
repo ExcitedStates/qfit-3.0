@@ -1227,6 +1227,9 @@ class QFitLigand(_BaseQFit):
         if len(self._coor_set) < 1:
             print("[ERROR] qFit-ligand failed to produce a valid conformer.")
             exit()
+
+        # TODO: Check why we don't run QP here.
+
         # MIQP score conformer occupancy
         self._convert()
         self._solve(threshold=self.options.threshold,
