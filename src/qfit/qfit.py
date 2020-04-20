@@ -425,10 +425,9 @@ class QFitRotamericResidue(_BaseQFit):
                             f"output.file_name={out_root}_modified.pdb"])
 
             # Add hydrogens to the structure:
-            out_mod_H = open(f"{out_root}_modified_H.pdb", "w")
-            subprocess.run(["phenix.reduce", f"{out_root}_modified.pdb"],
-                            stdout=out_mod_H)
-            out_mod_H.close()
+            with open(f"{out_root}_modified_H.pdb", "w") as out_mod_H:
+                subprocess.run(["phenix.reduce", f"{out_root}_modified.pdb"],
+                                stdout=out_mod_H)
 
             # Generate CIF file of unknown ligands for refinement:
             subprocess.run(["phenix.elbow", "--do_all",
