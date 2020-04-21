@@ -53,12 +53,12 @@ class TestQFitLigand:
 
         return qfit_ligand
 
-    def test_run_qfit_ligand(self):
-        qfit_ligand = self.mock_main()
+    #def test_run_qfit_ligand(self):
+        #qfit_ligand = self.mock_main()
 
         # Run qfit object
-        output = qfit_ligand.run() #determine if you can just run part of this 
-        conformers = qfit_ligand.get_conformers()
-        assert(len(conformers)) == 0 #TODO fix when qfit_ligand working
+        #output = qfit_ligand.run() #determine if you can just run part of this 
+        #conformers = qfit_ligand.get_conformers()
+        #assert(len(conformers)) == 0 #TODO fix when qfit_ligand working
 
 
