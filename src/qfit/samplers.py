@@ -250,8 +250,7 @@ class ChiRotator:
         coor = self.residue._coor[selection]
         self._origin = coor[1].copy()
         coor -= self._origin
-        zaxis = coor[2]
-        zaxis /= norm(zaxis)
+        zaxis = coor[2] / norm(coor[2])
         yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
         yaxis /= norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)

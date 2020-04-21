@@ -183,8 +183,7 @@ class _RotamerResidue(_BaseResidue):
         coor -= origin
 
         # Make an orthogonal axis system based on 3 atoms
-        zaxis = coor[2]
-        zaxis /= np.linalg.norm(zaxis)
+        zaxis = coor[2] / np.linalg.norm(coor[2])
         yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
         yaxis /= np.linalg.norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)

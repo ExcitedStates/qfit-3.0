@@ -845,8 +845,7 @@ class _Segment(_BaseStructure):
         origin = system_coor[0].copy()
         system_coor = np.vstack((CA, C, O))
         system_coor -= origin
-        zaxis = system_coor[1]
-        zaxis /= np.linalg.norm(zaxis)
+        zaxis = system_coor[1] / np.linalg.norm(system_coor[1])
         yaxis = system_coor[2] - np.inner(system_coor[2], zaxis) * zaxis
         yaxis /= np.linalg.norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)
