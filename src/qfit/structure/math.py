@@ -49,10 +49,10 @@ def Rv(vector, theta):
 def aa_to_rotmat(axis, angle):
     """Axis angle to rotation matrix."""
     kx, ky, kz = axis
-    K = np.asmatrix([[  0, -kz,  ky],
-                     [ kz,   0, -kx],
-                     [-ky,  kx,   0]])
-    K2 = K * K
+    K = np.array([[  0, -kz,  ky],
+                  [ kz,   0, -kx],
+                  [-ky,  kx,   0]])
+    K2 = K @ K
     R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
     return R
 
