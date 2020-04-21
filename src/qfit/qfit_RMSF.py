@@ -9,13 +9,9 @@ Contact: vdbedem@stanford.edu
 
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 from .qfit_protein import QFitProteinOptions, QFitProtein
 import os
 import sys
-import time
-import copy
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
@@ -23,8 +19,6 @@ from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.base_structure import _BaseStructure
 
-
-os.environ["OMP_NUM_THREADS"] = "1"
 
 def parse_args():
     p = ArgumentParser(description=__doc__)
@@ -39,18 +33,16 @@ def parse_args():
     args = p.parse_args()
     return args
 
-class RMSF_options(QFitRotamericResidueOptions, QFitSegmentOptions):
+class RMSF_options(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
-        self.nproc = 1
-        self.verbose = True
-        self.omit = False
         self.pdb = None
 
 class RMSF():
-    def __init__(self, structure, options):
-        self.structure = structure #PDB with HOH at the bottom
+    def __init__(self, options):
         self.options = options #user input
+        self.structure = self.options.structure #PDB with HOH at the bottom
+
     def run(self):
         if not self.options.pdb == None:
             self.pdb = self.options.pdb + '_'
@@ -80,7 +72,7 @@ class RMSF():
                 if len(np.unique(res_tmp.altloc))>1:
                     RMSF_list = []
                     num_alt = len(np.unique(res_tmp.altloc))
-                    #now iterating over each atom and getting center for each atom
+                    #iterating over each atom and getting center for each atom
                     for atom in np.unique(res_tmp.name):
                         RMSF_atom_list = []
                         tmp_atom = res_tmp.extract('name', atom, '==')
@@ -115,9 +107,7 @@ class RMSF():
 
 def main():
     args = parse_args()
-    structure = Structure.fromfile(args.structure).reorder() #put H20 on the bottom
     R_options = RMSF_options()
     R_options.apply_command_args(args)
-    time0 = time.time()
-    rmsf = RMSF(structure, R_options)
+    rmsf = RMSF(R_options)
     fin_rmsf = rmsf.run()

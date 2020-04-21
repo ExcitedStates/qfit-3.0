@@ -1,18 +1,16 @@
 '''
-Stephanie Wankowicz
-This can be used as an automated way to get the residue ID and chain ID of a ligand of interest. Can be fed into qfit ligand.
+This script is for an automated way 
+to get the residue ID and chain ID of a ligand of interest. 
+Can be fed into qfit ligand.
 '''
 
 import numpy as np
 import argparse
-import logging
 import os
 import sys
-import time
 from string import ascii_uppercase
 from . import Structure
 from .structure import residue_type
-from .structure.rotamers import ROTAMERS
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
