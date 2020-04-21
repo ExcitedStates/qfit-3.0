@@ -831,30 +831,36 @@ class _Segment(_BaseStructure):
         raise ValueError("Residue is not part of segment.")
 
     def rotate_psi(self, index, angle):
-        """Rotate along psi dihedral."""
+        """Rotate along psi dihedral (about the CA--C bond)."""
         selection = [residue._selection
                      for residue in self.residues[index + 1:]]
         residue = self.residues[index]
         selection.append(residue.select('name', ('O', 'OXT')))
         selection = np.concatenate(selection)
-        coor = self._coor[selection]
+
         # Make an orthogonal axis system based on 3 atoms
         CA = residue.extract('name', 'CA').coor[0]
         C = residue.extract('name', 'C').coor[0]
         O = residue.extract('name', 'O').coor[0]
-        system_coor = np.vstack((CA, C, O))
         origin = system_coor[0].copy()
+        system_coor = np.vstack((CA, C, O))
         system_coor -= origin
         zaxis = system_coor[1]
-        norm = np.linalg.norm
-        zaxis /= norm(zaxis)
+        zaxis /= np.linalg.norm(zaxis)
         yaxis = system_coor[2] - np.inner(system_coor[2], zaxis) * zaxis
-        yaxis /= norm(yaxis)
+        yaxis /= np.linalg.norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)
-        backward = np.asmatrix(np.vstack((xaxis, yaxis, zaxis)))
+
+        # Create transformation matrix
+        backward = np.vstack((xaxis, yaxis, zaxis))
         forward = backward.T
         angle = np.deg2rad(angle)
-        coor -= origin
         rotation = Rz(angle)
-        R = forward * rotation * backward
-        self._coor[selection] = np.dot(coor, R.T) + origin
+        R = forward @ rotation @ backward
+
+        # Apply transformation
+        coor = self._coor[selection]
+        coor -= origin
+        coor = np.dot(coor, R.T)
+        coor += origin
+        self._coor[selection] = coor
