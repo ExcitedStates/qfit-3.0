@@ -228,10 +228,10 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
-    if not args.pdb==None:
-        pdb_id=args.pdb + '_'
+    if not args.pdb == None:
+        pdb_id = args.pdb + '_'
     else:
-       pdb_id=''
+       pdb_id = ''
     print_run_info(args)
     time0 = time.time()
 
@@ -254,7 +254,7 @@ def main():
     print(args.selection)
     print(options.selection)
 
-    qfit_ligand= prepare_qfit_ligand(options)
+    qfit_ligand = prepare_qfit_ligand(options)
 
 
     time0 = time.time()
