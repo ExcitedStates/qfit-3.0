@@ -200,11 +200,19 @@ class _RotamerResidue(_BaseResidue):
             atoms_to_rotate2 = self.name[length:]
             selection2 = self.select('name', atoms_to_rotate2)
             selection = np.array(list(selection) + list(selection2), dtype=int)
-        coor_to_rotate = np.dot(self._coor[selection] - origin, backward.T)
-        rotation = Rz(np.deg2rad(value - self.get_chi(chi_index)))
 
+        # Create transformation matrix
+        angle = np.deg2rad(value - self.get_chi(chi_index))
+        rotation = Rz(angle)
         R = forward @ rotation
-        self._coor[selection] = coor_to_rotate.dot(R.T) + origin
+
+        # Apply transformation
+        coor_to_rotate = self._coor[selection]
+        coor_to_rotate -= origin
+        coor_to_rotate = np.dot(coor_to_rotate, forward)
+        coor_to_rotate = np.dot(coor_to_rotate, R.T)
+        coor_to_rotate += origin
+        self._coor[selection] = coor_to_rotate
 
     def print_residue(self):
         for atom, coor, element, b, q in zip(
