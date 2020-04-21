@@ -1512,8 +1512,8 @@ class QFitCovalentLigand(_BaseQFit):
             self.covalent_residue = conformer[self.partner_id]
 
             # Initialize using the base qFit class:
-            super().__init__(self.covalent_residue, self.structure, xmap,
-                             options)
+            super().__init__(self.covalent_residue, self.structure, xmap, options)
+
             # Update the transformer:
             self._update_transformer(self.covalent_residue)
 
