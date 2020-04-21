@@ -5,7 +5,7 @@ import multiprocessing as mp
 from qfit.qfit_ligand import (
     QFitLigandOptions,
     prepare_qfit_ligand,
-    parse_args,
+    build_argparser,
     print_run_info
 )
 
@@ -35,7 +35,8 @@ class TestQFitLigand:
         # TODO: Add options to reduce computational load
 
         # Collect and act on arguments
-        args = parse_args()
+        p = build_argparser()
+        args = p.parse_args(args=args)
         try:
             os.mkdir(args.directory)
         except OSError:
