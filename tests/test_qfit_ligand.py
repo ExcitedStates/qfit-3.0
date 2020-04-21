@@ -46,11 +46,11 @@ class TestQFitLigand:
         options = QFitLigandOptions()
         options.apply_command_args(args)
 
-        # Build a QFitProtein job
+        # Build a QFitLigand job
         qfit_ligand = prepare_qfit_ligand(options)
 
-        assert len(list(qfit_ligand.ligand.natoms)) == 19
-        assert len(list(qfit_ligand.receptor.natoms)) == 4860
+        assert len(qfit_ligand.ligand.natoms) == 19
+        assert len(qfit_ligand.receptor.natoms) == 4860
 
         return qfit_ligand
 
