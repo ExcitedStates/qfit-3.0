@@ -49,8 +49,8 @@ class TestQFitLigand:
         # Build a QFitLigand job
         qfit_ligand = prepare_qfit_ligand(options)
 
-        assert len(qfit_ligand.ligand.natoms) == 19
-        assert len(qfit_ligand.receptor.natoms) == 4860
+        assert qfit_ligand.ligand.natoms == 19
+        assert qfit_ligand.receptor.natoms == 4860
 
         return qfit_ligand
 
