@@ -204,12 +204,11 @@ class _RotamerResidue(_BaseResidue):
         # Create transformation matrix
         angle = np.deg2rad(value - self.get_chi(chi_index))
         rotation = Rz(angle)
-        R = forward @ rotation
+        R = forward @ rotation @ backward
 
         # Apply transformation
         coor_to_rotate = self._coor[selection]
         coor_to_rotate -= origin
-        coor_to_rotate = np.dot(coor_to_rotate, forward)
         coor_to_rotate = np.dot(coor_to_rotate, R.T)
         coor_to_rotate += origin
         self._coor[selection] = coor_to_rotate
