@@ -53,7 +53,6 @@ class TestQFitLigand:
 
         return qfit_ligand
 
-    @pytest.mark.timeout(240)
     def test_run_qfit_ligand(self):
         qfit_ligand = self.mock_main()
 
