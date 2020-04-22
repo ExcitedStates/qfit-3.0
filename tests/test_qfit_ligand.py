@@ -53,12 +53,13 @@ class TestQFitLigand:
 
         return qfit_ligand
 
-    #def test_run_qfit_ligand(self):
-        #qfit_ligand = self.mock_main()
+    def test_run_qfit_ligand(self):
+        qfit_ligand = self.mock_main()
 
         # Run qfit object
-        #output = qfit_ligand.run() #determine if you can just run part of this 
-        #conformers = qfit_ligand.get_conformers()
-        #assert(len(conformers)) == 0 #TODO fix when qfit_ligand working
+        # NOTE: Currently, running this qfit_ligand job takes 20-something
+        #       minutes on the GitHub Actions runner. This needs to be cut down.
 
-
+        # output = qfit_ligand.run() # TODO: Determine if you can just run part of this 
+        # conformers = qfit_ligand.get_conformers()
+        # assert len(conformers) == 3  # TODO: fix when qfit_ligand working
