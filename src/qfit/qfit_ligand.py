@@ -40,7 +40,7 @@ from . import QFitLigand, QFitLigandOptions
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
-def parse_args():
+def build_argparser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
             help="Density map in CCP4 or MRC format, or an MTZ file "
@@ -105,16 +105,14 @@ def parse_args():
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
-            help="Treshold constraint used during MIQP.")
+            help="Threshold constraint used during MIQP.")
     p.add_argument("-it", "--intermediate-threshold", type=float, default=0.01, metavar="<float>",
             help="Threshold constraint during intermediate MIQP.")
     p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during intermediate MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
-    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
-    p.add_argument("-T","--threshold-selection", dest="bic_threshold", action="store_false",
+    p.add_argument("-T","--no-threshold-selection", dest="bic_threshold", action="store_false",
             help="Do not use BIC to select the most parsimonious MIQP threshold")
 
 
@@ -125,39 +123,19 @@ def parse_args():
             help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
             help="Be verbose.")
-    args = p.parse_args()
+    p.add_argument("--pdb", help="Name of the input PDB.")
 
-    return args
+    return p
 
-
-def main():
-    args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
-    print_run_info(args)
-    time0 = time.time()
-
-    # Setup logger
-    logging_fname = os.path.join(args.directory, 'qfit_ligand.log')
-    if args.debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logging.basicConfig(filename=logging_fname, level=level)
-    logger.info(' '.join(sys.argv))
-    logger.info(time.strftime("%c %Z"))
-    if args.verbose:
-        console_out = logging.StreamHandler(stream=sys.stdout)
-        console_out.setLevel(level)
-        logging.getLogger('').addHandler(console_out)
+def prepare_qfit_ligand(options):
+    """Loads files to build a QFitLigand job."""
 
     # Load structure and prepare it
-    structure = Structure.fromfile(args.structure)
-    if not args.hydro:
+    structure = Structure.fromfile(options.structure)
+    if not options.hydro:
         structure = structure.extract('e', 'H', '!=')
-    chainid, resi = args.selection.split(',')
+
+    chainid, resi = options.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
         residue_id = (int(resi), icode)
@@ -166,15 +144,19 @@ def main():
         icode = ''
 
     # Extract the ligand:
-    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
+    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+
     if icode:
-        structure_ligand = structure_ligand.extract('icode', icode)
+        structure_ligand = structure_ligand.extract('icode', icode) #fix ligand name
     sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-    receptor = structure.extract(sel_str)
-    receptor = receptor.extract("record", "ATOM")
+    sel_str = f"not ({sel_str})" #TO DO COLLAPSE
+    receptor = structure.extract(sel_str) #selecting everything that is no the ligand of interest
+
+    receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
+
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
+
     altlocs = sorted(list(set(structure_ligand.altloc)))
     if len(altlocs) > 1:
         try:
@@ -188,7 +170,7 @@ def main():
             receptor = receptor.extract(f"not altloc {altloc}")
     altloc = structure_ligand.altloc[-1]
 
-    if args.cif_file:
+    if options.cif_file: #TO DO: STEPHANIE
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
                          link_data=structure_ligand.link_data,
@@ -198,26 +180,23 @@ def main():
                          structure_ligand._selection,
                          link_data=structure_ligand.link_data)
     if ligand.natoms == 0:
-        raise RuntimeError("No atoms were selected for the ligand. Check the "
-                           " selection input.")
-
-
+        raise RuntimeError("No atoms were selected for the ligand. Check "
+                           " the selection input.")
 
     ligand.altloc = ''
     ligand.q = 1
 
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
+    logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
-    options = QFitLigandOptions()
-    options.apply_command_args(args)
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
+    xmap = XMap.fromfile(options.map, resolution=options.resolution, label=options.label)
     xmap = xmap.canonical_unit_cell()
-    if args.scale:
+    if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=args.scattering)
-        if args.omit:
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        if options.omit:
             footprint = structure_ligand
         else:
             footprint = structure
@@ -230,16 +209,60 @@ def main():
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
-    xmap = xmap.extract(ligand.coor, padding=args.padding)
+
+    xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = '.ccp4'
+
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'
-    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
+    scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
     xmap.tofile(scaled_fname)
 
-    qfit = QFitLigand(ligand, receptor, xmap, options)
-    qfit.run()
+    return QFitLigand(ligand, structure, xmap, options)
 
+
+def main():
+    p = build_argparser()
+    args = p.parse_args()
+    try:
+        os.makedirs(args.directory)
+    except OSError:
+        pass
+    if not args.pdb == None:
+        pdb_id = args.pdb + '_'
+    else:
+       pdb_id = ''
+    print_run_info(args)
+    time0 = time.time()
+
+    # Setup logger
+    logging_fname = os.path.join(args.directory, 'qfit_ligand.log') #combine this with qfit log file
+    if args.debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(filename=logging_fname, level=level)
+    logger.info(' '.join(sys.argv))
+    logger.info(time.strftime("%c %Z"))
+    if args.verbose:
+        console_out = logging.StreamHandler(stream=sys.stdout)
+        console_out.setLevel(level)
+        logging.getLogger('').addHandler(console_out)
+
+    options = QFitLigandOptions()
+    options.apply_command_args(args)
+    print(args.selection)
+    print(options.selection)
+
+    qfit_ligand = prepare_qfit_ligand(options)
+
+
+    time0 = time.time()
+    qfit_ligand.run()
+    logger.info(f"Total time: {time.time() - time0}s")
+
+    
+    #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
@@ -254,11 +277,9 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
-        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+        fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
 
-    m, s = divmod(time.time() - time0, 60)
-    logger.info('Time passed: {m:.0f}m {s:.0f}s'.format(m=m, s=s))
-    logger.info(time.strftime("%c %Z"))
+

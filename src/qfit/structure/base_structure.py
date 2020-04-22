@@ -24,7 +24,8 @@ IN THE SOFTWARE.
 '''
 
 import logging
-from collections import defaultdict, Iterable
+from collections import defaultdict
+from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
 
 import numpy as np
@@ -178,7 +179,7 @@ class _BaseStructure:
         mask = np.zeros(self.natoms, bool)
         for value in values:
             mask2 = comparison(data, value)
-            np.logical_or(mask, mask2, mask)
+            np.logical_or(mask, mask2, out=mask)
         if comparison_str == '!=':
             np.logical_not(mask, out=mask)
         if self._selection is None:

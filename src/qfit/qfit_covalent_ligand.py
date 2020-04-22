@@ -23,23 +23,24 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
-"""Automatically build a multiconformer residue"""
+"""Hierarchically build a multiconformer ligand."""
 
 import argparse
 import logging
+import os.path
 import os
-from os import path
 import sys
 import time
-import numpy as np
 from string import ascii_uppercase
-from .qfit import print_run_info
-from . import MapScaler, Structure, XMap
-from . import QFitRotamericResidue, QFitRotamericResidueOptions
-from .structure import residue_type
-
 logger = logging.getLogger(__name__)
+
+import numpy as np
+
+from . import MapScaler, Structure, XMap, Covalent_Ligand
+from . import QFitCovalentLigand, QFitCovalentLigandOptions
+
 os.environ["OMP_NUM_THREADS"] = "1"
+
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -49,6 +50,8 @@ def parse_args():
                  "use the --label options to specify columns to read.")
     p.add_argument("structure", type=str,
             help="PDB-file containing structure.")
+    p.add_argument('-cif', "--cif_file", type=str, default=None,
+            help="CIF file describing the ligand")
     p.add_argument('selection', type=str,
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
@@ -69,15 +72,10 @@ def parse_args():
     # Map prep options
     p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
             help="Do not scale density.")
-    p.add_argument("-sv", "--scale-rmask", type=float, dest="scale_rmask", default=1.0, metavar="<float>",
-            help="Radius mask for the map scaling.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-par", "--phenix-aniso", action="store_true", dest="phenix_aniso",
-            help="Use phenix to perform anisotropic refinement of individual sites."
-                 "This option creates an OMIT map and uses it as a default.")
     p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
             help="Do not subtract Fcalc of the neighboring residues when running qFit.")
     p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
@@ -90,25 +88,33 @@ def parse_args():
             help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", dest="sample_backbone_step",
             type=float, default=0.1, metavar="<float>",
-            help="Stepsize for the amplitude of backbone sampling")
+            help="Backbone sampling step (default = 0.1)")
     p.add_argument('-bba', "--backbone-amplitude", dest="sample_backbone_amplitude",
             type=float, default=0.3, metavar="<float>",
-            help="Maximum backbone amplitude.")
+           help="Backbone sampling amplitude (default = 0.3)")
     p.add_argument('-sa', "--no-sample-angle", dest="sample_angle", action="store_false",
-            help="Sample N-CA-CB angle.")
+            help="Do not sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", dest="sample_angle_step",
             type=float, default=3.75, metavar="<float>",
-            help="N-CA-CB bond angle sampling step in degrees")
+            help="Bond angle sampling step (default = 3.75)")
     p.add_argument('-sar', "--sample-angle-range", dest="sample_angle_range",
             type=float, default=7.5, metavar="<float>",
-            help="N-CA-CB bond angle sampling range in degrees [-x,x].")
+            help="Bond angle sampling range (default = 7.5)."
+                 "Sampling is carried out in the [-x,x] range, where x is"
+                 " determined by this sampling parameter.")
     p.add_argument("-b", "--dofs-per-iteration", type=int, default=2, metavar="<int>",
             help="Number of internal degrees that are sampled/build per iteration.")
-    p.add_argument("-s", "--dofs-stepsize", type=float, default=10, metavar="<float>",
-            help="Stepsize for dihedral angle sampling in degree.")
+    p.add_argument("-s", "--dihedral-stepsize", type=float, default=10, metavar="<float>",
+            help="Stepsize for dihedral angle sampling in degrees.")
     p.add_argument("-rn", "--rotamer-neighborhood", type=float,
-            default=80, metavar="<float>",
-            help="Neighborhood of rotamer to sample in degree.")
+                   default=80, metavar="<float>",
+                   help="Neighborhood of rotamer to sample in degree.")
+    p.add_argument("-nl", "--no-ligand",
+                   dest="sample_ligand", action="store_false",
+                   help="Disable ligand sampling.")
+    p.add_argument("-ls", "--sample-ligand-stepsize", type=float, default=10,
+                   metavar="<float>", dest="sample_ligand_stepsize",
+                   help="Stepsize for ligand sampling in degrees.")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
             help=("Remove conformers during sampling that have atoms that have "
@@ -123,15 +129,11 @@ def parse_args():
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
-            help="Treshold constraint used during MIQP.")
+            help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
             help="Include hydrogens during calculations.")
-    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
     p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold", action="store_false",
             help="Do not use BIC to select the most parsimonious MIQP threshold")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
-            help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
@@ -145,26 +147,17 @@ def parse_args():
     return args
 
 
+
 def main():
     args = parse_args()
     try:
         os.makedirs(args.directory)
     except OSError:
         pass
-    print_run_info(args)
     time0 = time.time()
-    
-    #Skip over if everything is completed
-    #try:
-    print(args.directory)
-    if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
-        print('This residue has completed')
-        exit()
-    else:
-        print('Beginning qfit_residue')
-     
+
     # Setup logger
-    logging_fname = os.path.join(args.directory, 'qfit_residue.log')
+    logging_fname = os.path.join(args.directory, 'qfit_covalent_ligand.log')
     if args.debug:
         level = logging.DEBUG
     else:
@@ -177,74 +170,70 @@ def main():
         console_out.setLevel(level)
         logging.getLogger('').addHandler(console_out)
 
-    # Extract residue and prepare it
-    structure = Structure.fromfile(args.structure).reorder()
+    # Load structure and prepare it
+    structure = Structure.fromfile(args.structure)
     if not args.hydro:
         structure = structure.extract('e', 'H', '!=')
+
+    logger.info("Extracting receptor and ligand from input structure.")
     chainid, resi = args.selection.split(',')
     if ':' in resi:
         resi, icode = resi.split(':')
-        residue_id = (int(resi), icode)
-    elif '_' in resi:
-        resi, icode = resi.split('_')
         residue_id = (int(resi), icode)
     else:
         residue_id = int(resi)
         icode = ''
 
-    # Extract the residue:
-    structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+    # Extract the ligand:
+    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}')
     if icode:
-        structure_resi = structure_resi.extract('icode', icode)
+        structure_ligand = structure_ligand.extract('icode', icode)
 
-    chain = structure_resi[chainid]
-    conformer = chain.conformers[0]
-    residue = conformer[residue_id]
-    rtype = residue_type(residue)
-    if rtype != 'rotamer-residue':
-        logger.info("Residue has no known rotamers. Stopping qfit_residue.")
-        sys.exit()
-    # Check which altlocs are present in the residue. If none, take the
+    # Select all ligand conformers:
+    # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
-    altlocs = sorted(list(set(residue.altloc)))
+    altlocs = sorted(list(set(structure_ligand.altloc)))
     if len(altlocs) > 1:
         try:
             altlocs.remove('')
         except ValueError:
             pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_ligand = structure_ligand.extract(sel_str)
 
-        # If more than 1 conformer were included, we want to select the
-        # most complete conformer. If more than one conformers are complete,
-        # Select the one with the highest occupancy:
-        longest_conf = 0
-        best_q = -1
-        for i, altloc in enumerate(altlocs):
-            conformer = structure_resi.extract('altloc', ('',altloc))
-            if len(conformer.name) > longest_conf:
-                idx = i
-                longest_conf = len(conformer.name)
-            elif len(conformer.name) == longest_conf:
-                if conformer.q[0] > best_q:
-                    idx = i
-                    best_q = conformer.q[0]
-        # Delete all the unwanted conformers:
-        for altloc in altlocs:
-            if altloc != altlocs[idx]:
-                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                sel_str = f"not ({sel_str})"
-                structure = structure.extract(sel_str)
-    residue_name = residue.resn[0]
-    logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
+    if args.cif_file:
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection,
+                                          link_data=structure_ligand.link_data,
+                                          cif_file=args.cif_file)
+    else:
+        covalent_ligand = Covalent_Ligand(structure_ligand.data,
+                                          structure_ligand._selection,
+                                          link_data=structure_ligand.link_data)
+    if covalent_ligand.natoms == 0:
+        raise RuntimeError("No atoms were selected for the ligand. Check the "
+                           "selection input.")
+    covalent_ligand.altloc = ''
+    covalent_ligand.q = 1
 
-    options = QFitRotamericResidueOptions()
+    sel_str = f"resi {resi} and chain {chainid}"
+    sel_str = f"not ({sel_str})"
+    receptor = structure.extract(sel_str)
+    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
+
+    options = QFitCovalentLigandOptions()
     options.apply_command_args(args)
+
+    # Load and process the electron density map:
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, scattering=args.scattering)
         if args.omit:
-            footprint = structure_resi
+            footprint = structure_ligand
         else:
             footprint = structure
         radius = 1.5
@@ -255,32 +244,22 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        #scaler.scale(footprint, radius=args.scale_rmask*radius)
-        scaler.scale(footprint, radius=args.scale_rmask*radius)
-    xmap = xmap.extract(residue.coor, padding=args.padding)
+        scaler.scale(footprint, radius=radius)
+    xmap = xmap.extract(covalent_ligand.coor, padding=args.padding)
     ext = '.ccp4'
     if not np.allclose(xmap.origin, 0):
         ext = '.mrc'
     scaled_fname = os.path.join(args.directory, f'scaled{ext}')
     xmap.tofile(scaled_fname)
-    qfit = QFitRotamericResidue(residue, structure, xmap, options)
+
+    qfit = QFitCovalentLigand(covalent_ligand, receptor, xmap, options)
     qfit.run()
-    qfit.write_maps()
-    conformers = qfit.get_conformers()
+    conformers = qfit.get_conformers_covalent()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
-        #skip = False
-        #for conf in conformers[:n]:
-        #    print("Checking RMSD")
-        #    if conformer.rmsd(conf) < 0.2:
-        #        skip = True
-        #        print("Skipping")
-        #        break
-        #if skip:
-        #    continue
         conformer.altloc = ''
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')
         conformer.tofile(fname)

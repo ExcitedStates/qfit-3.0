@@ -78,11 +78,9 @@ def parse_args():
     p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during MIQP.")
     p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
-            help="Treshold constraint used during MIQP.")
+            help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
                    help="Include hydrogens during calculations.")
-    p.add_argument("-M", "--miosqp", dest="cplex", action="store_false",
-            help="Use MIOSQP instead of CPLEX for the QP/MIQP calculations.")
     p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>",
             help="RMSD cutoff for removal of identical conformers. Default = 0.01")
 

@@ -242,7 +242,7 @@ class _RotamerResidue(_BaseResidue):
         # Identify a suitable atom for the bond angle:
         for angle in self._rotamers['bond_angle']:
             if angle[0][1] == ref_atom and angle[0][2] == atom:
-                if angle[0][0][0] is "H":
+                if angle[0][0][0] == "H":
                     continue
                 bond_angle_atom = angle[0][0]
                 bond_angle, bond_angle_sd = angle[1]

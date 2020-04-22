@@ -29,23 +29,30 @@ import scipy as sp
 from .samplers import BackboneRotator
 
 
-def move_direction_adp(u_matrix, unit_cell):
+def adp_ellipsoid_axes(U_ij):
+    """Calculate principal axes of ADP ellipsoid.
 
-    u_matrix = np.asmatrix(u_matrix)
-    orth_matrix = np.asmatrix(unit_cell.frac_to_orth)
-    metric_tensor = orth_matrix.T * orth_matrix
-    u_orth = metric_tensor * u_matrix * metric_tensor
-    eigval, eigvec = np.linalg.eigh(u_orth)
-    order = np.argsort(eigval)
-    eigvec = np.asarray(eigvec[order])
-    if np.linalg.det(eigvec) < 0:
-        eigvec[:, 0] *= -1
-    eigensum = np.zeros(3)
-    for i in range(3):
-        eigensum[i] = (eigval[i] * eigvec[i]).sum()
-    eigensum /= np.linalg.norm(eigensum)
+    Args:
+        U_ij (np.ndarray[np.float32]): square symmetric matrix of anisotropic
+            displacement parameters (ADPs) in cartesian coordinates.
+            In a PDB, ANISOU cards contain the parameters
+                [u_11, u_22, u_33, u_12, u_13, u_23] / 1e-4 Å^2.
 
-    directions = [eigvec[0], eigvec[1], eigvec[2], eigensum]
+    Returns:
+        List[np.ndarray[np.float32]]: principal axes of the anisotropic
+            displacement ellipsoid, from largest to smallest.
+    """
+    # Unscale ADP parameters to Å^2
+    # U_ij = U_ij * 1e-4
+
+    # Eigendecompose U_ij matrix with lower-triangle eigh
+    eigvals, eigvecs = np.linalg.eigh(U_ij)
+
+    # Scale unit eigenvectors by associated eigenvalues to return principal axes
+    #   TODO: Should we? This would mean -bba/-bbs would not behave as expected.
+    # directions = [e for e in (eigvals * eigvecs).T]
+    directions = [e for e in eigvecs.T]
+
     return directions
 
 
