@@ -139,12 +139,6 @@ def compute_jacobian(bb_coor):
     return jacobian.T
 
 
-def project_on_null_space(null_space, gradients):
-    null_space = np.asmatrix(null_space)
-    projection = null_space * null_space.T
-    return projection * gradients
-
-
 class AtomMoveFunctional:
 
     """Functional for obtaining energy and gradient to move a CB atom"""
