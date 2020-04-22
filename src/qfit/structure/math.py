@@ -35,6 +35,15 @@ def Rz(theta):
                      [        0,          0, 1]])
 
 
+def Ry(theta):
+    """Rotate along y-axis."""
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    return np.array([[ cos_theta, 0, sin_theta],
+                     [         0, 1,         0],
+                     [-sin_theta, 0, cos_theta]])
+
+
 def Rv(vector, theta):
     """Rotate along a vector."""
     (x, y, z) = vector / np.linalg.norm(vector)

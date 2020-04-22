@@ -28,7 +28,7 @@ import os.path
 import numpy as np
 import copy
 
-from .structure.math import Rz
+from .structure.math import Rz, Ry
 
 
 class BackboneRotator:
@@ -406,15 +406,6 @@ class ZAxisAligner:
             raise ValueError("Axis is not aligned to z-axis.")
         self.backward_rotation = np.asmatrix(self._Ry).T * np.asmatrix(self._Rz).T
         self.forward_rotation = np.asmatrix(self._Rz) * np.asmatrix(self._Ry)
-
-
-def Ry(theta):
-    """Rotate along y-axis."""
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.asarray([[ cos_theta, 0, sin_theta],
-                       [         0, 1,         0],
-                       [-sin_theta, 0, cos_theta]])
 
 
 def aa_to_rotmat(axis, angle):
