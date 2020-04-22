@@ -46,7 +46,7 @@ class _Base_QPSolver(object):
 
     Declares required interface functions for child classes to overwrite."""
 
-    def initialise(self):
+    def initialize(self):
         raise NotImplementedError
 
     def __call__(self):

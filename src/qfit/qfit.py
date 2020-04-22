@@ -95,7 +95,6 @@ class _BaseQFitOptions:
         self.seg_bic_threshold = True
 
     def apply_command_args(self, args):
-
         for key, value in vars(args).items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -103,7 +102,6 @@ class _BaseQFitOptions:
 
 
 class QFitRotamericResidueOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
 
@@ -135,7 +133,6 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
 
 class _BaseQFit:
-
     def __init__(self, conformer, structure, xmap, options):
         self.structure = structure
         self.conformer = conformer
@@ -168,8 +165,7 @@ class _BaseQFit:
         self._xmap_model = xmap.zeros_like(self.xmap)
         self._xmap_model2 = xmap.zeros_like(self.xmap)
 
-        # To speed up the density creation steps, reduce space group symmetry
-        # to P1
+        # To speed up the density creation steps, reduce symmetry to P1
         self._xmap_model.set_space_group("P1")
         self._xmap_model2.set_space_group("P1")
         self._voxel_volume = self.xmap.unit_cell.calc_volume()
@@ -179,8 +175,8 @@ class _BaseQFit:
         conformers = []
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             conformer = self.conformer.copy()
-            conformer = conformer.extract(f"resi {self.conformer.resi[0]} and"
-                                          f" chain {self.conformer.chain[0]}")
+            conformer = conformer.extract(f"resi {self.conformer.resi[0]} and "
+                                          f"chain {self.conformer.chain[0]}")
             conformer.coor = coor
             conformer.q = q
             conformer.b = b
@@ -197,10 +193,10 @@ class _BaseQFit:
 
     def _subtract_transformer(self, residue, structure):
         # Select the atoms whose density we are going to subtract:
-        subtract_structure = structure.extract_neighbors(residue,
-                                                         self.options.padding)
+        subtract_structure = structure.extract_neighbors(residue, self.options.padding)
         if self.options.nowaters:
-            subtract_structure = subtract_structure.extract("resn",'HOH',"!=")
+            subtract_structure = subtract_structure.extract("resn", "HOH", "!=")
+
         # Calculate the density that we are going to subtract:
         self._subtransformer = Transformer(
             subtract_structure,
@@ -217,7 +213,6 @@ class _BaseQFit:
 
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
-
 
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
@@ -281,7 +276,7 @@ class _BaseQFit:
         else:
             solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
 
-            # Treshold Selection by BIC:
+            # Threshold selection by BIC:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in loop_range:
@@ -300,8 +295,8 @@ class _BaseQFit:
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
-#                    else:
-#                        break
+                    # else:
+                    #     break
                 self._occupancies = solver.weights
             else:
                 solver(cardinality=cardinality, threshold=threshold)
@@ -330,7 +325,7 @@ class _BaseQFit:
             self.conformer.coor = coor
             fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
 
-            data={}
+            data = {}
             for attr in self.conformer.data:
                 array1 = getattr(self.conformer, attr)
                 data[attr] = array1[self.conformer.active]
@@ -378,13 +373,12 @@ class _BaseQFit:
 
 
 class QFitRotamericResidue(_BaseQFit):
-
     def __init__(self, residue, structure, xmap, options):
         self.chain = residue.chain[0]
         self.resi = residue.resi[0]
         self.incomplete = False
         if options.phenix_aniso:
-            self.prv_resi = structure.resi[(residue._selection[0]-1)]
+            self.prv_resi = structure.resi[(residue._selection[0] - 1)]
             # Identify which atoms to refine anisotropically:
             if xmap.resolution.high < 1.45:
                 adp = "not (water or element H)"
@@ -410,7 +404,7 @@ class QFitRotamericResidue(_BaseQFit):
             params.close()
 
             # Set the occupancy of the side chain to zero for omit map calculation
-            out_root= f'out_{self.chain}_{self.resi}'
+            out_root = f'out_{self.chain}_{self.resi}'
             structure.tofile(f'{out_root}.pdb')
             subprocess.run(["phenix.pdbtools",
                             f'modify.selection=\"chain {self.chain} and'
@@ -527,8 +521,8 @@ class QFitRotamericResidue(_BaseQFit):
                                    parent=self, residues=[residue])
                 self.segment = segment
                 stderr.write(f"[WARNING] Could not determine the protein"
-                             f" segment of residue {self.chain}, "
-                             f"{self.resi}.")
+                             f" segment of residue {self.chain},"
+                             f" {self.resi}.")
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -547,24 +541,21 @@ class QFitRotamericResidue(_BaseQFit):
             N_index = residue.select('name', 'N')[0]
             N_neighbor = segment.residues[index - 1]
             neighbor_C_index = N_neighbor.select('name', 'C')[0]
-            if np.linalg.norm(residue._coor[N_index]
-                              - segment._coor[neighbor_C_index]) < 2:
+            if np.linalg.norm(residue._coor[N_index] - segment._coor[neighbor_C_index]) < 2:
                 coor = N_neighbor._coor[neighbor_C_index]
                 exclude.append((N_index, coor))
         if index < len(segment.residues) - 1:
             C_index = residue.select('name', 'C')[0]
             C_neighbor = segment.residues[index + 1]
             neighbor_N_index = C_neighbor.select('name', 'N')[0]
-            if np.linalg.norm(residue._coor[C_index]
-                              - segment._coor[neighbor_N_index]) < 2:
+            if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
                 coor = C_neighbor._coor[neighbor_N_index]
                 exclude.append((C_index, coor))
         # Obtain atoms with which the residue can clash
         resi, icode = residue.id
         chainid = self.segment.chain[0]
         if icode:
-            selection_str = f'not (resi {resi} and icode {icode} \
-                              and chain {chainid})'
+            selection_str = f"not (resi {resi} and icode {icode} and chain {chainid})"
             receptor = self.structure.extract(selection_str)
         else:
             sel_str = f'not (resi {resi} and chain {chainid})'
@@ -621,7 +612,7 @@ class QFitRotamericResidue(_BaseQFit):
         validator = Validator(self.xmap, self.xmap.resolution,
                               self.options.directory)
         if self.xmap.resolution.high < 3.0:
-            cutoff = 0.7 + (self.xmap.resolution.high - 0.6)/3.0
+            cutoff = 0.7 + (self.xmap.resolution.high - 0.6) / 3.0
         else:
             cutoff = 0.5 * self.xmap.resolution.high
         self.validation_metrics = validator.GoodnessOfFit(self.conformer,
@@ -636,7 +627,7 @@ class QFitRotamericResidue(_BaseQFit):
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
             return
-        segment = self.segment[index - nn: index + nn + 1]
+        segment = self.segment[index - nn : index + nn + 1]
         atom_name = "CB"
         if self.residue.resn[0] == "GLY":
             atom_name = "O"
@@ -695,13 +686,13 @@ class QFitRotamericResidue(_BaseQFit):
         self.residue.update_clash_mask()
         active = self.residue.active
         if self.residue.resn[0] == "TYR" or self.residue.resn[0] == "PHE" or self.residue.resn[0] == "HIS":
-            angles = np.arange(-self.options.sample_angle_range-self.options.sample_angle_step,
-                            self.options.sample_angle_range+self.options.sample_angle_step + 0.01,
-                            self.options.sample_angle_step)
+            angles = np.arange(-self.options.sample_angle_range - self.options.sample_angle_step,
+                               self.options.sample_angle_range + self.options.sample_angle_step + 0.01,
+                               self.options.sample_angle_step)
         else:
             angles = np.arange(-self.options.sample_angle_range,
-                            self.options.sample_angle_range+0.001,
-                            self.options.sample_angle_step)
+                               self.options.sample_angle_range + 0.001,
+                               self.options.sample_angle_step)
         new_coor_set = []
         new_bs = []
         for coor in self._coor_set:
@@ -727,7 +718,6 @@ class QFitRotamericResidue(_BaseQFit):
         self._bs = new_bs
         # print(f"Bond angle sampling generated {len(self._coor_set)} "
         #      f"conformers.")
-
 
     def _sample_sidechain(self):
         opt = self.options
@@ -806,12 +796,12 @@ class QFitRotamericResidue(_BaseQFit):
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < self.options.density_cutoff:
-                                    ex+=1
+                                    ex += 1
                                     continue
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
                                     if new_coor_set:
-                                        delta = np.array(new_coor_set)-np.array(self.residue.coor)
+                                        delta = np.array(new_coor_set) - np.array(self.residue.coor)
                                         if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
                                             new_coor_set.append(self.residue.coor)
                                             new_bs.append(self._randomize_bs(b, bs_atoms))
@@ -829,7 +819,7 @@ class QFitRotamericResidue(_BaseQFit):
                                         new_coor_set.append(self.residue.coor)
                                         new_bs.append(self._randomize_bs(b, bs_atoms))
                                     else:
-                                        ex+=1
+                                        ex += 1
                                 else:
                                     new_coor_set.append(self.residue.coor)
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
@@ -881,13 +871,12 @@ class QFitRotamericResidue(_BaseQFit):
             # Use the next chi angle as starting point, except when we are in
             # the first iteration and have selected backbone sampling and we
             # are sampling more than 1 dof per iteration
-
-            increase_chi = not ((opt.sample_backbone or opt.sample_angle) and
-                iteration == 0 and opt.dofs_per_iteration > 1)
+            increase_chi = not ((opt.sample_backbone or opt.sample_angle)
+                                and iteration == 0
+                                and opt.dofs_per_iteration > 1)
             if increase_chi:
                 start_chi_index += 1
             iteration += 1
-
 
     def tofile(self):
         conformers = self.get_conformers()
@@ -915,20 +904,7 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue.tofile(fname)
 
 
-class QFitResidue(_BaseQFit):
-
-    def __call__(self):
-        pass
-
-    def _sample_backbone(self):
-        pass
-
-    def _sample_sidechain(self):
-        pass
-
-
 class QFitSegmentOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
         self.fragment_length = None
@@ -937,7 +913,6 @@ class QFitSegmentOptions(_BaseQFitOptions):
 class QFitSegment(_BaseQFit):
     """Determines consistent protein segments based on occupancy and
        density fit"""
-
     def __init__(self, structure, xmap, options):
         self.segment = structure
         self.conformer = structure
@@ -1118,7 +1093,7 @@ class QFitSegment(_BaseQFit):
                 segment.append(fragments[mask])
                 # self.print_paths(fragments[mask])
 
-        for path, altloc in zip(segment[0],possible_conformers ):
+        for path, altloc in zip(segment[0], possible_conformers):
             path.altloc = altloc
         return segment[0]
 
@@ -1130,10 +1105,10 @@ class QFitSegment(_BaseQFit):
                 if fragment.name[i] == "CA":
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
-            print(f"Path {k+1}:\t{ path }\t{fragment.q[-1]}")
+            print(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
+
 
 class QFitLigandOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
 
@@ -1145,9 +1120,7 @@ class QFitLigandOptions(_BaseQFitOptions):
         self.cif_file = None
 
 
-
 class QFitLigand(_BaseQFit):
-
     def __init__(self, ligand, receptor, xmap, options):
         # Initialize using the base qfit class
         super().__init__(ligand, receptor, xmap, options)
@@ -1189,8 +1162,7 @@ class QFitLigand(_BaseQFit):
         self._starting_bs = [ligand.b.copy()]
 
     def run(self):
-        for self._cluster_index, self._cluster in enumerate(
-          self._clusters_to_sample):
+        for self._cluster_index, self._cluster in enumerate(self._clusters_to_sample):
             self._coor_set = list(self._starting_coor_set)
             if self.options.local_search:
                 self._local_search()
@@ -1340,7 +1312,6 @@ class QFitLigand(_BaseQFit):
         depths = bond_order.depth
         nbonds = len(bonds)
 
-
         starting_bond_index = 0
 
         sel_str = f"chain {self.ligand.chain[0]} and resi {self.ligand.resi[0]}"
@@ -1450,7 +1421,6 @@ class QFitLigand(_BaseQFit):
 
 
 class QFitCovalentLigandOptions(_BaseQFitOptions):
-
     def __init__(self):
         super().__init__()
 
@@ -1477,9 +1447,7 @@ class QFitCovalentLigandOptions(_BaseQFitOptions):
 
 
 class QFitCovalentLigand(_BaseQFit):
-
     def __init__(self, covalent_ligand, receptor, xmap, options):
-
         self.chain = covalent_ligand.chain[0]
         self.resi = covalent_ligand.resi[0]
         self.covalent_ligand = covalent_ligand
@@ -1554,7 +1522,6 @@ class QFitCovalentLigand(_BaseQFit):
             if options.subtract:
                 self._subtract_transformer(self.covalent_residue, self.structure)
             self._update_transformer(self.covalent_residue)
-
 
         # More than one covalent bond:
         else:
@@ -1938,7 +1905,6 @@ class QFitCovalentLigand(_BaseQFit):
         self._solve(cardinality=opt.cardinality,
                     threshold=opt.threshold)
         self._update_conformers()
-
 
     def _sample_ligand(self):
         opt = self.options
