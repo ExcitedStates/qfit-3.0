@@ -258,8 +258,7 @@ class NullSpaceOptimizer:
         bb_coor = self.segment._coor[self._bb_selection]
         jacobian = compute_jacobian(bb_coor)
         null_space = sp.linalg.null_space(jacobian)
-        null_space = np.asmatrix(null_space)
-        projector = np.asarray(null_space * null_space.T)
+        projector = null_space @ null_space.T
         null_space_gradients = np.dot(projector, gradients)
         self.segment.coor = self._starting_coor
         return target, null_space_gradients
