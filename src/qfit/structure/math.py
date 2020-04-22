@@ -37,11 +37,10 @@ def Rz(theta):
 
 def Rv(vector, theta):
     """Rotate along a vector."""
-    vector = vector / np.linalg.norm(vector)
-    x, y, z = vector
-    K = np.asmatrix([[ 0, -z,  y],
-                     [ z,  0, -x],
-                     [-y,  x,  0]])
+    (x, y, z) = vector / np.linalg.norm(vector)
+    K = np.array([[ 0, -z,  y],
+                  [ z,  0, -x],
+                  [-y,  x,  0]])
     rot = np.cos(theta) * np.identity(3) + np.sin(theta) * K + (1 - np.cos(theta)) * np.outer(vector, vector)
     return rot
 
