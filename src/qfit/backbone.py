@@ -33,13 +33,13 @@ def adp_ellipsoid_axes(U_ij):
     """Calculate principal axes of ADP ellipsoid.
 
     Args:
-        U_ij (np.ndarray[np.float32]): square symmetric matrix of anisotropic
+        U_ij (np.ndarray[float]): square symmetric matrix of anisotropic
             displacement parameters (ADPs) in cartesian coordinates.
             In a PDB, ANISOU cards contain the parameters
                 [u_11, u_22, u_33, u_12, u_13, u_23] / 1e-4 Å^2.
 
     Returns:
-        List[np.ndarray[np.float32]]: principal axes of the anisotropic
+        List[np.ndarray[float]]: principal axes of the anisotropic
             displacement ellipsoid, from largest to smallest.
     """
     # Unscale ADP parameters to Å^2

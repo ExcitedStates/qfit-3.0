@@ -27,7 +27,14 @@ import numpy as np
 
 
 def Rz(theta):
-    """Rotate along z-axis."""
+    """Create a rotation matrix for rotating about z-axis.
+
+    Args:
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+    """
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
     return np.array([[cos_theta, -sin_theta, 0],
@@ -36,7 +43,14 @@ def Rz(theta):
 
 
 def Ry(theta):
-    """Rotate along y-axis."""
+    """Create a rotation matrix for rotating about y-axis.
+
+    Args:
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about y.
+    """
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
     return np.array([[ cos_theta, 0, sin_theta],
@@ -45,7 +59,15 @@ def Ry(theta):
 
 
 def Rv(vector, theta):
-    """Rotate along a vector."""
+    """Create a rotation matrix for rotating about a vector.
+
+    Args:
+        vector (np.ndarray[np.float]): A (3,) vector about which to rotate.
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+    """
     (x, y, z) = vector / np.linalg.norm(vector)
     K = np.array([[ 0, -z,  y],
                   [ z,  0, -x],
@@ -55,7 +77,15 @@ def Rv(vector, theta):
 
 
 def aa_to_rotmat(axis, angle):
-    """Axis angle to rotation matrix."""
+    """Create a rotation matrix for a given Euler axis, angle rotation.
+
+    Args:
+        axis (np.ndarray[np.float]): A (3,) vector about which to rotate.
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about axis.
+    """
     kx, ky, kz = axis
     K = np.array([[  0, -kz,  ky],
                   [ kz,   0, -kx],
