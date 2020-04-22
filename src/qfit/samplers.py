@@ -408,18 +408,6 @@ class ZAxisAligner:
         self.forward_rotation = np.asmatrix(self._Rz) * np.asmatrix(self._Ry)
 
 
-def aa_to_rotmat(axis, angle):
-    """Axis angle to rotation matrix."""
-
-    kx, ky, kz = axis
-    K = np.asmatrix([[0, -kz, ky],
-                     [kz, 0, -kx],
-                     [-ky, kx, 0]])
-    K2 = K * K
-    R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
-    return R
-
-
 class RotationSets:
 
     LOCAL = (('local_5_10.npy', 10, 5.00),
