@@ -26,11 +26,9 @@ IN THE SOFTWARE.
 """Automatically build a multiconformer residue"""
 import numpy as np
 import argparse
-import logging
 import os
 import sys
 import time
-from string import ascii_uppercase
 from . import Structure
 from .structure import residue_type
 from .structure.rotamers import ROTAMERS
@@ -44,22 +42,17 @@ def parse_args():
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
     p.add_argument("pdb_name", type=str, help="name of Holo PDB.")
-    p.add_argument("-dir", type=str, help="directory of output.")
+    p.add_argument("-dir", type=os.path.abspath, default='.', help="directory of output.")
     args = p.parse_args()
     return args
 
 def main():
     args = parse_args()
     
-    if not args.pdb_name==None:
-            pdb_name=args.pdb_name
+    if not args.pdb_name == None:
+            pdb_name = args.pdb_name
     else:
-            pdb_name=''
-            
-    if not args.dir==None:
-            dir=args.dir
-    else:
-            dir=''
+            pdb_name = ''
     try:
         structure = Structure.fromfile(args.structure)
     except:
@@ -106,7 +99,7 @@ def main():
             for key in neighbors.keys():
                 residue_id,chain = key.split()
                 residue = structure.extract(f"chain {chain} and resi {residue_id}")
-                if residue.resn[0] not in ROTAMERS:
+                if residue.resn[0] not in ROTAMERS: 
                     continue
                 altlocs = list(set(residue.altloc))
                 if (len(altlocs) > 2) or (len(altlocs) == 2 and '' not in altlocs):

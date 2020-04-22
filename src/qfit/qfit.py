@@ -1141,6 +1141,8 @@ class QFitLigandOptions(_BaseQFitOptions):
         self.remove_conformers_below_cutoff = False
         self.local_search = True
         self.sample_ligand_stepsize = 10
+        self.selection = None
+        self.cif_file = None
 
 
 
