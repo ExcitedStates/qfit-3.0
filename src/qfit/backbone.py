@@ -83,14 +83,12 @@ def compute_jacobian5d(bb_coor):
     r /= norm(r, axis=1).reshape(-1, 1)
     jacobian[::2, :3] = np.cross(r, fh_fa - N_coor)
     # Orientation constraints
-    f = np.asmatrix(fa - fh)
     dfh_dq = np.cross(r, fh - N_coor)
     dfd_dq = np.cross(r, fd - N_coor)
-    jacobian[::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+    jacobian[::2, 3] = (fa - fh) @ (dfh_dq - dfd_dq).T
 
-    f = np.asmatrix(fa - faa)
     dfa_dq = np.cross(r, fa - N_coor)
-    jacobian[::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+    jacobian[::2, 4] = (fa - faa) @ (dfh_dq - dfa_dq).T
 
     # C -> CA rotations
     # Relative distance constraints
@@ -98,14 +96,12 @@ def compute_jacobian5d(bb_coor):
     r /= norm(r, axis=1).reshape(-1, 1)
     jacobian[1::2, :3] = np.cross(r, fh_fa - C_coor)
     # Orientation constraints
-    f = np.asmatrix(fa - fh)
     dfh_dq = np.cross(r, fh - CA_coor)
     dfd_dq = np.cross(r, fd - CA_coor)
-    jacobian[1::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+    jacobian[1::2, 3] = (fa - fh) @ (dfh_dq - dfd_dq).T
 
-    f = np.asmatrix(fa - faa)
     dfa_dq = np.cross(r, fa - CA_coor)
-    jacobian[1::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+    jacobian[1::2, 4] = (fa - faa) @ (dfh_dq - dfa_dq).T
 
     return jacobian.T
 
