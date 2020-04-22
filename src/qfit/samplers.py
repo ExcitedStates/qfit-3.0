@@ -381,31 +381,32 @@ class BondRotator:
 
 
 class ZAxisAligner:
-
     """Find the rotation that aligns a vector to the Z-axis."""
-
     def __init__(self, axis):
         # Find angle between rotation axis and x-axis
         axis = axis / np.linalg.norm(axis[:-1])
         xaxis_angle = np.arccos(axis[0])
         if axis[1] < 0:
             xaxis_angle *= -1
+
         # Rotate around Z-axis
         self._Rz = Rz(xaxis_angle)
         axis = np.dot(self._Rz.T, axis.reshape(3, -1)).ravel()
+
         # Find angle between rotation axis and z-axis
         zaxis_angle = np.arccos(axis[2] / np.linalg.norm(axis))
         if axis[0] < 0:
             zaxis_angle *= -1
         self._Ry = Ry(zaxis_angle)
+
         # Check whether the transformation is correct.
         # Rotate around the Y-axis to align to the Z-axis.
         axis = np.dot(self._Ry.T, axis.reshape(3, -1)).ravel() / np.linalg.norm(axis)
         if not np.allclose(axis, [0, 0, 1]):
-            print(axis)
-            raise ValueError("Axis is not aligned to z-axis.")
-        self.backward_rotation = np.asmatrix(self._Ry).T * np.asmatrix(self._Rz).T
-        self.forward_rotation = np.asmatrix(self._Rz) * np.asmatrix(self._Ry)
+            raise ValueError(f"Axis {axis} is not aligned to z-axis.")
+
+        self.backward_rotation = self._Ry.T @ self._Rz.T
+        self.forward_rotation = self._Rz @ self._Ry
 
 
 class RotationSets:
