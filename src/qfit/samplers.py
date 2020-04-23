@@ -142,7 +142,7 @@ class GlobalRotator:
         ligand_coor = self.ligand.coor
         if self._center is None:
             self._center = ligand_coor.mean(axis=0)
-        self._coor_to_rotate = np.asmatrix(ligand_coor - self._center)
+        self._coor_to_rotate = ligand_coor - self._center
         self._intermediate = np.zeros_like(ligand_coor)
 
     def __call__(self, rotmat):
