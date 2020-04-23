@@ -839,10 +839,12 @@ class _Segment(_BaseStructure):
         selection = np.concatenate(selection)
 
         # Make an orthogonal axis system based on 3 atoms
+        # TODO: Use .math.gram_schmidt_orthonormal_zx (or something similar)
+        #       Note that here, the axes are 1→2, 2→1, 0=1×2.
+        origin = system_coor[0].copy()
         CA = residue.extract('name', 'CA').coor[0]
         C = residue.extract('name', 'C').coor[0]
         O = residue.extract('name', 'O').coor[0]
-        origin = system_coor[0].copy()
         system_coor = np.vstack((CA, C, O))
         system_coor -= origin
         zaxis = system_coor[1] / np.linalg.norm(system_coor[1])

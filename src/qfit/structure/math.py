@@ -26,6 +26,27 @@ IN THE SOFTWARE.
 import numpy as np
 
 
+def gram_schmidt_orthonormal_zx(coords):
+    """Create an orthonormal basis from atom vectors z & x.
+
+    This function preserves the direction of the z atom-vector.
+    This is based off the Gram-Schmidt process.
+
+    Args:
+        coords (np.ndarray[float]): A nx3 matrix of row-vectors,
+            with each row containing the position of an atom.
+
+    Returns:
+        np.ndarray[float]: A 3x3 orthonormal set of row-vectors,
+            where the z-axis is parallel to the input z-atom vector.
+    """
+    zaxis = coords[2] / np.linalg.norm(coords[2])
+    yaxis = coords[0] - np.inner(coords[0], zaxis) * zaxis
+    yaxis /= np.linalg.norm(yaxis)
+    xaxis = np.cross(yaxis, zaxis)
+    return np.vstack((xaxis, yaxis, zaxis))
+
+
 def Rz(theta):
     """Create a rotation matrix for rotating about z-axis.
 

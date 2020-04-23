@@ -178,16 +178,14 @@ class _RotamerResidue(_BaseResidue):
     def set_chi(self, chi_index, value, covalent=None, length=None):
         atoms = self._rotamers['chi'][chi_index]
         selection = self.select('name', atoms)
+
+        # Translate coordinates to center on coor[1]
         coor = self._coor[selection]
         origin = coor[1].copy()
         coor -= origin
 
         # Make an orthogonal axis system based on 3 atoms
-        zaxis = coor[2] / np.linalg.norm(coor[2])
-        yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
-        yaxis /= np.linalg.norm(yaxis)
-        xaxis = np.cross(yaxis, zaxis)
-        backward = np.vstack((xaxis, yaxis, zaxis))
+        backward = gram_schmidt_orthonormal_zx(coor)
         forward = backward.T
 
         # Complete selection to be rotated

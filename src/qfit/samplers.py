@@ -28,7 +28,7 @@ import os.path
 import numpy as np
 import copy
 
-from .structure.math import Rz, Ry
+from .structure.math import Rz, Ry, gram_schmidt_orthonormal_zx
 
 
 class BackboneRotator:
@@ -244,19 +244,14 @@ class ChiRotator:
                     break
         selection = new_selection
 
-        # Build a coordinate frame around it using Gram-Schmidt orthogonalization
+        # Translate coordinates to center on coor[1]
         norm = np.linalg.norm
         coor = self.residue._coor[selection]
         self._origin = coor[1].copy()
         coor -= self._origin
-        zaxis = coor[2] / norm(coor[2])
-        yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
-        yaxis /= norm(yaxis)
-        xaxis = np.cross(yaxis, zaxis)
-        self._backward = np.zeros((3, 3), float)
-        self._backward[0] = xaxis
-        self._backward[1] = yaxis
-        self._backward[2] = zaxis
+
+        # Make an orthogonal axis system based on 3 atoms
+        self._backward = gram_schmidt_orthonormal_zx(coor)
         self._forward = self._backward.T.copy()
 
         # Save the coordinates aligned along the Z-axis for fast future rotation
