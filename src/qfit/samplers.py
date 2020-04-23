@@ -87,7 +87,7 @@ class BackboneRotator:
                 continue
             coor = self.segment._coor[atoms_to_rotate]
             coor -= origin
-            R = np.asarray(aligner.forward_rotation * Rz(torsion) * aligner.backward_rotation)
+            R = aligner.forward_rotation @ Rz(torsion) @ aligner.backward_rotation
             coor = np.dot(coor, R.T)
             coor += origin
             self.segment._coor[atoms_to_rotate] = coor
@@ -120,15 +120,14 @@ class CBAngleRotator:
         axis /= np.linalg.norm(axis)
         aligner = ZAxisAligner(axis)
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def __call__(self, angle):
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(np.deg2rad(angle)))
-        self.residue._coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._origin
+        R = self._forward @ Rz(np.deg2rad(angle))
+        self.residue._coor[self.atoms_to_rotate] = (R @ self._coor_to_rotate.T).T + self._origin
 
 
 class GlobalRotator:
@@ -159,7 +158,7 @@ class PrincipalAxisRotator:
         self.ligand = ligand
         self._center = ligand.coor.mean(axis=0)
         self._coor_to_rotate = self.ligand.coor - self._center
-        gyration_tensor = np.asmatrix(self._coor_to_rotate).T * np.asmatrix(self._coor_to_rotate)
+        gyration_tensor = self._coor_to_rotate.T @ self._coor_to_rotate
         eig_values, eig_vectors = np.linalg.eigh(gyration_tensor)
         # Sort eigenvalues such that lx <= ly <= lz
         sort_ind = np.argsort(eig_values)
@@ -169,8 +168,8 @@ class PrincipalAxisRotator:
 
     def __call__(self, angle, axis=2):
         aligner = self.aligners[axis]
-        R = aligner.forward_rotation * np.asmatrix(Rz(angle)) * aligner.backward_rotation
-        self.ligand.coor[:] = (R * self._coor_to_rotate.T).T + self._center
+        R = aligner.forward_rotation @ Rz(angle) @ aligner.backward_rotation
+        self.ligand.coor[:] = (R @ self._coor_to_rotate.T).T + self._center
 
 
 # TODO Make a super class combining the BondRotator with the AngleRotator or at
@@ -208,8 +207,7 @@ class BondAngleRotator:
         # Align the rotation axis to the z-axis for the coordinates
         aligner = ZAxisAligner(axis)
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def _find_neighbours_recursively(self, curr):
         self.atoms_to_rotate.append(curr)
@@ -221,12 +219,11 @@ class BondAngleRotator:
                 self._find_neighbours_recursively(b)
 
     def __call__(self, angle):
-
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        self.ligand.coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        self.ligand.coor[self.atoms_to_rotate] = (R @ self._coor_to_rotate.T).T + self._t
 
 
 class ChiRotator:
@@ -311,15 +308,14 @@ class CovalentBondRotator:
 
         # Align the rotation axis to the z-axis for the coordinates
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def __call__(self, angle):
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate them and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        rotated = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        rotated = (R @ self._coor_to_rotate.T).T + self._t
         coor = copy.deepcopy(self.ligand.coor)
         coor[self.atoms_to_rotate] = rotated
         return coor
@@ -356,8 +352,7 @@ class BondRotator:
 
         # Align the rotation axis to the z-axis for the coordinates
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def _find_neighbours_recursively(self, curr):
         self.atoms_to_rotate.append(curr)
@@ -373,8 +368,8 @@ class BondRotator:
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate them and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        rotated = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        rotated = (R @ self._coor_to_rotate.T).T + self._t
         coor = copy.deepcopy(self.ligand.coor)
         coor[self.atoms_to_rotate] = rotated
         return coor
