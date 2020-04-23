@@ -253,11 +253,11 @@ class ChiRotator:
         yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
         yaxis /= norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)
-        self._backward = np.asmatrix(np.zeros((3, 3), float))
+        self._backward = np.zeros((3, 3), float)
         self._backward[0] = xaxis
         self._backward[1] = yaxis
         self._backward[2] = zaxis
-        self._forward= self._backward.T.copy()
+        self._forward = self._backward.T.copy()
 
         # Save the coordinates aligned along the Z-axis for fast future rotation
         atoms_to_rotate = self.residue._rotamers['chi-rotate'][chi_index]
@@ -275,7 +275,7 @@ class ChiRotator:
         self._tmp = np.zeros_like(self._coor_to_rotate)
 
     def __call__(self, angle):
-        R = self._forward * Rz(np.deg2rad(angle))
+        R = self._forward @ Rz(np.deg2rad(angle))
         np.dot(self._coor_to_rotate, R.T, self._tmp)
         self._tmp += self._origin
         self.residue._coor[self._atom_selection] = self._tmp
