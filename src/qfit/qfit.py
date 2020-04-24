@@ -418,14 +418,15 @@ class QFitRotamericResidue(_BaseQFit):
             out_root = f'out_{self.chain}_{self.resi}'
             structure.tofile(f'{out_root}.pdb')
             subprocess.run(["phenix.pdbtools",
-                            f'modify.selection=\"chain {self.chain} and'
-                            f'( resseq {self.resi} and not '
-                            f'( name n or name ca or name c or name o or name cb )'
-                            f' or ( resseq {self.prv_resi} and name n) )\"',
+                            "modify.selection="
+                                f"\"chain {self.chain} and "
+                                f"( resseq {self.resi} and not "
+                                f"( name n or name ca or name c or name o or name cb ) or "
+                                f"( resseq {self.prv_resi} and name n ) )\"",
                             "modify.occupancies.set=0",
                             "stop_for_unknowns=False",
-                            f"{out_root}.pdb",
-                            f"output.file_name={out_root}_modified.pdb"])
+                           f"{out_root}.pdb",
+                           f"output.file_name={out_root}_modified.pdb"])
 
             # Add hydrogens to the structure:
             with open(f"{out_root}_modified_H.pdb", "w") as out_mod_H:
@@ -570,7 +571,7 @@ class QFitRotamericResidue(_BaseQFit):
             selection_str = f"not (resi {resi} and icode {icode} and chain {chainid})"
             receptor = self.structure.extract(selection_str)
         else:
-            sel_str = f'not (resi {resi} and chain {chainid})'
+            sel_str = f"not (resi {resi} and chain {chainid})"
             receptor = self.structure.extract(sel_str).copy()
         # Find symmetry mates of the receptor
         starting_coor = self.structure.coor.copy()
@@ -974,8 +975,8 @@ class QFitSegment(_BaseQFit):
         self._voxel_volume /= self.xmap.array.size
 
     def __call__(self):
-        print(f'Average number of conformers before qfit_segment run: '
-            f'{self.segment.average_conformers():.2f}')
+        print(f"Average number of conformers before qfit_segment run: "
+              f"{self.segment.average_conformers():.2f}")
         # Extract hetatms
         hetatms = self.segment.extract('record', "HETATM")
         # Create an empty structure:
