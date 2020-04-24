@@ -396,20 +396,23 @@ class QFitRotamericResidue(_BaseQFit):
             # Generate the parameter file for phenix refinement:
             labels = options.label.split(",")
             with open(f"chain_{self.chain}_res_{self.resi}_adp.params", "w") as params:
-                params.write("refinement {\n")
-                params.write("  electron_density_maps {\n")
-                params.write("    map_coefficients {\n")
-                params.write(f"      mtz_label_amplitudes = {labels[0]}\n")
-                params.write(f"      mtz_label_phases = {labels[1]}\n")
-                params.write("      map_type = 2mFo-DFc\n")
-                params.write("    }\n  }\n")
-                params.write("  refine {\n")
-                params.write("    strategy = *individual_sites *individual_adp\n")
-                params.write("    adp {\n")
-                params.write("      individual {\n")
-                params.write(f"        anisotropic = {adp}\n")
-                params.write("      }\n    }\n  }\n}\n")
-            params.close()
+                params.write("refinement {\n"
+                             "  electron_density_maps {\n"
+                             "    map_coefficients {\n"
+                            f"      mtz_label_amplitudes = {labels[0]}\n"
+                            f"      mtz_label_phases = {labels[1]}\n"
+                             "      map_type = 2mFo-DFc\n"
+                             "    }\n"
+                             "  }\n"
+                             "  refine {\n"
+                             "    strategy = *individual_sites *individual_adp\n"
+                             "    adp {\n"
+                             "      individual {\n"
+                            f"        anisotropic = {adp}\n"
+                             "      }\n"
+                             "    }\n"
+                             "  }\n"
+                             "}\n")
 
             # Set the occupancy of the side chain to zero for omit map calculation
             out_root = f'out_{self.chain}_{self.resi}'
