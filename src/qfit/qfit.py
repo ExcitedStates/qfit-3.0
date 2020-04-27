@@ -656,8 +656,8 @@ class QFitRotamericResidue(_BaseQFit):
         # active = self.residue.active
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
-            logger.warning(f"[_sample_backbone] Not enough (<{nn}) neighbor residues: "
-                           f"lower {index < nn}, upper {index + nn > len(self.segment)}")
+            logger.info(f"[_sample_backbone] Not enough (<{nn}) neighbor residues: "
+                        f"lower {index < nn}, upper {index + nn > len(self.segment)}")
             return
         segment = self.segment[(index - nn):(index + nn + 1)]
         atom_name = "CB"
