@@ -96,10 +96,13 @@ def build_argparser():
                    help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", default=0.1, dest="sample_backbone_step",
                    metavar="<float>", type=float,
-                   help="Stepsize for the amplitude of backbone sampling.")
+                   help="Stepsize for the amplitude of backbone sampling (Å).")
     p.add_argument('-bba', "--backbone-amplitude", default=0.3, dest="sample_backbone_amplitude",
                    metavar="<float>", type=float,
-                   help="Maximum backbone amplitude.")
+                   help="Maximum backbone amplitude (Å).")
+    p.add_argument('-bbv', "--backbone-sigma", default=0.125, dest="sample_backbone_sigma",
+                   metavar="<float>", type=float,
+                   help="Backbone random-sampling displacement (Å).")
     p.add_argument('-sa', "--no-sample-angle", action="store_false", dest="sample_angle",
                    help="Do not sample N-CA-CB angle.")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
