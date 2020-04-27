@@ -696,6 +696,7 @@ class QFitRotamericResidue(_BaseQFit):
             segment.coor = starting_coor
         # print(f"Backbone sampling generated {len(self._coor_set)}"
         #      f" conformers.")
+        self._write_intermediate_conformers(prefix=f"_sample_backbone_segment{index:03d}")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -736,6 +737,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
+        self._write_intermediate_conformers(prefix=f"_sample_angle")
         # print(f"Bond angle sampling generated {len(self._coor_set)} "
         #      f"conformers.")
 
@@ -862,11 +864,10 @@ class QFitRotamericResidue(_BaseQFit):
                        clashes and density support."
                 raise RuntimeError(msg)
             if opt.debug:
-                prefix = os.path.join(opt.directory,
-                                      f'_conformer_{iteration}.pdb')
-                self._write_intermediate_conformers(prefix=prefix)
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
             # print(f"Side chain sampling generated {len(self._coor_set)} conformers")
             # print(f"{len(self._coor_set)} {ex}")
+
             # QP
             logger.debug("Converting densities.")
             self._convert()
@@ -874,15 +875,15 @@ class QFitRotamericResidue(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
+            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
 
-            # self._write_intermediate_conformers(f"qp_{iteration}")
             # MIQP
             self._convert()
             logger.info("Solving MIQP.")
             self._solve(cardinality=opt.cardinality,
                         threshold=opt.threshold)
             self._update_conformers()
-            # self._write_intermediate_conformers(f"miqp_{iteration}")
+            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
             # print("Nconf after MIQP: {:d}".format(len(self._coor_set)))
 
@@ -1787,9 +1788,7 @@ class QFitCovalentLigand(_BaseQFit):
                        "clashes and density support.")
                 raise RuntimeError(msg)
             if opt.debug:
-                prefix = os.path.join(opt.directory,
-                                      f'_conformer_{iteration}.pdb')
-                self._write_intermediate_conformers(prefix=prefix)
+                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
 
             # QP
             logger.debug("Converting densities.")
@@ -1798,6 +1797,7 @@ class QFitCovalentLigand(_BaseQFit):
             self._solve()
             logger.debug("Updating conformers")
             self._update_conformers()
+            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
 
             # MIQP
             self._convert()
@@ -1806,6 +1806,7 @@ class QFitCovalentLigand(_BaseQFit):
                         threshold=opt.threshold)
             self._update_conformers()
             logger.info("Nconf after MIQP: {:d}".format(len(self._coor_set)))
+            self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
 
             # Check if we are done
             if chi_index == self.covalent_residue.nchi:
