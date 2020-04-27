@@ -57,6 +57,7 @@ class _BaseQFitOptions:
     def __init__(self):
         # General options
         self.directory = '.'
+        self.verbose = False
         self.debug = False
         self.label = None
         self.map = None

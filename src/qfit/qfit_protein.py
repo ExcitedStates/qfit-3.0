@@ -339,9 +339,6 @@ class QFitProtein:
             parent=residue.parent,
         )
 
-        # We don't want this subprocess to be verbose
-        options.verbose = False
-
         # Build the residue results directory
         chainid = residue.chain[0]
         resi, icode = residue.id
