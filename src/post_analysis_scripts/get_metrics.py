@@ -1,4 +1,3 @@
-"""Automatically build a multiconformer residue"""
 import numpy as np
 import argparse
 import logging
