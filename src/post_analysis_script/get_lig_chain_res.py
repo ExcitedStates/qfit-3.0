@@ -1,6 +1,5 @@
 '''
-This script is for an automated way 
-to get the residue ID and chain ID of a ligand of interest. 
+An automated way  to get the residue ID and chain ID of a ligand of interest. 
 Can be fed into qfit ligand.
 '''
 
