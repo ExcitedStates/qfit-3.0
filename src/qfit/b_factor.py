@@ -10,9 +10,6 @@ b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
-from .qfit_protein import QFitProteinOptions, QFitProtein
 import os.path
 import os
 import sys
@@ -20,7 +17,6 @@ import copy
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
-from math import ceil
 from .structure.base_structure import _BaseStructure
 
 
@@ -89,12 +85,11 @@ class B_factor():
             B_factor.loc[n,'Chain'] = resn_name[2]
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
             B_factor.loc[n, 'Averaage_Bfactor'] = np.average(b_factor)
-            n+=1
+            n += 1
         B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
 
 def main():
     args = parse_args()
-    # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder() #put H20 on the bottom
     B_options = Bfactor_options()
     B_options.apply_command_args(args)
