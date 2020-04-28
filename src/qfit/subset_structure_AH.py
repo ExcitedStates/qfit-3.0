@@ -9,23 +9,14 @@ Contact: vdbedem@stanford.edu
 
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
-from .qfit_protein import QFitProteinOptions, QFitProtein
-import multiprocessing as mp
 import os.path
 import os
 import sys
-import time
 import copy
 import numpy as np
 from argparse import ArgumentParser
-from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.base_structure import _BaseStructure
-#from .structure.ligand import
-#from .structure,.residue import residue_type
-
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -39,10 +30,6 @@ def parse_args():
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
                    metavar="<dir>", help="Directory to store results.")
-    p.add_argument("--debug", action="store_true",
-                   help="Write intermediate structures to file for debugging.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
     p.add_argument("--pdb_holo", help="Name of the input Holo PDB.")
     p.add_argument("--pdb_apo", help="Name of the input Apo PDB.")
     
@@ -58,9 +45,6 @@ def parse_args():
 class QFitMultiResOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
     def __init__(self):
         super().__init__()
-        self.nproc = 1
-        self.verbose = True
-        self.omit = False
         self.ligand_start = None
         self.distance = None
         self.pdb_holo = None
