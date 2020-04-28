@@ -8,7 +8,6 @@ import numpy as np
 import argparse
 import os
 import sys
-from string import ascii_uppercase
 from . import Structure
 from .structure import residue_type
 

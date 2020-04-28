@@ -8,20 +8,17 @@ Contact: vdbedem@stanford.edu
 '''
 
 import pkg_resources  # part of setuptools
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit_protein import QFitProteinOptions, QFitProtein
+from .qfit import QFitRotamericResidueOptions
 import os
 import sys
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
-from math import ceil
-from . import MapScaler, Structure, XMap
+from . import Structure
 from .structure.base_structure import _BaseStructure
 
 
 def parse_args():
-    p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
 
