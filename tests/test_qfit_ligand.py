@@ -1,6 +1,4 @@
-import pytest
 import os
-import multiprocessing as mp
 import logging
 
 from qfit.qfit_ligand import (
@@ -15,17 +13,6 @@ from qfit.logtools import (
 
 
 logger = logging.getLogger(__name__)
-
-
-def setup_module(module):
-    # Here, we add compatibility for multiprocessing coverage reports.
-    # via: https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-use-multiprocessing-pool
-    try:
-        from pytest_cov.embed import cleanup_on_sigterm
-    except ImportError:
-        pass
-    else:
-        cleanup_on_sigterm()
 
 
 class TestQFitLigand:

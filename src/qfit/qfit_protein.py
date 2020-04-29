@@ -23,7 +23,6 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 import gc
-import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 import multiprocessing as mp
@@ -32,11 +31,9 @@ import os.path
 import os
 import sys
 import time
-import copy
 import argparse
 import logging
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
-from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
