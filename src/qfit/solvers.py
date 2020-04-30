@@ -23,8 +23,14 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
+import logging
+
 import numpy as np
 from scipy import sparse
+
+
+logger = logging.getLogger(__name__)
+
 
 # Try load solver sets
 try:
@@ -75,6 +81,7 @@ if CPLEX:
 
         def initialize(self):
             # Set up the matrices and restraints
+            logger.debug(f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})")
             self._quad_obj = cvxopt.matrix(0, (self._nconformers, self._nconformers), tc='d')
             self._lin_obj = cvxopt.matrix(self._nconformers * [0], tc='d')
             for i in range(self._nconformers):

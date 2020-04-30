@@ -645,6 +645,8 @@ class QFitRotamericResidue(_BaseQFit):
         # active = self.residue.active
         nn = self.options.neighbor_residues_required
         if index < nn or index + nn > len(self.segment):
+            logger.warning(f"[_sample_backbone] Not enough (<{nn}) neighbor residues: "
+                           f"lower {index < nn}, upper {index + nn > len(self.segment)}")
             return
         segment = self.segment[(index - nn):(index + nn + 1)]
         atom_name = "CB"
@@ -656,16 +658,19 @@ class QFitRotamericResidue(_BaseQFit):
                         [atom.u01[0], atom.u11[0], atom.u12[0]],
                         [atom.u02[0], atom.u12[0], atom.u22[0]]]
             directions = adp_ellipsoid_axes(u_matrix)
+            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+            logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
+            logger.error("[_sample_backbone] Got AttributeError for directions.")
             directions = np.identity(3)
 
         for n, residue in enumerate(self.segment.residues[::-1]):
             for backbone_atom in ['N', 'CA', 'C', 'O']:
                 if backbone_atom not in residue.name:
-                    print(f"[WARNING] Missing backbone atom for residue "
-                          f"{residue.resi[0]} of chain {residue.chain[0]}.\n"
-                          f"Skipping backbone sampling for residue "
-                          f"{self.residue.resi[0]} of chain {residue.chain[0]}.")
+                    logger.warning(f"Missing backbone atom for residue "
+                                   f"{residue.resi[0]} of chain {residue.chain[0]}.")
+                    logger.warning(f"Skipping backbone sampling for residue "
+                                   f"{self.residue.resi[0]} of chain {residue.chain[0]}.")
                     self._coor_set.append(self.segment[index].coor)
                     self._bs.append(self.conformer.b)
                     return
@@ -683,10 +688,12 @@ class QFitRotamericResidue(_BaseQFit):
             endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
+            logger.debug(f"[_sample_backbone] optimize_result={optimize_result}")
 
             endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
+            logger.debug(f"[_sample_backbone] optimize_result={optimize_result}")
         starting_coor = segment.coor
 
         for solution in torsion_solutions:
@@ -694,9 +701,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._coor_set.append(self.segment[index].coor)
             self._bs.append(self.conformer.b)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)}"
-        #      f" conformers.")
         self._write_intermediate_conformers(prefix=f"_sample_backbone_segment{index:03d}")
+        logger.debug(f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
