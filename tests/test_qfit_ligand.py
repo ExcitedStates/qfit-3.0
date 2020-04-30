@@ -52,6 +52,7 @@ class TestQFitLigand:
         # Apply the arguments to options
         options = QFitLigandOptions()
         options.apply_command_args(args)
+        options.debug = True  # For debugging in tests
 
         # Setup logger
         setup_logging(options=options, filename="qfit_ligand.log")

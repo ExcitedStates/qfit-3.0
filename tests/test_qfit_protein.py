@@ -55,6 +55,7 @@ class TestQFitProtein:
         # Apply the arguments to options
         options = QFitProteinOptions()
         options.apply_command_args(args)
+        options.debug = True  # For debugging in tests
 
         # Setup logger
         setup_logging(options=options)
