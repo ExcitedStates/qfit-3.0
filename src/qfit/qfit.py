@@ -248,10 +248,10 @@ class _BaseQFit:
         # solvent_level = residual_sum / nvalues
         # scaling_factor = model_sum / target_sum
         # self._target *= scaling_factor
-        # print("Solvent level advice:", solvent_level)
-        # print("Scaling factor:", scaling_factor)
-        # print("Target sum:", target_sum)
-        # print("Model sum:", model_sum)
+        # logger.debug("Solvent level advice:", solvent_level)
+        # logger.debug("Scaling factor:", scaling_factor)
+        # logger.debug("Target sum:", target_sum)
+        # logger.debug("Model sum:", model_sum)
         # self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
@@ -990,8 +990,8 @@ class QFitSegment(_BaseQFit):
         self._voxel_volume /= self.xmap.array.size
 
     def __call__(self):
-        print(f"Average number of conformers before qfit_segment run: "
-              f"{self.segment.average_conformers():.2f}")
+        logger.info(f"Average number of conformers before qfit_segment run: "
+                    f"{self.segment.average_conformers():.2f}")
         # Extract hetatms
         hetatms = self.segment.extract('record', "HETATM")
         # Create an empty structure:
@@ -1019,9 +1019,9 @@ class QFitSegment(_BaseQFit):
                 if (CA_single and O_single):
                     mask = np.isin(conformer.name, ['CA', 'O'])
                     if np.sum(mask) > 2:
-                        print("f[WARNING] Conformer {altloc} of residue"
-                              f"{rg.resi[0]} has more than one coordinate"
-                              f" for CA/O atoms.")
+                        logger.warning(f"Conformer {altloc} of residue "
+                                       f"{rg.resi[0]} has more than one coordinate "
+                                       f"for CA/O atoms.")
                         mask = mask[:2]
                     try:
                         CA_single = np.linalg.norm(CA_pos - conformer.coor[mask][0])
@@ -1061,16 +1061,16 @@ class QFitSegment(_BaseQFit):
                 segment.append(multiconformer)
 
         if len(segment):
-            print(f"Running find_paths for segment of length {len(segment)}")
+            logger.debug(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
-        print(f"Average number of conformers after qfit_segment run: "
-              f"{multiconformers.average_conformers():.2f}")
+        logger.info(f"Average number of conformers after qfit_segment run: "
+                    f"{multiconformers.average_conformers():.2f}")
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
-        print(f"Average number of conformers after removal of identical conformers: "
-              f"{multiconformers.average_conformers():.2f}")
+        logger.info(f"Average number of conformers after removal of identical conformers: "
+                    f"{multiconformers.average_conformers():.2f}")
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
@@ -1145,7 +1145,7 @@ class QFitSegment(_BaseQFit):
                 if fragment.name[i] == "CA":
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
-            print(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
+            logger.info(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
 
 
 class QFitLigandOptions(_BaseQFitOptions):
@@ -1191,8 +1191,7 @@ class QFitLigand(_BaseQFit):
                 nhydrogen = (self.ligand.e[cluster] == 'H').sum()
                 if len(cluster) - nhydrogen > 1:
                     self._clusters_to_sample.append(cluster)
-        # msg = f"Number of clusters to sample: {len(self._clusters_to_sample)}"
-        # print(msg)
+        # logger.debug(f"Number of clusters to sample: {len(self._clusters_to_sample)}")
 
         # Initialize the transformer
         if options.subtract:
@@ -1641,7 +1640,7 @@ class QFitCovalentLigand(_BaseQFit):
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
             segment.coor = starting_coor
-        # print(f"Backbone sampling generated {len(self._coor_set)} conformers")
+        # logger.debug(f"Backbone sampling generated {len(self._coor_set)} conformers")
 
     def _sample_angle(self):
         """Sample residue along the N-CA-CB angle."""
@@ -1677,7 +1676,7 @@ class QFitCovalentLigand(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
-        # print(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
+        # logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):
         opt = self.options

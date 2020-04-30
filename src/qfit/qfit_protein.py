@@ -206,8 +206,8 @@ class QFitProtein:
 
         # Print execution stats
         residues = list(self.structure.single_conformer_residues)
-        print(f"RESIDUES: {len(residues)}")
-        print(f"NPROC: {self.options.nproc}")
+        logger.info(f"RESIDUES: {len(residues)}")
+        logger.info(f"NPROC: {self.options.nproc}")
 
         # Build a Manager, have it construct a Queue. This will conduct
         #   thread-safe and process-safe passing of LogRecords.
@@ -287,7 +287,7 @@ class QFitProtein:
             except UnboundLocalError:
                 multiconformer = residue_multiconformer
             except FileNotFoundError:
-                print("File not found!", fname)
+                logger.error(f"File \"{fname}\" not found!")
                 pass
 
         multiconformer = multiconformer.combine(hetatms)
@@ -403,9 +403,9 @@ class QFitProtein:
         try:
             qfit.run()
         except RuntimeError:
-            print(f"[WARNING] qFit was unable to produce an alternate conformer "
-                  f"for residue {resi} of chain {chainid}.\n"
-                  f"Using deposited conformer A for this residue.")
+            logger.warning(f"qFit was unable to produce an alternate conformer "
+                           f"for residue {resi} of chain {chainid}.\n"
+                           f"Using deposited conformer A for this residue.")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
@@ -480,4 +480,4 @@ def main():
     # Run the QFitProtein job
     time0 = time.time()
     multiconformer = qfit.run()
-    print(f"Total time: {time.time() - time0}s")
+    logger.info(f"Total time: {time.time() - time0}s")
