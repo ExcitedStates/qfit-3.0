@@ -231,7 +231,7 @@ def main():
     if not args.pdb == None:
         pdb_id = args.pdb + '_'
     else:
-       pdb_id = ''
+        pdb_id = ''
     time0 = time.time()
 
     # Apply the arguments to options
@@ -246,12 +246,10 @@ def main():
 
     qfit_ligand = prepare_qfit_ligand(options)
 
-
     time0 = time.time()
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    
     #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
@@ -271,5 +269,3 @@ def main():
     if icode:
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     multiconformer.tofile(fname)
-
-
