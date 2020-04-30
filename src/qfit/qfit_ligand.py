@@ -33,9 +33,9 @@ import sys
 import time
 import numpy as np
 from string import ascii_uppercase
-from .qfit import print_run_info
 from . import MapScaler, Structure, XMap, _Ligand
 from . import QFitLigand, QFitLigandOptions
+from .logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -232,27 +232,17 @@ def main():
         pdb_id = args.pdb + '_'
     else:
        pdb_id = ''
-    print_run_info(args)
     time0 = time.time()
 
-    # Setup logger
-    logging_fname = os.path.join(args.directory, 'qfit_ligand.log') #combine this with qfit log file
-    if args.debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logging.basicConfig(filename=logging_fname, level=level)
-    logger.info(' '.join(sys.argv))
-    logger.info(time.strftime("%c %Z"))
-    if args.verbose:
-        console_out = logging.StreamHandler(stream=sys.stdout)
-        console_out.setLevel(level)
-        logging.getLogger('').addHandler(console_out)
-
+    # Apply the arguments to options
     options = QFitLigandOptions()
     options.apply_command_args(args)
     print(args.selection)
     print(options.selection)
+
+    # Setup logger
+    setup_logging(options=options, filename="qfit_ligand.log")
+    log_run_info(options, logger)
 
     qfit_ligand = prepare_qfit_ligand(options)
 

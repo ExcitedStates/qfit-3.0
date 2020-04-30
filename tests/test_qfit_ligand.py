@@ -1,13 +1,20 @@
 import pytest
 import os
 import multiprocessing as mp
+import logging
 
 from qfit.qfit_ligand import (
     QFitLigandOptions,
     prepare_qfit_ligand,
     build_argparser,
-    print_run_info
 )
+from qfit.logtools import (
+    setup_logging,
+    log_run_info,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def setup_module(module):
@@ -42,9 +49,13 @@ class TestQFitLigand:
         except OSError:
             pass
 
-        print_run_info(args)
+        # Apply the arguments to options
         options = QFitLigandOptions()
         options.apply_command_args(args)
+
+        # Setup logger
+        setup_logging(options=options, filename="qfit_ligand.log")
+        log_run_info(options, logger)
 
         # Build a QFitLigand job
         qfit_ligand = prepare_qfit_ligand(options)

@@ -2018,13 +2018,3 @@ class QFitCovalentLigand(_BaseQFit):
             conformer.b = b
             conformers.append(conformer)
         return conformers
-
-
-def print_run_info(args):
-    """TO BE DELETED.
-
-    Used to print sys.argv and other parameters (from args) to a file.
-    No longer needed, since this has been moved to
-        `logtools.log_run_info(options, logger)`.
-    """
-    pass

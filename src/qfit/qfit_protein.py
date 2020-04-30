@@ -26,7 +26,6 @@ import gc
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
@@ -35,10 +34,14 @@ import sys
 import time
 import copy
 import argparse
+import logging
+from .logtools import setup_logging, log_run_info
 from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
+
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
@@ -446,12 +449,17 @@ def main():
         os.mkdir(args.directory)
     except OSError:
         pass
-    print_run_info(args)
+
+    # Apply the arguments to options
     options = QFitProteinOptions()
     options.apply_command_args(args)
 
+    # Setup logger
+    setup_logging(options=options)
+    log_run_info(options, logger)
+
     # Build a QFitProtein job
-    qfit = prepare_qfit_protein(options)
+    qfit = prepare_qfit_protein(options=options)
 
     # Run the QFitProtein job
     time0 = time.time()
