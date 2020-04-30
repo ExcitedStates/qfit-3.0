@@ -117,7 +117,8 @@ def build_argparser():
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
                    help="Neighborhood of rotamer to sample in degrees.")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_true", dest="remove_conformers_below_cutoff",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
+                   dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
                          "with no density support, i.e. atoms are positioned "
                          "at density values below <density-cutoff>."))
@@ -402,8 +403,9 @@ class QFitProtein:
         try:
             qfit.run()
         except RuntimeError:
-            print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
-            print(f"Using deposited conformer A for this residue.")
+            print(f"[WARNING] qFit was unable to produce an alternate conformer "
+                  f"for residue {resi} of chain {chainid}.\n"
+                  f"Using deposited conformer A for this residue.")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]

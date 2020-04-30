@@ -1040,7 +1040,8 @@ class QFitSegment(_BaseQFit):
                 segment = []
                 collapsed = multiconformer[:]
                 for multi in collapsed:
-                    multiconformers = multiconformers.combine(multi.collapse_backbone(multi.resi[0], multi.chain[0]))
+                    multiconformers = multiconformers.combine(multi.collapse_backbone(multi.resi[0],
+                                                                                      multi.chain[0]))
 
             else:
                 segment.append(multiconformer)
@@ -1050,10 +1051,12 @@ class QFitSegment(_BaseQFit):
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
 
-        print(f'Average number of conformers after qfit_segment run: {multiconformers.average_conformers():.2f}')
+        print(f"Average number of conformers after qfit_segment run: "
+              f"{multiconformers.average_conformers():.2f}")
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
-        print(f'Average number of conformers after removal of identical conformers: {multiconformers.average_conformers():.2f}')
+        print(f"Average number of conformers after removal of identical conformers: "
+              f"{multiconformers.average_conformers():.2f}")
         relab_options = RelabellerOptions()
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
@@ -1265,7 +1268,8 @@ class QFitLigand(_BaseQFit):
         self._coor_set = new_coor_set
         self._bs = new_bs
         if len(self._coor_set) < 1:
-            print(f"{self.ligand.resn[0]}: Local search {self._cluster_index}: {len(self._coor_set)} conformers")
+            print(f"{self.ligand.resn[0]}: "
+                  f"Local search {self._cluster_index}: {len(self._coor_set)} conformers")
             return
         # QP
         logger.debug("Converting densities.")
@@ -1275,7 +1279,8 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers")
         self._update_conformers()
         if len(self._coor_set) < 1:
-            print(f"{self.ligand.resn[0]}: Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
+            print(f"{self.ligand.resn[0]}: "
+                  f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
             return
         # MIQP
         self._convert()
@@ -1369,7 +1374,8 @@ class QFitLigand(_BaseQFit):
             logger.info("Nconf: {:d}".format(len(self._coor_set)))
 
             if not self._coor_set:
-                print(f"{self.ligand.resn[0]}: DOF search cluster {self._cluster_index} iteration {iteration}: "
+                print(f"{self.ligand.resn[0]}: "
+                      f"DOF search cluster {self._cluster_index} iteration {iteration}: "
                       f"{len(self._coor_set)} conformers.")
                 return
 
@@ -1382,7 +1388,8 @@ class QFitLigand(_BaseQFit):
             self._update_conformers()
 
             if not self._coor_set:
-                print(f"{self.ligand.resn[0]}: QP search cluster {self._cluster_index} iteration {iteration}: "
+                print(f"{self.ligand.resn[0]}: "
+                      f"QP search cluster {self._cluster_index} iteration {iteration}: "
                       f"{len(self._coor_set)} conformers.")
                 return
 
@@ -1444,7 +1451,8 @@ class QFitCovalentLigand(_BaseQFit):
         elif covalent_ligand.covalent_bonds == 1:
             # Extract the information about the residue that the
             # ligand is covalently bonded to:
-            partner_chain, partner_resi, partner_icode, self.partner_atom = (covalent_ligand.covalent_partners[0])
+            partner_chain, partner_resi, \
+                partner_icode, self.partner_atom = (covalent_ligand.covalent_partners[0])
             if partner_icode:
                 self.partner_id = (int(partner_resi), partner_icode)
             else:
@@ -1692,7 +1700,8 @@ class QFitCovalentLigand(_BaseQFit):
                 else:
                     bs_atoms = self.covalent_residue._rotamers['chi-rotate'][chi_index]
                 if self.options.sample_ligand:
-                    sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
+                    sel_str = f"chain {self.covalent_residue.chain[0]} " \
+                              f"and resi {self.covalent_residue.resi[0]}"
                     if self.covalent_residue.icode[0]:
                         sel_str = f"{sel_str} and icode {self.covalent_residue.icode[0]}"
                     selection = self.covalent_residue.select(sel_str)
