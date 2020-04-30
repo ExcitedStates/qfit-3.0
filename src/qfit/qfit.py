@@ -31,7 +31,6 @@ import copy
 from string import ascii_uppercase
 import subprocess
 import numpy as np
-import pkg_resources  # part of setuptools
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -2022,13 +2021,10 @@ class QFitCovalentLigand(_BaseQFit):
 
 
 def print_run_info(args):
-    runinfo_fname = os.path.join(args.directory, 'qfit_run_info.log')
-    with open(runinfo_fname, 'w') as f:
-        version = pkg_resources.require("qfit")[0].version
-        f.write(f'===== qFit version: {version} =====\n\n')
-        cmd = ' '.join(argv)
-        f.write(f'{cmd}\n\n')
-        f.write(f'===== qFit parameters: =====\n\n')
-        for arg in vars(args):
-            f.write(f'{arg[0].upper()}{arg[1:]}: {getattr(args, arg)}\n')
-        f.close()
+    """TO BE DELETED.
+
+    Used to print sys.argv and other parameters (from args) to a file.
+    No longer needed, since this has been moved to
+        `logtools.log_run_info(options, logger)`.
+    """
+    pass
