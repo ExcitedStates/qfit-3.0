@@ -1225,7 +1225,7 @@ class QFitLigand(_BaseQFit):
         self._bs = self._all_bs
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
-            exit()
+            return
 
         # TODO: Check why we don't run QP here.
 
