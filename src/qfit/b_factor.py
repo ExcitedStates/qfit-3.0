@@ -11,7 +11,6 @@ b_factor $pdb.mtz $pdb.pdb --pdb $pdb
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 from .qfit_protein import QFitProteinOptions, QFitProtein
 import os.path
 import os

@@ -26,7 +26,6 @@ import gc
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
@@ -35,10 +34,14 @@ import sys
 import time
 import copy
 import argparse
+import logging
+from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
+
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
@@ -208,6 +211,15 @@ class QFitProtein:
         print(f"RESIDUES: {len(residues)}")
         print(f"NPROC: {self.options.nproc}")
 
+        # Build a Manager, have it construct a Queue. This will conduct
+        #   thread-safe and process-safe passing of LogRecords.
+        # Then launch a QueueListener Thread to read & handle LogRecords
+        #   that are placed on the Queue.
+        mgr = mp.Manager()
+        logqueue = mgr.Queue()
+        listener = QueueListener(logqueue)
+        listener.start()
+
         # Initialise progress bar
         progress = tqdm(total=len(residues),
                         unit="residue",
@@ -232,7 +244,8 @@ class QFitProtein:
                                         kwds={'residue': residue,
                                               'structure': self.structure,
                                               'xmap': self.xmap,
-                                              'options': self.options},
+                                              'options': self.options,
+                                              'logqueue': logqueue},
                                         callback=_cb,
                                         error_callback=_error_cb)
                        for residue in residues]
@@ -245,6 +258,10 @@ class QFitProtein:
         pool.close()
         pool.join()
         progress.close()
+
+        # There are no more sub-processes, so we stop the QueueListener
+        listener.stop()
+        listener.join()
 
         # Extract non-protein atoms
         hetatms = self.structure.extract('record', 'HETATM', '==')
@@ -297,12 +314,15 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_residue(residue, structure, xmap, options):
+    def _run_qfit_residue(residue, structure, xmap, options, logqueue):
         """Run qfit on a single residue to determine density-supported conformers."""
 
         # Don't run qfit if we have a ligand or water
         if residue.type != 'rotamer-residue':
             return
+
+        # Set up logger hierarchy in this subprocess
+        poolworker_setup_logging(logqueue)
 
         # This function is run in a subprocess, so `structure` and `residue` have
         #     been 'copied' (pickled+unpickled) as best as possible.
@@ -338,9 +358,6 @@ class QFitProtein:
             selection=residue._selection,
             parent=residue.parent,
         )
-
-        # We don't want this subprocess to be verbose
-        options.verbose = False
 
         # Build the residue results directory
         chainid = residue.chain[0]
@@ -449,12 +466,17 @@ def main():
         os.mkdir(args.directory)
     except OSError:
         pass
-    print_run_info(args)
+
+    # Apply the arguments to options
     options = QFitProteinOptions()
     options.apply_command_args(args)
 
+    # Setup logger
+    setup_logging(options=options)
+    log_run_info(options, logger)
+
     # Build a QFitProtein job
-    qfit = prepare_qfit_protein(options)
+    qfit = prepare_qfit_protein(options=options)
 
     # Run the QFitProtein job
     time0 = time.time()

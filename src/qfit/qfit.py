@@ -31,7 +31,6 @@ import copy
 from string import ascii_uppercase
 import subprocess
 import numpy as np
-import pkg_resources  # part of setuptools
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -57,6 +56,7 @@ class _BaseQFitOptions:
     def __init__(self):
         # General options
         self.directory = '.'
+        self.verbose = False
         self.debug = False
         self.label = None
         self.map = None
@@ -2018,16 +2018,3 @@ class QFitCovalentLigand(_BaseQFit):
             conformer.b = b
             conformers.append(conformer)
         return conformers
-
-
-def print_run_info(args):
-    runinfo_fname = os.path.join(args.directory, 'qfit_run_info.log')
-    with open(runinfo_fname, 'w') as f:
-        version = pkg_resources.require("qfit")[0].version
-        f.write(f'===== qFit version: {version} =====\n\n')
-        cmd = ' '.join(argv)
-        f.write(f'{cmd}\n\n')
-        f.write(f'===== qFit parameters: =====\n\n')
-        for arg in vars(args):
-            f.write(f'{arg[0].upper()}{arg[1:]}: {getattr(args, arg)}\n')
-        f.close()

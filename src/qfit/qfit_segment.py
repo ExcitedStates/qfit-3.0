@@ -26,12 +26,15 @@ IN THE SOFTWARE.
 import os.path
 import os
 import time
+import logger
 from argparse import ArgumentParser
 
 from . import MapScaler, Structure, XMap
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
+from .logtools import setup_logging, log_run_info
 
+
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
@@ -109,12 +112,16 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
-    print_run_info(args)
 
     time0 = time.time()
 
+    # Apply the arguments to options
     options = QFitSegmentOptions()
     options = options.apply_command_args(args)
+
+    # Setup logger
+    setup_logging(options=options)
+    log_run_info(options, logger)
 
     structure = Structure.fromfile(args.structure)#.reorder()
     if not args.hydro:

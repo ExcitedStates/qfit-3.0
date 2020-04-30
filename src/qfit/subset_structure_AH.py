@@ -10,7 +10,6 @@ Contact: vdbedem@stanford.edu
 import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 from .qfit_protein import QFitProteinOptions, QFitProtein
 import multiprocessing as mp
 import os.path

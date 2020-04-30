@@ -23,6 +23,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
+import logging
+
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitCovalentLigand, QFitCovalentLigandOptions
 from .qfit import QFitLigand, QFitLigandOptions
@@ -33,3 +35,6 @@ from .transformer import Transformer
 from .volume import EMMap, XMap
 from .ElecDenRadii import ElectronDensityRadiusTable, ResolutionBins
 from .BondLengths import BondLengthTable
+
+
+LOGGER = logging.getLogger(__name__)
