@@ -699,7 +699,6 @@ class QFitRotamericResidue(_BaseQFit):
             endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
-            logger.debug(f"[_sample_backbone] optimize_result={optimize_result}")
 
             endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
