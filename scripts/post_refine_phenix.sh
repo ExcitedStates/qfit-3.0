@@ -121,7 +121,7 @@ phenix.refine ${pdb_name}_004.pdb ${pdb_name}.mtz \
               "$adp" \
               output.prefix=${pdb_name} \
               output.serial=5 \
-              strategy="*individual_sites *individual_adp *occupancies" \
+              strategy="*individual_sites *individual_adp" \
               main.number_of_macro_cycles=5 \
               refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false \
@@ -132,7 +132,7 @@ else
               "$adp" \
               output.prefix=${pdb_name} \
               output.serial=5 \
-              strategy="*individual_sites *individual_adp *occupancies" \
+              strategy="*individual_sites *individual_adp" \
               main.number_of_macro_cycles=5 \
               refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false \
