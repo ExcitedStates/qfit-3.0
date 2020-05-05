@@ -1,9 +1,10 @@
 #!/bin/bash
+#PLEASE NOTE THAT THIS IS WITH PHENIX VERSION 1.18. INPUTS MAY NEED TO CHANGE WITH DIFFERENT PHENIX VERSIONS.
+
 #___________________________SOURCE__________________________________
-source /home/wankowicz/phenix-installer-1.16-3546-intel-linux-2.6-x86_64-centos6/phenix-1.16-3546/phenix_env.sh
+source phenix
 export PHENIX_OVERWRITE_ALL=true
-source /home/wankowicz/anaconda3/etc/profile.d/conda.sh
-conda activate 'qfit2.1'
+
 pdb_name=$1
 echo $pdb_name
 
@@ -27,11 +28,7 @@ else
   adp='adp.individual.isotropic=all'
 fi
 
-
-#GET CIF FILE
-phenix.ready_set pdb_file_name=${pdb_name}.pdb
-
-#DETERMINE FOBS v SIGOBS
+#__________________________________DETERMINE FOBS v SIGOBS__________________________________
 if grep -F _refln.F_meas_au ${pdb_name}-sf.cif; then
        xray_data_labels="FOBS,SIGFOBS"
 else
@@ -52,26 +49,26 @@ else
 fi
 
 #__________________________________DETERMINE IF THERE ARE LIGANDS__________________________________
-if [ -f "multiconformer_model2.pdb.cif" ]; then
-  phenix.refine multiconformer_model2.pdb.fixed_modified.pdb \
+if [ -f "multiconformer_model2.pdb.f_modified.ligands.cif" ]; then
+  phenix.refine multiconformer_model2.pdb.f_modified.updated.pdb \
               ${pdb_name}.mtz \
               ${pdb_name}.ligands.cif \
               strategy=individual_sites \
               output.prefix=${pdb_name} \
               output.serial=2 \
               main.number_of_macro_cycles=5 \
-              refinement.input.xray_data.r_free_flags.generate=True \
-              refinement.input.xray_data.labels=$xray_data_labels \
+              #refinement.input.xray_data.r_free_flags.label='FREE' \
+              #refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
 else
-  phenix.refine multiconformer_model2.pdb.fixed_modified.pdb \
+  phenix.refine multiconformer_model2.pdb.f_modified.updated.pdb \
               ${pdb_name}.mtz \
               strategy=individual_sites \
               output.prefix=${pdb_name} \
               output.serial=2 \
               main.number_of_macro_cycles=5 \
-              refinement.input.xray_data.r_free_flags.generate=True \
-              refinement.input.xray_data.labels=$xray_data_labels \
+              #refinement.input.xray_data.r_free_flags.label='FREE' \
+              #refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
 fi
 
@@ -79,15 +76,27 @@ fi
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 while [ $zeroes -gt 10 ]; do
-  if [[ -e "multiconformer_model2.ligands.cif" ]]; then
+  if [[ -e "multiconformer_model2.pdb.f_modified.ligands.cif" ]]; then
         phenix.refine ${pdb_name}_002.pdb ${pdb_name}.mtz \
-              multiconformer_model2.ligands.cif \
+              multiconformer_model2.pdb.f_modified.ligands.cif \
               output.prefix=${pdb_name} \
               output.serial=3 \
-              strategy="*individual_sites *individual_adp *occupancies" \
+              strategy="individual_sites" \
               main.number_of_macro_cycles=5 \
-              refinement.input.xray_data.labels=$xray_data_labels \
+              #refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
+  else
+        phenix.refine ${pdb_name}_002.pdb \
+              ${pdb_name}.mtz \
+              strategy="individual_sites" \
+              output.prefix=${pdb_name} \
+              output.serial=3 \
+              main.number_of_macro_cycles=5 \
+              refinement.input.xray_data.r_free_flags.label='FREE' \
+              #refinement.input.xray_data.labels=$xray_data_labels \
+              write_maps=false --overwrite
+    
+    
   fi
   zeroes=`normalize_occupancies -occ 0.09 ${pdb_name}_003.pdb`
   normalize_occupancies -occ 0.09 ${pdb_name}_003.pdb
@@ -99,7 +108,6 @@ while [ $zeroes -gt 10 ]; do
      echo 'normalize occupanies did not work!'
      exit
   fi
-  remove_duplicates ${pdb_name}_003_norm.pdb
   mv ${pdb_name}_003_norm.pdb.fixed ${pdb_name}_002.pdb
 done
 
@@ -107,9 +115,9 @@ done
 phenix.reduce ${pdb_name}_002.pdb > ${pdb_name}_004.pdb
 
 #__________________________________FINAL REFINEMENT__________________________________
-if [[ -e "multiconformer_model2.ligands.cif" ]]; then
+if [[ -e "multiconformer_model2.pdb.f_modified.ligands.cif" ]]; then
 phenix.refine ${pdb_name}_004.pdb ${pdb_name}.mtz \
-              multiconformer_model2.ligands.cif \
+              multiconformer_model2.pdb.f_modified.ligands.cif \
               "$adp" \
               output.prefix=${pdb_name} \
               output.serial=5 \
@@ -120,7 +128,6 @@ phenix.refine ${pdb_name}_004.pdb ${pdb_name}.mtz \
               --overwrite
 else
   phenix.refine ${pdb_name}_004.pdb ${pdb_name}.mtz \
-              ${pdb_name}.ligands.cif \
               ${pdb_name}_004.pdb \
               "$adp" \
               output.prefix=${pdb_name} \
