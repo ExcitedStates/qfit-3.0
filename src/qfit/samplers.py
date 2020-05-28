@@ -418,12 +418,12 @@ class RotationSets:
         fname = cls.SETS[diff.index(min(diff))][0]
         with open(os.path.join(cls._DATA_DIRECTORY, fname)) as f:
             quat_weights = np.load(f)
-        return cls.quat_to_rotmat(quat_weights[:, :4])
+        return cls.quats_to_rotmats(quat_weights[:, :4])
 
     @classmethod
     def get_local_set(cls, fname='local_10_10.npy'):
         quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
-        return cls.quat_to_rotmat(quats)
+        return cls.quats_to_rotmats(quats)
 
     @classmethod
     def local(cls, max_angle, nrots=100):
@@ -438,40 +438,48 @@ class RotationSets:
         return np.asarray(quats)
 
     @staticmethod
-    def quat_to_rotmat(quaternions):
+    def quats_to_rotmats(quaternions):
+        """Converts an array of quaternions to rotation matrices.
 
-        quaternions = np.asarray(quaternions)
+        Args:
+            quaternions (np.ndarray[np.float]):
+                A (n, 4) array of rotations, expressed as quaternions.
 
-        w = quaternions[:, 0]
-        x = quaternions[:, 1]
-        y = quaternions[:, 2]
-        z = quaternions[:, 3]
+        Returns:
+            np.ndarray[np.float]:
+                A (n, 3, 3) array of rotations, expressed as rotation matrices.
+        """
 
+        # Unpack quaternions into columns of coefficients
+        (w, x, y, z) = quaternions.T
+
+        # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
-        s = np.zeros(Nq.shape, dtype=np.float64)
-        s[Nq >  0.0] = 2.0/Nq[Nq > 0.0]
-        s[Nq <= 0.0] = 0
 
-        X = x*s
-        Y = y*s
-        Z = z*s
+        # Determine values of scalars required to make unit quats
+        s = 1.0 / Nq
 
-        rotmat = np.zeros((quaternions.shape[0],3,3), dtype=np.float64)
-        rotmat[:,0,0] = 1.0 - (y*Y + z*Z)
-        rotmat[:,0,1] = x*Y - w*Z
-        rotmat[:,0,2] = x*Z + w*Y
+        # Calculate scaled X, Y, Z
+        (X, Y, Z) = (x, y, z) * 2 * s
 
-        rotmat[:,1,0] = x*Y + w*Z
-        rotmat[:,1,1] = 1.0 - (x*X + z*Z)
-        rotmat[:,1,2] = y*Z - w*X
+        # Fill rotmats array
+        rotmats = np.empty((quaternions.shape[0], 3, 3), dtype=np.float64)
+        rotmats[:, 0, 0] = 1.0 - (y*Y + z*Z)
+        rotmats[:, 0, 1] = x*Y - w*Z
+        rotmats[:, 0, 2] = x*Z + w*Y
 
-        rotmat[:,2,0] = x*Z - w*Y
-        rotmat[:,2,1] = y*Z + w*X
-        rotmat[:,2,2] = 1.0 - (x*X + y*Y)
+        rotmats[:, 1, 0] = x*Y + w*Z
+        rotmats[:, 1, 1] = 1.0 - (x*X + z*Z)
+        rotmats[:, 1, 2] = y*Z - w*X
 
-        np.around(rotmat, decimals=8, out=rotmat)
+        rotmats[:, 2, 0] = x*Z - w*Y
+        rotmats[:, 2, 1] = y*Z + w*X
+        rotmats[:, 2, 2] = 1.0 - (x*X + y*Y)
 
-        return rotmat
+        # In place round to 8dp
+        rotmats.round(decimals=8, out=rotmats)
+
+        return rotmats
 
     @classmethod
     def random_rotation(cls):
