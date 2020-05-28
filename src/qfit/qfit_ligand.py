@@ -262,8 +262,8 @@ def main():
     logger.info(f"Total time: {time.time() - time0}s")
 
     
-    #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
-    conformers = qfit.get_conformers()
+    #POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
