@@ -430,7 +430,7 @@ class RotationSets:
         quats = []
         radian_max_angle = np.deg2rad(max_angle)
         while len(quats) < nrots - 1:
-            quat = cls.random_rotmat(matrix=False)
+            quat = cls.random_rotation()
             angle = 2 * np.arccos(quat[0])
             if angle <= radian_max_angle:
                 quats.append(quat)
@@ -474,28 +474,33 @@ class RotationSets:
         return rotmat
 
     @classmethod
-    def random_rotmat(cls, matrix=True):
-        """Return a random rotation matrix"""
+    def random_rotation(cls):
+        """Return a random rotation, expressed as a unit quaternion.
 
+        This algorithm generates uniformly sampled unit quaternions.
+
+        Returns:
+            np.ndarray[float]: A (4,) unit quaternion for rotation.
+
+        Citations:
+            Marsaglia G: Choosing a Point from the Surface of a Sphere.
+                Ann Math Stat 1972, 43:645–646.
+                doi:10.1214/aoms/1177692644
+        """
+        # Choose e1, e2 independent uniform on (-1, 1), until s1 < 1
         s1 = 1
         while s1 >= 1.0:
-            e1 = np.random.random() * 2 - 1
-            e2 = np.random.random() * 2 - 1
+            e1, e2 = 2 * np.random.random((2,)) - 1
             s1 = e1**2 + e2**2
 
+        # Choose e3, e4 independent uniform on (-1, 1), until s2 < 1
         s2 = 1
         while s2 >= 1.0:
-            e3 = np.random.random() * 2 - 1
-            e4 = np.random.random() * 2 - 1
+            e3, e4 = 2 * np.random.random((2,)) - 1
             s2 = e3**2 + e4**2
 
-        q0 = e1
-        q1 = e2
-        q2 = e3 * np.sqrt((1 - s1)/s2 )
-        q3 = e4 * np.sqrt((1 - s1)/s2 )
+        # Then construct point on surface of 4-sphere
+        root = np.sqrt((1 - s1) / s2)
+        quat = np.array([e1, e2, e3 * root, e4 * root])
 
-        quat = [q0, q1, q2, q3]
-        if matrix:
-            return cls.quat_to_rotmat(np.asarray(quat).reshape(1, 4))[0]
-        else:
-            return quat
+        return quat
