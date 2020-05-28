@@ -178,20 +178,17 @@ class _RotamerResidue(_BaseResidue):
     def set_chi(self, chi_index, value, covalent=None, length=None):
         atoms = self._rotamers['chi'][chi_index]
         selection = self.select('name', atoms)
+
+        # Translate coordinates to center on coor[1]
         coor = self._coor[selection]
         origin = coor[1].copy()
         coor -= origin
-        zaxis = coor[2]
-        zaxis /= np.linalg.norm(zaxis)
-        yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
-        yaxis /= np.linalg.norm(yaxis)
-        xaxis = np.cross(yaxis, zaxis)
-        backward = np.asmatrix(np.zeros((3, 3), float))
-        backward[0] = xaxis
-        backward[1] = yaxis
-        backward[2] = zaxis
+
+        # Make an orthogonal axis system based on 3 atoms
+        backward = gram_schmidt_orthonormal_zx(coor)
         forward = backward.T
 
+        # Complete selection to be rotated
         atoms_to_rotate = self._rotamers['chi-rotate'][chi_index]
         selection = self.select('name', atoms_to_rotate)
         if covalent in atoms_to_rotate:
@@ -199,14 +196,19 @@ class _RotamerResidue(_BaseResidue):
             # to the ligand, we should also rotate the ligand.
             atoms_to_rotate2 = self.name[length:]
             selection2 = self.select('name', atoms_to_rotate2)
-            tmp = list(selection)
-            tmp += list(selection2)
-            selection = np.array(tmp, dtype=int)
-        coor_to_rotate = np.dot(self._coor[selection] - origin, backward.T)
-        rotation = Rz(np.deg2rad(value - self.get_chi(chi_index)))
+            selection = np.array(list(selection) + list(selection2), dtype=int)
 
-        R = forward * rotation
-        self._coor[selection] = coor_to_rotate.dot(R.T) + origin
+        # Create transformation matrix
+        angle = np.deg2rad(value - self.get_chi(chi_index))
+        rotation = Rz(angle)
+        R = forward @ rotation @ backward
+
+        # Apply transformation
+        coor_to_rotate = self._coor[selection]
+        coor_to_rotate -= origin
+        coor_to_rotate = np.dot(coor_to_rotate, R.T)
+        coor_to_rotate += origin
+        self._coor[selection] = coor_to_rotate
 
     def print_residue(self):
         for atom, coor, element, b, q in zip(

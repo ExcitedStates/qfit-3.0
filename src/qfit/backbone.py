@@ -33,13 +33,13 @@ def adp_ellipsoid_axes(U_ij):
     """Calculate principal axes of ADP ellipsoid.
 
     Args:
-        U_ij (np.ndarray[np.float32]): square symmetric matrix of anisotropic
+        U_ij (np.ndarray[float]): square symmetric matrix of anisotropic
             displacement parameters (ADPs) in cartesian coordinates.
             In a PDB, ANISOU cards contain the parameters
                 [u_11, u_22, u_33, u_12, u_13, u_23] / 1e-4 Å^2.
 
     Returns:
-        List[np.ndarray[np.float32]]: principal axes of the anisotropic
+        List[np.ndarray[float]]: principal axes of the anisotropic
             displacement ellipsoid, from largest to smallest.
     """
     # Unscale ADP parameters to Å^2
@@ -83,14 +83,12 @@ def compute_jacobian5d(bb_coor):
     r /= norm(r, axis=1).reshape(-1, 1)
     jacobian[::2, :3] = np.cross(r, fh_fa - N_coor)
     # Orientation constraints
-    f = np.asmatrix(fa - fh)
     dfh_dq = np.cross(r, fh - N_coor)
     dfd_dq = np.cross(r, fd - N_coor)
-    jacobian[::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+    jacobian[::2, 3] = (fa - fh) @ (dfh_dq - dfd_dq).T
 
-    f = np.asmatrix(fa - faa)
     dfa_dq = np.cross(r, fa - N_coor)
-    jacobian[::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+    jacobian[::2, 4] = (fa - faa) @ (dfh_dq - dfa_dq).T
 
     # C -> CA rotations
     # Relative distance constraints
@@ -98,14 +96,12 @@ def compute_jacobian5d(bb_coor):
     r /= norm(r, axis=1).reshape(-1, 1)
     jacobian[1::2, :3] = np.cross(r, fh_fa - C_coor)
     # Orientation constraints
-    f = np.asmatrix(fa - fh)
     dfh_dq = np.cross(r, fh - CA_coor)
     dfd_dq = np.cross(r, fd - CA_coor)
-    jacobian[1::2, 3] = f * np.asmatrix(dfh_dq - dfd_dq).T
+    jacobian[1::2, 3] = (fa - fh) @ (dfh_dq - dfd_dq).T
 
-    f = np.asmatrix(fa - faa)
     dfa_dq = np.cross(r, fa - CA_coor)
-    jacobian[1::2, 4] = f * np.asmatrix(dfh_dq - dfa_dq).T
+    jacobian[1::2, 4] = (fa - faa) @ (dfh_dq - dfa_dq).T
 
     return jacobian.T
 
@@ -141,12 +137,6 @@ def compute_jacobian(bb_coor):
     jacobian[1::2, 3:] = c1
 
     return jacobian.T
-
-
-def project_on_null_space(null_space, gradients):
-    null_space = np.asmatrix(null_space)
-    projection = null_space * null_space.T
-    return projection * gradients
 
 
 class AtomMoveFunctional:
@@ -262,8 +252,7 @@ class NullSpaceOptimizer:
         bb_coor = self.segment._coor[self._bb_selection]
         jacobian = compute_jacobian(bb_coor)
         null_space = sp.linalg.null_space(jacobian)
-        null_space = np.asmatrix(null_space)
-        projector = np.asarray(null_space * null_space.T)
+        projector = null_space @ null_space.T
         null_space_gradients = np.dot(projector, gradients)
         self.segment.coor = self._starting_coor
         return target, null_space_gradients
