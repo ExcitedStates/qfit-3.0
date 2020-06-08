@@ -1,6 +1,4 @@
-import pytest
 import os
-import multiprocessing as mp
 import logging
 
 from qfit.qfit_ligand import (
@@ -17,17 +15,6 @@ from qfit.logtools import (
 logger = logging.getLogger(__name__)
 
 
-def setup_module(module):
-    # Here, we add compatibility for multiprocessing coverage reports.
-    # via: https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-use-multiprocessing-pool
-    try:
-        from pytest_cov.embed import cleanup_on_sigterm
-    except ImportError:
-        pass
-    else:
-        cleanup_on_sigterm()
-
-
 class TestQFitLigand:
     def mock_main(self):
         # Prepare args
@@ -35,7 +22,7 @@ class TestQFitLigand:
             "../example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
             "../example/4ms6.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
-            "A, 702", #selection
+            "A, 702",  # selection
             "--directory", f"{os.environ['QFIT_OUTPUT_DIR']}",
         ]
 
@@ -72,6 +59,6 @@ class TestQFitLigand:
         # NOTE: Currently, running this qfit_ligand job takes 20-something
         #       minutes on the GitHub Actions runner. This needs to be cut down.
 
-        # output = qfit_ligand.run() # TODO: Determine if you can just run part of this 
+        # output = qfit_ligand.run() # TODO: Determine if you can just run part of this
         # conformers = qfit_ligand.get_conformers()
         # assert len(conformers) == 3  # TODO: fix when qfit_ligand working

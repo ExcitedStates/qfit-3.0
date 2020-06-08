@@ -53,7 +53,8 @@ def setup_logging(options, filename="qfit.log"):
         console_log_level = logging.WARNING
 
     # Create formatter
-    log_formatter = logging.Formatter('%(asctime)s [%(levelname)-8s] %(processName)-10s %(name)s : %(message)s')
+    log_formatter = logging.Formatter('%(asctime)s [%(levelname)-8s] '
+                                      '%(processName)-10s %(name)s : %(message)s')
 
     # Create & attach console loghandler
     console_loghandler = logging.StreamHandler(stream=sys.stdout)

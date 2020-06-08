@@ -87,7 +87,7 @@ class B_factor():
             B_factor.loc[n,'AA'] = resn_name[1]
             B_factor.loc[n,'Chain'] = resn_name[2]
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
-            B_factor.loc[n, 'Averaage_Bfactor'] = np.average(b_factor)
+            B_factor.loc[n, 'Average_Bfactor'] = np.average(b_factor)
             n+=1
         B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
 

@@ -23,7 +23,6 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 import gc
-import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 import multiprocessing as mp
@@ -32,11 +31,9 @@ import os.path
 import os
 import sys
 import time
-import copy
 import argparse
 import logging
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
-from math import ceil
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
@@ -120,7 +117,8 @@ def build_argparser():
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
                    help="Neighborhood of rotamer to sample in degrees.")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_true", dest="remove_conformers_below_cutoff",
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
+                   dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
                          "with no density support, i.e. atoms are positioned "
                          "at density values below <density-cutoff>."))
@@ -191,7 +189,7 @@ class QFitProtein:
         else:
             self.pdb = ''
         multiconformer = self._run_qfit_residue_parallel()
-        structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
+        structure = Structure.fromfile('multiconformer_model.pdb')  # .reorder()
         structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
@@ -405,8 +403,9 @@ class QFitProtein:
         try:
             qfit.run()
         except RuntimeError:
-            print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
-            print(f"Using deposited conformer A for this residue.")
+            print(f"[WARNING] qFit was unable to produce an alternate conformer "
+                  f"for residue {resi} of chain {chainid}.\n"
+                  f"Using deposited conformer A for this residue.")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]

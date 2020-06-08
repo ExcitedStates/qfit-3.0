@@ -19,7 +19,6 @@ from .samplers import RotationSets, Translator
 from .structure import Structure
 from .structure.ligand import BondOrder
 from .transformer import Transformer
-from .validator import Validator
 from .volume import XMap
 from .scaler import MapScaler
 from .relabel import RelabellerOptions, Relabeller

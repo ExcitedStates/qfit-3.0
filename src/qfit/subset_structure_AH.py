@@ -11,7 +11,6 @@ import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
 from .qfit_protein import QFitProteinOptions, QFitProtein
-import multiprocessing as mp
 import os.path
 import os
 import sys
