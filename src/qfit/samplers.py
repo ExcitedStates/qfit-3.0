@@ -418,19 +418,19 @@ class RotationSets:
         fname = cls.SETS[diff.index(min(diff))][0]
         with open(os.path.join(cls._DATA_DIRECTORY, fname)) as f:
             quat_weights = np.load(f)
-        return cls.quat_to_rotmat(quat_weights[:, :4])
+        return cls.quats_to_rotmats(quat_weights[:, :4])
 
     @classmethod
     def get_local_set(cls, fname='local_10_10.npy'):
         quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
-        return cls.quat_to_rotmat(quats)
+        return cls.quats_to_rotmats(quats)
 
     @classmethod
     def local(cls, max_angle, nrots=100):
         quats = []
         radian_max_angle = np.deg2rad(max_angle)
         while len(quats) < nrots - 1:
-            quat = cls.random_rotmat(matrix=False)
+            quat = cls.random_rotation()
             angle = 2 * np.arccos(quat[0])
             if angle <= radian_max_angle:
                 quats.append(quat)
@@ -438,64 +438,77 @@ class RotationSets:
         return np.asarray(quats)
 
     @staticmethod
-    def quat_to_rotmat(quaternions):
+    def quats_to_rotmats(quaternions):
+        """Converts an array of quaternions to rotation matrices.
 
-        quaternions = np.asarray(quaternions)
+        Args:
+            quaternions (np.ndarray[np.float]):
+                A (n, 4) array of rotations, expressed as quaternions.
 
-        w = quaternions[:, 0]
-        x = quaternions[:, 1]
-        y = quaternions[:, 2]
-        z = quaternions[:, 3]
+        Returns:
+            np.ndarray[np.float]:
+                A (n, 3, 3) array of rotations, expressed as rotation matrices.
+        """
 
+        # Unpack quaternions into columns of coefficients
+        (w, x, y, z) = quaternions.T
+
+        # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
-        s = np.zeros(Nq.shape, dtype=np.float64)
-        s[Nq >  0.0] = 2.0/Nq[Nq > 0.0]
-        s[Nq <= 0.0] = 0
 
-        X = x*s
-        Y = y*s
-        Z = z*s
+        # Determine values of scalars required to make unit quats
+        s = 1.0 / Nq
 
-        rotmat = np.zeros((quaternions.shape[0],3,3), dtype=np.float64)
-        rotmat[:,0,0] = 1.0 - (y*Y + z*Z)
-        rotmat[:,0,1] = x*Y - w*Z
-        rotmat[:,0,2] = x*Z + w*Y
+        # Calculate scaled X, Y, Z
+        (X, Y, Z) = (x, y, z) * 2 * s
 
-        rotmat[:,1,0] = x*Y + w*Z
-        rotmat[:,1,1] = 1.0 - (x*X + z*Z)
-        rotmat[:,1,2] = y*Z - w*X
+        # Fill rotmats array
+        rotmats = np.empty((quaternions.shape[0], 3, 3), dtype=np.float64)
+        rotmats[:, 0, 0] = 1.0 - (y*Y + z*Z)
+        rotmats[:, 0, 1] = x*Y - w*Z
+        rotmats[:, 0, 2] = x*Z + w*Y
 
-        rotmat[:,2,0] = x*Z - w*Y
-        rotmat[:,2,1] = y*Z + w*X
-        rotmat[:,2,2] = 1.0 - (x*X + y*Y)
+        rotmats[:, 1, 0] = x*Y + w*Z
+        rotmats[:, 1, 1] = 1.0 - (x*X + z*Z)
+        rotmats[:, 1, 2] = y*Z - w*X
 
-        np.around(rotmat, decimals=8, out=rotmat)
+        rotmats[:, 2, 0] = x*Z - w*Y
+        rotmats[:, 2, 1] = y*Z + w*X
+        rotmats[:, 2, 2] = 1.0 - (x*X + y*Y)
 
-        return rotmat
+        # In place round to 8dp
+        rotmats.round(decimals=8, out=rotmats)
+
+        return rotmats
 
     @classmethod
-    def random_rotmat(cls, matrix=True):
-        """Return a random rotation matrix"""
+    def random_rotation(cls):
+        """Return a random rotation, expressed as a unit quaternion.
 
+        This algorithm generates uniformly sampled unit quaternions.
+
+        Returns:
+            np.ndarray[float]: A (4,) unit quaternion for rotation.
+
+        Citations:
+            Marsaglia G: Choosing a Point from the Surface of a Sphere.
+                Ann Math Stat 1972, 43:645–646.
+                doi:10.1214/aoms/1177692644
+        """
+        # Choose e1, e2 independent uniform on (-1, 1), until s1 < 1
         s1 = 1
         while s1 >= 1.0:
-            e1 = np.random.random() * 2 - 1
-            e2 = np.random.random() * 2 - 1
+            e1, e2 = 2 * np.random.random((2,)) - 1
             s1 = e1**2 + e2**2
 
+        # Choose e3, e4 independent uniform on (-1, 1), until s2 < 1
         s2 = 1
         while s2 >= 1.0:
-            e3 = np.random.random() * 2 - 1
-            e4 = np.random.random() * 2 - 1
+            e3, e4 = 2 * np.random.random((2,)) - 1
             s2 = e3**2 + e4**2
 
-        q0 = e1
-        q1 = e2
-        q2 = e3 * np.sqrt((1 - s1)/s2 )
-        q3 = e4 * np.sqrt((1 - s1)/s2 )
+        # Then construct point on surface of 4-sphere
+        root = np.sqrt((1 - s1) / s2)
+        quat = np.array([e1, e2, e3 * root, e4 * root])
 
-        quat = [q0, q1, q2, q3]
-        if matrix:
-            return cls.quat_to_rotmat(np.asarray(quat).reshape(1, 4))[0]
-        else:
-            return quat
+        return quat
