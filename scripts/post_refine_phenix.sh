@@ -45,7 +45,7 @@ remove_duplicates multiconformer_model2.pdb
 phenix.pdbtools remove="element H" multiconformer_model2.pdb.fixed
 
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
-resrange= phenix.mtz.dump ${pdb_name}.mtz | grep "Resolution range:"
+resrange=`phenix.mtz.dump "${pdb_name}.mtz" | grep "Resolution range:"`
 
 echo $resrange
 
