@@ -1,10 +1,42 @@
 #!/bin/bash
+
+qfit_usage() {
+  echo >&2 "Usage:";
+  echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
+  echo >&2 "";
+  echo >&2 "mapfile.mtz and multiconformer_model2.pdb MUST exist in this directory.";
+  echo >&2 "Outputs will be written to mapfile_qFit.{pdb|mtz|log}.";
+  exit 1;
+}
+
 #___________________________SOURCE__________________________________
-source PHENIC
-export PHENIX_OVERWRITE_ALL=true
-conda activate qfit #activate qfit
-pdb_name=$1
-echo $pdb_name
+# Check that Phenix is loaded
+if [ -z "${PHENIX}" ]; then
+  echo >&2 "I require PHENIX but it's not loaded.";
+  echo >&2 "Please \`source phenix_env.sh\` from where it is installed.";
+  exit 1;
+else
+  export PHENIX_OVERWRITE_ALL=true;
+fi
+
+# Check that qFit is loaded.
+command -v remove_duplicates >/dev/null 2>&1 || {
+  echo >&2 "I require qFit (remove_duplicates) but it's not loaded.";
+  echo >&2 "Please activate the environment where qFit is installed.";
+  echo >&2 "   e.g. conda activate qfit"
+  exit 1;
+}
+
+# Assert required files exist
+mapfile=$1
+multiconf=${2:-multiconformer_model2.pdb}
+echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
+echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
+echo "";
+if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
+  qfit_usage;
+fi
+pdb_name="${mapfile%.mtz}"
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates multiconformer_model2.pdb
