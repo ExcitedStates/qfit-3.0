@@ -39,10 +39,10 @@ fi
 pdb_name="${mapfile%.mtz}"
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
-remove_duplicates multiconformer_model2.pdb
+remove_duplicates "${multiconf}"
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
-phenix.pdbtools remove="element H" multiconformer_model2.pdb.fixed
+phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 resrange=`phenix.mtz.dump "${pdb_name}.mtz" | grep "Resolution range:"`
@@ -58,9 +58,8 @@ else
   adp='adp.individual.isotropic=all'
 fi
 
-
 #__________________________________DETERMINE FOBS v SIGOBS__________________________________
-if grep -F _refln.F_meas_au ${pdb_name}-sf.cif; then
+if grep -F _refln.F_meas_au "${pdb_name}-sf.cif"; then
        xray_data_labels="FOBS,SIGFOBS"
 else
        xray_data_labels="IOBS,SIGIOBS"       
@@ -68,7 +67,7 @@ fi
 
 
 #__________________________________GET CIF FILE__________________________________
-phenix.ready_set pdb_file_name=multiconformer_model2.pdb.f_modified.pdb
+phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
 phenix.mtz.dump ${pdb_name}.mtz > ${pdb_name}_mtzdump.out
@@ -80,10 +79,10 @@ else
 fi
 
 #__________________________________DETERMINE IF THERE ARE LIGANDS__________________________________
-if [ -f "multiconformer_model2.pdb.f_modified.ligands.cif" ]; then
-  phenix.refine multiconformer_model2.pdb.f_modified.updated.pdb \
+if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  phenix.refine ${multiconf}.f_modified.updated.pdb \
               ${pdb_name}.mtz \
-              multiconformer_model2.pdb.f_modified.ligands.cif \
+              ${multiconf}.f_modified.ligands.cif \
               strategy=individual_sites \
               output.prefix=${pdb_name} \
               output.serial=2 \
@@ -92,7 +91,7 @@ if [ -f "multiconformer_model2.pdb.f_modified.ligands.cif" ]; then
               refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
 else
-  phenix.refine multiconformer_model2.pdb.f_modified.updated.pdb \
+  phenix.refine ${multiconf}.f_modified.updated.pdb \
               ${pdb_name}.mtz \
               strategy=individual_sites \
               output.prefix=${pdb_name} \
@@ -107,9 +106,9 @@ fi
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 while [ $zeroes -gt 10 ]; do
-  if [[ -e "multiconformer_model2.pdb.f_modified.ligands.cif" ]]; then
+  if [[ -e "${multiconf}.f_modified.ligands.cif" ]]; then
         phenix.refine ${pdb_name}_002.pdb ${pdb_name}.mtz \
-              multiconformer_model2.pdb.f_modified.ligands.cif \
+              ${multiconf}.f_modified.ligands.cif \
               output.prefix=${pdb_name} \
               output.serial=3 \
               strategy="individual_sites" \
@@ -149,7 +148,7 @@ phenix.reduce ${pdb_name}_002.pdb > ${pdb_name}_004.pdb
 #__________________________________FINAL REFINEMENT__________________________________
 if [[ -e "multiconformer_model2.ligands.cif" ]]; then
 phenix.refine ${pdb_name}_004.pdb ${pdb_name}.mtz \
-              multiconformer_model2.pdb.f_modified.ligands.cif \
+              ${multiconf}.f_modified.ligands.cif \
               "$adp" \
               output.prefix=${pdb_name} \
               output.serial=5 \
