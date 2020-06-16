@@ -11,6 +11,7 @@ from .structure import residue_type
 from .structure.residue import _RotamerResidue
 from .structure.rotamers import ROTAMERS
 
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
@@ -56,5 +57,6 @@ def main():
     for attr in structure.data:
         data[attr] = structure.data[attr][mask]
     new_structure = Structure(data)
+
     # Print the new structure to file
-    new_structure.tofile(args.structure+".fixed")
+    new_structure.tofile(args.structure + ".fixed")
