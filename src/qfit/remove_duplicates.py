@@ -40,7 +40,7 @@ def main():
         if structure.resn[i] in ROTAMERS:
             continue
         for j in range(len(structure.name)):
-            if structure.resn[i] in ROTAMERS:
+            if structure.resn[j] in ROTAMERS:
                 continue
             if (structure.resi[i]==structure.resi[j] and
                 structure.resn[i]==structure.resn[j] and
