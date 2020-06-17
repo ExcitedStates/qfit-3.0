@@ -89,15 +89,19 @@ else
   echo "data labels: ${xray_data_labels}"
 fi
 
+#_____________________________DETERMINE R FREE FLAGS______________________________
+gen_Rfree=True
+rfreetypes="FREE R-free-flags"
+for field in ${rfreetypes}; do
+  if grep -F -q -w $field <<< "${mtzmetadata}"; then
+    gen_Rfree=False;
+    echo "Rfree column: ${field}";
+    break
+  fi
+done
+
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
-
-#_____________________________DETERMINE R FREE FLAGS______________________________
-if grep -F -q -w "FREE" <<< "${mtzmetadata}"; then
-  Rfree_flags=False
-else
-  Rfree_flags=True
-fi
 
 #__________________________________DETERMINE IF THERE ARE LIGANDS__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
