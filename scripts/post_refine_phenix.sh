@@ -134,15 +134,15 @@ while [ $zeroes -gt 10 ]; do
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
                   "${multiconf}.f_modified.ligands.cif" \
+                  strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
-                  strategy="individual_sites" \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   else
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
-                  strategy="individual_sites" \
+                  strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
                   main.number_of_macro_cycles=5 \
