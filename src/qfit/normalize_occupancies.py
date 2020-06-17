@@ -63,31 +63,57 @@ def main():
         output_file = args.structure[:-4] + "_norm.pdb"
 
     structure = Structure.fromfile(args.structure)
-    # Remove conformers whose occupancy fall below cutoff
+
+    # Capture LINK records
     link_data = structure.link_data
+
+    # Which atoms fall below cutoff?
     mask = structure.q < args.occ_cutoff
-    removed = np.sum(mask)
+    n_removed = np.sum(mask)
+
+    # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
+    for chain in structure:
+        for residue in chain:
+            if np.any(residue.q < args.occ_cutoff):
+                altcodes = [alt for alt in np.unique(residue.altloc) if alt != ""]
+                altconfs = dict((alt, residue.extract("altloc", alt)) for alt in altcodes)
+                
+                # Which confs are either side of the cutoff?
+                confs_low = [alt for (alt, altconf) in altconfs.items()
+                                 if altconf.q[-1] < args.occ_cutoff]
+                confs_high = [alt for alt in altcodes
+                                  if alt not in confs_low]
+
+                # Describe occupancy redistribution intentions
+                print(f"{chain.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
+                print(f"  {[(alt, altconfs[alt].q[-1]) for alt in confs_low]} "
+                      f"→ {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+
+                # Redistribute occupancy
+                if len(confs_high) == 1:
+                    altconfs[confs_high[0]].q = 1.0
+                    altconfs[confs_high[0]].altloc = ""
+                else:
+                    for target in confs_high:
+                        q_high = altconfs[target].q[-1]
+                        for source in confs_low:
+                            q_low = altconfs[source].q[-1]
+                            altconfs[target].q += q_high * q_low
+
+                # Describe occupancy redistribution results
+                print(f"  ==> {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+
+    # Create structure without low occupancy confs
     data = {}
     for attr in structure.data:
         data[attr] = getattr(structure, attr).copy()[~mask]
     structure = Structure(data).reorder()
+
+    # Reattach LINK records
     structure.link_data = link_data
 
-    for chain_id in np.unique(structure.chain):
-        chain = structure.extract("chain", chain_id, "==")
-        for res_id in np.unique(chain.resi):
-            residue = chain.extract("resi", res_id, "==")
-            # Normalize occupancies and fix altlocs:
-            altlocs = np.unique(residue.altloc)
-            altlocs = altlocs[altlocs != ""]
-            if len(altlocs):
-                conf = residue.extract("altloc", altlocs)
-                natoms = len(residue.extract("altloc", altlocs[-1]).name)
-                factor = natoms / np.sum(conf.q)
-                residue._q[conf._selection] *= factor
-            else:
-                residue._q[residue._selection] = 1.0
-                residue._altloc[residue._selection] = ""
-
+    # Save structure
     structure.tofile(output_file)
-    print(removed)
+
+    print(f"normalize_occupancies: {n_removed} atoms had occ < {args.occ_cutoff} and were removed.")
+    print(n_removed)  # for post_refine_phenix.sh
