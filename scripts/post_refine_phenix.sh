@@ -158,8 +158,8 @@ while [ $zeroes -gt 10 ]; do
   echo "Post refinement zeroes: ${zeroes}"
 
   if [ ! -f "${pdb_name}_003_norm.pdb" ]; then
-     echo 'normalize occupanies did not work!'
-     exit
+     echo >&2 "Normalize occupancies did not work!";
+     exit 1;
   fi
 
   remove_duplicates "${pdb_name}_003_norm.pdb"
