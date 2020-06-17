@@ -105,21 +105,21 @@ phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
 
 #__________________________________DETERMINE IF THERE ARE LIGANDS__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.refine ${multiconf}.f_modified.updated.pdb \
-                ${pdb_name}.mtz \
-                ${multiconf}.f_modified.ligands.cif \
+  phenix.refine "${multiconf}.f_modified.updated.pdb" \
+                "${pdb_name}.mtz" \
+                "${multiconf}.f_modified.ligands.cif" \
                 strategy=individual_sites \
-                output.prefix=${pdb_name} \
+                output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
                 refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
                 refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
 else
-  phenix.refine ${multiconf}.f_modified.updated.pdb \
-                ${pdb_name}.mtz \
+  phenix.refine "${multiconf}.f_modified.updated.pdb" \
+                "${pdb_name}.mtz" \
                 strategy=individual_sites \
-                output.prefix=${pdb_name} \
+                output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
                 refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
@@ -131,10 +131,10 @@ fi
 zeroes=50
 while [ $zeroes -gt 10 ]; do
   if [[ -e "${multiconf}.f_modified.ligands.cif" ]]; then
-    phenix.refine ${pdb_name}_002.pdb \
-                  ${pdb_name}.mtz \
-                  ${multiconf}.f_modified.ligands.cif \
-                  output.prefix=${pdb_name} \
+    phenix.refine "${pdb_name}_002.pdb" \
+                  "${pdb_name}.mtz" \
+                  "${multiconf}.f_modified.ligands.cif" \
+                  output.prefix="${pdb_name}" \
                   output.serial=3 \
                   strategy="individual_sites" \
                   main.number_of_macro_cycles=5 \
@@ -142,10 +142,10 @@ while [ $zeroes -gt 10 ]; do
                   #refinement.input.xray_data.labels=$xray_data_labels \
                   write_maps=false --overwrite
   else
-    phenix.refine ${pdb_name}_002.pdb \
-                  ${pdb_name}.mtz \
+    phenix.refine "${pdb_name}_002.pdb" \
+                  "${pdb_name}.mtz" \
                   strategy="individual_sites" \
-                  output.prefix=${pdb_name} \
+                  output.prefix="${pdb_name}" \
                   output.serial=3 \
                   main.number_of_macro_cycles=5 \
                   #refinement.input.xray_data.r_free_flags.label='FREE' \
@@ -153,29 +153,29 @@ while [ $zeroes -gt 10 ]; do
                   write_maps=false --overwrite
   fi
 
-  zeroes=`normalize_occupancies -occ 0.09 ${pdb_name}_003.pdb`
-  normalize_occupancies -occ 0.09 ${pdb_name}_003.pdb
+  zeroes=`normalize_occupancies -occ 0.09 "${pdb_name}_003.pdb"`
+  normalize_occupancies -occ 0.09 "${pdb_name}_003.pdb"
   echo "Post refinement zeroes: ${zeroes}"
 
-  if [ ! -f ${pdb_name}_003_norm.pdb ]; then
+  if [ ! -f "${pdb_name}_003_norm.pdb" ]; then
      echo 'normalize occupanies did not work!'
      exit
   fi
 
-  remove_duplicates ${pdb_name}_003_norm.pdb
-  mv ${pdb_name}_003_norm.pdb.fixed ${pdb_name}_002.pdb
+  remove_duplicates "${pdb_name}_003_norm.pdb"
+  mv "${pdb_name}_003_norm.pdb.fixed" "${pdb_name}_002.pdb"
 done
 
 #__________________________________ADD HYDROGENS__________________________________
-phenix.reduce ${pdb_name}_002.pdb > ${pdb_name}_004.pdb
+phenix.reduce "${pdb_name}_002.pdb" > "${pdb_name}_004.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
 if [[ -e "multiconformer_model2.ligands.cif" ]]; then
-  phenix.refine ${pdb_name}_004.pdb \
-                ${pdb_name}.mtz \
-                ${multiconf}.f_modified.ligands.cif \
+  phenix.refine "${pdb_name}_004.pdb" \
+                "${pdb_name}.mtz" \
+                "${multiconf}.f_modified.ligands.cif" \
                 "$adp" \
-                output.prefix=${pdb_name} \
+                output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp" \
                 main.number_of_macro_cycles=5 \
@@ -183,11 +183,11 @@ if [[ -e "multiconformer_model2.ligands.cif" ]]; then
                 #refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
 else
-  phenix.refine ${pdb_name}_004.pdb \
-                ${pdb_name}.mtz \
-                ${pdb_name}_004.pdb \
+  phenix.refine "${pdb_name}_004.pdb" \
+                "${pdb_name}.mtz" \
+                "${pdb_name}_004.pdb" \
                 "$adp" \
-                output.prefix=${pdb_name} \
+                output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp" \
                 main.number_of_macro_cycles=5 \
@@ -197,6 +197,6 @@ else
 fi
 
 #__________________________________NAME FINAL FILES__________________________________
-cp ${pdb_name}_005.pdb ${pdb_name}_qFit.pdb
-cp ${pdb_name}_005.mtz ${pdb_name}_qFit.mtz
-cp ${pdb_name}_005.log ${pdb_name}_qFit.log
+cp "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
+cp "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
+cp "${pdb_name}_005.log" "${pdb_name}_qFit.log"
