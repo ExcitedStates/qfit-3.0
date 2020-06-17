@@ -103,12 +103,12 @@ phenix.pdbtools remove="element H" "${multiconf}.fixed"
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
 
-#__________________________________DETERMINE IF THERE ARE LIGANDS__________________________________
+#__________________________________COORDINATE REFINEMENT ONLY__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   phenix.refine "${multiconf}.f_modified.updated.pdb" \
                 "${pdb_name}.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
-                strategy=individual_sites \
+                strategy="*individual_sites" \
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
@@ -118,7 +118,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
 else
   phenix.refine "${multiconf}.f_modified.updated.pdb" \
                 "${pdb_name}.mtz" \
-                strategy=individual_sites \
+                strategy="*individual_sites" \
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
