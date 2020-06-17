@@ -23,7 +23,6 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
-"""Automatically build a multiconformer residue"""
 import numpy as np
 import argparse
 import logging
@@ -47,8 +46,8 @@ def parse_args():
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
     p.add_argument('-occ', "--occ_cutoff", type=float, default=0.10, metavar="<float>",
-            help="Remove conformers with occupancies below occ_cutoff. Default = 0.01")
-    p.add_argument('-rmsd',"--rmsd_cutoff", type=float, default=0.01, metavar="<float>")
+                   help="Remove conformers with occupancies below occ_cutoff. (default: 0.10)")
+    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>")
     args = p.parse_args()
 
     return args
@@ -59,36 +58,36 @@ def main():
     try:
         os.makedirs(args.directory)
         output_file = os.path.join(args.directory,
-                                 args.structure[:-4]+"_norm.pdb")
+                                   args.structure[:-4] + "_norm.pdb")
     except OSError:
-        output_file = args.structure[:-4]+"_norm.pdb"
+        output_file = args.structure[:-4] + "_norm.pdb"
 
-    structure = Structure.fromfile(args.structure)#.reorder()
+    structure = Structure.fromfile(args.structure)
     # Remove conformers whose occupancy fall below cutoff
     link_data = structure.link_data
     mask = structure.q < args.occ_cutoff
     removed = np.sum(mask)
     data = {}
     for attr in structure.data:
-            data[attr] = getattr(structure, attr).copy()[~mask]
+        data[attr] = getattr(structure, attr).copy()[~mask]
     structure = Structure(data).reorder()
     structure.link_data = link_data
 
     for chain_id in np.unique(structure.chain):
-        chain = structure.extract("chain",chain_id,'==')
+        chain = structure.extract("chain", chain_id, "==")
         for res_id in np.unique(chain.resi):
-            residue = chain.extract("resi",res_id,'==')
+            residue = chain.extract("resi", res_id, "==")
             # Normalize occupancies and fix altlocs:
             altlocs = np.unique(residue.altloc)
-            altlocs = altlocs[altlocs != '']
+            altlocs = altlocs[altlocs != ""]
             if len(altlocs):
-                conf = residue.extract('altloc',altlocs)
-                natoms = len(residue.extract('altloc',altlocs[-1]).name)
-                factor = natoms/np.sum(conf.q)
+                conf = residue.extract("altloc", altlocs)
+                natoms = len(residue.extract("altloc", altlocs[-1]).name)
+                factor = natoms / np.sum(conf.q)
                 residue._q[conf._selection] *= factor
             else:
                 residue._q[residue._selection] = 1.0
-                residue._altloc[residue._selection] = ''
+                residue._altloc[residue._selection] = ""
 
     structure.tofile(output_file)
     print(removed)
