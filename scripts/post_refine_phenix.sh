@@ -38,12 +38,6 @@ if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
 fi
 pdb_name="${mapfile%.mtz}"
 
-#__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
-remove_duplicates "${multiconf}"
-
-#________________________________REMOVE TRAILING HYDROGENS___________________________________
-phenix.pdbtools remove="element H" "${multiconf}.fixed"
-
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 mtzmetadata=`phenix.mtz.dump "${pdb_name}.mtz"`
 resrange=`grep "Resolution range:" <<< "${mtzmetadata}"`
@@ -99,6 +93,12 @@ for field in ${rfreetypes}; do
     break
   fi
 done
+
+#__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
+remove_duplicates "${multiconf}"
+
+#________________________________REMOVE TRAILING HYDROGENS___________________________________
+phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
