@@ -59,13 +59,35 @@ else
   adp='adp.individual.isotropic=all'
 fi
 
-#__________________________________DETERMINE FOBS v SIGOBS__________________________________
-if grep -F _refln.F_meas_au "${pdb_name}-sf.cif"; then
-       xray_data_labels="FOBS,SIGFOBS"
-else
-       xray_data_labels="IOBS,SIGIOBS"       
-fi
+#__________________________________DETERMINE FOBS v IOBS v FP__________________________________
+# List of Fo types we will check for
+obstypes="FP FOBS F-obs IOBS"
 
+# Get amplitude fields
+ampfields=`grep "amplitude" <<< "${mtzmetadata}"`
+ampfields=`echo "${ampfields}" | awk '{$1=$1};1' | cut -d " " -f 1`
+
+# Clear xray_data_labels variable
+xray_data_labels=""
+
+# Is amplitude an Fo?
+for field in ${ampfields}; do
+  # Check field in obstypes
+  if grep -F -q -w $field <<< "${obstypes}"; then
+    # Check SIGFo is in the mtz too!
+    if grep -F -q -w "SIG$field" <<< "${mtzmetadata}"; then
+      xray_data_labels="${field},SIG${field}";
+      break
+    fi
+  fi
+done
+if [ -z "${xray_data_labels}" ]; then
+  echo >&2 "Could not determine Fo field name with corresponding SIGFo in .mtz.";
+  echo >&2 "Was not among ${obstypes}. Please check .mtz file\!";
+  exit 1;
+else
+  echo "data labels: ${xray_data_labels}"
+fi
 
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
