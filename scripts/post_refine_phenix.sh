@@ -130,7 +130,7 @@ fi
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 while [ $zeroes -gt 10 ]; do
-  if [[ -e "${multiconf}.f_modified.ligands.cif" ]]; then
+  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}.mtz" \
                   "${multiconf}.f_modified.ligands.cif" \
@@ -170,7 +170,7 @@ done
 phenix.reduce "${pdb_name}_002.pdb" > "${pdb_name}_004.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
-if [[ -e "multiconformer_model2.ligands.cif" ]]; then
+if [ -f "multiconformer_model2.ligands.cif" ]; then
   phenix.refine "${pdb_name}_004.pdb" \
                 "${pdb_name}.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
