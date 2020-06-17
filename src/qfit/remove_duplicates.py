@@ -27,6 +27,50 @@ def parse_args():
     return args
 
 
+def find_unique_atoms(structure):
+    """Find unique atoms in a structure.
+
+    Atoms that belong to amino acids are assumed to be unique.
+
+    Args:
+        structure (qfit.Structure): structure to scan for unique atoms.
+
+    Returns:
+        np.ndarray[bool]: a (structure.natoms,) mask, with unique atoms
+            marked True.
+    """
+
+    # First, assume all atoms are identical
+    identical_ij = np.ones((structure.natoms, structure.natoms), dtype=bool)
+    # The main diagonal does not contain 'duplicated' atoms
+    identical_ij &= np.invert(np.identity(structure.natoms, dtype=bool))
+
+    # Identify duplicated atoms by comparing selected properties.
+    for attr in ("resi", "resn", "altloc", "icode", "chain", "name"):
+        attrvec = structure.data[attr]
+        ident_prop = (attrvec[:, np.newaxis] == attrvec[np.newaxis, :])
+        identical_ij &= ident_prop
+
+    # We only care about the upper triangle
+    #   (duplication will only mark atoms with higher index for removal)
+    identical_ij = np.triu(identical_ij)
+
+    # Name atoms which are not unique
+    atompairs = np.array(list(zip(*np.nonzero(identical_ij))))
+    print(f"Atoms {atompairs[:, 1]} had earlier, identical atoms. They are being removed.")
+
+    # Logical-or rows together
+    identical_i = np.any(identical_ij, axis=0)
+
+    # We are not concerned if amino acids have duplicate atoms
+    is_amino_acid = np.frompyfunc(ROTAMERS.__contains__, 1, 1)
+    amino_acids_i = is_amino_acid(structure.resn).astype(bool)
+    identical_i &= np.invert(amino_acids_i)
+
+    # Unique atoms are not identical
+    return np.invert(identical_i)
+
+
 def main():
     args = parse_args()
     try:
@@ -35,22 +79,9 @@ def main():
         pass
 
     structure = Structure.fromfile(args.structure).reorder()
-    mask = structure.active
-    # Identify duplicated atoms:
-    for i in range(len(structure.name)):
-        if structure.resn[i] in ROTAMERS:
-            continue
-        for j in range(i, len(structure.name)):
-            if structure.resn[j] in ROTAMERS:
-                continue
-            if (structure.resi[i]==structure.resi[j] and
-                structure.resn[i]==structure.resn[j] and
-                structure.altloc[i]==structure.altloc[j] and
-                structure.icode[i]==structure.icode[j] and
-                structure.chain[i]==structure.chain[j] and
-                structure.name[i]==structure.name[j] and i!=j and
-                mask[i]==True and mask[j]==True):
-                mask[j]=False
+
+    # Find unique atoms
+    mask = find_unique_atoms(structure)
 
     # Remove duplicated atoms
     data = {}
