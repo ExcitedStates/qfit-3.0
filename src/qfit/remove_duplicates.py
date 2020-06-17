@@ -55,12 +55,12 @@ def find_unique_atoms(structure):
     #   (duplication will only mark atoms with higher index for removal)
     identical_ij = np.triu(identical_ij)
 
-    # Name atoms which are not unique
-    atompairs = np.array(list(zip(*np.nonzero(identical_ij))))
-    print(f"Atoms {atompairs[:, 1]} had earlier, identical atoms. They are being removed.")
-
     # Logical-or rows together
     identical_i = np.any(identical_ij, axis=0)
+
+    # Name atoms which are not unique
+    print(f"Atoms {tuple(*np.nonzero(identical_i))} had earlier, identical atoms.\n"
+          f"They are being removed.")
 
     # We are not concerned if amino acids have duplicate atoms
     is_amino_acid = np.frompyfunc(ROTAMERS.__contains__, 1, 1)
