@@ -47,12 +47,12 @@ phenix.pdbtools remove="element H" "${multiconf}.fixed"
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 resrange=`phenix.mtz.dump "${pdb_name}.mtz" | grep "Resolution range:"`
 
-echo $resrange
+echo "${resrange}"
 
-res=`echo $resrange[4] | cut -c 1-5`
+res=`echo "${resrange}" | cut -d " " -f 4 | cut -c 1-5`
 res1000=`echo $res | awk '{tot = $1*1000}{print tot }'`
 
-if ($res1000<1550) then
+if (( $res1000 < 1550 )); then
   adp='adp.individual.anisotropic="not (water or element H)"'
 else
   adp='adp.individual.isotropic=all'
