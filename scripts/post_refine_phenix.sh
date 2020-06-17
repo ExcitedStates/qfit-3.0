@@ -45,7 +45,8 @@ remove_duplicates "${multiconf}"
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
-resrange=`phenix.mtz.dump "${pdb_name}.mtz" | grep "Resolution range:"`
+mtzmetadata=`phenix.mtz.dump "${pdb_name}.mtz"`
+resrange=`grep "Resolution range:" <<< "${mtzmetadata}"`
 
 echo "${resrange}"
 
@@ -70,9 +71,7 @@ fi
 phenix.ready_set pdb_file_name="${multiconf}.f_modified.pdb"
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
-phenix.mtz.dump ${pdb_name}.mtz > ${pdb_name}_mtzdump.out
-
-if grep -q FREE ${pdb_name}_mtzdump.out; then
+if grep -F -q -w "FREE" <<< "${mtzmetadata}"; then
   Rfree_flags=False
 else
   Rfree_flags=True
