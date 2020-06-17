@@ -112,7 +112,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
               output.prefix=${pdb_name} \
               output.serial=2 \
               main.number_of_macro_cycles=5 \
-              refinement.input.xray_data.r_free_flags.generate=True \
+              refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
               refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
 else
@@ -122,7 +122,7 @@ else
               output.prefix=${pdb_name} \
               output.serial=2 \
               main.number_of_macro_cycles=5 \
-              refinement.input.xray_data.r_free_flags.generate=True \
+              refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
               refinement.input.xray_data.labels=$xray_data_labels \
               write_maps=false --overwrite
 fi
