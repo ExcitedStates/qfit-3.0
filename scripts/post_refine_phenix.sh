@@ -138,8 +138,6 @@ while [ $zeroes -gt 10 ]; do
                   output.serial=3 \
                   strategy="individual_sites" \
                   main.number_of_macro_cycles=5 \
-                  #refinement.input.xray_data.r_free_flags.label='FREE' \
-                  #refinement.input.xray_data.labels=$xray_data_labels \
                   write_maps=false --overwrite
   else
     phenix.refine "${pdb_name}_002.pdb" \
@@ -148,8 +146,6 @@ while [ $zeroes -gt 10 ]; do
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
                   main.number_of_macro_cycles=5 \
-                  #refinement.input.xray_data.r_free_flags.label='FREE' \
-                  #refinement.input.xray_data.labels=$xray_data_labels \
                   write_maps=false --overwrite
   fi
 
@@ -179,8 +175,6 @@ if [ -f "multiconformer_model2.ligands.cif" ]; then
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp" \
                 main.number_of_macro_cycles=5 \
-                #refinement.input.xray_data.r_free_flags.label='FREE' \
-                #refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
 else
   phenix.refine "${pdb_name}_004.pdb" \
@@ -191,8 +185,6 @@ else
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp" \
                 main.number_of_macro_cycles=5 \
-                #refinement.input.xray_data.r_free_flags.label='FREE' \
-                #refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
 fi
 
