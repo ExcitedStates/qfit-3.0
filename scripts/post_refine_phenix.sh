@@ -129,7 +129,10 @@ fi
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
+i=0
 while [ $zeroes -gt 1 ]; do
+  cp "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
+  ((i++));
   if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
