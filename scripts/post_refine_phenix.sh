@@ -132,7 +132,7 @@ zeroes=50
 while [ $zeroes -gt 10 ]; do
   if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
-                  "${pdb_name}.mtz" \
+                  "${pdb_name}_002.mtz" \
                   "${multiconf}.f_modified.ligands.cif" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
@@ -141,7 +141,7 @@ while [ $zeroes -gt 10 ]; do
                   write_maps=false --overwrite
   else
     phenix.refine "${pdb_name}_002.pdb" \
-                  "${pdb_name}.mtz" \
+                  "${pdb_name}_002.mtz" \
                   strategy="individual_sites" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
@@ -168,7 +168,7 @@ phenix.reduce "${pdb_name}_002.pdb" > "${pdb_name}_004.pdb"
 #__________________________________FINAL REFINEMENT__________________________________
 if [ -f "multiconformer_model2.ligands.cif" ]; then
   phenix.refine "${pdb_name}_004.pdb" \
-                "${pdb_name}.mtz" \
+                "${pdb_name}_002.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
@@ -178,8 +178,7 @@ if [ -f "multiconformer_model2.ligands.cif" ]; then
                 write_maps=false --overwrite
 else
   phenix.refine "${pdb_name}_004.pdb" \
-                "${pdb_name}.mtz" \
-                "${pdb_name}_004.pdb" \
+                "${pdb_name}_002.mtz" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
