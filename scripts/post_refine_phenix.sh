@@ -150,7 +150,6 @@ while [ $zeroes -gt 10 ]; do
   fi
 
   zeroes=`normalize_occupancies -occ 0.09 "${pdb_name}_003.pdb"`
-  normalize_occupancies -occ 0.09 "${pdb_name}_003.pdb"
   echo "Post refinement zeroes: ${zeroes}"
 
   if [ ! -f "${pdb_name}_003_norm.pdb" ]; then
