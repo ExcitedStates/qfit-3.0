@@ -1589,11 +1589,11 @@ class QFitCovalentLigand(_BaseQFit):
         if self.options.sample_backbone:
             self._sample_backbone()
         if self.options.sample_angle:
-            # Is the ligang bound to the backbone or the side chain?
+            # Is the ligand bound to the backbone or the side chain?
             if self.partner_atom not in ['N', 'C', 'CA', 'O']:
                 self._sample_angle()
         if self.covalent_residue.nchi >= 1 and self.options.sample_rotamers:
-            # Is the ligang bound to the backbone or the side chain?
+            # Is the ligand bound to the backbone or the side chain?
             if self.partner_atom not in ['N', 'C', 'CA', 'O']:
                 self._sample_sidechain()
         if self.options.sample_ligand:
