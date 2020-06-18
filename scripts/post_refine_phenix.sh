@@ -172,7 +172,7 @@ if [ -f "multiconformer_model2.ligands.cif" ]; then
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
-                strategy="*individual_sites *individual_adp" \
+                strategy="*individual_sites *individual_adp *occupancies" \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 else
@@ -181,7 +181,7 @@ else
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
-                strategy="*individual_sites *individual_adp" \
+                strategy="*individual_sites *individual_adp *occupancies" \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 fi
