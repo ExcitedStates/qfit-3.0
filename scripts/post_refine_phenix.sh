@@ -169,8 +169,7 @@ while [ $zeroes -gt 1 ]; do
      exit 1;
   fi
 
-  remove_duplicates "${pdb_name}_003_norm.pdb"
-  mv "${pdb_name}_003_norm.pdb.fixed" "${pdb_name}_002.pdb"
+  mv "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb"
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
