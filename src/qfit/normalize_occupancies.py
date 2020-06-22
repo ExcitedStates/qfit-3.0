@@ -47,7 +47,6 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument('-occ', "--occ_cutoff", type=float, default=0.10, metavar="<float>",
                    help="Remove conformers with occupancies below occ_cutoff. (default: 0.10)")
-    p.add_argument('-rmsd', "--rmsd_cutoff", type=float, default=0.01, metavar="<float>")
     args = p.parse_args()
 
     return args
