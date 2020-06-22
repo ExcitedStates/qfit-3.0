@@ -127,9 +127,18 @@ else
                 write_maps=false --overwrite
 fi
 
+#__________________________________ADD HYDROGENS__________________________________
+# The first round of refinement regularizes geometry from qFit.
+# Here we add H with phenix.reduce. Addition of H to the backbone is important
+#   since it introduces planarity restraints to the peptide bond.
+# This helps to prevent backbone conformers from being merged during
+#   subsequent rounds of refinement.
+cp "${pdb_name}_002.pdb" "${pdb_name}_002.000.pdb"
+phenix.reduce "${pdb_name}_002.000.pdb" > "${pdb_name}_002.pdb"
+
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
-i=0
+i=1
 while [ $zeroes -gt 1 ]; do
   cp "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
   ((i++));
@@ -163,9 +172,6 @@ while [ $zeroes -gt 1 ]; do
   remove_duplicates "${pdb_name}_003_norm.pdb"
   mv "${pdb_name}_003_norm.pdb.fixed" "${pdb_name}_002.pdb"
 done
-
-#__________________________________ADD HYDROGENS__________________________________
-phenix.reduce "${pdb_name}_002.pdb" > "${pdb_name}_004.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
 if [ -f "multiconformer_model2.ligands.cif" ]; then
