@@ -26,14 +26,9 @@ IN THE SOFTWARE.
 import numpy as np
 import argparse
 import logging
-import copy
 import os
-import sys
-import time
 from collections import namedtuple
-from string import ascii_uppercase
 from . import Structure
-from .structure import residue_type
 
 
 def parse_args():
