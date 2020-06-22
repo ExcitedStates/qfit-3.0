@@ -76,11 +76,12 @@ def redistribute_occupancies_by_residue(residue, cutoff):
         altconfs[confs_high[0]].q = 1.0
         altconfs[confs_high[0]].altloc = ""
     else:
+        sum_q_high = sum(altconfs[target].q[-1] for target in confs_high)
         for target in confs_high:
             q_high = altconfs[target].q[-1]
             for source in confs_low:
                 q_low = altconfs[source].q[-1]
-                altconfs[target].q += q_high * q_low
+                altconfs[target].q += q_low * q_high / sum_q_high
 
     # Describe occupancy redistribution results
     print(f"  ==> {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
