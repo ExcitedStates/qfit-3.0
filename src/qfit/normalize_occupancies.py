@@ -49,6 +49,17 @@ def parse_args():
 
 
 def redistribute_occupancies_by_atom(residue, cutoff):
+    """Redistributes occupancy from atoms below cutoff to above cutoff.
+
+    This function iterates over atoms, grouping atoms with the same name.
+
+    Atoms below cutoff should be culled after this function is run.
+
+    Args:
+        residue (structure._ResidueGroup): residue to perform occupancy
+            redistribution on by iterating over atoms
+        cutoff (float): occupancy threshold
+    """
     # Create AltAtom struct
     AltAtom = namedtuple('AltAtom', ['altloc', 'atomidx', 'q'])
 
@@ -91,6 +102,19 @@ def redistribute_occupancies_by_atom(residue, cutoff):
 
 
 def redistribute_occupancies_by_residue(residue, cutoff):
+    """Redistributes occupancy from altconfs below cutoff to above cutoff.
+
+    This function iterates over residue.atom_groups (i.e. altconfs).
+    It should only be used when each of these atom_groups have uniform occupancy.
+    Otherwise, use `redistribute_occupancies_by_atom`.
+
+    Atoms below cutoff should be culled after this function is run.
+
+    Args:
+        residue (structure._ResidueGroup): residue to perform occupancy
+            redistribution on
+        cutoff (float): occupancy threshold
+    """
     altconfs = dict((agroup.id[1], agroup) for agroup in residue.atom_groups
                                            if agroup.id[1] != "")
 
@@ -151,7 +175,7 @@ def main():
                 else:
                     redistribute_occupancies_by_atom(residue, args.occ_cutoff)
 
-    # Create structure without low occupancy confs
+    # Create structure without low occupancy confs (culling)
     data = {}
     for attr in structure.data:
         data[attr] = getattr(structure, attr).copy()[~mask]
