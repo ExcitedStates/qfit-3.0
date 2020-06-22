@@ -30,6 +30,7 @@ import copy
 import os
 import sys
 import time
+from collections import namedtuple
 from string import ascii_uppercase
 from . import Structure
 from .structure import residue_type
@@ -53,44 +54,45 @@ def parse_args():
 
 
 def redistribute_occupancies_by_atom(residue, cutoff):
+    # Create AltAtom struct
+    AltAtom = namedtuple('AltAtom', ['altloc', 'atomidx', 'q'])
+
     # Create a map of atomname → occupancies
     atom_occs = dict()
     for (name, altloc, atomidx, q) in zip(residue.name, residue.altloc, residue._selection, residue.q):
         if name not in atom_occs:
             atom_occs[name] = list()
-        atom_occs[name].append((altloc, atomidx, q))
+        atom_occs[name].append(AltAtom(altloc, atomidx, q))
 
     # For each atomname:
-    for name, alt_id_q_list in atom_occs.items():
+    for name, altatom_list in atom_occs.items():
         # If any of the qs are less than cutoff
-        if any(q < cutoff for (alt, atomidx, q) in alt_id_q_list):
+        if any(atom.q < cutoff for atom in altatom_list):
             # Which confs are either side of the cutoff?
-            confs_low = [alt for (alt, atomidx, q) in alt_id_q_list
-                             if q < cutoff]
-            confs_high = [alt for (alt, atomidx, q) in alt_id_q_list
-                              if alt not in confs_low]
+            confs_low = [atom for atom in altatom_list
+                              if atom.q < cutoff]
+            confs_high = [atom for atom in altatom_list
+                               if atom.q >= cutoff]
 
             # Describe occupancy redistribution intentions
             print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}/{name}")
-            print(f"  {[(alt, q) for (alt, atomidx, q) in alt_id_q_list if alt in confs_low]} "
-                  f"→ {[(alt, q) for (alt, atomidx, q) in alt_id_q_list if alt in confs_high]}")
+            print(f"  {[(atom.altloc, atom.q) for atom in confs_low]} "
+                  f"→ {[(atom.altloc, atom.q) for atom in confs_high]}")
 
             # Redistribute occupancy
             if len(confs_high) == 1:
-                for (alt, atomidx, q) in alt_id_q_list:
-                    if alt in confs_high:
-                        residue._q[atomidx] = 1.0
-                        residue._altloc = ""
+                residue._q[confs_high[0].atomidx] = 1.0
+                residue._altloc[confs_high[0].atomidx] = ""
             else:
-                sum_q_high = sum(q for (alt, atomidx, q) in alt_id_q_list if alt in confs_high)
-                for (alt_high, atomidx_high, q_high) in alt_id_q_list:
-                    if alt_high in confs_high:
-                        for (alt_low, atomidx_low, q_low) in alt_id_q_list:
-                            if alt_low in confs_low:
-                                residue._q[atomidx_high] += q_low * q_high / sum_q_high
+                sum_q_high = sum(atom.q for atom in confs_high)
+                for atom_high in confs_high:
+                    q_high = atom_high.q
+                    for atom_low in confs_low:
+                        q_low = atom_low.q
+                        residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high
 
             # Describe occupancy redistribution results
-            print(f"  ==> {[(alt, residue._q[atomidx]) for (alt, atomidx, q) in alt_id_q_list if alt in confs_high]}")
+            print(f"  ==> {[(atom.altloc, residue._q[atom.atomidx]) for atom in confs_high]}")
 
 
 def redistribute_occupancies_by_residue(residue, cutoff):
