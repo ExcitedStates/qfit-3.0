@@ -161,7 +161,7 @@ while [ $zeroes -gt 1 ]; do
                   write_maps=false --overwrite
   fi
 
-  zeroes=`normalize_occupancies -occ 0.09 "${pdb_name}_003.pdb"`
+  zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
 
   if [ ! -f "${pdb_name}_003_norm.pdb" ]; then

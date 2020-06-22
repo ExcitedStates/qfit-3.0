@@ -76,7 +76,7 @@ def main():
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'compare_apo_holo = qfit.compare_apo_holo:main',
                   'find_altlocs_near_ligand = qfit.find_altlocs_near_ligand:main',
-                  'normalize_occupancies = qfit.normalize_occupancies:main',
+                  'redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main',
                   'RMSF = qfit.qfit_RMSF:main',
                   'b_factor = qfit.b_factor:main',
                   'fix_restraints = qfit.fix_restraints:main',
