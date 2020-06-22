@@ -52,6 +52,40 @@ def parse_args():
     return args
 
 
+def redistribute_occupancies_by_atom(residue, cutoff):
+    pass
+
+
+def redistribute_occupancies_by_residue(residue, cutoff):
+    altconfs = dict((agroup.id[1], agroup) for agroup in residue.atom_groups
+                                           if agroup.id[1] != "")
+
+    # Which confs are either side of the cutoff?
+    confs_low = [alt for (alt, altconf) in altconfs.items()
+                     if altconf.q[-1] < cutoff]
+    confs_high = [alt for alt in altconfs.keys()
+                      if alt not in confs_low]
+
+    # Describe occupancy redistribution intentions
+    print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
+    print(f"  {[(alt, altconfs[alt].q[-1]) for alt in confs_low]} "
+          f"→ {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+
+    # Redistribute occupancy
+    if len(confs_high) == 1:
+        altconfs[confs_high[0]].q = 1.0
+        altconfs[confs_high[0]].altloc = ""
+    else:
+        for target in confs_high:
+            q_high = altconfs[target].q[-1]
+            for source in confs_low:
+                q_low = altconfs[source].q[-1]
+                altconfs[target].q += q_high * q_low
+
+    # Describe occupancy redistribution results
+    print(f"  ==> {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+
+
 def main():
     args = parse_args()
     try:
@@ -74,33 +108,13 @@ def main():
     for chain in structure:
         for residue in chain:
             if np.any(residue.q < args.occ_cutoff):
-                altcodes = [alt for alt in np.unique(residue.altloc) if alt != ""]
-                altconfs = dict((alt, residue.extract("altloc", alt)) for alt in altcodes)
-                
-                # Which confs are either side of the cutoff?
-                confs_low = [alt for (alt, altconf) in altconfs.items()
-                                 if altconf.q[-1] < args.occ_cutoff]
-                confs_high = [alt for alt in altcodes
-                                  if alt not in confs_low]
-
-                # Describe occupancy redistribution intentions
-                print(f"{chain.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
-                print(f"  {[(alt, altconfs[alt].q[-1]) for alt in confs_low]} "
-                      f"→ {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
-
-                # Redistribute occupancy
-                if len(confs_high) == 1:
-                    altconfs[confs_high[0]].q = 1.0
-                    altconfs[confs_high[0]].altloc = ""
+                # How many occupancy-values can we find in each altconf?
+                occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
+                                                         if agroup.id[1] != ""]
+                if occs_per_alt.count(1) == len(occs_per_alt):
+                    redistribute_occupancies_by_residue(residue, args.occ_cutoff)
                 else:
-                    for target in confs_high:
-                        q_high = altconfs[target].q[-1]
-                        for source in confs_low:
-                            q_low = altconfs[source].q[-1]
-                            altconfs[target].q += q_high * q_low
-
-                # Describe occupancy redistribution results
-                print(f"  ==> {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+                    redistribute_occupancies_by_atom(residue, args.occ_cutoff)
 
     # Create structure without low occupancy confs
     data = {}
