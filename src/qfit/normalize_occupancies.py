@@ -71,8 +71,8 @@ def redistribute_occupancies_by_atom(residue, cutoff):
 
             # Describe occupancy redistribution intentions
             print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}/{name}")
-            print(f"  {[(atom.altloc, atom.q) for atom in confs_low]} "
-                  f"→ {[(atom.altloc, atom.q) for atom in confs_high]}")
+            print(f"  {[(atom.altloc, round(atom.q, 2)) for atom in confs_low]} "
+                  f"→ {[(atom.altloc, round(atom.q, 2)) for atom in confs_high]}")
 
             # Redistribute occupancy
             if len(confs_high) == 1:
@@ -87,7 +87,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
                         residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high
 
             # Describe occupancy redistribution results
-            print(f"  ==> {[(atom.altloc, residue._q[atom.atomidx]) for atom in confs_high]}")
+            print(f"  ==> {[(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]}")
 
 
 def redistribute_occupancies_by_residue(residue, cutoff):
@@ -102,8 +102,8 @@ def redistribute_occupancies_by_residue(residue, cutoff):
 
     # Describe occupancy redistribution intentions
     print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
-    print(f"  {[(alt, altconfs[alt].q[-1]) for alt in confs_low]} "
-          f"→ {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+    print(f"  {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_low]} "
+          f"→ {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}")
 
     # Redistribute occupancy
     if len(confs_high) == 1:
@@ -118,7 +118,7 @@ def redistribute_occupancies_by_residue(residue, cutoff):
                 altconfs[target].q += q_low * q_high / sum_q_high
 
     # Describe occupancy redistribution results
-    print(f"  ==> {[(alt, altconfs[alt].q[-1]) for alt in confs_high]}")
+    print(f"  ==> {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}")
 
 
 def main():
