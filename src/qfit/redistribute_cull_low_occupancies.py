@@ -56,7 +56,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure._ResidueGroup): residue to perform occupancy
             redistribution on by iterating over atoms
         cutoff (float): occupancy threshold
     """
@@ -111,7 +111,7 @@ def redistribute_occupancies_by_residue(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure._ResidueGroup): residue to perform occupancy
             redistribution on
         cutoff (float): occupancy threshold
     """
