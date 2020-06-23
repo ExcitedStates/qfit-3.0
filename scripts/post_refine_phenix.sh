@@ -174,7 +174,7 @@ done
 
 #__________________________________FINAL REFINEMENT__________________________________
 mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
-if [ -f "multiconformer_model2.ligands.cif" ]; then
+if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   phenix.refine "${pdb_name}_004.pdb" \
                 "${pdb_name}_002.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
