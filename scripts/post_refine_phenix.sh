@@ -173,6 +173,7 @@ while [ $zeroes -gt 1 ]; do
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
+mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 if [ -f "multiconformer_model2.ligands.cif" ]; then
   phenix.refine "${pdb_name}_004.pdb" \
                 "${pdb_name}_002.mtz" \
