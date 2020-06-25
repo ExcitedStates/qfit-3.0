@@ -24,13 +24,13 @@ Once these are installed, you can:
 
 1. Create a new conda env & activate it
    ```bash
-   conda create --name qfit
+   conda create --name qfit --python>=3.7
    conda activate qfit
    ```
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl
+   conda install -c anaconda mkl numpy
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
