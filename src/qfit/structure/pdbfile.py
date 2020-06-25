@@ -98,7 +98,7 @@ class PDBFile:
                     record[2] = " " + record[2]
                 f.write(CoorRecord.fmtstr.format(*record))
                 atomid += 1
-            f.write(EndRecord.line)
+            f.write(EndRecord.fmtstr)
 
 
 class Record:
@@ -183,37 +183,42 @@ class AnisouRecord(Record):
 
 
 class ExpdtaRecord(Record):
-    fields = 'record cont technique'.split()
-    columns = [(0,6), (8, 10), (10, 79)]
-    dtypes= (str, str, str)
+    fields  = ("record", "cont",  "technique")
+    columns = ((0, 6),   (8, 10), (10, 79))
+    dtypes  = (str,      str,     str)
 
 
 class RemarkRecord(Record):
-    fields = 'record remarkid text'.split()
-    columns = [(0, 6), (7, 10), (11, 79)]
-    dtypes = (str, int, str)
+    fields  = ("record", "remarkid", "text")
+    columns = ((0, 6),   (7, 10),    (11, 79))
+    dtypes  = (str,      int,        str)
 
 
 class Remark2DiffractionRecord(Record):
     # For diffraction experiments
-    fields = 'record remarkid RESOLUTION resolution ANGSTROM'.split()
-    columns = [(0, 6), (9, 10), (11, 22), (23, 30), (31, 41)]
-    dtypes = (str, str, str, float, str)
+    fields  = ("record", "remarkid", "RESOLUTION", "resolution", "ANGSTROM")
+    columns = ((0, 6),   (9, 10),    (11, 22),     (23, 30),     (31, 41))
+    dtypes  = (str,      str,        str,          float,        str)
 
 
 class Remark2NonDiffractionRecord(Record):
     # For diffraction experiments
-    fields = 'record remarkid NOTAPPLICABLE'.split()
-    columns = [(0, 6), (9, 10), (11, 38)]
-    dtypes = (str, str, str)
+    fields  = ("record", "remarkid", "NOTAPPLICABLE")
+    columns = ((0, 6),   (9, 10),    (11, 38))
+    dtypes  = (str,      str,        str)
+
 
 class Cryst1Record(Record):
-    fields = 'record a b c alpha beta gamma spg'.split()
-    columns = [(0,6), (6, 15), (15, 24), (24, 33), (33, 40), (40, 47), (47, 54), (55, 66), (66, 70)]
-    dtypes = (str, float, float, float, float, float, float, str, int)
+    fields  = ("record",
+               "a",     "b",      "c",      "alpha",  "beta",   "gamma",  "spg")
+    columns = ((0, 6),
+               (6, 15), (15, 24), (24, 33), (33, 40), (40, 47), (47, 54), (55, 66), (66, 70))
+    dtypes  = (str,
+               float,   float,    float,    float,    float,    float,    str,      int)
+
 
 class EndRecord(Record):
-    fields = ['record']
-    columns = [(0,6)]
-    dtypes = (str,)
-    line = 'END   ' + ' ' * 74 +'\n'
+    fields  = ("record",)
+    columns = ((0, 6),)
+    dtypes  = (str,)
+    fmtstr  = 'END   ' + ' ' * 74 + '\n'
