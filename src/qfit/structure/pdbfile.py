@@ -29,14 +29,33 @@ import sys
 
 
 class PDBFile:
+    """Parsed PDB file representation by section. Contains reader and writer.
+
+    Attributes:
+        coor (dict[str, list): coordinate data
+        anisou (dict[str, list]): anisotropic displacement parameter data
+        link (dict[str, list]): link records
+        cryst1 (dict[str, Union[str, float, int, None]]): cryst1 record
+        resolution (Optional[float]): resolution of pdb file
+    """
 
     @classmethod
     def read(cls, fname):
+        """Read a pdb file and construct a PDBFile object.
+
+        Args:
+            fname (str): filename of pdb file to read
+
+        Returns:
+            qfit.structure.PDBFile: object containing parsed sections
+                of the PDB file
+        """
         cls.coor = defaultdict(list)
         cls.anisou = defaultdict(list)
         cls.link = defaultdict(list)
         cls.cryst1 = {}
         cls.resolution = None
+
         if fname.endswith('.gz'):
             fopen = gzip.open
             mode = 'rt'
@@ -76,7 +95,19 @@ class PDBFile:
 
     @staticmethod
     def write(fname, structure):
+        """Write a structure to a pdb file.
+
+        Note:
+            This is not complete. At the moment, we only write out LINK data
+            and coordinate (ATOM) data.
+
+        Args:
+            fname (str): filename to write to
+            structure (qfit.structure.Structure): a structure object to convert
+                to PDB.
+        """
         with open(fname, 'w') as f:
+            # Write LINK records
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
                     record = dict(zip(LinkRecord.fields, record))
@@ -88,6 +119,8 @@ class PDBFile:
                         f.write(fmtstr.format(*record.values()))
                     else:
                         f.write(LinkRecord.fmtstr.format(*record.values()))
+
+            # Write ATOM records
             atomid = 1
             for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
                 record = dict(zip(CoorRecord.fields, record))
@@ -98,7 +131,10 @@ class PDBFile:
                     record['name'] = " " + record['name']
                     f.write(CoorRecord.fmtstr.format(*record.values()))
                 atomid += 1
+
+            # Write EndRecord
             f.write(EndRecord.fmtstr)
+
 
 class RecordParser(object):
     """Interface class to provide record parsing routines for a PDB file.
