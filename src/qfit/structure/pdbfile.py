@@ -38,7 +38,7 @@ class PDBFile:
         coor (dict[str, list): coordinate data
         anisou (dict[str, list]): anisotropic displacement parameter data
         link (dict[str, list]): link records
-        cryst1 (dict[str, Union[str, float, int, None]]): cryst1 record
+        cryst1 (dict[str, Union[str, float, int]]): cryst1 record
         resolution (Optional[float]): resolution of pdb file
     """
 
@@ -157,7 +157,7 @@ class RecordParser(object):
             line (str): A record, as read from a PDB file.
 
         Returns:
-            dict[str, Union[str, int, float, None]]: fields that were parsed
+            dict[str, Union[str, int, float]]: fields that were parsed
                 from the record.
         """
         values = {}
@@ -167,7 +167,7 @@ class RecordParser(object):
             except ValueError:
                 logger.error(f"RecordParser.parse_line: could not parse "
                              f"{field} ({line[slice(*column)]}) as {dtype}")
-                values[field] = None
+                values[field] = dtype()
         return values
 
 
