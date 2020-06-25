@@ -26,7 +26,7 @@ IN THE SOFTWARE.
 import gzip
 from collections import defaultdict
 import sys
-import numpy as np
+
 
 class PDBFile:
 
