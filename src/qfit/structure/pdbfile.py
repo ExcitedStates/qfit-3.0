@@ -79,14 +79,16 @@ class PDBFile:
         with open(fname, 'w') as f:
             atomid = 1
             if structure.link_data:
-                fields = list(LinkRecord.fields)
-                for field in zip(*[structure.link_data[x] for x in fields]):
-                    field = list(field)
-                    if not field[-1]:
-                        field[-1] = ''
-                        f.write(LinkRecord.line2.format(*field))
+                for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
+                    record = list(record)
+                    if not record[-1]:
+                        # If the LINK length is 0, then leave it blank.
+                        # This is a deviation from the PDB standard.
+                        record[-1] = ''
+                        fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
+                        f.write(fmtstr.format(*record))
                     else:
-                        f.write(LinkRecord.line.format(*field))
+                        f.write(LinkRecord.fmtstr.format(*record))
             fields = list(CoorRecord.fields)
             del fields[1]
             #for fields in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
@@ -123,22 +125,24 @@ class ModelRecord(Record):
 
 
 class LinkRecord(Record):
-    fields = ('record name1 altloc1 resn1 chain1 resi1 icode1 name2 '
-              'altloc2 resn2 chain2 resi2 icode2 sym1 sym2 length').split()
-    columns = [(0, 6), (12, 16), (16, 17), (17, 20), (21, 22),
-               (22, 26), (26, 27), (42, 46), (46, 47), (47, 50),
-               (51, 52), (52, 56), (56, 57), (59, 65), (66, 72),
-               (73, 78),
-               ]
-    dtypes = (str, str, str, str, str, int, str,
-                   str, str, str, str, int, str,
-                   str, str, float)
-    line = ('{:6s}' + ' ' * 7 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s}' + ' ' * 16 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5.2f}\n')
-    line2 = ('{:6s}' + ' ' * 7 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s}' + ' ' * 16 + '{:3s}{:1s}{:3s} '
-            '{:1s}{:4d}{:1s} {:6s} {:6s} {:5s}\n')
+    # http://www.wwpdb.org/documentation/file-format-content/format33/sect6.html#LINK
+    fields  = ("record",
+               "name1",  "altloc1", "resn1",  "chain1", "resi1",  "icode1",
+               "name2",  "altloc2", "resn2",  "chain2", "resi2",  "icode2",
+               "sym1",   "sym2",    "length")
+    columns = ((0, 6),
+               (12, 16), (16, 17),  (17, 20), (21, 22), (22, 26), (26, 27),
+               (42, 46), (46, 47),  (47, 50), (51, 52), (52, 56), (56, 57),
+               (59, 65), (66, 72),  (73, 78))
+    dtypes  = (str,
+               str,      str,       str,      str,      int,      str,
+               str,      str,       str,      str,      int,      str,
+               str,      str,       float)
+    fmtstr  = ('{:<6s}' + ' ' * 6
+               + ' ' + '{:<3s}{:1s}{:>3s}' + ' ' + '{:1s}{:>4d}{:1s}' + ' ' * 15
+               + ' ' + '{:<3s}{:1s}{:>3s}' + ' ' + '{:1s}{:>4d}{:1s}' + ' ' * 2
+               + '{:>6s} {:>6s} {:>5.2f}' + '\n')
+
 
 class CoorRecord(Record):
     fields = 'record atomid name altloc resn chain resi icode x y z q b e charge'.split()
