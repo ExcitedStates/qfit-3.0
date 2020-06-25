@@ -25,7 +25,10 @@ IN THE SOFTWARE.
 
 import gzip
 from collections import defaultdict
-import sys
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class PDBFile:
@@ -80,15 +83,14 @@ class PDBFile:
                         values = Remark2DiffractionRecord.parse_line(line)
                         cls.resolution = values['resolution']
                     except:
-                        pass
+                        logger.error("PDBFile.read: could not parse RESOLUTION data.")
                 elif line.startswith('LINK '):
                     try:
                         values = LinkRecord.parse_line(line)
                         for field in LinkRecord.fields:
                             cls.link[field].append(values[field])
                     except:
-                        sys.stderr.write("Error parsing LINK data.\n")
-                        pass
+                        logger.error("PDBFile.read: could not parse LINK data.")
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
         return cls
@@ -129,7 +131,10 @@ class PDBFile:
                 # PDB specification says the atom name should start one column in.
                 if len(record['e']) == 1 and not len(record['name']) == 4:
                     record['name'] = " " + record['name']
+                try:
                     f.write(CoorRecord.fmtstr.format(*record.values()))
+                except TypeError:
+                    logger.error(f"PDBFile.write: could not write: {record}")
                 atomid += 1
 
             # Write EndRecord
@@ -160,6 +165,8 @@ class RecordParser(object):
             try:
                 values[field] = dtype(line[slice(*column)].strip())
             except ValueError:
+                logger.error(f"RecordParser.parse_line: could not parse "
+                             f"{field} ({line[slice(*column)]}) as {dtype}")
                 values[field] = None
         return values
 
