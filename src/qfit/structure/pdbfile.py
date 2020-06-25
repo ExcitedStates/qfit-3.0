@@ -115,10 +115,12 @@ class Record:
 
 
 class ModelRecord(Record):
-    fields = 'record modelid'
-    columns = [(0, 6), (11, 15)]
-    dtypes = (str, int)
-    line = '{:6s}' + ' ' * 5 + '{:6d}\n'
+    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#MODEL
+    fields  = ("record", "modelid")
+    columns = [(0, 6),   (10, 14)]
+    dtypes  = (str,      int)
+    fmtstr  = '{:<6s}' + ' ' * 4 + '{:>4d}' + '\n'
+
 
 class LinkRecord(Record):
     fields = ('record name1 altloc1 resn1 chain1 resi1 icode1 name2 '
