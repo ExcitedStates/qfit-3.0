@@ -100,11 +100,25 @@ class PDBFile:
                 atomid += 1
             f.write(EndRecord.fmtstr)
 
+class RecordParser(object):
+    """Interface class to provide record parsing routines for a PDB file.
 
-class Record:
+    Deriving classes should have class variables for {fields, columns, dtypes, fmtstr}.
+    """
+
+    __slots__ = ("fields", "columns", "dtypes", "fmtstr")
 
     @classmethod
     def parse_line(cls, line):
+        """Common interface for parsing a record from a PDB file.
+
+        Args:
+            line (str): A record, as read from a PDB file.
+
+        Returns:
+            dict[str, Union[str, int, float, None]]: fields that were parsed
+                from the record.
+        """
         values = {}
         for field, column, dtype in zip(cls.fields, cls.columns, cls.dtypes):
             try:
@@ -114,7 +128,7 @@ class Record:
         return values
 
 
-class ModelRecord(Record):
+class ModelRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#MODEL
     fields  = ("record", "modelid")
     columns = [(0, 6),   (10, 14)]
@@ -122,7 +136,7 @@ class ModelRecord(Record):
     fmtstr  = '{:<6s}' + ' ' * 4 + '{:>4d}' + '\n'
 
 
-class LinkRecord(Record):
+class LinkRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect6.html#LINK
     fields  = ("record",
                "name1",  "altloc1", "resn1",  "chain1", "resi1",  "icode1",
@@ -142,7 +156,7 @@ class LinkRecord(Record):
                + '{:>6s} {:>6s} {:>5.2f}' + '\n')
 
 
-class CoorRecord(Record):
+class CoorRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ATOM
     fields  = ("record",
                "atomid", "name",   "altloc", "resn",   "chain",  "resi",   "icode",
@@ -162,7 +176,7 @@ class CoorRecord(Record):
                + '{:>2s}{:>2s}' + '\n')
 
 
-class AnisouRecord(Record):
+class AnisouRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ANISOU
     fields  = ("record",
                "atomid", "atomname", "altloc", "resn",   "chain",  "resi",   "icode",
@@ -182,33 +196,33 @@ class AnisouRecord(Record):
                + '{:>2s}{:>2s}' + '\n')
 
 
-class ExpdtaRecord(Record):
+class ExpdtaRecord(RecordParser):
     fields  = ("record", "cont",  "technique")
     columns = ((0, 6),   (8, 10), (10, 79))
     dtypes  = (str,      str,     str)
 
 
-class RemarkRecord(Record):
+class RemarkRecord(RecordParser):
     fields  = ("record", "remarkid", "text")
     columns = ((0, 6),   (7, 10),    (11, 79))
     dtypes  = (str,      int,        str)
 
 
-class Remark2DiffractionRecord(Record):
+class Remark2DiffractionRecord(RecordParser):
     # For diffraction experiments
     fields  = ("record", "remarkid", "RESOLUTION", "resolution", "ANGSTROM")
     columns = ((0, 6),   (9, 10),    (11, 22),     (23, 30),     (31, 41))
     dtypes  = (str,      str,        str,          float,        str)
 
 
-class Remark2NonDiffractionRecord(Record):
+class Remark2NonDiffractionRecord(RecordParser):
     # For diffraction experiments
     fields  = ("record", "remarkid", "NOTAPPLICABLE")
     columns = ((0, 6),   (9, 10),    (11, 38))
     dtypes  = (str,      str,        str)
 
 
-class Cryst1Record(Record):
+class Cryst1Record(RecordParser):
     fields  = ("record",
                "a",     "b",      "c",      "alpha",  "beta",   "gamma",  "spg")
     columns = ((0, 6),
@@ -217,7 +231,7 @@ class Cryst1Record(Record):
                float,   float,    float,    float,    float,    float,    str,      int)
 
 
-class EndRecord(Record):
+class EndRecord(RecordParser):
     fields  = ("record",)
     columns = ((0, 6),)
     dtypes  = (str,)
