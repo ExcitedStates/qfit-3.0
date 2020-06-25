@@ -163,17 +163,23 @@ class CoorRecord(Record):
 
 
 class AnisouRecord(Record):
-    fields = 'record atomid atomname altloc resn chain resi icode u00 u11 u22 u01 u02 u12 e charge'.split()
-    columns = [
-        (0, 6), (6, 11), (12, 16), (16, 17), (17, 20), (21, 22), (22, 26),
-        (26, 27), (28, 35), (35, 42), (42, 49), (49, 56), (56, 63), (63, 70), (76, 78), (78, 80),
-    ]
-    dtypes = (str, int, str, str, str, str, int, str, float, float, float,
-              float, float, float, str, str)
-    line1 = ('{:6s}{:5d}  {:3s}{:1s}{:3s} {:1s}{:4d}{:1s}   '
-             '{:7d}' * 6 + ' ' * 7 + '{:>2s}{:>2s}\n')
-    line2 = ('{:6s}{:5d} {:<4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '
-             '{:7d}' * 6 + ' ' * 7 + '{:>2s}{:>2s}\n')
+    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ANISOU
+    fields  = ("record",
+               "atomid", "atomname", "altloc", "resn",   "chain",  "resi",   "icode",
+               "u00",    "u11",      "u22",    "u01",    "u02",    "u12",
+               "e",      "charge")
+    columns = ((0, 6),
+               (6, 11),  (12, 16),   (16, 17), (17, 20), (21, 22), (22, 26), (26, 27),
+               (28, 35), (35, 42),   (42, 49), (49, 56), (56, 63), (63, 70),
+               (76, 78), (78, 80))
+    dtypes  = (str,
+               int,      str,        str,      str,      str,      int,      str,
+               float,    float,      float,    float,    float,    float,
+               str,      str)
+    fmtstr  = ('{:<6s}'
+               + '{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}' + ' '
+               + '{:>7d}' * 6 + ' ' * 6
+               + '{:>2s}{:>2s}' + '\n')
 
 
 class ExpdtaRecord(Record):
