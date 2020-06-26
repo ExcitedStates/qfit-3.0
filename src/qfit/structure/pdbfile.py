@@ -83,7 +83,7 @@ class PDBFile:
                     if not record.length:
                         # If the LINK length is 0, then leave it blank.
                         # This is a deviation from the PDB standard.
-                        record.length = ''
+                        record = record._replace(length='')
                         fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
                         f.write(fmtstr.format(*record))
                     else:
@@ -91,11 +91,11 @@ class PDBFile:
             atomid = 1
             for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
                 record = CoorRecord.recordstruct(*record)
-                record.atomid = atomid  # Overwrite atomid for consistency within this file.
+                record = record._replace(atomid=atomid)  # Overwrite atomid for consistency within this file.
                 # If the element name is a single letter,
                 # PDB specification says the atom name should start one column in.
                 if len(record.e) == 1 and not len(record.name) == 4:
-                    record.name = " " + record.name
+                    record = record._replace(name=" " + record.name)
                 f.write(CoorRecord.fmtstr.format(*record))
                 atomid += 1
             f.write(EndRecord.fmtstr)
