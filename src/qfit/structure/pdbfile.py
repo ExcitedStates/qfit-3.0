@@ -77,7 +77,6 @@ class PDBFile:
     @staticmethod
     def write(fname, structure):
         with open(fname, 'w') as f:
-            atomid = 1
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
                     record = list(record)
@@ -89,16 +88,15 @@ class PDBFile:
                         f.write(fmtstr.format(*record))
                     else:
                         f.write(LinkRecord.fmtstr.format(*record))
-            fields = list(CoorRecord.fields)
-            del fields[1]
-            #for fields in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
-            for field in zip(*[getattr(structure, x) for x in fields]):
-                field = list(field)
-                field.insert(1, atomid)
-                if len(field[-2]) == 2 or len(field[2]) == 4:
-                    f.write(CoorRecord.line2.format(*field))
-                else:
-                    f.write(CoorRecord.line1.format(*field))
+            atomid = 1
+            for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
+                record = list(record)
+                record[1] = atomid  # Overwrite atomid for consistency within this file.
+                # If the element name is a single letter,
+                # PDB specification says the atom name should start one column in.
+                if len(record[-2]) == 1 and not len(record[2]) == 4:
+                    record[2] = " " + record[2]
+                f.write(CoorRecord.fmtstr.format(*record))
                 atomid += 1
             f.write(EndRecord.line)
 
@@ -145,17 +143,23 @@ class LinkRecord(Record):
 
 
 class CoorRecord(Record):
-    fields = 'record atomid name altloc resn chain resi icode x y z q b e charge'.split()
-    columns = [(0, 6), (6, 11), (12, 16), (16, 17), (17, 20), (21, 22),
-               (22, 26), (26, 27), (30, 38), (38, 46), (46, 54), (54, 60),
-               (60, 66), (76, 78), (78, 80),
-               ]
-    dtypes = (str, int, str, str, str, str, int, str, float, float, float,
-              float, float, str, str)
-    line1 = ('{:6s}{:5d}  {:3s}{:1s}{:3s} {:1s}{:4d}{:1s}   '
-             '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}' + ' ' * 10 + '{:>2s}{:>2s}\n')
-    line2 = ('{:6s}{:5d} {:<4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '
-             '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}' + ' ' * 10 + '{:>2s}{:2s}\n')
+    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ATOM
+    fields  = ("record",
+               "atomid", "name",   "altloc", "resn",   "chain",  "resi",   "icode",
+               "x",      "y",      "z",      "q",      "b",
+               "e",      "charge")
+    columns = ((0, 6),
+               (6, 11),  (12, 16), (16, 17), (17, 20), (21, 22), (22, 26), (26, 27),
+               (30, 38), (38, 46), (46, 54), (54, 60), (60, 66),
+               (76, 78), (78, 80))
+    dtypes  = (str,
+               int,      str,      str,      str,      str,      int,      str,
+               float,    float,    float,    float,    float,
+               str,      str)
+    fmtstr  = ('{:<6s}'
+               + '{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}' + ' ' * 3
+               + '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}' + ' ' * 10
+               + '{:>2s}{:>2s}' + '\n')
 
 
 class AnisouRecord(Record):
