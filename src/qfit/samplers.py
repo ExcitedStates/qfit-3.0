@@ -452,7 +452,6 @@ class RotationSets:
 
         # Unpack quaternions into columns of coefficients
         (w, x, y, z) = quaternions.T
-
         # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
 
@@ -460,7 +459,7 @@ class RotationSets:
         s = 1.0 / Nq
 
         # Calculate scaled X, Y, Z
-        (X, Y, Z) = (x, y, z) * 2 * s
+        X, Y, Z = x * s * 2, y * s * 2, z * s * 2
 
         # Fill rotmats array
         rotmats = np.empty((quaternions.shape[0], 3, 3), dtype=np.float64)
