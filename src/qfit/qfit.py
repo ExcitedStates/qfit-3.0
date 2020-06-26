@@ -854,23 +854,15 @@ class QFitRotamericResidue(_BaseQFit):
                                     continue
                             
                             # See if this (partial) conformer clashes, 
-                            # based on all-atom sterics (if the user wanted that),
-                            # then decide whether to keep or reject it
+                            # based on all-atom sterics (if the user wanted that)...
+                            keep_coor_set = False
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
-                                    if new_coor_set:
-                                        delta = np.array(new_coor_set) - np.array(self.residue.coor)
-                                        if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
-                                            new_coor_set.append(self.residue.coor)
-                                            new_bs.append(self._randomize_bs(b, bs_atoms))
-                                        else:
-                                            ex += 1
-                                    else:
-                                        new_coor_set.append(self.residue.coor)
-                                        new_bs.append(self._randomize_bs(b, bs_atoms))
-                                else:
-                                    ex += 1
+                                    keep_coor_set = True
                             elif self.residue.clashes() == 0:
+                                keep_coor_set = True
+                            # ... then decide whether to keep or reject it
+                            if keep_coor_set:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set) - np.array(self.residue.coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
@@ -883,6 +875,7 @@ class QFitRotamericResidue(_BaseQFit):
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
                             else:
                                 ex += 1
+
                 iter_coor_set.append(new_coor_set)
                 self._coor_set = new_coor_set
                 self._bs = new_bs
