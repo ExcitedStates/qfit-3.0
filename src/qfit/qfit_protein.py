@@ -406,8 +406,8 @@ class QFitProtein:
         try:
             qfit.run()
         except RuntimeError:
-            logger.warning(f"qFit was unable to produce an alternate conformer "
-                           f"for residue {resi} of chain {chainid}.\n"
+            logger.warning(f"[{qfit.identifier}] "
+                           f"Unable to produce an alternate conformer. "
                            f"Using deposited conformer A for this residue.")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
