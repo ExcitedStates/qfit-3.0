@@ -544,7 +544,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self.segment = segment
                 logger.warning(f"[{self.identifier}] Could not determine protein segment")
 
-        # Set up the clashdetector, exclude the bonded interaction of the N and
+        # Set up the clash detector, exclude the bonded interaction of the N and
         # C atom of the residue
         self._setup_clash_detector()
         if options.subtract:
@@ -814,21 +814,22 @@ class QFitRotamericResidue(_BaseQFit):
                 new_bs = []
                 n = 0
                 ex = 0
+                # For each backbone conformation so far:
                 for coor, b in zip(self._coor_set, self._bs):
                     self.residue.coor = coor
                     self.residue.b = b
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
-                    sampled_rotamers = []
+                    # Try each rotamer in the library for this backbone conformation:
                     for rotamer in rotamers:
-                        # Check if the residue configuration corresponds to the
-                        # current rotamer
-                        is_this_rotamer = True
+                        # Check if the current sidechain configuration for this residue 
+                        # closely matches the rotamer being considered from the library
+                        is_this_same_rotamer = True
                         for curr_chi, rotamer_chi in zip(chis, rotamer):
                             diff_chi = abs(curr_chi - rotamer_chi)
                             if 360 - opt.rotamer_neighborhood > diff_chi > opt.rotamer_neighborhood:
-                                is_this_rotamer = False
+                                is_this_same_rotamer = False
                                 break
-                        if not is_this_rotamer:
+                        if not is_this_same_rotamer:
                             continue
                         # Set the chi angle to the standard rotamer value.
                         self.residue.set_chi(chi_index, rotamer[chi_index - 1])
@@ -837,15 +838,24 @@ class QFitRotamericResidue(_BaseQFit):
                         chi_rotator = ChiRotator(self.residue, chi_index)
 
                         for angle in sampling_window:
+                            # Rotate around the chi angle, hitting each of the angle values
+                            # in our predetermined, generic chi-angle sampling window
                             n += 1
                             chi_rotator(angle)
                             coor = self.residue.coor
+                            
+                            # See if this (partial) conformer clashes, 
+                            # based on a density mask
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < self.options.density_cutoff:
                                     ex += 1
                                     continue
+                            
+                            # See if this (partial) conformer clashes, 
+                            # based on all-atom sterics (if the user wanted that),
+                            # then decide whether to keep or reject it
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
                                     if new_coor_set:
@@ -1746,7 +1756,6 @@ class QFitCovalentLigand(_BaseQFit):
                     self.covalent_residue.b = b
                     chis = [self.covalent_residue.get_chi(i) for i in range(
                             1, chi_index)]
-                    sampled_rotamers = []
                     for rotamer in rotamers:
                         # Check if the residue configuration corresponds to the
                         # current rotamer
