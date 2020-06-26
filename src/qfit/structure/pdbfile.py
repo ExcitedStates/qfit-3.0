@@ -24,7 +24,7 @@ IN THE SOFTWARE.
 '''
 
 import gzip
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 import sys
 import numpy as np
 
@@ -79,24 +79,24 @@ class PDBFile:
         with open(fname, 'w') as f:
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
-                    record = LinkRecord.recordstruct(*record)
-                    if not record.length:
+                    record = dict(zip(LinkRecord.fields, record))
+                    if not record['length']:
                         # If the LINK length is 0, then leave it blank.
                         # This is a deviation from the PDB standard.
-                        record = record._replace(length='')
+                        record['length'] = ''
                         fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
-                        f.write(fmtstr.format(*record))
+                        f.write(fmtstr.format(*record.values()))
                     else:
-                        f.write(LinkRecord.fmtstr.format(*record))
+                        f.write(LinkRecord.fmtstr.format(*record.values()))
             atomid = 1
             for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
-                record = CoorRecord.recordstruct(*record)
-                record = record._replace(atomid=atomid)  # Overwrite atomid for consistency within this file.
+                record = dict(zip(CoorRecord.fields, record))
+                record['atomid'] = atomid  # Overwrite atomid for consistency within this file.
                 # If the element name is a single letter,
                 # PDB specification says the atom name should start one column in.
-                if len(record.e) == 1 and not len(record.name) == 4:
-                    record = record._replace(name=" " + record.name)
-                f.write(CoorRecord.fmtstr.format(*record))
+                if len(record['e']) == 1 and not len(record['name']) == 4:
+                    record['name'] = " " + record['name']
+                    f.write(CoorRecord.fmtstr.format(*record.values()))
                 atomid += 1
             f.write(EndRecord.fmtstr)
 
@@ -104,15 +104,9 @@ class RecordParser(object):
     """Interface class to provide record parsing routines for a PDB file.
 
     Deriving classes should have class variables for {fields, columns, dtypes, fmtstr}.
-
-    Deriving classes will have a namedtuple factory available at `.recordstruct`.
     """
 
     __slots__ = ("fields", "columns", "dtypes", "fmtstr")
-
-    def __init_subclass__(cls, **kwargs):
-        cls.recordstruct = namedtuple(cls.__name__ + "Struct", cls.fields)
-        super().__init_subclass__(**kwargs)
 
     @classmethod
     def parse_line(cls, line):
