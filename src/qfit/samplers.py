@@ -498,13 +498,13 @@ class RotationSets:
         # Choose e1, e2 independent uniform on (-1, 1), until s1 < 1
         s1 = 1
         while s1 >= 1.0:
-            e1, e2 = 2 * np.random.random((2,)) - 1
+            e1, e2 = np.random.uniform(-1, 1, size=(2,))
             s1 = e1**2 + e2**2
 
         # Choose e3, e4 independent uniform on (-1, 1), until s2 < 1
         s2 = 1
         while s2 >= 1.0:
-            e3, e4 = 2 * np.random.random((2,)) - 1
+            e3, e4 = np.random.uniform(-1, 1, size=(2,))
             s2 = e3**2 + e4**2
 
         # Then construct point on surface of 4-sphere

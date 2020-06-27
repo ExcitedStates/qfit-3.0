@@ -706,7 +706,7 @@ class QFitRotamericResidue(_BaseQFit):
         amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
         for amplitude, direction in itertools.product(amplitudes, directions):
-            delta = sigma * (2 * np.random.random() - 1)  # user-defined sigma * (random from interval [-1.0, 1.0))
+            delta = np.random.uniform(-sigma, sigma)
             endpoint = start_coor + (amplitude + delta) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
