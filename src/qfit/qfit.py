@@ -853,15 +853,15 @@ class QFitRotamericResidue(_BaseQFit):
                                     ex += 1
                                     continue
                             
-                            # See if this (partial) conformer clashes, 
-                            # based on all-atom sterics (if the user wanted that)...
+                            # See if this (partial) conformer clashes (so far), 
+                            # based on all-atom sterics (if the user wanted that)
                             keep_coor_set = False
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
                                     keep_coor_set = True
                             elif self.residue.clashes() == 0:
                                 keep_coor_set = True
-                            # ... then decide whether to keep or reject it
+                            # Based on that, decide whether to keep or reject this (partial) conformer
                             if keep_coor_set:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set) - np.array(self.residue.coor)
@@ -881,7 +881,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = new_bs
 
             if len(self._coor_set) > 15000:
-                logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)})."
+                logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
                                f"Reverting back to previous iteration of degrees of freedom.")
                 self._coor_set = iter_coor_set[0]
 
