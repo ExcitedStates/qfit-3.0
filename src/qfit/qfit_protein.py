@@ -33,6 +33,7 @@ import sys
 import time
 import argparse
 import logging
+import traceback
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
@@ -235,8 +236,9 @@ class QFitProtein:
                 progress.write(result)
 
         def _error_cb(e):
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.critical(tb)
             progress.update()
-            raise e
 
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
@@ -406,8 +408,8 @@ class QFitProtein:
         try:
             qfit.run()
         except RuntimeError:
-            logger.warning(f"qFit was unable to produce an alternate conformer "
-                           f"for residue {resi} of chain {chainid}.\n"
+            logger.warning(f"[{qfit.identifier}] "
+                           f"Unable to produce an alternate conformer. "
                            f"Using deposited conformer A for this residue.")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]

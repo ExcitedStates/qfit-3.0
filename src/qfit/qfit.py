@@ -26,7 +26,7 @@ IN THE SOFTWARE.
 import itertools
 import logging
 import os
-from sys import argv, stderr
+from sys import argv
 import copy
 from string import ascii_uppercase
 import subprocess
@@ -391,8 +391,12 @@ class _BaseQFit:
 
 class QFitRotamericResidue(_BaseQFit):
     def __init__(self, residue, structure, xmap, options):
+        super().__init__(residue, structure, xmap, options)
+        self.residue = residue
         self.chain = residue.chain[0]
-        self.resi = residue.resi[0]
+        self.resn = residue.resn[0]
+        self.resi, self.icode = residue.id
+        self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
         self.incomplete = False
         if options.phenix_aniso:
             self.prv_resi = structure.resi[(residue._selection[0] - 1)]
@@ -518,17 +522,14 @@ class QFitRotamericResidue(_BaseQFit):
         if options.hydro:
             for atom in residue._rotamers['hydrogens']:
                 if atom not in atoms:
-                    logger.warning(f"Missing atom {atom} of residue {residue.resi[0]},{residue.resn[0]}")
+                    logger.warning(f"[{self.identifier}] Missing atom {atom}")
                     continue
 
-        super().__init__(residue, structure, xmap, options)
-        self.residue = residue
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
         # Get the segment that the residue belongs to
-        chainid = self.residue.chain[0]
         self.segment = None
         for segment in self.structure.segments:
-            if segment.chain[0] == chainid and self.residue in segment:
+            if segment.chain[0] == self.chain and self.residue in segment:
                 index = segment.find(self.residue.id)
                 if (len(segment[index].name) == len(self.residue.name)) and \
                         (segment[index].altloc[-1] == self.residue.altloc[-1]):
@@ -541,9 +542,7 @@ class QFitRotamericResidue(_BaseQFit):
                 segment = _Segment(structure.data, selection=selection,
                                    parent=self, residues=[residue])
                 self.segment = segment
-                stderr.write(f"[WARNING] Could not determine the protein"
-                             f" segment of residue {self.chain},"
-                             f" {self.resi}.")
+                logger.warning(f"[{self.identifier}] Could not determine protein segment")
 
         # Set up the clashdetector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -684,10 +683,8 @@ class QFitRotamericResidue(_BaseQFit):
         for n, residue in enumerate(self.segment.residues[::-1]):
             for backbone_atom in ['N', 'CA', 'C', 'O']:
                 if backbone_atom not in residue.name:
-                    logger.warning(f"Missing backbone atom for residue "
-                                   f"{residue.resi[0]} of chain {residue.chain[0]}.")
-                    logger.warning(f"Skipping backbone sampling for residue "
-                                   f"{self.residue.resi[0]} of chain {residue.chain[0]}.")
+                    logger.warning(f"[{self.identifier}] Missing backbone atom.")
+                    logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
                     self._coor_set.append(self.segment[index].coor)
                     self._bs.append(self.conformer.b)
                     return
@@ -881,7 +878,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = new_bs
 
             if len(self._coor_set) > 15000:
-                logger.warning(f"Too many conformers generated ({len(self._coor_set)})."
+                logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)})."
                                f"Reverting back to previous iteration of degrees of freedom.")
                 self._coor_set = iter_coor_set[0]
 
