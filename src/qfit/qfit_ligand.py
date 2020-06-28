@@ -34,7 +34,7 @@ import time
 import numpy as np
 from string import ascii_uppercase
 from . import MapScaler, Structure, XMap, _Ligand
-from . import QFitLigand, QFitLigandOptions
+from .qfit import QFitLigand, QFitLigandOptions
 from .logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
@@ -173,12 +173,12 @@ def prepare_qfit_ligand(options):
     if options.cif_file: #TO DO: STEPHANIE
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
-                         link_data=structure_ligand.link_data,
-                         cif_file=args.cif_file)
+                         link_data = structure_ligand.link_data,
+                         cif_file = args.cif_file)
     else:
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
-                         link_data=structure_ligand.link_data)
+                         link_data = structure_ligand.link_data)
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check "
                            " the selection input.")
@@ -186,16 +186,16 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ''
     ligand.q = 1
 
-    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
-    logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
+    logger.info("Receptor atoms selected: {natoms}".format(natoms = receptor.natoms))
+    logger.info("Ligand atoms selected: {natoms}".format(natoms = ligand.natoms))
 
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(options.map, resolution=options.resolution, label=options.label)
+    xmap = XMap.fromfile(options.map, resolution = options.resolution, label = options.label)
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, scattering = options.scattering)
         if options.omit:
             footprint = structure_ligand
         else:
@@ -237,8 +237,6 @@ def main():
     # Apply the arguments to options
     options = QFitLigandOptions()
     options.apply_command_args(args)
-    print(args.selection)
-    print(options.selection)
 
     # Setup logger
     setup_logging(options=options, filename="qfit_ligand.log")
@@ -250,8 +248,8 @@ def main():
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
-    conformers = qfit.get_conformers()
+    #POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
