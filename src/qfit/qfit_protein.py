@@ -120,7 +120,7 @@ def build_argparser():
                    help="Stepsize for dihedral angle sampling in degrees.")
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
-                   help="Neighborhood of rotamer to sample in degrees.")
+                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x].")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
