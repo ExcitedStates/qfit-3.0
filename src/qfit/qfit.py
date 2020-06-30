@@ -544,7 +544,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self.segment = segment
                 logger.warning(f"[{self.identifier}] Could not determine protein segment")
 
-        # Set up the clashdetector, exclude the bonded interaction of the N and
+        # Set up the clash detector, exclude the bonded interaction of the N and
         # C atom of the residue
         self._setup_clash_detector()
         if options.subtract:
@@ -706,7 +706,7 @@ class QFitRotamericResidue(_BaseQFit):
         amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
         for amplitude, direction in itertools.product(amplitudes, directions):
-            delta = sigma * (2 * np.random.random() - 1)  # random from interval [-1.0, 1.0)
+            delta = sigma * (2 * np.random.random() - 1)  # user-defined sigma * (random from interval [-1.0, 1.0))
             endpoint = start_coor + (amplitude + delta) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
@@ -814,21 +814,22 @@ class QFitRotamericResidue(_BaseQFit):
                 new_bs = []
                 n = 0
                 ex = 0
+                # For each backbone conformation so far:
                 for coor, b in zip(self._coor_set, self._bs):
                     self.residue.coor = coor
                     self.residue.b = b
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
-                    sampled_rotamers = []
+                    # Try each rotamer in the library for this backbone conformation:
                     for rotamer in rotamers:
-                        # Check if the residue configuration corresponds to the
-                        # current rotamer
-                        is_this_rotamer = True
+                        # Check if the current sidechain configuration for this residue 
+                        # closely matches the rotamer being considered from the library
+                        is_this_same_rotamer = True
                         for curr_chi, rotamer_chi in zip(chis, rotamer):
                             diff_chi = abs(curr_chi - rotamer_chi)
                             if 360 - opt.rotamer_neighborhood > diff_chi > opt.rotamer_neighborhood:
-                                is_this_rotamer = False
+                                is_this_same_rotamer = False
                                 break
-                        if not is_this_rotamer:
+                        if not is_this_same_rotamer:
                             continue
                         # Set the chi angle to the standard rotamer value.
                         self.residue.set_chi(chi_index, rotamer[chi_index - 1])
@@ -837,30 +838,32 @@ class QFitRotamericResidue(_BaseQFit):
                         chi_rotator = ChiRotator(self.residue, chi_index)
 
                         for angle in sampling_window:
+                            # Rotate around the chi angle, hitting each of the angle values
+                            # in our predetermined, generic chi-angle sampling window
                             n += 1
                             chi_rotator(angle)
                             coor = self.residue.coor
+                            
+                            # See if this (partial) conformer clashes, 
+                            # based on a density mask
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
                                 mask = (self.residue.e[active] != "H")
                                 if np.min(values[mask]) < self.options.density_cutoff:
                                     ex += 1
                                     continue
+                            
+                            # See if this (partial) conformer clashes (so far), 
+                            # based on all-atom sterics (if the user wanted that)
+                            keep_coor_set = False
                             if self.options.external_clash:
                                 if not self._cd() and self.residue.clashes() == 0:
-                                    if new_coor_set:
-                                        delta = np.array(new_coor_set) - np.array(self.residue.coor)
-                                        if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
-                                            new_coor_set.append(self.residue.coor)
-                                            new_bs.append(self._randomize_bs(b, bs_atoms))
-                                        else:
-                                            ex += 1
-                                    else:
-                                        new_coor_set.append(self.residue.coor)
-                                        new_bs.append(self._randomize_bs(b, bs_atoms))
-                                else:
-                                    ex += 1
+                                    keep_coor_set = True
                             elif self.residue.clashes() == 0:
+                                keep_coor_set = True
+
+                            # Based on that, decide whether to keep or reject this (partial) conformer
+                            if keep_coor_set:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set) - np.array(self.residue.coor)
                                     if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
@@ -873,12 +876,13 @@ class QFitRotamericResidue(_BaseQFit):
                                     new_bs.append(self._randomize_bs(b, bs_atoms))
                             else:
                                 ex += 1
+
                 iter_coor_set.append(new_coor_set)
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
             if len(self._coor_set) > 15000:
-                logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)})."
+                logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
                                f"Reverting back to previous iteration of degrees of freedom.")
                 self._coor_set = iter_coor_set[0]
 
@@ -1589,11 +1593,11 @@ class QFitCovalentLigand(_BaseQFit):
         if self.options.sample_backbone:
             self._sample_backbone()
         if self.options.sample_angle:
-            # Is the ligang bound to the backbone or the side chain?
+            # Is the ligand bound to the backbone or the side chain?
             if self.partner_atom not in ['N', 'C', 'CA', 'O']:
                 self._sample_angle()
         if self.covalent_residue.nchi >= 1 and self.options.sample_rotamers:
-            # Is the ligang bound to the backbone or the side chain?
+            # Is the ligand bound to the backbone or the side chain?
             if self.partner_atom not in ['N', 'C', 'CA', 'O']:
                 self._sample_sidechain()
         if self.options.sample_ligand:
@@ -1746,7 +1750,6 @@ class QFitCovalentLigand(_BaseQFit):
                     self.covalent_residue.b = b
                     chis = [self.covalent_residue.get_chi(i) for i in range(
                             1, chi_index)]
-                    sampled_rotamers = []
                     for rotamer in rotamers:
                         # Check if the residue configuration corresponds to the
                         # current rotamer
