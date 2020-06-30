@@ -861,6 +861,7 @@ class QFitRotamericResidue(_BaseQFit):
                                     keep_coor_set = True
                             elif self.residue.clashes() == 0:
                                 keep_coor_set = True
+
                             # Based on that, decide whether to keep or reject this (partial) conformer
                             if keep_coor_set:
                                 if new_coor_set:
