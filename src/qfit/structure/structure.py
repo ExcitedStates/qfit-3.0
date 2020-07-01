@@ -395,16 +395,40 @@ class Structure(_BaseStructure):
                     residue2._altloc[residue2._selection] = ''
         return multiconformer
 
-    def average_conformers(self):
-        total_res = 0.0
-        total_altlocs = 0.0
-        for i, rg in enumerate(self.extract('record',"ATOM").residue_groups):
-            total_res += 1
-            altlocs = list(set(rg.altloc))
-            if '' in altlocs and len(altlocs) > 1:
-                altlocs.remove('')
+    @property
+    def n_residue_conformers(self):
+        """Total of conformers over all residues in the structure (exclude heteroatoms).
+
+        Returns:
+            int
+        """
+        total_altlocs = 0
+        for rg in self.extract("record", "ATOM").residue_groups:
+            altlocs = set(rg.altloc)
+            if "" in altlocs and len(altlocs) > 1:
+                altlocs.remove("")
             total_altlocs += len(altlocs)
-        return total_altlocs/total_res
+        return total_altlocs            
+
+    @property
+    def n_residues(self):
+        """Number of residues in the structure (exclude heteroatoms).
+
+        Required because Structure.residue_groups is a generator.
+
+        Returns:
+            int
+        """
+        residue_groups = self.extract("record", "ATOM").residue_groups
+        return sum(1 for _ in residue_groups)
+
+    def average_conformers(self):
+        """Average number of conformers over the structure (exclude heteroatoms).
+
+        Returns:
+            float
+        """
+        return self.n_residue_conformers / self.n_residues
 
     def _init_clash_detection(self):
         # Setup the condensed distance based arrays for clash detection and
