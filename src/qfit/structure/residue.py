@@ -218,7 +218,17 @@ class _RotamerResidue(_BaseResidue):
     def print_residue(self):
         for atom, coor, element, b, q in zip(
           self.name, self.coor, self.e, self.b, self.q):
-            print("{} {} {} {} {}".format(atom, coor, element, b, q))
+            logger.info(f"{atom} {coor} {element} {b} {q}")
+
+    def _print_residue_shape(self):
+        """Prints shapes of all attributes in a residue.
+
+        NB: only of use for debugging.
+        """
+        logger.debug(f"[{self}]")
+        for attr_name in self.REQUIRED_ATTRIBUTES:
+            logger.debug(f"  {attr_name}.shape: {getattr(self, attr_name).shape}")
+            logger.debug(f"  _{attr_name}.shape: {getattr(self, '_' + attr_name).shape}")
 
     def complete_residue(self):
         self.visited = []
