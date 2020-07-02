@@ -527,12 +527,13 @@ class QFitRotamericResidue(_BaseQFit):
             super().__init__(residue, structure, xmap, options)
             self.residue = residue
 
-        # If including hydrogens:
+        # If including hydrogens, report if any H are missing
         if options.hydro:
-            for atom in self.residue._rotamers['hydrogens']:
-                if atom not in atoms:
-                    logger.warning(f"[{self.identifier}] Missing atom {atom}")
-                    continue
+            expected_h_atoms = np.array(self.residue._rotamers['hydrogens'])
+            missing_h_atoms = np.isin(expected_h_atoms, test_elements=self.residue.name, invert=True)
+            if np.any(missing_h_atoms):
+                logger.warning(f"[{self.identifier}] Missing hydrogens "
+                               f"{', '.join(expected_atoms[missing_h_atoms])}.")
 
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
         # Get the segment that the residue belongs to
