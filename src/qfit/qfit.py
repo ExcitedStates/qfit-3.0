@@ -551,13 +551,12 @@ class QFitRotamericResidue(_BaseQFit):
                     self.segment = segment
                     break
         if self.segment is None:
-            rtype = residue_type(residue)
+            rtype = residue_type(self.residue)
             if rtype == "rotamer-residue":
-                selection = residue._selection
-                segment = _Segment(structure.data, selection=selection,
-                                   parent=self, residues=[residue])
-                self.segment = segment
-                logger.warning(f"[{self.identifier}] Could not determine protein segment")
+                self.segment = _Segment(self.structure.data, selection=self.residue._selection,
+                                        parent=self.structure, residues=[self.residue])
+                logger.warning(f"[{self.identifier}] Could not determine protein segment. "
+                               f"Using independent protein segment.")
 
         # Set up the clash detector, exclude the bonded interaction of the N and
         # C atom of the residue
