@@ -323,13 +323,22 @@ class _RotamerResidue(_BaseResidue):
                     dihedral_atom_coor = self.coor[np.argwhere(
                                             self.name == dihedral_atom)[0]]
                     break
-        new_coor = self.calc_coordinates(dihedral_atom_coor[0],
-                                         bond_angle_coor[0],
-                                         ref_coor[0],
+
+        logger.debug(f"Rebuilding {atom}:\n"
+                     f"  {dihedral_atom}@{dihedral_atom_coor.flatten()}\n"
+                     f"  {bond_angle_atom}@{bond_angle_coor.flatten()}\n"
+                     f"  {ref_atom}@{ref_coor.flatten()}\n"
+                     f"  length:{bond_length}±{bond_length_sd}\n"
+                     f"  angle:{bond_angle}±{bond_angle_sd}\n"
+                     f"  dihedral_angle:{dihed_angle}")
+        new_coor = self.calc_coordinates(dihedral_atom_coor.flatten(),
+                                         bond_angle_coor.flatten(),
+                                         ref_coor.flatten(),
                                          bond_length,
                                          bond_angle,
                                          dihed_angle)
         new_coor = [round(x, 3) for x in new_coor]
+        logger.info(f"Rebuilt {atom} at {new_coor}")
         self.add_atom(atom, atom[0], new_coor)
 
     def calc_coordinates(self,u, v, Origin, L, bond_angle, dihedral):
