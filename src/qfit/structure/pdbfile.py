@@ -25,6 +25,8 @@ IN THE SOFTWARE.
 
 import gzip
 from collections import defaultdict
+import itertools as itl
+from math import inf
 import logging
 
 
@@ -131,8 +133,10 @@ class PDBFile:
                 # PDB specification says the atom name should start one column in.
                 if len(record['e']) == 1 and not len(record['name']) == 4:
                     record['name'] = " " + record['name']
+
+                # Write file
                 try:
-                    f.write(CoorRecord.fmtstr.format(*record.values()))
+                    f.write(CoorRecord.format_line(record.values()))
                 except TypeError:
                     logger.error(f"PDBFile.write: could not write: {record}")
                 atomid += 1
@@ -147,7 +151,7 @@ class RecordParser(object):
     Deriving classes should have class variables for {fields, columns, dtypes, fmtstr}.
     """
 
-    __slots__ = ("fields", "columns", "dtypes", "fmtstr")
+    __slots__ = ("fields", "columns", "dtypes", "fmtstr", "fmttrs")
 
     @classmethod
     def parse_line(cls, line):
@@ -169,6 +173,64 @@ class RecordParser(object):
                              f"{field} ({line[slice(*column)]}) as {dtype}")
                 values[field] = dtype()
         return values
+
+    @classmethod
+    def format_line(cls, values):
+        """Formats record values into a line.
+
+        Args:
+            values (Iterable[Union[str, int, float]]): Values to be formatted.
+        """
+        assert len(values) == len(cls.fields)
+
+        # Helper
+        flatten = lambda iterable: sum(iterable, ())
+
+        # Build list of spaces
+        column_indices = flatten(cls.columns)
+        space_columns = zip(column_indices[1:-1:2], column_indices[2:-1:2])
+        space_lengths = map(lambda colpair: colpair[1] - colpair[0], space_columns)
+        spaces = map(lambda n: " " * n, space_lengths)
+
+        # Build list of fields
+        field_lengths = map(lambda colpair: colpair[1] - colpair[0], cls.columns)
+        formatted_values = map(lambda args: cls._fixed_length_format(*args),
+                               zip(values, cls.fmttrs, field_lengths, cls.dtypes))
+
+        # Intersperse formatted values with spaces
+        line = itl.zip_longest(formatted_values, spaces, fillvalue="")
+        line = "".join(flatten(line)) + "\n"
+        return line
+
+    @staticmethod
+    def _fixed_length_format(value, formatter, maxlen, dtype):
+        """Formats a value, ensuring the length does not exceed available cols.
+
+        If the value exceeds available length, it will be replaced with a
+            "bad value" marker ('X', inf, or 0).
+
+        Args:
+            value (Union[str, int, float]): Value to be formatted
+            formatter (str): Format-spec string
+            maxlen (int): Maximum width of the formatted value
+            dtype (type): Type of the field
+
+        Returns:
+            str: The formatted value, no wider than maxlen.
+        """
+        field = formatter.format(value)
+        if len(field) > maxlen:
+            if dtype is str:
+                replacement_field = "X" * maxlen
+            elif dtype is float:
+                replacement_field = formatter.format(inf)
+            elif dtype is int:
+                replacement_field = formatter.format(0)
+            logger.warning(f"{field} exceeds field width {maxlen} chars. "
+                           f"Using {replacement_field}.")
+            return replacement_field
+        else:
+            return field
 
 
 class ModelRecord(RecordParser):
@@ -217,6 +279,10 @@ class CoorRecord(RecordParser):
                + '{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}' + ' ' * 3
                + '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}' + ' ' * 10
                + '{:>2s}{:>2s}' + '\n')
+    fmttrs  = ('{:<6s}',
+               '{:>5d}', '{:<4s}', '{:1s}', '{:>3s}', '{:1s}', '{:>4d}', '{:1s}',
+               '{:8.3f}', '{:8.3f}', '{:8.3f}', '{:6.2f}', '{:6.2f}',
+               '{:>2s}', '{:>2s}')
 
 
 class AnisouRecord(RecordParser):
