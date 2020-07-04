@@ -27,6 +27,7 @@ import numpy as np
 import copy
 import math
 import logging
+import itertools as itl
 from .base_structure import _BaseStructure
 from .math import *
 from .rotamers import ROTAMERS
@@ -335,14 +336,63 @@ class _RotamerResidue(_BaseResidue):
                                          bond_angle_coor.flatten(),
                                          ref_coor.flatten(),
                                          bond_length,
+                                         bond_length_sd,
                                          np.deg2rad(bond_angle),
+                                         np.deg2rad(bond_angle_sd),
                                          np.deg2rad(dihed_angle))
         new_coor = [round(x, 3) for x in new_coor]
         logger.info(f"Rebuilt {atom} at {new_coor}")
         self.add_atom(atom, atom[0], new_coor)
 
     @staticmethod
-    def calc_coordinates(i, j, k, L, theta, chi):
+    def calc_coordinates(i, j, k, L, sig_L, theta, sig_theta, chi):
+        """Calculate coords of an atom from three atomic positions and bond parms.
+
+        Will permit deviations in bond length or theta to position an atom.
+
+        TODO: Use a solver to minimise error in both L and theta.
+
+        Args:
+            i (np.ndarray[float, shape=(3,)]): coords of atom 3-bonds away
+            j (np.ndarray[float, shape=(3,)]): coords of atom 2-bonds away
+            k (np.ndarray[float, shape=(3,)]): coords of neighbouring atom
+            L (float): bond length
+            sig_L (float): standard deviation of bond length
+            theta (float): bond angle (in radians)
+            sig_theta (float): standard deviation of bond angle (in radians)
+            chi (float): dihedral angle (in radians)
+
+        Returns:
+            np.ndarray[float, shape=(3,): coords of atom
+        """
+        # We will try these parameters
+        theta_options_larger = np.sum(np.linspace(theta, theta + sig_theta, 5, endpoint=False, retstep=True))
+        theta_options_smaller = np.sum(np.linspace(theta, theta - sig_theta, 5, endpoint=False, retstep=True))
+        theta_options = [theta, *np.ravel(list(zip(theta_options_larger, theta_options_smaller)))]
+
+        L_options_larger = np.sum(np.linspace(L, L + sig_L, 5, endpoint=False, retstep=True))
+        L_options_smaller = np.sum(np.linspace(L, L - sig_L, 5, endpoint=False, retstep=True))
+        L_options = [L, *np.ravel(list(zip(L_options_larger, L_options_smaller)))]
+
+        tries = itl.product(theta_options, L_options)
+
+        # Loop over parameters, and return the first success.
+        for try_theta, try_L in tries:
+            try:
+                coordinates = _RotamerResidue.position_from_bond_parms(i, j, k, try_L, try_theta, chi)
+            except ValueError:
+                # If these parameters didn't work, try the next set.
+                continue
+            else:
+                return coordinates
+
+        # If we get here, we can't rebuild the atom according to our parameters.
+        raise RuntimeError(f"Could not determine position. "
+                           f"Exhausted L ∈ [{L - sig_L:.2f}, {L + sig_L:.2f}] and "
+                           f"theta ∈ [{theta - sig_theta:.2f}, {theta + sig_theta:.2f}]")
+
+    @staticmethod
+    def position_from_bond_parms(i, j, k, L, theta, chi):
         """Calculate coords of a 4th atom from 3 atomic coords and bond parms.
 
         Args:
