@@ -58,7 +58,7 @@ fi
 obstypes="FP FOBS F-obs IOBS"
 
 # Get amplitude fields
-ampfields=`grep "amplitude" <<< "${mtzmetadata}"`
+ampfields=`grep -E "amplitude|intensity" <<< "${mtzmetadata}"`
 ampfields=`echo "${ampfields}" | awk '{$1=$1};1' | cut -d " " -f 1`
 
 # Clear xray_data_labels variable
