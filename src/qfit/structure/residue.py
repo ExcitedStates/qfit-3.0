@@ -307,6 +307,8 @@ class _RotamerResidue(_BaseResidue):
                                                     ref_coor[0],
                                                     other_dihedral_atom_coor[0]
                                                     ])
+                                    if dihed_angle > 180:
+                                        dihed_angle -= 360  # wrap to (-180, 180]
                                 except:
                                     dihed_angle = 180
                                     dihed_angle += dihedral_angle([
@@ -315,6 +317,8 @@ class _RotamerResidue(_BaseResidue):
                                                     ref_coor[0],
                                                     other_dihedral_atom_coor[0]
                                                     ])
+                                    if dihed_angle > 180:
+                                        dihed_angle -= 360  # wrap to (-180, 180]
                             else:
                                 dihed_angle = dihedral[1][0]
                             break
