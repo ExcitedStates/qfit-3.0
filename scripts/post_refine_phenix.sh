@@ -55,7 +55,7 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes="FP FOBS F-obs IOBS"
+obstypes="FP FOBS F-obs I IOBS I-obs"
 
 # Get amplitude fields
 ampfields=`grep -E "amplitude|intensity" <<< "${mtzmetadata}"`
