@@ -586,6 +586,8 @@ class QFitRotamericResidue(_BaseQFit):
         for symop in iterator(self.structure, target=self.residue, cushion=5):
             if symop.is_identity():
                 continue
+            logger.debug(f"[{self.identifier}] Building symmetry partner for clash_detector: [R|t]\n"
+                         f"{symop}")
             self.structure.rotate(symop.R)
             self.structure.translate(symop.t)
             receptor = receptor.combine(self.structure)
