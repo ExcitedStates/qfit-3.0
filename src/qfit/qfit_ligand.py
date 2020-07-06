@@ -242,7 +242,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options)
+    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options = options)
 
     time0 = time.time()
     qfit_ligand.run()
@@ -267,4 +267,7 @@ def main():
     fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
-    multiconformer.tofile(fname)
+    try:
+        multiconformer.tofile(fname)
+    except Exception:
+        logger.error("qFit-ligand failed to produce any valid conformers.")
