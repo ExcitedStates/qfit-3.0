@@ -102,6 +102,10 @@ phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false pdb_file_name="${multiconf}.f_modified.pdb"
+# If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
+if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
+  cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
+fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
