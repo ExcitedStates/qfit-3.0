@@ -28,6 +28,7 @@ import sys
 import numpy as np
 import random
 import copy
+import tqdm
 from .vdw_radii import vdwRadiiTable, EpsilonTable
 from .structure import Structure
 
@@ -146,7 +147,11 @@ class Relabeller:
         energyList.append(np.sum(energies))
         # print(f"Starting energy: {energyList[-1]}")
 
-        for i in range(self.nSims):
+        for i in tqdm.trange(self.nSims, unit="sims",
+                             desc="Annealing progress",
+                             unit_scale=True,
+                             leave=False,
+                             miniters=1):
             # update_progress(i/self.nSims)
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
@@ -214,8 +219,10 @@ class Relabeller:
         perm = []
         energyList = []
 
-        for i in range(self.nChains):
-            # print(f"\nRunning iteration {i+1} of Simulated Annealing")
+        for i in tqdm.trange(self.nChains, unit="runs",
+                             desc="SA macrocycle",
+                             unit_scale=True,
+                             leave=True):
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)
