@@ -892,7 +892,8 @@ class QFitRotamericResidue(_BaseQFit):
 
             if len(self._coor_set) > 15000:
                 logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
-                               f"Reverting back to previous iteration of degrees of freedom.")
+                               f"Reverting to a previous iteration of degrees of freedom: item 0. "
+                               f"n_coords: {[len(cs) for (cs) in iter_coor_set]}")
                 self._coor_set = iter_coor_set[0]
 
             if not self._coor_set:
