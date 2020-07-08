@@ -466,6 +466,12 @@ class _RotamerResidue(_BaseResidue):
 
         discriminant = b**2 - 4*c
         if discriminant < 0:
+            logger.debug(f"Bond parameters too restrictive!\n"
+                         f"  u, v: {u, v}\n"
+                         f"  r0: {r0}\n"
+                         f"  unit_vw: {unit_vw}\n"
+                         f"  b, c: {b, c}\n"
+                         f"  discriminant: {discriminant:.2e}")
             raise ValueError(f"Could not determine position to rebuild atom. "
                              f"Discriminant: {discriminant:.2e}")
 
