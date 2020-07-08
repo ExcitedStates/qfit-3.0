@@ -26,10 +26,15 @@
 import numpy as np
 import copy
 import math
+import logging
 from .base_structure import _BaseStructure
 from .math import *
 from .rotamers import ROTAMERS
 import time
+
+
+logger = logging.getLogger(__name__)
+
 
 _PROTEIN_BACKBONE_ATOMS = ['N', 'CA', 'C']
 _NUCLEOTIDE_BACKBONE_ATOMS = ['P', "O5'", "C5'", "C4'", "C3'", "O3"]
