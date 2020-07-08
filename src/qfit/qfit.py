@@ -538,7 +538,9 @@ class QFitRotamericResidue(_BaseQFit):
                 logger.warning(f"[{self.identifier}] Missing hydrogens "
                                f"{', '.join(expected_atoms[missing_h_atoms])}.")
 
+        # Ensure clash detection matrix is filled.
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
+
         # Get the segment that the residue belongs to
         self.segment = None
         for segment in self.structure.segments:
@@ -584,6 +586,7 @@ class QFitRotamericResidue(_BaseQFit):
             if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
                 coor = C_neighbor._coor[neighbor_N_index]
                 exclude.append((C_index, coor))
+
         # Obtain atoms with which the residue can clash
         resi, icode = residue.id
         chainid = self.segment.chain[0]
@@ -593,6 +596,7 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             sel_str = f"not (resi {resi} and chain {chainid})"
             receptor = self.structure.extract(sel_str).copy()
+
         # Find symmetry mates of the receptor
         starting_coor = self.structure.coor.copy()
         iterator = self.xmap.unit_cell.iter_struct_orth_symops
