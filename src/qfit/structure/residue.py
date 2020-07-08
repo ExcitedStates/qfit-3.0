@@ -533,6 +533,15 @@ class _RotamerResidue(_BaseResidue):
                                 np.linalg.norm(v) * np.dot(np.cross(u, v), np.cross(pos, v)))
                      for pos in positions]
         correct_chi = np.isclose(calc_chis, chi)
+
+        # We have calculated atom positions. If there are no correct_chi, this
+        # seems to occur from rounding errors at the edges of (-π, π].
+        if correct_chi.sum() == 0:
+            logger.debug(f"No valid chi results:\n"
+                         f"  chi / calc_chis: {chi}/({calc_chis})\n"
+                         f"  correct_chi: {correct_chi}")
+            raise ValueError(f"Couldn't determine a matching chi.")
+
         x = positions[correct_chi][0]  # if discriminant~0, this has identical sols. Take the first.
         x += k
         return x
