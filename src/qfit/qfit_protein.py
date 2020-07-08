@@ -408,10 +408,13 @@ class QFitProtein:
                                     xmap_reduced, options)
         try:
             qfit.run()
-        except RuntimeError:
+        except RuntimeError as e:
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
             logger.warning(f"[{qfit.identifier}] "
                            f"Unable to produce an alternate conformer. "
                            f"Using deposited conformer A for this residue.")
+            logger.info(f"[{qfit.identifier}] This is a result of the following exception:\n"
+                        f"{tb})")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
