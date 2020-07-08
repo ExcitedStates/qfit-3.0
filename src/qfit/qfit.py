@@ -193,7 +193,7 @@ class _BaseQFit:
             simple=self._simple,
             scattering=self.options.scattering,
         )
-        logger.debug("Initializing radial density lookup table.")
+        logger.debug("[_BaseQFit._update_transformer]: Initializing radial density lookup table.")
         self._transformer.initialize()
 
     def _subtract_transformer(self, residue, structure):
