@@ -526,6 +526,9 @@ class QFitRotamericResidue(_BaseQFit):
             residue = structure[self.chain].conformers[0][residue.id]
             super().__init__(residue, structure, xmap, options)
             self.residue = residue
+            if self.options.debug:
+                fname = os.path.join(self.options.directory, "rebuilt_residue.pdb")
+                self.residue.tofile(fname)
 
         # If including hydrogens, report if any H are missing
         if options.hydro:
