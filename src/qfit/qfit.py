@@ -534,6 +534,7 @@ class QFitRotamericResidue(_BaseQFit):
                 if (len(segment[index].name) == len(self.residue.name)) and \
                         (segment[index].altloc[-1] == self.residue.altloc[-1]):
                     self.segment = segment
+                    logger.info(f"[{self.identifier}] index {index} in {segment}")
                     break
         if self.segment is None:
             rtype = residue_type(residue)
