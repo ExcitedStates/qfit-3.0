@@ -335,40 +335,151 @@ class _RotamerResidue(_BaseResidue):
                                          bond_angle_coor.flatten(),
                                          ref_coor.flatten(),
                                          bond_length,
-                                         bond_angle,
-                                         dihed_angle)
+                                         np.deg2rad(bond_angle),
+                                         np.deg2rad(dihed_angle))
         new_coor = [round(x, 3) for x in new_coor]
         logger.info(f"Rebuilt {atom} at {new_coor}")
         self.add_atom(atom, atom[0], new_coor)
 
-    def calc_coordinates(self,u, v, Origin, L, bond_angle, dihedral):
-        a=u-Origin
-        b=v-Origin
-        # Find the normal vector that defines the plane between a and b
-        n = np.cross(a, b)
-        AX,AY,AZ = list(a) ## a vector
-        BX,BY,BZ = list(b) ## b vector
-        A ,B ,C  = list(n) ## n vector
-        # CALCULATE COORDINATES OF ATOM IF POSITIONED COPLANAR TO BOND ATOMS AT LENGTH L AND ANGLE BOND_ANGLE
-        F = np.linalg.norm(b)  * np.cos(np.deg2rad(bond_angle))
-        denom= (B*B)*(BX*BX+BZ*BZ)+ (A*A)*(BY*BY+BZ*BZ) + (BX*BX+BY*BY)*(C*C) - (2*A*BX*BZ*C) - (2*B*BY)*(A*BX+BZ*C)
-        const= L * np.abs(B*BZ-BY*C) * np.sqrt(-F * F * np.inner(n,n)+denom)
-        X= (  L*F*((B*B*BX)-(A*B*BY)+C*(-A*BZ+BX*C)) + const )/denom
-        if((B==0 or BZ==0) and (BY==0 or C==0)):
-            const1=math.sqrt( C*C*(-A*A*X*X+(B*B+C*C)*(L-X)*(L+X)))
-            Y= ((-A*B*X)+const1)/(B*B+C*C)
-            Z= -(A*C*C*X+B*const1)/(C*(B*B+C*C))
-        else:
-            Y= ((A*A*BY*F*L)*(B*BZ-BY*C)+ C*( -F*L*math.pow(B*BZ-BY*C,2) + BX*const) - A*( B*B*BX*BZ*F*L- B*BX*BY*F*L*C + BZ*const)) / ((B*BZ-BY*C)*denom)
-            Z= ((A*A*BZ*F*L)*(B*BZ-BY*C) + (B*F*L)*math.pow(B*BZ-BY*C,2) + (A*BX*F*L*C)*(-B*BZ+BY*C) - B*BX*const + A*BY*const) / ((B*BZ-BY*C)*denom)
-        # Translate the new vector to the correct coordinate
-        D=np.array([X, Y, Z]) + Origin
-        # Calculate how much we need to rotate the dihedral angle:
-        dihedral=dihedral-dihedral_angle([u, v, Origin, D])
-        # Calculate the rotation matrix
-        Rotation = Rv(Origin-v,np.deg2rad(dihedral))
-        # Rotate the dihedral angle by 'dihedral' degrees and translate the vector back:
-        return np.squeeze(np.asarray(np.dot(Rotation,(D-v))+v))
+    @staticmethod
+    def calc_coordinates(i, j, k, L, theta, chi):
+        """Calculate coords of a 4th atom from 3 atomic coords and bond parms.
+
+        Args:
+            i (np.ndarray[float, shape=(3,)]): coords of atom 3-bonds away
+            j (np.ndarray[float, shape=(3,)]): coords of atom 2-bonds away
+            k (np.ndarray[float, shape=(3,)]): coords of neighbouring atom
+            L (float): bond length
+            theta (float): bond angle (in radians)
+            chi (float): dihedral angle (in radians)
+
+        Returns:
+            np.ndarray[float, shape=(3,): coords of atom
+        """
+
+        # First, calculate distance vectors u = vec(ji); v = vec(kj)
+        u = i - j
+        v = j - k
+
+        # Our task here is to find x, the distance vector < a_x, b_x, c_x >
+        #     from k to our new atom.
+
+        # Equation 1: plane (derived from θ)
+        # ==================================
+        #   x . v
+        # ---------   = cosθ
+        #  ‖x‖ ‖v‖
+        #       x . v = ‖v‖ L cosθ
+        #
+        #     Let  C1 = ‖v‖ L cosθ
+        #
+        #       x . v = C1
+
+        C1 = np.linalg.norm(v) * L * np.cos(theta)
+
+        # If v is normalized
+        norm_v = v / np.linalg.norm(v)
+        norm_C1 = L * np.cos(theta)
+
+        # Equation 2: plane (derived from χ)
+        # ==================================
+        # https://en.wikipedia.org/wiki/Dihedral_angle#Mathematical_background
+        #        v . (( x × v ) × ( u × v ))
+        #       ----------------------------- = sinχ
+        #         ‖ v ‖ ‖ u × v ‖ ‖ x × v ‖
+        #
+        #     But, ‖ x × v ‖ = ‖x‖ ‖v‖ sinθ = ‖v‖ L sinθ
+        #         v . (( x × v ) × ( u × v )) = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
+        #     Flipping the cross products
+        #         v . (( v × x ) × ( v × u )) = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
+        #     Factoring a scalar triple product out of the vector product
+        #              v . (( v . ( x × u ))v = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
+        #     Noting that this is simply ( v . f v ), which is f * ‖v‖^2
+        #           (( v . ( x × u )) * ‖v‖^2 = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
+        #     Rotating the scalar triple product, cancelling ‖v‖^2
+        #                       x . ( u × v ) = ‖ u × v ‖ L sinθ sinχ
+        #
+        #     Let                           w = u × v
+        #                                  C2 = ‖ u × v ‖ L sinθ sinχ
+        #
+        #                               x . w = C2
+
+        w = np.cross(u, v)
+        C2 = np.linalg.norm(np.cross(u, v)) * L * np.sin(theta) * np.sin(chi)
+
+        # Normalizing this vector
+        norm_w = w / np.linalg.norm(w)
+        norm_C2 = L * np.sin(theta) * np.sin(chi)
+
+        # Intersection of planes to construct a line
+        # ==========================================
+        # https://en.wikipedia.org/wiki/Plane_(geometry)#Line_of_intersection_between_two_planes
+
+        # The cross product of the normals to the two planes will be a line
+        #     direction, co-linear to the line of intersection.
+
+        # The line of intersection between two planes
+        #     Π_1: n1 . r = h1
+        #     Π_2: n2 . r = h2
+        #     where n_i are normalized can be written as:
+        #
+        #     r = k(n1 × n2) + r0
+        #
+        #     If n1 and n2 are orthonormal, r0 is
+        #           r0 = n1 h1 + n2 h2
+
+        # Since w = u × v, v ⟂ w, and 
+        r0 = norm_v * norm_C1 + norm_w * norm_C2
+
+        # Calculate a unit vector along the line from v × w
+        unit_vw = np.cross(v, w) / np.linalg.norm(np.cross(v, w))
+
+        # Equation 3: sphere (derived from L)
+        # ==================================
+        # a_x^2 + b_x^2 + c_x^2 - L^2 = 0
+
+        # Intersection of sphere with line to determine points
+        # ====================================================
+        # https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+
+        # Here, we have our sphere:
+        #     ‖x‖^2 = L^2
+        # where x are the points on the sphere.
+
+        # We also have a line:
+        #     x = k l + r0
+        # where x are points on the line,
+        #       k is a distance along the line
+        #       l is a unit vector along the line
+        #       r0 is the origin of the line.
+
+        # Combining these two equations
+        #     L^2 = ‖ r0 + k l ‖^2
+        #         = (r0 + k l) . (r0 + k l)
+        #       0 = k^2 (l . l)  +  k (2 r0 . l)  +  (r0 . r0 - L^2)
+        # which is a quadratic in k.
+        # l is a unit vector, so:
+        #       0 = k^2 (1)  +  k (2 r0 . l)  +  (r0 . r0 - L^2)
+
+        b = 2 * np.dot(unit_vw, r0)
+        c = np.dot(r0, r0) - L**2
+
+        discriminant = b**2 - 4*c
+        if discriminant < 0:
+            raise ValueError(f"Could not determine position to rebuild atom. "
+                             f"Discriminant: {discriminant:.2e}")
+
+        # Solve the quadratic, and determine 2 potential atom positions.
+        # Resolve ambiguity of chi with 2-arg arctan.
+        # Translate correct coordinate (it was calc'd relative to k).
+        positions = r0 + unit_vw * np.roots([1., b, c])[:, np.newaxis]
+        calc_chis = [np.arctan2(np.dot(v, np.cross(np.cross(pos, v), np.cross(u, v))),
+                                np.linalg.norm(v) * np.dot(np.cross(u, v), np.cross(pos, v)))
+                     for pos in positions]
+        correct_chi = np.isclose(calc_chis, chi)
+        x = positions[correct_chi][0]  # if discriminant~0, this has identical sols. Take the first.
+        x += k
+        return x
 
     def add_atom(self, name, element, coor):
         index = self._selection[-1]
