@@ -29,8 +29,12 @@ import numpy as np
 import random
 import copy
 import tqdm
+import logging
 from .vdw_radii import vdwRadiiTable, EpsilonTable
 from .structure import Structure
+
+
+logger = logging.getLogger(__name__)
 
 
 def cartesian_product(*arrays):
@@ -145,7 +149,7 @@ class Relabeller:
 
         # Sum the energy of each cluster:
         energyList.append(np.sum(energies))
-        # print(f"Starting energy: {energyList[-1]}")
+        logger.debug(f"Starting energy: {energyList[-1]}")
 
         for i in tqdm.trange(self.nSims, unit="sims",
                              desc="Annealing progress",
@@ -204,7 +208,6 @@ class Relabeller:
                 b=cartesian_product(cluster,cluster)
                 tmpEnergies[i] = np.sum(self.metric[b[:,0],b[:,1]])/2
 
-            #print(f" {np.sum(tmpEnergies)}")
             # If the new energy is better than the old one:
             if  np.sum(energies) >= np.sum(tmpEnergies) or np.exp(-(np.sum(tmpEnergies)-np.sum(energies))/temperature) >= np.random.uniform() :
                 energies = tmpEnergies[:]
@@ -212,7 +215,7 @@ class Relabeller:
                 permutation = copy.deepcopy(tmpPerm)
                 energyList.append(np.sum(energies))
 
-        # print(f"Locally optimal energy: {energyList[-1]}")
+        logger.debug(f"Final locally optimal energy: {energyList[-1]}")
         return energyList[-1], permutation
 
     def run(self):
