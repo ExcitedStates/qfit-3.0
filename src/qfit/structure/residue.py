@@ -336,16 +336,20 @@ class _RotamerResidue(_BaseResidue):
                      f"  length:{bond_length}±{bond_length_sd}\n"
                      f"  angle:{bond_angle}±{bond_angle_sd}\n"
                      f"  dihedral_angle:{dihed_angle}")
-        new_coor = self.calc_coordinates(dihedral_atom_coor.flatten(),
-                                         bond_angle_coor.flatten(),
-                                         ref_coor.flatten(),
-                                         bond_length,
-                                         bond_length_sd,
-                                         np.deg2rad(bond_angle),
-                                         np.deg2rad(bond_angle_sd),
-                                         np.deg2rad(dihed_angle))
-        new_coor = [round(x, 3) for x in new_coor]
-        logger.info(f"Rebuilt {atom} at {new_coor}")
+        try:
+            new_coor = self.calc_coordinates(dihedral_atom_coor.flatten(),
+                                             bond_angle_coor.flatten(),
+                                             ref_coor.flatten(),
+                                             bond_length,
+                                             bond_length_sd,
+                                             np.deg2rad(bond_angle),
+                                             np.deg2rad(bond_angle_sd),
+                                             np.deg2rad(dihed_angle))
+            new_coor = [round(x, 3) for x in new_coor]
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to rebuild atom {atom}.") from e
+        else:
+            logger.info(f"Rebuilt {atom} at {new_coor}")
         self.add_atom(atom, atom[0], new_coor)
 
     @staticmethod

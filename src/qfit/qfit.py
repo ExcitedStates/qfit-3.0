@@ -503,9 +503,13 @@ class QFitRotamericResidue(_BaseQFit):
         if np.any(missing_atoms):
             logger.info(f"[{self.identifier}] {', '.join(expected_atoms[missing_atoms])} "
                         f"are not in structure. Rebuilding residue.")
-            self.residue.complete_residue()
-            logger.debug(f"[{self.identifier}] Rebuilt. Now has {', '.join(self.residue.name)} atoms.\n"
-                         f"{self.residue.coor}")
+            try:
+                self.residue.complete_residue()
+            except RuntimeError as e:
+                raise RuntimeError(f"[{self.identifier}] Unable to rebuild residue.") from e
+            else:
+                logger.debug(f"[{self.identifier}] Rebuilt. Now has {', '.join(self.residue.name)} atoms.\n"
+                             f"{self.residue.coor}")
 
             # Rebuild to include the new residue atoms
             index = len(self.structure.record)
