@@ -31,14 +31,14 @@ import numpy as np
 
 
 def main():
-    package_dir = {'': 'src'}
-    packages = find_packages('src')
+    package_dir = {'':'src'}
+    packages = find_packages('src') #include=['scripts']#'tests', 'tests.*'])#[, 'src.qfit.*','scripts', 'scripts.*']) #scripts', 'scripts.*'
+    print(packages)
     package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
-
     ext_modules = [Extension("qfit._extensions",
                              [os.path.join("src", "_extensions.c")],
-                             include_dirs=[np.get_include()],),
-                   ]
+                             include_dirs=[np.get_include()],)]
+    
     setup_requires = [
         'setuptools_scm',
     ]
@@ -51,8 +51,9 @@ def main():
 
     setup(name="qfit",
           use_scm_version=True,
-          author='Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
+          author='Gydo C.P. van Zundert, Blake Riley, Stephanie A. Wankowicz, Saulo H.P. de Oliveira, and Henry van den Bedem',
           author_email='saulo@stanford.edu',
+          project_urls={'Documentation': 'https://github.com/ExcitedStates/qfit-3.0/'},
           package_dir=package_dir,
           packages=packages,
           package_data=package_data,
@@ -60,6 +61,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
+          python_requires='>=3.6', 
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
@@ -74,18 +76,18 @@ def main():
                   'relabel = qfit.relabel:main',
                   'remove_altconfs = qfit.remove_altconfs:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
-                  'compare_apo_holo = qfit.compare_apo_holo:main',
-                  'find_altlocs_near_ligand = qfit.find_altlocs_near_ligand:main',
-                  'redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main',
-                  'RMSF = qfit.qfit_RMSF:main',
-                  'b_factor = qfit.b_factor:main',
+                  'redistribute_cull_low_occupancies = src.qfit.redistribute_cull_low_occupancies:main',
                   'fix_restraints = qfit.fix_restraints:main',
-                  'get_metrics = qfit.get_metrics:main',
-                  'find_altlocs = qfit.find_altlocs_near_ligand:main',
                   'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
-                  'find_largest_lig = qfit.find_largest_lig:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main'
+                  'find_largest_lig = scripts.post_analysis_scripts.find_largest_lig:main',
+                  'find_altlocs = scripts.post_analysis_scripts.find_altlocs_near_ligand:main',
+                  'RMSF = scripts.post_analysis_scripts.qfit_RMSF:main',
+                  'find_altlocs_near_ligand = scripts.post_analysis_scripts.find_altlocs_near_ligand:main',
+                  'compare_apo_holo = scripts.compare_apo_holo:main',
+                  'get_metrics = qfit.get_metrics:main',
+                  'b_factor = scripts.b_factor:main',
               ]},
           )
 
