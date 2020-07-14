@@ -8,15 +8,15 @@ Contact: vdbedem@stanford.edu
 '''
 
 import pkg_resources  # part of setuptools
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit_protein import QFitProteinOptions, QFitProtein
+from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
+from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os
 import sys
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from math import ceil
-from .qfit import MapScaler, Structure, XMap
+from qfit.qfit import MapScaler, Structure, XMap
 from qfit.structure.base_structure import _BaseStructure
 
 

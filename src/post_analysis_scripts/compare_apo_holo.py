@@ -5,8 +5,8 @@ import os
 import sys
 import time
 from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
+from qfit.structure import Structure
+from Structure import residue_type
 
 
 def parse_args():
