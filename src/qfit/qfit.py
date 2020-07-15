@@ -1184,13 +1184,17 @@ class QFitLigand(_BaseQFit):
         self.receptor = receptor
         self.xmap = xmap
         self.options = options
+        self.options.remove_conformers_below_cutoff = True #debug
+        self.options.subtract = True #debug
+        #self.options.randomize_b = True #debug
         csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
         # External clash detection:
-        self._cd = ClashDetector(ligand, receptor, scaling_factor=csf)
-
+        self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)
+        receptor.tofile('clash_receptor.pdb') #debug
+        
         # Determine which roots to start building from
         self._rigid_clusters = ligand.rigid_clusters()
         self.roots = None
@@ -1200,7 +1204,7 @@ class QFitLigand(_BaseQFit):
                 nhydrogen = (self.ligand.e[cluster] == 'H').sum()
                 if len(cluster) - nhydrogen > 1:
                     self._clusters_to_sample.append(cluster)
-        # logger.debug(f"Number of clusters to sample: {len(self._clusters_to_sample)}")
+        logger.debug(f"Number of clusters to sample: {len(self._clusters_to_sample)}")
 
         # Initialize the transformer
         if options.subtract:
@@ -1235,6 +1239,7 @@ class QFitLigand(_BaseQFit):
         # TODO: Check why we don't run QP here.
 
         # MIQP score conformer occupancy
+        logger.info("Solving MIQP.")
         self._convert()
         self._solve(threshold=self.options.threshold,
                     cardinality=self.options.cardinality)
@@ -1303,8 +1308,10 @@ class QFitLigand(_BaseQFit):
             return
 
         # QP score conformer occupancy
+        logger.debug("Converting densities.")
         self._convert()
         self._solve()
+        logger.debug("Updating conformers")
         self._update_conformers()
         if self.options.debug:
             self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
