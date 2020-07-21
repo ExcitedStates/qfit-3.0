@@ -105,13 +105,13 @@ def build_argparser():
                    metavar="<float>", type=float,
                    help="Backbone random-sampling displacement (Å).")
     p.add_argument('-sa', "--no-sample-angle", action="store_false", dest="sample_angle",
-                   help="Do not sample N-CA-CB angle.")
+                   help="Do not sample CA-CB-CG angle.")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling step in degrees.")
+                   help="CA-CB-CG bond angle sampling step in degrees.")
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling range in degrees [-x,x].")
+                   help="CA-CB-CG bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
                    help="Number of internal degrees that are sampled/built per iteration.")

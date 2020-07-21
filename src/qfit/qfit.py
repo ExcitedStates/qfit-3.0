@@ -600,7 +600,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.sample_backbone:
             self._sample_backbone()
 
-        if self.options.sample_angle and self.residue.resn[0] != 'PRO' and self.residue.resn[0] != 'GLY':
+        if self.options.sample_angle:
             self._sample_angle()
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
@@ -724,21 +724,43 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_angle(self):
-        """Sample residue along the N-CA-CB angle."""
-        active_names = ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA')
+        """Sample residue conformations by flexing α-β-γ angle.
+
+        Only operates on residues with large aromatic sidechains
+            (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
+        Here, slight deflections of the ring are likely to lead to better-
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
+
+        This angle does not exist in {Gly, Ala}, and it does not make sense to
+            sample this angle in Pro.
+
+        We choose not to do this sampling on smaller amino acids for reason of
+            a trade-off in complexity. Sampling the α-β-γ angle increases the
+            amount & density of sampled conformations, but is unlikely to yield
+            better quality sampling (conformations with good matches to
+            electron density). In the case of Arg, the planar aromatic region
+            does not start at CG. Later χ angles are more effective at moving
+            the guanidinium group.
+        """
+        # Only operate on aromatics!
+        if self.resn not in ("TRP", "TYR", "PHE", "HIS"):
+            logger.debug(f"[{self.identifier}] Not F/H/W/Y. Cα-Cβ-Cγ angle sampling skipped.")
+            return
+
+        # Limit active atoms
+        active_names = ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA', 'CG', 'HB2', 'HB3')
         selection = self.residue.select('name', active_names)
         self.residue.active = False
         self.residue._active[selection] = True
         self.residue.update_clash_mask()
-        active = self.residue.active
-        if self.residue.resn[0] == "TYR" or self.residue.resn[0] == "PHE" or self.residue.resn[0] == "HIS":
-            angles = np.arange(-self.options.sample_angle_range - self.options.sample_angle_step,
-                               self.options.sample_angle_range + self.options.sample_angle_step + 0.01,
-                               self.options.sample_angle_step)
-        else:
-            angles = np.arange(-self.options.sample_angle_range,
-                               self.options.sample_angle_range + 0.001,
-                               self.options.sample_angle_step)
+        active_mask = self.residue.active
+
+        # Define sampling range
+        angles = np.arange(-self.options.sample_angle_range,
+                           self.options.sample_angle_range + self.options.sample_angle_step,
+                           self.options.sample_angle_step)
+
+        # Commence sampling, building on each existing conformer in self._coor_set
         new_coor_set = []
         new_bs = []
         for coor in self._coor_set:
@@ -747,19 +769,26 @@ class QFitRotamericResidue(_BaseQFit):
             for angle in angles:
                 rotator(angle)
                 coor = self.residue.coor
+
+                # Move on if these coordinates are unsupported by density
                 if self.options.remove_conformers_below_cutoff:
-                    values = self.xmap.interpolate(coor[active])
-                    mask = (self.residue.e[active] != "H")
+                    values = self.xmap.interpolate(coor[active_mask])
+                    mask = (self.residue.e[active_mask] != "H")
                     if np.min(values[mask]) < self.options.density_cutoff:
                         continue
+
+                # Move on if these coordinates cause a clash
                 if self.options.external_clash:
                     if self._cd() and self.residue.clashes():
                         continue
                 elif self.residue.clashes():
                     continue
+
+                # Valid, non-clashing conformer found!
                 new_coor_set.append(self.residue.coor)
                 new_bs.append(self.conformer.b)
 
+        # Update sampled coords
         self._coor_set = new_coor_set
         self._bs = new_bs
         if self.options.debug:
