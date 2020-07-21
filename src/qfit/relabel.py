@@ -27,9 +27,15 @@ import argparse
 import sys
 import numpy as np
 import random
+import itertools as itl
 import copy
-from .vdw_radii import vdwRadiiTable, EpsilonTable
+import tqdm
+import logging
+from .vdw_radii import vdwRadiiTable, EpsilonTable, EpsilonIndex, EpsilonArray
 from .structure import Structure
+
+
+logger = logging.getLogger(__name__)
 
 
 def cartesian_product(*arrays):
@@ -38,26 +44,6 @@ def cartesian_product(*arrays):
     for i, a in enumerate(np.ix_(*arrays)):
         arr[..., i] = a
     return arr.reshape(-1, la)
-
-
-def update_progress(progress):
-    barLength = 20  # Modify this to change the length of the progress bar
-    status = ""
-    if isinstance(progress, int):
-        progress = float(progress)
-    if not isinstance(progress, float):
-        progress = 0
-        status = "error: progress var must be float\r\n"
-    if progress < 0:
-        progress = 0
-        status = "Halt...\r\n"
-    if progress >= 1:
-        progress = 1
-        status = "Done...\r\n"
-    block = int(round(barLength*progress))
-    text = "\rProgress: [{0}] {1:2.0f}% {2}".format( "#"*block + "-"*(barLength-block), progress*100, status)
-    sys.stdout.write(text)
-    sys.stdout.flush()
 
 
 class RelabellerOptions:
@@ -78,15 +64,14 @@ class Relabeller:
 
     def __init__(self, structure, options):
         self.structure = structure
-        self.nSims  = options.nSims
-        self.nChains= options.nChains
+        self.nSims = options.nSims
+        self.nChains = options.nChains
 
-        self.nodes    = []
+        self.nodes = []
         self.permutation = []
         self.initNodes()
 
-        self.metric = np.full((len(self.nodes),len(self.nodes)),0.0)
-        self.initMetric()
+        self.metric = self.initMetric()
 
     def initNodes(self):
         node = 0
@@ -102,29 +87,60 @@ class Relabeller:
                 self.permutation.append(resInd)
 
     def initMetric(self):
-        # print("Calculating all possible Van der Waals interactions:")
-        for i in range(len(self.nodes)):
-            for j in range(i+1,len(self.nodes)):
-                if self.nodes[i].resi[0]!=self.nodes[j].resi[0] or self.nodes[i].chain[0]!=self.nodes[j].chain[0]:
-                    self.metric[i][j] = self.calc_energy(self.nodes[i],self.nodes[j])
-                    self.metric[j][i] = self.metric[i][j]
-            # update_progress(i/len(self.nodes))
+        # How many calcs are needed?
+        n = len(self.nodes)
+        n_combos = n * (n + 1) // 2  # triangular number
 
+        # Build metric array
+        metric = np.zeros((len(self.nodes), len(self.nodes)))
+        node_pairs = itl.combinations_with_replacement(enumerate(self.nodes), r=2)
+        with tqdm.tqdm(node_pairs, total=n_combos, desc="Pairwise interactions", leave=True) as pbar:
+            for ((i, node1), (j, node2)) in pbar:
+                if node1.resi[0] != node2.resi[0] or node1.chain[0] != node2.chain[0]:
+                    metric[i, j] = self.pairwise_residue_energy(node1, node2)
 
-    def vdw_energy(self,atom1, atom2, coor1, coor2):
-        e = EpsilonTable[atom1][atom2]
-        s = (vdwRadiiTable[atom1]+vdwRadiiTable[atom2]) / 1.122
-        r = np.linalg.norm(coor1 - coor2)
-        return 4 * e * (np.power(s/r, 12) - np.power(s/r, 6))
+        # We have filled in the upper triangle, now fill in the lower
+        metric += np.tril(metric.T, k=-1)
 
-    def calc_energy(self, node1, node2):
-        energy = 0.0
-        if np.linalg.norm(node1.coor[0]-node2.coor[0]) < 16.0:
-            for name1,ele1,coor1 in zip(node1.name,node1.e,node1.coor):
-                for name2,ele2,coor2 in zip(node2.name,node2.e,node2.coor):
-                    if name1 not in ["N","CA","C","O","H","HA"] or name2 not in ["N","CA","C","O","H","HA"] or np.abs(node1.resi[0] - node2.resi[0]) != 1:
-                        energy += self.vdw_energy(ele1,ele2,coor1,coor2)
-        return energy
+        return metric
+
+    @staticmethod
+    def pairwise_residue_energy(node1, node2):
+        INTERACTION_DISTANCE_CUTOFF = 16.0
+        BACKBONE_ATOMS = ["N", "CA", "C", "O", "H", "HA"]
+
+        # distance
+        dist_ij_x = node1.coor[:, np.newaxis] - node2.coor[np.newaxis, :]
+        dist_ij = np.linalg.norm(dist_ij_x, axis=-1)
+
+        # Only proceed if N interatomic distance is within cutoff
+        if np.linalg.norm(node1.coor[0] - node2.coor[0]) >= INTERACTION_DISTANCE_CUTOFF:
+            return 0.0
+
+        # epsilon
+        atom1_epsilon_index = np.array([EpsilonIndex.index(e) for e in node1.e])[:, np.newaxis]
+        atom2_epsilon_index = np.array([EpsilonIndex.index(e) for e in node2.e])[np.newaxis, :]
+        epsilon_ij = np.array(EpsilonArray)[atom1_epsilon_index, atom2_epsilon_index]
+
+        # radii
+        atom1_radius = np.array([vdwRadiiTable[e] for e in node1.e])[:, np.newaxis]
+        atom2_radius = np.array([vdwRadiiTable[e] for e in node2.e])[np.newaxis, :]
+        sigma_ij = (atom1_radius + atom2_radius) / 1.122
+
+        # energy
+        sigma_dist_ij = sigma_ij / dist_ij
+        energy_ij = 4 * epsilon_ij * (np.power(sigma_dist_ij, 12) - np.power(sigma_dist_ij, 6))
+
+        # We must ignore energies from two backbone atoms in neighbouring residues
+        is_neighbouring_resi = abs(node1.resi[0] - node2.resi[0]) == 1
+        atom1_in_backbone = np.isin(node1.name, BACKBONE_ATOMS, assume_unique=True)[:, np.newaxis]
+        atom2_in_backbone = np.isin(node2.name, BACKBONE_ATOMS, assume_unique=True)[np.newaxis, :]
+
+        energy_ij = np.where(is_neighbouring_resi & atom1_in_backbone & atom2_in_backbone,
+                             0.0,
+                             energy_ij)
+
+        return np.sum(energy_ij)
 
     def SimulatedAnnealing(self,permutation):
         energyList = []
@@ -144,10 +160,13 @@ class Relabeller:
 
         # Sum the energy of each cluster:
         energyList.append(np.sum(energies))
-        # print(f"Starting energy: {energyList[-1]}")
+        logger.debug(f"Starting energy: {energyList[-1]}")
 
-        for i in range(self.nSims):
-            # update_progress(i/self.nSims)
+        for i in tqdm.trange(self.nSims, unit="sims",
+                             desc="Annealing progress",
+                             unit_scale=True,
+                             leave=False,
+                             miniters=1):
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
@@ -199,7 +218,6 @@ class Relabeller:
                 b=cartesian_product(cluster,cluster)
                 tmpEnergies[i] = np.sum(self.metric[b[:,0],b[:,1]])/2
 
-            #print(f" {np.sum(tmpEnergies)}")
             # If the new energy is better than the old one:
             if  np.sum(energies) >= np.sum(tmpEnergies) or np.exp(-(np.sum(tmpEnergies)-np.sum(energies))/temperature) >= np.random.uniform() :
                 energies = tmpEnergies[:]
@@ -207,15 +225,17 @@ class Relabeller:
                 permutation = copy.deepcopy(tmpPerm)
                 energyList.append(np.sum(energies))
 
-        # print(f"Locally optimal energy: {energyList[-1]}")
+        logger.debug(f"Final locally optimal energy: {energyList[-1]}")
         return energyList[-1], permutation
 
     def run(self):
         perm = []
         energyList = []
 
-        for i in range(self.nChains):
-            # print(f"\nRunning iteration {i+1} of Simulated Annealing")
+        for i in tqdm.trange(self.nChains, unit="runs",
+                             desc="SA macrocycle",
+                             unit_scale=True,
+                             leave=True):
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)

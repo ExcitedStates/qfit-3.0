@@ -31,6 +31,7 @@ import copy
 from string import ascii_uppercase
 import subprocess
 import numpy as np
+import tqdm
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -1036,8 +1037,17 @@ class QFitSegment(_BaseQFit):
         # Create an empty structure:
         multiconformers = Structure.fromstructurelike(self.segment.extract('altloc', "Z"))
         segment = []
-        for i, rg in enumerate(self.segment.extract('record',
-                                                    "ATOM").residue_groups):
+
+        # Construct progress iterator
+        residue_groups = self.segment.extract("record", "ATOM").residue_groups
+        residue_groups_pbar = tqdm.tqdm(residue_groups,
+                                        total=self.segment.n_residues,
+                                        desc="Building segments",
+                                        unit="res",
+                                        leave=True)
+
+        # Iterate over all residue groups
+        for rg in residue_groups_pbar:
             if rg.resn[0] not in ROTAMERS:
                 multiconformers = multiconformers.combine(rg)
                 continue
@@ -1099,6 +1109,9 @@ class QFitSegment(_BaseQFit):
             else:
                 segment.append(multiconformer)
 
+        # Teardown progress bar
+        residue_groups_pbar.close()
+
         if len(segment):
             logger.debug(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
@@ -1122,8 +1135,10 @@ class QFitSegment(_BaseQFit):
         fl = self.fragment_length
         possible_conformers = list(map(chr, range(65, 90)))
         possible_conformers = possible_conformers[0:int(round(1. / self.options.threshold))]
+
         while len(segment) > 1:
             n = len(segment)
+
             fragment_multiconformers = [segment[i: i + fl] for i in range(0, n, fl)]
             segment = []
             for fragment_multiconformer in fragment_multiconformers:
