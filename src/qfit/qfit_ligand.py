@@ -242,7 +242,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options = options)
+    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
