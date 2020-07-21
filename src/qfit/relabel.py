@@ -113,8 +113,8 @@ class Relabeller:
         dist_ij_x = node1.coor[:, np.newaxis] - node2.coor[np.newaxis, :]
         dist_ij = np.linalg.norm(dist_ij_x, axis=-1)
 
-        # Only proceed if N interatomic distance is within cutoff
-        if np.linalg.norm(node1.coor[0] - node2.coor[0]) >= INTERACTION_DISTANCE_CUTOFF:
+        # Only proceed if at least one interatomic distance is within cutoff
+        if np.all(dist_ij >= INTERACTION_DISTANCE_CUTOFF):
             return 0.0
 
         # epsilon
