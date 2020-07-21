@@ -398,7 +398,7 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-        self.incomplete = False
+
         if options.phenix_aniso:
             self.prv_resi = structure.resi[(residue._selection[0] - 1)]
             # Identify which atoms to refine anisotropically:
@@ -498,35 +498,54 @@ class QFitRotamericResidue(_BaseQFit):
                 scaler.scale(footprint, radius=1)
             xmap = xmap.extract(residue.coor, padding=options.padding)
 
-        # Check if residue is complete. If not, complete it:
-        atoms = residue.name
-        for atom in residue._rotamers['atoms']:
-            if atom not in atoms:
-                residue.complete_residue()
-                residue._init_clash_detection()
-                # self.incomplete = True
-                # Modify the structure to include the new residue atoms:
-                index = len(structure.record)
-                mask = getattr(residue, 'atomid') >= index
-                data = {}
-                for attr in structure.data:
-                    data[attr] = np.concatenate((getattr(structure, attr),
-                                                 getattr(residue, attr)[mask]))
-                structure = Structure(data)
-                chain1 = structure[self.chain]
-                conformer1 = chain1.conformers[0]
-                residue.id = (int(self.resi), residue.icode[0])
-                residue = conformer1[residue.id]
-                break
+        # Check if residue has complete heavy atoms. If not, complete it.
+        expected_atoms = np.array(self.residue._rotamers['atoms'])
+        missing_atoms = np.isin(expected_atoms, test_elements=self.residue.name, invert=True)
+        if np.any(missing_atoms):
+            logger.info(f"[{self.identifier}] {', '.join(expected_atoms[missing_atoms])} "
+                        f"are not in structure. Rebuilding residue.")
+            try:
+                self.residue.complete_residue()
+            except RuntimeError as e:
+                raise RuntimeError(f"[{self.identifier}] Unable to rebuild residue.") from e
+            else:
+                logger.debug(f"[{self.identifier}] Rebuilt. Now has {', '.join(self.residue.name)} atoms.\n"
+                             f"{self.residue.coor}")
 
-        # If including hydrogens:
+            # Rebuild to include the new residue atoms
+            index = len(self.structure.record)
+            mask = getattr(self.residue, 'atomid') >= index
+            data = {}
+            for attr in self.structure.data:
+                data[attr] = np.concatenate((getattr(structure, attr),
+                                             getattr(residue, attr)[mask]))
+
+            # Create a new Structure, and re-extract the current residue from it.
+            #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
+            # Then reinitialise _BaseQFit with these.
+            #     This ensures _BaseQFit class attributes (self.residue, but also
+            #     self._b, self._coor_set, etc.) come from the rebuilt data-structure.
+            #     It is essential to have uniform dimensions on all data before
+            #     we begin sampling.
+            structure = Structure(data)
+            residue = structure[self.chain].conformers[0][residue.id]
+            super().__init__(residue, structure, xmap, options)
+            self.residue = residue
+            if self.options.debug:
+                fname = os.path.join(self.options.directory, "rebuilt_residue.pdb")
+                self.residue.tofile(fname)
+
+        # If including hydrogens, report if any H are missing
         if options.hydro:
-            for atom in residue._rotamers['hydrogens']:
-                if atom not in atoms:
-                    logger.warning(f"[{self.identifier}] Missing atom {atom}")
-                    continue
+            expected_h_atoms = np.array(self.residue._rotamers['hydrogens'])
+            missing_h_atoms = np.isin(expected_h_atoms, test_elements=self.residue.name, invert=True)
+            if np.any(missing_h_atoms):
+                logger.warning(f"[{self.identifier}] Missing hydrogens "
+                               f"{', '.join(expected_atoms[missing_h_atoms])}.")
 
+        # Ensure clash detection matrix is filled.
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
+
         # Get the segment that the residue belongs to
         self.segment = None
         for segment in self.structure.segments:
@@ -538,13 +557,12 @@ class QFitRotamericResidue(_BaseQFit):
                     logger.info(f"[{self.identifier}] index {index} in {segment}")
                     break
         if self.segment is None:
-            rtype = residue_type(residue)
+            rtype = residue_type(self.residue)
             if rtype == "rotamer-residue":
-                selection = residue._selection
-                segment = _Segment(structure.data, selection=selection,
-                                   parent=self, residues=[residue])
-                self.segment = segment
-                logger.warning(f"[{self.identifier}] Could not determine protein segment")
+                self.segment = _Segment(self.structure.data, selection=self.residue._selection,
+                                        parent=self.structure, residues=[self.residue])
+                logger.warning(f"[{self.identifier}] Could not determine protein segment. "
+                               f"Using independent protein segment.")
 
         # Set up the clash detector, exclude the bonded interaction of the N and
         # C atom of the residue
@@ -573,6 +591,7 @@ class QFitRotamericResidue(_BaseQFit):
             if np.linalg.norm(residue._coor[C_index] - segment._coor[neighbor_N_index]) < 2:
                 coor = C_neighbor._coor[neighbor_N_index]
                 exclude.append((C_index, coor))
+
         # Obtain atoms with which the residue can clash
         resi, icode = residue.id
         chainid = self.segment.chain[0]
@@ -582,6 +601,7 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             sel_str = f"not (resi {resi} and chain {chainid})"
             receptor = self.structure.extract(sel_str).copy()
+
         # Find symmetry mates of the receptor
         starting_coor = self.structure.coor.copy()
         iterator = self.xmap.unit_cell.iter_struct_orth_symops
