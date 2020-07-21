@@ -224,6 +224,7 @@ class QFitProtein:
 
         # Initialise progress bar
         progress = tqdm(total=len(residues),
+                        desc="Sampling residues",
                         unit="residue",
                         unit_scale=True,
                         leave=True,
@@ -231,9 +232,9 @@ class QFitProtein:
 
         # Define callbacks and error callbacks to be attached to Jobs
         def _cb(result):
-            progress.update()
             if result:
-                progress.write(result)
+                logger.info(result)
+            progress.update()
 
         def _error_cb(e):
             tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
@@ -407,10 +408,13 @@ class QFitProtein:
                                     xmap_reduced, options)
         try:
             qfit.run()
-        except RuntimeError:
+        except RuntimeError as e:
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
             logger.warning(f"[{qfit.identifier}] "
                            f"Unable to produce an alternate conformer. "
                            f"Using deposited conformer A for this residue.")
+            logger.info(f"[{qfit.identifier}] This is a result of the following exception:\n"
+                        f"{tb})")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
@@ -418,6 +422,7 @@ class QFitProtein:
 
         # Save multiconformer_residue
         qfit.tofile()
+        qfit_id = qfit.identifier
 
         # How many conformers were found?
         n_conformers = len(qfit.get_conformers())
@@ -428,7 +433,7 @@ class QFitProtein:
         gc.collect()
 
         # Return a string about the residue that was completed.
-        return f"{identifier} {residue.resn[0]}: {n_conformers} conformers"
+        return f"[{qfit_id}]: {n_conformers} conformers"
 
 
 def prepare_qfit_protein(options):

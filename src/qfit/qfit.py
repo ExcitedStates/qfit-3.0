@@ -194,7 +194,7 @@ class _BaseQFit:
             simple=self._simple,
             scattering=self.options.scattering,
         )
-        logger.debug("Initializing radial density lookup table.")
+        logger.debug("[_BaseQFit._update_transformer]: Initializing radial density lookup table.")
         self._transformer.initialize()
 
     def _subtract_transformer(self, residue, structure):
@@ -535,6 +535,7 @@ class QFitRotamericResidue(_BaseQFit):
                 if (len(segment[index].name) == len(self.residue.name)) and \
                         (segment[index].altloc[-1] == self.residue.altloc[-1]):
                     self.segment = segment
+                    logger.info(f"[{self.identifier}] index {index} in {segment}")
                     break
         if self.segment is None:
             rtype = residue_type(residue)
@@ -587,6 +588,8 @@ class QFitRotamericResidue(_BaseQFit):
         for symop in iterator(self.structure, target=self.residue, cushion=5):
             if symop.is_identity():
                 continue
+            logger.debug(f"[{self.identifier}] Building symmetry partner for clash_detector: [R|t]\n"
+                         f"{symop}")
             self.structure.rotate(symop.R)
             self.structure.translate(symop.t)
             receptor = receptor.combine(self.structure)
@@ -665,9 +668,13 @@ class QFitRotamericResidue(_BaseQFit):
                         f"lower {index < nn}, upper {index + nn > len(self.segment)}")
             return
         segment = self.segment[(index - nn):(index + nn + 1)]
+
+        # We will work on CB for all residues, but O for GLY.
         atom_name = "CB"
         if self.residue.resn[0] == "GLY":
             atom_name = "O"
+
+        # Determine directions for backbone sampling
         atom = self.residue.extract('name', atom_name)
         try:
             u_matrix = [[atom.u00[0], atom.u01[0], atom.u02[0]],
@@ -677,23 +684,21 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
             logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
-            logger.error("[_sample_backbone] Got AttributeError for directions.")
+            logger.warning(f"[{self.identifier}] Got AttributeError for directions at Cβ.")
             # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             directions = np.identity(3)
 
+        # If we are missing a backbone atom in our segment,
+        #     use current coords for this residue, and abort.
         for n, residue in enumerate(self.segment.residues[::-1]):
             for backbone_atom in ['N', 'CA', 'C', 'O']:
                 if backbone_atom not in residue.name:
-                    logger.warning(f"[{self.identifier}] Missing backbone atom.")
+                    relative_to_residue = n - index
+                    logger.warning(f"[{self.identifier}] Missing backbone atom in segment residue {relative_to_residue:+d}.")
                     logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
                     self._coor_set.append(self.segment[index].coor)
                     self._bs.append(self.conformer.b)
                     return
-
-        optimizer = NullSpaceOptimizer(segment)
-
-        start_coor = atom.coor[0]
-        torsion_solutions = []
 
         # Retrieve the amplitudes and stepsizes from options.
         sigma = self.options.sample_backbone_sigma
@@ -706,14 +711,18 @@ class QFitRotamericResidue(_BaseQFit):
         amplitudes = np.arange(start=bbs, stop=bba + bbs, step=bbs)
         amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
+        # Optimize in torsion space to achieve the target atom position
+        optimizer = NullSpaceOptimizer(segment)
+        start_coor = atom.coor[0]  # We are working on a single atom.
+        torsion_solutions = []
         for amplitude, direction in itertools.product(amplitudes, directions):
-            delta = sigma * (2 * np.random.random() - 1)  # user-defined sigma * (random from interval [-1.0, 1.0))
+            delta = np.random.uniform(-sigma, sigma)
             endpoint = start_coor + (amplitude + delta) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
 
+        # Capture starting coordinates for the segment, so that we can restart after every rotator
         starting_coor = segment.coor
-
         for solution in torsion_solutions:
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
@@ -913,7 +922,8 @@ class QFitRotamericResidue(_BaseQFit):
 
             if len(self._coor_set) > 15000:
                 logger.warning(f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
-                               f"Reverting back to previous iteration of degrees of freedom.")
+                               f"Reverting to a previous iteration of degrees of freedom: item 0. "
+                               f"n_coords: {[len(cs) for (cs) in iter_coor_set]}")
                 self._coor_set = iter_coor_set[0]
 
             if not self._coor_set:

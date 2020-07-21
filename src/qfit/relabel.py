@@ -170,8 +170,8 @@ class Relabeller:
             temperature = 273*(1-i/self.nSims)
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
-            # Choose five residues to swap:
-            for x in np.random.choice(range(len(tmpPerm)),5):
+            # Choose five random indices of residues to swap:
+            for x in np.random.randint(len(tmpPerm), size=5):
                 # If the residue has a single conformer:
                 if not tmpPerm[x]:
                     continue

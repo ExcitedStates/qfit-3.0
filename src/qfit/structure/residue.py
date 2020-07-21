@@ -216,24 +216,26 @@ class _RotamerResidue(_BaseResidue):
             print("{} {} {} {} {}".format(atom, coor, element, b, q))
 
     def complete_residue(self):
-        self.visited = []
         if residue_type(self) != "rotamer-residue":
-            msg = ("Cannot complete non-aminoacid residue. Please, "
-                   "complete the missing atoms of the residue for qFiting!")
+            msg = (f"Cannot complete non-aminoacid residue {self}. "
+                   f"Please complete the missing atoms of the residue before "
+                   f"running qFit again!")
             raise RuntimeError(msg)
 
         for atom, position in zip(self._rotamers['atoms'],
                                   self._rotamers['positions']):
-            # Found a missing atom!:
+            # Found a missing atom!
             if atom not in self.name:
                 self.complete_residue_recursive(atom)
 
     def complete_residue_recursive(self, atom):
         if atom in ['N', 'C', 'CA', 'O']:
-            msg = ("Cannot complete missing backbone atoms. Please, "
-                   "complete the missing backbone atoms of the residue"
-                   " for qFiting!")
+            msg = (f"{self} is missing backbone atom {atom}. "
+                   f"qFit cannot complete missing backbone atoms. "
+                   f"Please complete the missing backbone atoms of "
+                   f"the residue before running qFit again!")
             raise RuntimeError(msg)
+
         ref_atom = self._rotamers['connectivity'][atom][0]
         if ref_atom not in self.name:
             self.complete_residue_recursive(ref_atom)
