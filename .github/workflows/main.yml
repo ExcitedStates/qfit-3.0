@@ -53,6 +53,10 @@ jobs:
       - name: TEST (Basic) Check qfit_protein can execute (test --help)
         shell: bash -l {0}
         run: qfit_protein --help
+      - name: (Windows) Conda/tox/numpy workaround
+        if: matrix.os == 'windows-latest'
+        shell: bash -l -eo pipefail {0}
+        run: export CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
       - name: TEST (Full) Thoroughly test qFit with tox
         shell: bash -l {0}
         run: tox
