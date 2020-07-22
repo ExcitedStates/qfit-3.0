@@ -1190,7 +1190,6 @@ class QFitLigand(_BaseQFit):
 
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)
-        receptor.tofile('clash_receptor.pdb') #debug
 
         # Determine which roots to start building from
         self._rigid_clusters = ligand.rigid_clusters()
