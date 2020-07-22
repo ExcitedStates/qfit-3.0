@@ -35,6 +35,8 @@ jobs:
           # Set up channel priority
           conda config --prepend channels conda-forge && \
           conda config --prepend channels anaconda
+          # Set strict adherence to channels
+          conda update --strict-channel-priority --all
           # Read channels priority
           conda config --show channels
           # Install tox (testing automator)
