@@ -1184,9 +1184,6 @@ class QFitLigand(_BaseQFit):
         self.receptor = receptor
         self.xmap = xmap
         self.options = options
-        self.options.remove_conformers_below_cutoff = True #debug
-        self.options.subtract = True #debug
-        #self.options.randomize_b = True #debug
         csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
