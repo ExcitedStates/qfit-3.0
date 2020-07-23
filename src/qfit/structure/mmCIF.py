@@ -849,15 +849,15 @@ class mmCIFFileParser(object):
         re_tok = re.compile(
             r"(?:"
 
-             "(?:_(.+?)[.](\S+))"               "|"  # _section.subsection
+            r"(?:_(.+?)[.](\S+))"               "|"  # _section.subsection
 
-             "(?:['\"](.*?)(?:['\"]\s|['\"]$))" "|"  # quoted strings
+            r"(?:['\"](.*?)(?:['\"]\s|['\"]$))" "|"  # quoted strings
 
-             "(?:\s*#.*$)"                      "|"  # comments
+            r"(?:\s*#.*$)"                      "|"  # comments
 
-             "(\S+)"                                 # unquoted tokens
+            r"(\S+)"                                 # unquoted tokens
 
-             ")")
+            r")")
 
         file_iter = iter(fileobj)
 
