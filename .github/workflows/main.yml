@@ -17,14 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        os: ['ubuntu-latest', 'macos-latest']
         python-version: ['3.7', '3.6']
-        exclude:
-          # Sidestep the issue: (this problem appears to be with the runner).
-          #   conda can't install vs2015_runtime-14.16, can't build env
-          #   TO BE REMOVED LATER.
-          - os: windows-latest
-            python-version: '3.7'
     steps:
       - name: Setup miniconda
         uses: goanpeca/setup-miniconda@v1
@@ -41,6 +35,8 @@ jobs:
           # Set up channel priority
           conda config --prepend channels conda-forge && \
           conda config --prepend channels anaconda
+          # Set strict adherence to channels
+          conda update --strict-channel-priority --all
           # Read channels priority
           conda config --show channels
           # Install tox (testing automator)
