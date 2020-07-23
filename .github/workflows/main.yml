@@ -53,6 +53,8 @@ jobs:
           export CONDA_INIT_SCRIPT="$(conda config --show root_prefix | cut -d':' -f 2- | xargs)/etc/profile.d/conda.sh"
           [ ! -f "${CONDA_INIT_SCRIPT}" ] && export CONDA_INIT_SCRIPT="$(dirname ${CONDA_EXE})/../etc/profile.d/conda.sh"
           echo "CONDA_INIT_SCRIPT: ${CONDA_INIT_SCRIPT}"
+          # Persist CONDA_INIT_SCRIPT between steps
+          echo "::set-env name=CONDA_INIT_SCRIPT::${CONDA_INIT_SCRIPT}"
           # How is conda configured?
           conda info
           # Read channels priority
@@ -65,4 +67,6 @@ jobs:
       - name: TEST (Full) Thoroughly test qFit with tox
         shell: bash -l -o pipefail {0}
         run: |
+          echo "${CONDA_INIT_SCRIPT}"
+          if [ -f "${CONDA_INIT_SCRIPT}" ]; then echo "CONDA_INIT_SCRIPT: exists"; else echo "CONDA_INIT_SCRIPT: MISSING"; fi
           tox
