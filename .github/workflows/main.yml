@@ -40,7 +40,7 @@ jobs:
           # Read channels priority
           conda config --show channels
           # Install tox (testing automator)
-          conda install --yes tox-conda pytest pytest-cov pytest-timeout
+          conda install --yes tox-conda
       - name: Checkout qfit
         uses: actions/checkout@v2
       - name: Install qfit
