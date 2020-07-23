@@ -173,12 +173,12 @@ def prepare_qfit_ligand(options):
     if options.cif_file: #TO DO: STEPHANIE
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
-                         link_data = structure_ligand.link_data,
-                         cif_file = args.cif_file)
+                         link_data=structure_ligand.link_data,
+                         cif_file=args.cif_file)
     else:
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
-                         link_data = structure_ligand.link_data)
+                         link_data=structure_ligand.link_data)
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check "
                            " the selection input.")
@@ -186,16 +186,16 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ''
     ligand.q = 1
 
-    logger.info("Receptor atoms selected: {natoms}".format(natoms = receptor.natoms))
-    logger.info("Ligand atoms selected: {natoms}".format(natoms = ligand.natoms))
+    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
+    logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(options.map, resolution = options.resolution, label = options.label)
+    xmap = XMap.fromfile(options.map, resolution=options.resolution, label=options.label)
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering = options.scattering)
+        scaler = MapScaler(xmap, scattering=options.scattering)
         if options.omit:
             footprint = structure_ligand
         else:
@@ -253,7 +253,6 @@ def main():
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
-        print(n)
         if nconformers > 1:
             altloc = ascii_uppercase[n]
         conformer.altloc = ''
@@ -269,5 +268,5 @@ def main():
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     try:
         multiconformer.tofile(fname)
-    except Exception:
+    except NameError:
         logger.error("qFit-ligand failed to produce any valid conformers.")

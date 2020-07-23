@@ -46,7 +46,7 @@ class TestQFitLigand:
         log_run_info(options, logger)
 
         # Build a QFitLigand job
-        qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options = options)
+        qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
 
         assert qfit_ligand.ligand.natoms == 19
 

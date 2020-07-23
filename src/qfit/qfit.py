@@ -1214,14 +1214,14 @@ class QFitLigand(_BaseQFit):
             self._coor_set = list(self._starting_coor_set)
             if self.options.local_search:
                 logger.info("Starting local search")
-                self._local_search() #debug
+                self._local_search()
             self._coor_set.append(self._starting_coor_set)
             self.ligand._active[self.ligand._selection] = True
-            logger.info("Starting sample internal dofs") #debug
+            logger.info("Starting sample internal dofs")
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
-            prefix_tmp = 'run_' + str(self._cluster) #debug
+            prefix_tmp = 'run_' + str(self._cluster)
             self._write_intermediate_conformers(prefix=prefix_tmp)
             logger.info(f"Number of conformers: {len(self._coor_set)}")
             logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
@@ -1236,8 +1236,8 @@ class QFitLigand(_BaseQFit):
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
 
-        #QP 
-        logger.debug("Converting densities within run.") #debug
+        # QP score conformer occupancy
+        logger.debug("Converting densities within run.")
         self._convert()
         logger.info("Solving QP within run.")
         self._solve()

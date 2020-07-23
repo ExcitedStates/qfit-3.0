@@ -452,6 +452,7 @@ class RotationSets:
 
         # Unpack quaternions into columns of coefficients
         (w, x, y, z) = quaternions.T
+
         # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
 
