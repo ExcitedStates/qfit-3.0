@@ -40,10 +40,7 @@ jobs:
           # Read channels priority
           conda config --show channels
           # Install tox-conda (testing automator)
-            # For now, we must use the master branch until a new release is made (> v0.2.1).
-            # https://github.com/tox-dev/tox-conda/issues/40
-            # conda install --yes tox-conda
-          pip install git+git://github.com/tox-dev/tox-conda.git
+          conda install --yes tox-conda
       - name: Checkout qfit
         uses: actions/checkout@v2
       - name: Install qfit
