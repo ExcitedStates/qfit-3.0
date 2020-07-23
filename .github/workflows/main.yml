@@ -26,9 +26,6 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
           activate-environment: qfit
-      - name: Conda info
-        shell: bash -l -eo pipefail {0}
-        run: conda info
       - name: Build conda environment
         shell: bash -l -eo pipefail {0}
         run: |
@@ -37,8 +34,6 @@ jobs:
           conda config --prepend channels anaconda
           # Set strict adherence to channels
           conda update --strict-channel-priority --all
-          # Read channels priority
-          conda config --show channels
           # Install tox-conda (testing automator)
           conda install --yes tox-conda
       - name: Checkout qfit
@@ -49,10 +44,25 @@ jobs:
         run: pip install .
       - name: Describe qfit environment
         shell: bash -l -eo pipefail {0}
-        run: conda list
+        run: |
+          # Read conda environment variables
+          echo "PATH: ${PATH}"
+          echo "PYTHONPATH: ${PYTHONPATH}"
+          echo "CONDA_EXE: ${CONDA_EXE}"
+          echo "CONDA_ROOT: $(conda config --show root_prefix)"
+          export CONDA_INIT_SCRIPT="$(conda config --show root_prefix | cut -d':' -f 2- | xargs)/etc/profile.d/conda.sh"
+          [ ! -f "${CONDA_INIT_SCRIPT}" ] && export CONDA_INIT_SCRIPT="$(dirname ${CONDA_EXE})/../etc/profile.d/conda.sh"
+          echo "CONDA_INIT_SCRIPT: ${CONDA_INIT_SCRIPT}"
+          # How is conda configured?
+          conda info
+          # Read channels priority
+          conda config --show channels
+          # Which packages are installed?
+          conda list
       - name: TEST (Basic) Check qfit_protein can execute (test --help)
         shell: bash -l {0}
         run: qfit_protein --help
       - name: TEST (Full) Thoroughly test qFit with tox
-        shell: bash -l {0}
-        run: tox
+        shell: bash -l -o pipefail {0}
+        run: |
+          tox
