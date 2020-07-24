@@ -49,6 +49,8 @@ def main():
     args = parse_args()
     try:
         structure = Structure.fromfile(args.structure)
+    except:
+        print('Please give us a structure file.')
     ligands = structure.extract('record', 'HETATM')
     max_lig = 0
     lig_name = None
