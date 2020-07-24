@@ -30,6 +30,7 @@ import time
 import logging
 import logging.handlers
 import multiprocessing as mp
+import numpy as np
 import threading
 
 from . import LOGGER as MODULELOGGER
@@ -88,6 +89,7 @@ def log_run_info(options, logger):
     logger.info(f"===== qFit parameters: =====")
     for key in vars(options).keys():
         logger.info(f"{key}: {getattr(options, key)}")
+    logger.info(f"numpy float resolution: {np.finfo(float).resolution:.1e}")
     logger.info(f"============================\n")
 
 

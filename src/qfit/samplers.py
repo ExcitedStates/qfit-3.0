@@ -104,25 +104,50 @@ class Translator:
 
 
 class CBAngleRotator:
+    """Deflects a residue's sidechain by bending the CA-CB-CG angle.
+
+    Attributes:
+        residue (qfit._BaseResidue): Residue being manipulated.
+        atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
+            the flexion.
+    """
 
     def __init__(self, residue):
+        """Inits a CBAngleRotator to flex the CA-CB-CG angle of a residue.
+
+        Args:
+            residue (qfit._BaseResidue): Residue to manipulate.
+        """
         self.residue = residue
-        angle_selection = residue.select('name', ('N', 'CA', 'CB'))
+
+        # These atoms define the angle
+        angle_selection = residue.select('name', ('CA', 'CB', 'CG'))
         if angle_selection.size != 3:
-            raise RuntimeError("Residue does not have N, CA and CB atom for rotation.")
-        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O','H','HA'), '!=')
-        self._origin = self.residue.extract('name', 'CA').coor[0]
+            raise RuntimeError("Residue does not have CA, CB and xG atom for rotation.")
+
+        # Only atoms after CB can be moved
+        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA', 'HB2', 'HB3'), '!=')
+
+        # Define rotation unit vector
+        self._origin = self.residue.extract('name', 'CB').coor[0]
         self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
         self._coor_to_rotate -= self._origin
-        axis_coor = residue.extract('name', ('N', 'CB')).coor
+        axis_coor = self.residue.extract('name', ('CA', 'CG')).coor
         axis_coor -= self._origin
         axis = np.cross(axis_coor[0], axis_coor[1])
         axis /= np.linalg.norm(axis)
+
+        # Align rotation unit vector to Z-axis
         aligner = ZAxisAligner(axis)
         self._forward = aligner.forward_rotation
         self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def __call__(self, angle):
+        """Flex CA-CB-CG by specified angle.
+
+        Args:
+            angle (int): Angle (degrees) for sidechain deflection.
+        """
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
@@ -452,6 +477,7 @@ class RotationSets:
 
         # Unpack quaternions into columns of coefficients
         (w, x, y, z) = quaternions.T
+
         # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
 
@@ -497,13 +523,13 @@ class RotationSets:
         # Choose e1, e2 independent uniform on (-1, 1), until s1 < 1
         s1 = 1
         while s1 >= 1.0:
-            e1, e2 = 2 * np.random.random((2,)) - 1
+            e1, e2 = np.random.uniform(-1, 1, size=(2,))
             s1 = e1**2 + e2**2
 
         # Choose e3, e4 independent uniform on (-1, 1), until s2 < 1
         s2 = 1
         while s2 >= 1.0:
-            e3, e4 = 2 * np.random.random((2,)) - 1
+            e3, e4 = np.random.uniform(-1, 1, size=(2,))
             s2 = e3**2 + e4**2
 
         # Then construct point on surface of 4-sphere

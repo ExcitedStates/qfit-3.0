@@ -55,10 +55,10 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes="FP FOBS F-obs IOBS"
+obstypes="FP FOBS F-obs I IOBS I-obs"
 
 # Get amplitude fields
-ampfields=`grep "amplitude" <<< "${mtzmetadata}"`
+ampfields=`grep -E "amplitude|intensity" <<< "${mtzmetadata}"`
 ampfields=`echo "${ampfields}" | awk '{$1=$1};1' | cut -d " " -f 1`
 
 # Clear xray_data_labels variable
@@ -102,6 +102,10 @@ phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false pdb_file_name="${multiconf}.f_modified.pdb"
+# If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
+if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
+  cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
+fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
@@ -112,6 +116,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
+                main.nqh_flips=False \
                 refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
                 refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
@@ -122,6 +127,7 @@ else
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
+                main.nqh_flips=False \
                 refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
                 refinement.input.xray_data.labels=$xray_data_labels \
                 write_maps=false --overwrite
