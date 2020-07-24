@@ -49,8 +49,8 @@ def main():
     args = parse_args()
     try:
         structure = Structure.fromfile(args.structure)
-    except:
-        print('Please give us a structure file.')
+    except Exception as e:
+        raise type(e)('qFit requires a valid structure file, but could not find one') from e
     ligands = structure.extract('record', 'HETATM')
     max_lig = 0
     lig_name = None
