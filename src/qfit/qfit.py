@@ -1191,8 +1191,10 @@ class QFitLigand(_BaseQFit):
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
+        print(self.options.clash_scaling_factor)
         # External clash detection:
-        self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)
+        self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)#, exclude=exclude)
+        print(self._cd)
         receptor.tofile('clash_receptor.pdb') #debug
 
         # Determine which roots to start building from
@@ -1200,6 +1202,7 @@ class QFitLigand(_BaseQFit):
         self.roots = None
         if self.roots is None:
             self._clusters_to_sample = []
+            print(self._rigid_clusters)
             for cluster in self._rigid_clusters:
                 nhydrogen = (self.ligand.e[cluster] == 'H').sum()
                 if len(cluster) - nhydrogen > 1:
@@ -1225,8 +1228,15 @@ class QFitLigand(_BaseQFit):
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
-            prefix_tmp = 'run_' + str(self._cluster) #debug
-            self._write_intermediate_conformers(prefix=prefix_tmp)
+            #                if self.options.external_clash:
+            #        if not self._cd() and self.residue.clashes() == 0:
+            #            new_coor_set.append(coor)
+            #            new_bs.append(b)
+            #    elif self.residue.clashes() == 0:
+            #        new_coor_set.append(coor)
+            #        new_bs.append(b)
+            #prefix_tmp = '' + str(self._cluster) #debug
+            self._write_intermediate_conformers(prefix=f"run_{str(self._cluster)}")
             logger.info(f"Number of conformers: {len(self._coor_set)}")
             logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
 
@@ -1258,7 +1268,7 @@ class QFitLigand(_BaseQFit):
                     cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.debug:
-            self._write_intermediate_conformers(prefix="miqp_solution")
+            self._write_intermediate_conformers(prefix="miqp_solution_ligand")
 
     def _local_search(self):
         """Perform a local rigid body search on the cluster."""
@@ -1327,7 +1337,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers")
         self._update_conformers()
         if self.options.debug:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_qp")
         if len(self._coor_set) < 1:
             logger.warning(f"{self.ligand.resn[0]}: "
                            f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
@@ -1339,7 +1349,7 @@ class QFitLigand(_BaseQFit):
                     cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.debug:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_miqp")
 
     def _sample_internal_dofs(self):
         opt = self.options
@@ -1434,7 +1444,7 @@ class QFitLigand(_BaseQFit):
             self._solve()
             self._update_conformers()
             if self.options.debug:
-                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_qp")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_iter{iteration}_qp")
             if len(self._coor_set) < 1:
                 logger.warning(f"{self.ligand.resn[0]}: "
                                f"QP search cluster {self._cluster_index} iteration {iteration}: "
@@ -1447,7 +1457,7 @@ class QFitLigand(_BaseQFit):
                         cardinality=self.options.cardinality)
             self._update_conformers()
             if self.options.debug:
-                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_iter{iteration}_miqp")
 
             # Check if we are done
             if end_bond_index == nbonds:

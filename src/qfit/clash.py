@@ -32,7 +32,7 @@ class ClashDetector:
 
     """Detect clashes between ligand and receptor using spatial hashing."""
 
-    def __init__(self, ligand, receptor, scaling_factor=0.85, exclude=None):
+    def __init__(self, ligand, receptor, scaling_factor, exclude=None): #scaling_factor=0.85
 
         self.ligand = ligand
         self.scaling_factor = scaling_factor
@@ -62,7 +62,10 @@ class ClashDetector:
     def __call__(self):
         inv_voxelspacing = 1 / self.voxelspacing
         ligand_coor = self.ligand.coor
+        print(ligand_coor) #debug
         active = self.ligand.active
+        print('self.ligand.active')
+        print(self.ligand.active)
         half_sf = self.scaling_factor / 2.0
         nclashes = 0
         for is_active, coor, radius in zip(active, ligand_coor, self.ligand_radius):

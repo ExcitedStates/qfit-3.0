@@ -144,20 +144,23 @@ def prepare_qfit_ligand(options):
         icode = ''
 
     # Extract the ligand:
-    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+    ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+    #ligand.tofile('structure_ligand.pdb') #debug
 
     if icode:
-        structure_ligand = structure_ligand.extract('icode', icode) #fix ligand name
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})" #TO DO COLLAPSE
+        ligand = structure_ligand.extract('icode', icode) #fix ligand name
+    sel_str = f"not resi {resi} and chain {chainid}"
+    print(sel_str)
+    #sel_str = f"not ({sel_str})" #TO DO COLLAPSE
+    print(sel_str)
     receptor = structure.extract(sel_str) #selecting everything that is no the ligand of interest
 
-    receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
+    #receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
 
-    altlocs = sorted(list(set(structure_ligand.altloc)))
+    altlocs = sorted(list(set(ligand.altloc)))
     if len(altlocs) > 1:
         try:
             altlocs.remove('')
@@ -166,19 +169,20 @@ def prepare_qfit_ligand(options):
         for altloc in altlocs[1:]:
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
-            structure_ligand = structure_ligand.extract(sel_str)
+            ligand = ligand.extract(sel_str)
             receptor = receptor.extract(f"not altloc {altloc}")
-    altloc = structure_ligand.altloc[-1]
+            #receptor.tofile('receptor.pdb') #debug
+    altloc = ligand.altloc[-1]
 
     if options.cif_file: #TO DO: STEPHANIE
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
+        ligand = _Ligand(ligand.data,
+                         ligand._selection,
                          link_data = structure_ligand.link_data,
                          cif_file = args.cif_file)
     else:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data = structure_ligand.link_data)
+        ligand = _Ligand(ligand.data,
+                         ligand._selection,
+                         link_data = ligand.link_data)
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check "
                            " the selection input.")
@@ -191,15 +195,16 @@ def prepare_qfit_ligand(options):
 
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(options.map, resolution = options.resolution, label = options.label)
+    xmap = XMap.fromfile(options.map, resolution=options.resolution, label=options.label)
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering = options.scattering)
-        if options.omit:
-            footprint = structure_ligand
-        else:
-            footprint = structure
+        scaler = MapScaler(xmap, scattering=options.scattering)
+        footprint = ligand
+        #if options.omit: #debug
+        #    footprint = ligand
+        #else:
+        #    footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -218,7 +223,7 @@ def prepare_qfit_ligand(options):
     scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode
 
 
 def main():
