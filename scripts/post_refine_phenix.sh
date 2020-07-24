@@ -112,7 +112,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   phenix.refine "${multiconf}.f_modified.updated.pdb" \
                 "${pdb_name}.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
-                strategy="*individual_sites" \
+                strategy="*individual_sites *individual_sites_real_space" \
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
@@ -123,7 +123,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
 else
   phenix.refine "${multiconf}.f_modified.updated.pdb" \
                 "${pdb_name}.mtz" \
-                strategy="*individual_sites" \
+                strategy="*individual_sites *individual_sites_real_space" \
                 output.prefix="${pdb_name}" \
                 output.serial=2 \
                 main.number_of_macro_cycles=5 \
@@ -153,7 +153,7 @@ while [ $zeroes -gt 1 ]; do
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
                   "${multiconf}.f_modified.ligands.cif" \
-                  strategy="*individual_sites *individual_adp *occupancies" \
+                  strategy="*individual_sites *individual_sites_real_space *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
                   main.nqh_flips=False \
@@ -162,7 +162,7 @@ while [ $zeroes -gt 1 ]; do
   else
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
-                  strategy="*individual_sites *individual_adp *occupancies" \
+                  strategy="*individual_sites *individual_sites_real_space *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
                   main.nqh_flips=False \
@@ -197,7 +197,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
-                strategy="*individual_sites *individual_adp *occupancies" \
+                strategy="*individual_sites *individual_sites_real_space *individual_adp *occupancies" \
                 main.nqh_flips=False \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
@@ -207,7 +207,7 @@ else
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
-                strategy="*individual_sites *individual_adp *occupancies" \
+                strategy="*individual_sites *individual_sites_real_space *individual_adp *occupancies" \
                 main.nqh_flips=False \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
