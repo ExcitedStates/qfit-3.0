@@ -37,12 +37,12 @@ class ClashDetector:
         self.ligand = ligand
         self.scaling_factor = scaling_factor
         receptor_radius = receptor.vdw_radius
-        self.ligand_radius = self.ligand.vdw_radius
-        self.voxelspacing = self.scaling_factor * (receptor_radius.max() + self.ligand_radius.max())
+        self.ligand_radius = self.ligand.vdw_radius 
+        self.voxelspacing = self.scaling_factor * (receptor_radius.max() + self.ligand_radius.max()) #
         self.exclude = exclude
 
-        self.grid = defaultdict(list)
-        self.radius = defaultdict(list)
+        self.grid = defaultdict(list) #
+        self.radius = defaultdict(list) #
         receptor_coor = receptor.coor
         ligand_coor = ligand.coor
         keys = (receptor.coor / self.voxelspacing + 0.5).astype(int)
@@ -62,10 +62,7 @@ class ClashDetector:
     def __call__(self):
         inv_voxelspacing = 1 / self.voxelspacing
         ligand_coor = self.ligand.coor
-        print(ligand_coor) #debug
         active = self.ligand.active
-        print('self.ligand.active')
-        print(self.ligand.active)
         half_sf = self.scaling_factor / 2.0
         nclashes = 0
         for is_active, coor, radius in zip(active, ligand_coor, self.ligand_radius):

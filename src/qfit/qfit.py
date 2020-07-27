@@ -1185,8 +1185,7 @@ class QFitLigand(_BaseQFit):
         self.xmap = xmap
         self.options = options
         self.options.remove_conformers_below_cutoff = True #debug
-        self.options.subtract = True #debug
-        #self.options.randomize_b = True #debug
+        #self.options.subtract = True #debug
         csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
@@ -1194,8 +1193,8 @@ class QFitLigand(_BaseQFit):
         print(self.options.clash_scaling_factor)
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)#, exclude=exclude)
-        print(self._cd)
-        receptor.tofile('clash_receptor.pdb') #debug
+        if self.options.debug:
+            receptor.tofile('clash_receptor.pdb')
 
         # Determine which roots to start building from
         self._rigid_clusters = ligand.rigid_clusters()
@@ -1221,22 +1220,15 @@ class QFitLigand(_BaseQFit):
             self._coor_set = list(self._starting_coor_set)
             if self.options.local_search:
                 logger.info("Starting local search")
-                self._local_search() #debug
+                self._local_search()
             self._coor_set.append(self._starting_coor_set)
             self.ligand._active[self.ligand._selection] = True
-            logger.info("Starting sample internal dofs") #debug
+            logger.info("Starting sample internal dofs")
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
-            #                if self.options.external_clash:
-            #        if not self._cd() and self.residue.clashes() == 0:
-            #            new_coor_set.append(coor)
-            #            new_bs.append(b)
-            #    elif self.residue.clashes() == 0:
-            #        new_coor_set.append(coor)
-            #        new_bs.append(b)
-            #prefix_tmp = '' + str(self._cluster) #debug
-            self._write_intermediate_conformers(prefix=f"run_{str(self._cluster)}")
+            if self.options.debug:
+                self._write_intermediate_conformers(prefix=f"run_{str(self._cluster)}")
             logger.info(f"Number of conformers: {len(self._coor_set)}")
             logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
 
@@ -1251,7 +1243,6 @@ class QFitLigand(_BaseQFit):
             return
 
         #QP 
-        logger.debug("Converting densities within run.") #debug
         self._convert()
         logger.info("Solving QP within run.")
         self._solve()

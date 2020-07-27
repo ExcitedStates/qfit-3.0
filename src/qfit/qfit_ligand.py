@@ -68,13 +68,13 @@ def build_argparser():
             help="Map file is an OMIT map. This affects the scaling procedure of the map.")
 
     # Map prep options
-    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
+    p.add_argument("-ns", "--no-scale", action="store_true", dest="scale",
             help="Do not scale density.")
     p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
             help="Densities values below cutoff are set to <density_cutoff_value")
     p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
             help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
+    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract", #debug
             help="Do not subtract Fcalc of the neighboring residues when running qFit.")
     p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
             help="Padding size for map creation.")
@@ -144,18 +144,12 @@ def prepare_qfit_ligand(options):
         icode = ''
 
     # Extract the ligand:
-    ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
-    #ligand.tofile('structure_ligand.pdb') #debug
+    ligand = structure.extract(f'resi {resi} and chain {chainid}')
 
     if icode:
-        ligand = structure_ligand.extract('icode', icode) #fix ligand name
+        ligand = structure_ligand.extract('icode', icode)
     sel_str = f"not resi {resi} and chain {chainid}"
-    print(sel_str)
-    #sel_str = f"not ({sel_str})" #TO DO COLLAPSE
-    print(sel_str)
     receptor = structure.extract(sel_str) #selecting everything that is no the ligand of interest
-
-    #receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -171,10 +165,9 @@ def prepare_qfit_ligand(options):
             sel_str = f"not ({sel_str})"
             ligand = ligand.extract(sel_str)
             receptor = receptor.extract(f"not altloc {altloc}")
-            #receptor.tofile('receptor.pdb') #debug
     altloc = ligand.altloc[-1]
 
-    if options.cif_file: #TO DO: STEPHANIE
+    if options.cif_file: 
         ligand = _Ligand(ligand.data,
                          ligand._selection,
                          link_data = structure_ligand.link_data,
@@ -201,10 +194,10 @@ def prepare_qfit_ligand(options):
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         footprint = ligand
-        #if options.omit: #debug
-        #    footprint = ligand
-        #else:
-        #    footprint = structure
+        if options.omit: 
+            footprint = ligand
+        else:
+            footprint = structure
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -215,7 +208,7 @@ def prepare_qfit_ligand(options):
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=radius)
 
-    xmap = xmap.extract(ligand.coor, padding=options.padding)
+    xmap = xmap.extract(ligand.coor, padding=options.padding) #look at this
     ext = '.ccp4'
 
     if not np.allclose(xmap.origin, 0):
