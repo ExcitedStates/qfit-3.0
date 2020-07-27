@@ -140,14 +140,15 @@ fi
 # This helps to prevent backbone conformers from being merged during
 #   subsequent rounds of refinement.
 cp "${pdb_name}_002.pdb" "${pdb_name}_002.000.pdb"
-phenix.reduce "${pdb_name}_002.000.pdb" > "${pdb_name}_002.pdb"
+# We reduce (for NQH flips) at the start of each loop in the following section
+#   so this is commented out:
+# phenix.reduce -build -allalt "${pdb_name}_002.000.pdb" > "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 i=1
 while [ $zeroes -gt 1 ]; do
-  cp "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
-  ((i++));
+  molprobity.reduce -build -allalt "${pdb_name}_002.$(printf '%03d' $((i-1))).pdb" > "${pdb_name}_002.pdb";
   if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
@@ -155,6 +156,7 @@ while [ $zeroes -gt 1 ]; do
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
+                  main.nqh_flips=False \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   else
@@ -163,40 +165,50 @@ while [ $zeroes -gt 1 ]; do
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
+                  main.nqh_flips=False \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   fi
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
-
   if [ ! -f "${pdb_name}_003_norm.pdb" ]; then
-     echo >&2 "Normalize occupancies did not work!";
-     exit 1;
+    echo >&2 "Normalize occupancies did not work!";
+    exit 1;
+  else
+    mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
   fi
 
-  mv "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb"
+  # Backup maps and logs
+  cp -v "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
+  cp -v "${pdb_name}_003.mtz" "${pdb_name}_002.$(printf '%03d' $i).mtz";
+  cp -v "${pdb_name}_003.log" "${pdb_name}_002.$(printf '%03d' $i).log";
+
+  ((i++));
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
 mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
+molprobity.reduce -build -allalt "${pdb_name}_004.pdb" > "${pdb_name}_004_flipNQH.pdb"
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.refine "${pdb_name}_004.pdb" \
+  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
                 "${pdb_name}_002.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
+                main.nqh_flips=False \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 else
-  phenix.refine "${pdb_name}_004.pdb" \
+  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
                 "${pdb_name}_002.mtz" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
+                main.nqh_flips=False \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 fi
