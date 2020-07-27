@@ -1,13 +1,5 @@
 #!/bin/bash
 
-#___________________________SOURCE__________________________________
-source /wynton/group/fraser/swankowicz/phenix-installer-1.18rc7-3834-intel-linux-2.6-x86_64-centos6/phenix-1.18rc7-3834/phenix_env.sh
-export PATH="/wynton/home/fraserlab/swankowicz/anaconda3/bin:$PATH"
-source activate qfit3
-
-#source /home/wankowicz/anaconda3/etc/profile.d/conda.sh
-conda activate qfit3
-
 qfit_usage() {
   echo >&2 "Usage:";
   echo >&2 "  $0 mapfile.ccp4 originalmodel.pdb [multiconformer_model2.pdb]";
