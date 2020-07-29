@@ -61,7 +61,7 @@ Once dependencies are installed, you can clone the qFit source, and install to y
 (Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
 
-## Usage examples  {#sec:usage-examples}
+## Usage examples
 
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
