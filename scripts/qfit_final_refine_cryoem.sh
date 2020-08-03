@@ -31,15 +31,12 @@ command -v remove_duplicates >/dev/null 2>&1 || {
 mapfile=$1
 org_model=$2
 multiconf=${3:-multiconformer_model2.pdb}
- -lrt
-
-echo $org_model
 
 echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
-echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "original model : ${org_model} $([[ -f ${org_model} ]] || echo '[NOT FOUND]')";
+echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "";
-if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
+if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ -f ${org_model} ]]; then
   qfit_usage;
 fi
 pdb_name="${mapfile%.ccp4}"
@@ -110,16 +107,17 @@ while [ $zeroes -gt 1 ]; do
                   --overwrite
   fi
 
-  #zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
+  zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   zeroes=`normalize_occupancies -occ 0.09 ${pdb_name}3_real_space_refined.pdb`
   echo "Post refinement zeroes: ${zeroes}"
 
   if [ ! -f "${pdb_name}3_real_space_refined_norm.pdb" ]; then
      echo >&2 "Normalize occupancies did not work!";
      exit 1;
+  else
+     mv "${pdb_name}3_real_space_refined_norm.pdb" "${pdb_name}2_real_space_refined.001.pdb"
   fi
-
-  mv "${pdb_name}3_real_space_refined_norm.pdb" "${pdb_name}2_real_space_refined.001.pdb"
+  
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
