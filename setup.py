@@ -51,8 +51,9 @@ def main():
 
     setup(name="qfit",
           use_scm_version=True,
-          author='Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
+          author='Blake Riley, Stephanie A. Wankowicz, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem',
           author_email='saulo@stanford.edu',
+          project_urls={'Documentation': 'https://github.com/ExcitedStates/qfit-3.0/'},
           package_dir=package_dir,
           packages=packages,
           package_data=package_data,
@@ -60,6 +61,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
+          python_requires='>=3.6', 
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
