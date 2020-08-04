@@ -1,10 +1,10 @@
 import pytest
 
-from qfit.solvers import *
+from .qfit.solvers import *
 
 
 def setup_module(module):
-    import qfit.solvers
+    import .qfit.solvers
 
     # Manually set CPLEX to False
     # in this module ONLY
