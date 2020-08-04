@@ -162,10 +162,12 @@ def build_argparser():
     p.add_argument("-d", "--directory", default='.',
                    metavar="<dir>", type=os.path.abspath,
                    help="Directory to store results.")
-    p.add_argument("--debug", action="store_true",
-                   help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument("--debug", action="store_true",
+                   help="Log as much information as possible.")
+    p.add_argument("--write_intermediate_conformers", action="store_true",
+                   help="Write intermediate structures to file (useful with debugging).")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
     return p

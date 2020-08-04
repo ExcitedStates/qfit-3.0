@@ -59,6 +59,7 @@ class _BaseQFitOptions:
         self.directory = '.'
         self.verbose = False
         self.debug = False
+        self.write_intermediate_conformers = False
         self.label = None
         self.map = None
         self.structure = None
