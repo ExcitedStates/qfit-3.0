@@ -33,9 +33,9 @@ import sys
 import time
 import numpy as np
 from string import ascii_uppercase
-from . import MapScaler, Structure, XMap, _Ligand
-from .qfit import QFitLigand, QFitLigandOptions
-from .logtools import setup_logging, log_run_info
+from qfit import MapScaler, Structure, XMap, _Ligand
+from qfit.qfit import QFitLigand, QFitLigandOptions
+from qfit.logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
