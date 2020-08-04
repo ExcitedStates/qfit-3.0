@@ -3,12 +3,12 @@ import os
 import logging
 import multiprocessing as mp
 
-from qfit.qfit_protein import (
+from .qfit.qfit_protein import (
     QFitProteinOptions,
     build_argparser,
     prepare_qfit_protein,
 )
-from qfit.logtools import (
+from .qfit.logtools import (
     setup_logging,
     log_run_info,
 )
