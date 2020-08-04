@@ -34,7 +34,7 @@ import time
 import numpy as np
 from string import ascii_uppercase
 from . import MapScaler, Structure, XMap, _Ligand
-from . import QFitLigand, QFitLigandOptions
+from .qfit import QFitLigand, QFitLigandOptions
 from .logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
@@ -218,7 +218,7 @@ def prepare_qfit_ligand(options):
     scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options)
+    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
 
 
 def main():
@@ -237,21 +237,19 @@ def main():
     # Apply the arguments to options
     options = QFitLigandOptions()
     options.apply_command_args(args)
-    print(args.selection)
-    print(options.selection)
 
     # Setup logger
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand = prepare_qfit_ligand(options)
+    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    #POST QFIT LIGAND WRITE OUTPUT (done withint the qfit protein run command)
-    conformers = qfit.get_conformers()
+    #POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
@@ -268,4 +266,7 @@ def main():
     fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
-    multiconformer.tofile(fname)
+    try:
+        multiconformer.tofile(fname)
+    except NameError:
+        logger.error("qFit-ligand failed to produce any valid conformers.")

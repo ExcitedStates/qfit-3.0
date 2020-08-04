@@ -24,13 +24,13 @@ Once these are installed, you can:
 
 1. Create a new conda env & activate it
    ```bash
-   conda create --name qfit
+   conda create --name qfit --python>=3.6
    conda activate qfit
    ```
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl
+   conda install -c anaconda mkl numpy
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
@@ -61,7 +61,7 @@ Once dependencies are installed, you can clone the qFit source, and install to y
 (Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
 
-## Usage examples  {#sec:usage-examples}
+## Usage examples
 
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
