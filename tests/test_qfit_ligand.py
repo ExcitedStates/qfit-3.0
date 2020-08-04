@@ -1,12 +1,12 @@
 import os
 import logging
 
-from qfit.qfit_ligand import (
+from .qfit.qfit_ligand import (
     QFitLigandOptions,
     prepare_qfit_ligand,
     build_argparser,
 )
-from qfit.logtools import (
+from .qfit.logtools import (
     setup_logging,
     log_run_info,
 )
