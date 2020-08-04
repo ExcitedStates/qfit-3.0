@@ -23,8 +23,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 import gc
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
+from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
+from qfit.qfit import QFitSegment, QFitSegmentOptions
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
@@ -34,9 +34,9 @@ import time
 import argparse
 import logging
 import traceback
-from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
+from qfit.logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
-from .structure.rotamers import ROTAMERS
+from qfit.structure.rotamers import ROTAMERS
 
 
 logger = logging.getLogger(__name__)
