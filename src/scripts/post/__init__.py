@@ -25,8 +25,5 @@ IN THE SOFTWARE.
 
 import logging
 
-from . import b_factor
-
-
 
 LOGGER = logging.getLogger(__name__)

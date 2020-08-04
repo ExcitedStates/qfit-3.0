@@ -32,8 +32,7 @@ import numpy as np
 
 def main():
     package_dir = {'':'src'}
-    packages = find_packages('src') #include=['scripts']#'tests', 'tests.*'])#[, 'src.qfit.*','scripts', 'scripts.*']) #scripts', 'scripts.*'
-    print(packages)
+    packages = ['qfit', 'scripts.post']
     package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
     ext_modules = [Extension("qfit._extensions",
                              [os.path.join("src", "_extensions.c")],
