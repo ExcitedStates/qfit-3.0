@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #Edited by Stephanie Wankowicz
 #began: 2019-05-01
 '''
@@ -16,7 +18,7 @@ import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from math import ceil
-from qfit.qfit import MapScaler, Structure, XMap
+from qfit import MapScaler, Structure, XMap
 from qfit.structure.base_structure import _BaseStructure
 
 
@@ -114,3 +116,7 @@ def main():
 
     rmsf = RMSF(options)
     rmsf_final = rmsf.run()
+
+
+if __name__ == '__main__':
+    main()

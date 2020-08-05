@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Automatically build a multiconformer residue"""
 import numpy as np
 import argparse
@@ -6,8 +8,8 @@ import os
 import sys
 import time
 from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
+from qfit import Structure
+
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -58,3 +60,7 @@ def main():
                         print(resi,chainid,round(tot_rmsd/numlocs,2),len(altlocs))
         else:
             print(resi,chainid,0.0,len(altlocs))
+
+
+if __name__ == '__main__':
+    main()

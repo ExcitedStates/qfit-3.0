@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #Edited by Stephanie Wankowicz
 #began: 2019-05-01
 '''
@@ -99,3 +101,6 @@ def main():
     b_factor = B_factor(structure, B_options)
     b_fin = b_factor.run()
 
+
+if __name__ == '__main__':
+    main()

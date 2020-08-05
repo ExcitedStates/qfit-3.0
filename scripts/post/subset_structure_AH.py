@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #Edited by Stephanie Wankowicz
 #began: 2019-04-10
 #last edited: 2019-09-17
@@ -18,7 +20,7 @@ import copy
 import numpy as np
 from argparse import ArgumentParser
 from math import ceil
-from qfit.qfit import MapScaler, Structure, XMap
+from qfit import MapScaler, Structure, XMap
 from qfit.structure.base_structure import _BaseStructure
 #from .structure.ligand import
 #from .structure,.residue import residue_type
@@ -176,3 +178,7 @@ def main():
     sub_structure = QFitMultiResidue(holo_structure, apo_structure, options_multi)
     substructure = sub_structure.run()
     print(f"Total time: {time.time() - time0}s")
+
+
+if __name__ == '__main__':
+    main()
