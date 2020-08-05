@@ -295,8 +295,8 @@ def show(prefix, fmodel, m1, m2):
   s1 = m1.get_sites_cart()
   s2 = m2.get_sites_cart()
   d = flex.mean(flex.sqrt((s1 - s2).dot()))
-  print "%s r_work=%6.4f r_free=%6.4f dist_to_answer=%6.4f"%(
-    prefix, fmodel.r_work(), fmodel.r_free(), d)
+  print("%s r_work=%6.4f r_free=%6.4f dist_to_answer=%6.4f"%(
+    prefix, fmodel.r_work(), fmodel.r_free(), d))
 
 def get_map(fmodel):
   map_coeffs = map_tools.electron_density_map(fmodel = fmodel).map_coefficients(
@@ -379,4 +379,4 @@ def run():
 
 if (__name__ == "__main__"):
   run()
-  print "OK"
+  print("OK")

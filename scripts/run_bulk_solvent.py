@@ -56,31 +56,31 @@ def run(args):
   f_obs = f_obs.select(selection=sel)
   #
   r_free_flags = determine_data_and_flags_result.r_free_flags
-  if(r_free_flags is None):
-    print "No R-free flags available."
+  if r_free_flags is None:
+    print("No R-free flags available.")
     return
   merged = f_obs.as_non_anomalous_array().merge_equivalents()
   f_obs = merged.array().set_observation_type(f_obs)
-  #
+  
   merged = r_free_flags.as_non_anomalous_array().merge_equivalents()
   r_free_flags = merged.array().set_observation_type(r_free_flags)
   f_obs, r_free_flags = f_obs.common_sets(r_free_flags)
-  #
+  
   crystal_gridding = f_obs.crystal_gridding(
     d_min             = f_obs.d_min(),
     symmetry_flags    = maptbx.use_space_group_symmetry,
     resolution_factor = 1./4)
-  #
+  
   sel = xrs.hd_selection()
   xrs = xrs.select(~sel)
   sel = xrs.scatterers().extract_occupancies()>0.
   xrs = xrs.select(sel)
-  #
+  
   old = compute(f_obs=f_obs, r_free_flags=r_free_flags, xrs=xrs, use_new=False)
   new = compute(f_obs=f_obs, r_free_flags=r_free_flags, xrs=xrs, use_new=True)
-  #
-  print "OLD:Rw_l/Rw_h/Rw/Rf %6.4f %6.4f %6.4f %6.4f"%(old.rwl, old.rwh, old.rw, old.rf)
-  print "NEW:Rw_l/Rw_h/Rw/Rf %6.4f %6.4f %6.4f %6.4f"%(new.rwl, new.rwh, new.rw, new.rf)
+  
+  print("OLD:Rw_l/Rw_h/Rw/Rf %6.4f %6.4f %6.4f %6.4f"%(old.rwl, old.rwh, old.rw, old.rf))
+  print("NEW:Rw_l/Rw_h/Rw/Rf %6.4f %6.4f %6.4f %6.4f"%(new.rwl, new.rwh, new.rw, new.rf))
   #
   mtz_dataset = old.mc_diff.as_mtz_dataset(column_root_label="FoFc_old")
   mtz_dataset.add_miller_array(

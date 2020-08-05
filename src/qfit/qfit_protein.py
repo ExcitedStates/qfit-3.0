@@ -33,6 +33,7 @@ import sys
 import time
 import argparse
 import logging
+import traceback
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
@@ -104,13 +105,13 @@ def build_argparser():
                    metavar="<float>", type=float,
                    help="Backbone random-sampling displacement (Å).")
     p.add_argument('-sa', "--no-sample-angle", action="store_false", dest="sample_angle",
-                   help="Do not sample N-CA-CB angle.")
+                   help="Do not sample CA-CB-CG angle.")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling step in degrees.")
+                   help="CA-CB-CG bond angle sampling step in degrees.")
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling range in degrees [-x,x].")
+                   help="CA-CB-CG bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
                    help="Number of internal degrees that are sampled/built per iteration.")
@@ -119,7 +120,7 @@ def build_argparser():
                    help="Stepsize for dihedral angle sampling in degrees.")
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
-                   help="Neighborhood of rotamer to sample in degrees.")
+                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x].")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
@@ -161,10 +162,12 @@ def build_argparser():
     p.add_argument("-d", "--directory", default='.',
                    metavar="<dir>", type=os.path.abspath,
                    help="Directory to store results.")
-    p.add_argument("--debug", action="store_true",
-                   help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument("--debug", action="store_true",
+                   help="Log as much information as possible.")
+    p.add_argument("--write_intermediate_conformers", action="store_true",
+                   help="Write intermediate structures to file (useful with debugging).")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
     return p
@@ -223,6 +226,7 @@ class QFitProtein:
 
         # Initialise progress bar
         progress = tqdm(total=len(residues),
+                        desc="Sampling residues",
                         unit="residue",
                         unit_scale=True,
                         leave=True,
@@ -230,13 +234,14 @@ class QFitProtein:
 
         # Define callbacks and error callbacks to be attached to Jobs
         def _cb(result):
-            progress.update()
             if result:
-                progress.write(result)
+                logger.info(result)
+            progress.update()
 
         def _error_cb(e):
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.critical(tb)
             progress.update()
-            raise e
 
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
@@ -405,10 +410,13 @@ class QFitProtein:
                                     xmap_reduced, options)
         try:
             qfit.run()
-        except RuntimeError:
-            logger.warning(f"qFit was unable to produce an alternate conformer "
-                           f"for residue {resi} of chain {chainid}.\n"
+        except RuntimeError as e:
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.warning(f"[{qfit.identifier}] "
+                           f"Unable to produce an alternate conformer. "
                            f"Using deposited conformer A for this residue.")
+            logger.info(f"[{qfit.identifier}] This is a result of the following exception:\n"
+                        f"{tb})")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
@@ -416,6 +424,7 @@ class QFitProtein:
 
         # Save multiconformer_residue
         qfit.tofile()
+        qfit_id = qfit.identifier
 
         # How many conformers were found?
         n_conformers = len(qfit.get_conformers())
@@ -426,7 +435,7 @@ class QFitProtein:
         gc.collect()
 
         # Return a string about the residue that was completed.
-        return f"{identifier} {residue.resn[0]}: {n_conformers} conformers"
+        return f"[{qfit_id}]: {n_conformers} conformers"
 
 
 def prepare_qfit_protein(options):

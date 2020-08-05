@@ -88,5 +88,8 @@ ENV/
 # Rope project settings
 .ropeproject
 
-#Atom stuff
+# Atom stuff
 .nfs*
+
+# macOS Finder
+.DS_Store
