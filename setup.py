@@ -83,7 +83,7 @@ def main():
                   'remove_duplicates = qfit.remove_duplicates:main'
               ]},
           scripts=[
-              'scripts/post/post_refine_phenix.sh',
+              'scripts/post/qfit_final_refine_xray.sh',
               'scripts/post/find_largest_ligand.py',
               'scripts/post/find_altlocs_near_ligand.py',
               'scripts/post/qfit_RMSF.py',
