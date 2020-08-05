@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #Edited by Stephanie Wankowicz
 #began: 2019-04-10
 #last edited: 2019-09-17
@@ -8,9 +10,8 @@ Contact: vdbedem@stanford.edu
 '''
 
 import pkg_resources  # part of setuptools
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit_protein import QFitProteinOptions, QFitProtein
+from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
+from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os.path
 import os
 import sys
@@ -19,8 +20,8 @@ import copy
 import numpy as np
 from argparse import ArgumentParser
 from math import ceil
-from . import MapScaler, Structure, XMap
-from .structure.base_structure import _BaseStructure
+from qfit import MapScaler, Structure, XMap
+from qfit.structure.base_structure import _BaseStructure
 #from .structure.ligand import
 #from .structure,.residue import residue_type
 
@@ -53,12 +54,9 @@ def parse_args():
     args = p.parse_args()
     return args
 
-class QFitMultiResOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
+class QFitMultiResOptions(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
-        self.nproc = 1
-        self.verbose = True
-        self.omit = False
         self.ligand_start = None
         self.distance = None
         self.pdb_holo = None
@@ -180,3 +178,7 @@ def main():
     sub_structure = QFitMultiResidue(holo_structure, apo_structure, options_multi)
     substructure = sub_structure.run()
     print(f"Total time: {time.time() - time0}s")
+
+
+if __name__ == '__main__':
+    main()

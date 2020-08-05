@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #Edited by Stephanie Wankowicz
 #began: 2019-05-01
 '''
@@ -8,19 +10,19 @@ Contact: vdbedem@stanford.edu
 '''
 
 import pkg_resources  # part of setuptools
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit_protein import QFitProteinOptions, QFitProtein
+from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
+from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os
 import sys
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from math import ceil
-from . import MapScaler, Structure, XMap
-from .structure.base_structure import _BaseStructure
+from qfit import MapScaler, Structure, XMap
+from qfit.structure.base_structure import _BaseStructure
 
 
-def parse_args():
+def build_argparser():
     p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
@@ -30,8 +32,7 @@ def parse_args():
                    metavar="<dir>", help="Directory to store results.")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
-    args = p.parse_args()
-    return args
+    return p
 
 class RMSF_options(QFitRotamericResidueOptions):
     def __init__(self):
@@ -53,6 +54,7 @@ class RMSF():
 
     def average_coor_heavy_atom(self):
         rmsf = pd.DataFrame()
+        print(self.structure)
         select = self.structure.extract('record', 'ATOM', '==')
         n=0
         for chain in np.unique(select.chain):
@@ -102,12 +104,19 @@ class RMSF():
         rmsf['Chain'] = rmsf['Chain'].str.replace(']', '')
         rmsf['Chain'] = rmsf['Chain'].str.replace('\'', '')
         rmsf['PDB_name'] = self.options.pdb
-        rmsf.to_csv(self.pdb+'qfit_RMSF.csv')
+        rmsf.to_csv(self.pdb + 'qfit_RMSF.csv')
 
 
 def main():
-    args = parse_args()
-    R_options = RMSF_options()
-    R_options.apply_command_args(args)
-    rmsf = RMSF(R_options)
-    fin_rmsf = rmsf.run()
+    p = build_argparser()
+    args = p.parse_args()
+
+    options = RMSF_options()
+    options.apply_command_args(args)
+
+    rmsf = RMSF(options)
+    rmsf_final = rmsf.run()
+
+
+if __name__ == '__main__':
+    main()
