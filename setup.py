@@ -76,20 +76,23 @@ def main():
                   'relabel = qfit.relabel:main',
                   'remove_altconfs = qfit.remove_altconfs:main',
                   'side_chain_remover = qfit.side_chain_remover:main',
-                  'compare_apo_holo = qfit.compare_apo_holo:main',
-                  'find_altlocs_near_ligand = qfit.find_altlocs_near_ligand:main',
                   'redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main',
-                  'RMSF = qfit.qfit_RMSF:main',
-                  'b_factor = qfit.b_factor:main',
                   'fix_restraints = qfit.fix_restraints:main',
-                  'get_metrics = qfit.get_metrics:main',
-                  'find_altlocs = qfit.find_altlocs_near_ligand:main',
                   'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
-                  'find_largest_lig = qfit.find_largest_lig:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main'
               ]},
-          )
+          scripts=[
+              'scripts/post/post_refine_phenix.sh',
+              'scripts/post/find_largest_ligand.py',
+              'scripts/post/find_altlocs_near_ligand.py',
+              'scripts/post/qfit_RMSF.py',
+              'scripts/post/find_altlocs_near_ligand.py',
+              'scripts/post/compare_apo_holo.py',
+              'scripts/post/get_metrics.py',
+              'scripts/post/b_factor.py',
+          ],
+    )
 
 
 if __name__ == '__main__':
