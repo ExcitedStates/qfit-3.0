@@ -107,8 +107,7 @@ while [ $zeroes -gt 1 ]; do
                   --overwrite
   fi
 
-  zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
-  zeroes=`normalize_occupancies -occ 0.09 ${pdb_name}3_real_space_refined.pdb`
+  zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}3_real_space_refined.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
 
   if [ ! -f "${pdb_name}3_real_space_refined_norm.pdb" ]; then
