@@ -166,6 +166,8 @@ class XMap(_BaseVolume):
             a, b, c = parser.abc
             alpha, beta, gamma = parser.angles
             spacegroup = parser.spacegroup
+            if spacegroup == 0:
+                raise RuntimeError("File format is 2D image or image stack. Please convert to map.")
             unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup)
             offset = parser.offset
             array = parser.density
