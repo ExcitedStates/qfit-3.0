@@ -753,7 +753,7 @@ class QFitRotamericResidue(_BaseQFit):
             segment.coor = starting_coor
 
         logger.debug(f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers.")
-        if self.options.self.options.write_intermediate_conformers:
+        if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"_sample_backbone_segment{index:03d}")
 
     def _sample_angle(self):
