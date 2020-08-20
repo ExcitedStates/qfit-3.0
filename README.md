@@ -24,7 +24,7 @@ Once these are installed, you can:
 
 1. Create a new conda env & activate it
    ```bash
-   conda create --name qfit --python>=3.6
+   conda create --name qfit "python>=3.6"
    conda activate qfit
    ```
 
