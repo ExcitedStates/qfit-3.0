@@ -731,7 +731,8 @@ class QFitRotamericResidue(_BaseQFit):
         # Create an array of amplitudes to scan:
         #   We start from stepsize, making sure to stop only after bba.
         #   Also include negative amplitudes.
-        amplitudes = np.arange(start=bbs, stop=bba + bbs, step=bbs)
+        eps = ((bba / bbs) / 2) * np.finfo(float).epsneg  # ε to avoid FP errors in arange
+        amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
         amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
         # Optimize in torsion space to achieve the target atom position
