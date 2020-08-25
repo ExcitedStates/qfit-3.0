@@ -1190,7 +1190,6 @@ class QFitLigand(_BaseQFit):
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
-        print(self.options.clash_scaling_factor)
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)#, exclude=exclude)
         if self.options.debug:
