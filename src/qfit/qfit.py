@@ -1298,7 +1298,6 @@ class QFitLigand(_BaseQFit):
 
     def run(self):
         for self._cluster_index, self._cluster in enumerate(self._clusters_to_sample):
-            print(self._cluster_index)
             self._coor_set = list(self._starting_coor_set)
             logger.info(f"Cluster index: {(self._cluster_index)}")
             logger.info(f"Number of conformers: {len(self._coor_set)}")
@@ -1323,7 +1322,6 @@ class QFitLigand(_BaseQFit):
         self.ligand._active[self.ligand._selection] = True
         self._coor_set = self._all_coor_set
         self._bs = self._all_bs
-        self.ligand._selection.tofile('prefinal.pdb')
         
 
         self.ligand.active = True
@@ -1332,12 +1330,11 @@ class QFitLigand(_BaseQFit):
 
         for coor, b in zip(self._coor_set, self._bs):
             self.ligand.coor = coor
-            self.ligand.b = b #self.ligand._coor[selection]
+            self.ligand.b = b
             if self.options.remove_conformers_below_cutoff:  # Move on if these coordinates are unsupported by density
                 values = self.xmap.interpolate(coor)  
                 mask = (self.ligand.e != "H") 
                 if np.min(values[mask]) < self.options.density_cutoff:
-                    print('remove')
                     continue
             if self.options.external_clash:
                 if not self._cd() and self.ligand.clashes() == 0:
