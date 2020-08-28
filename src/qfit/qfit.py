@@ -325,6 +325,7 @@ class _BaseQFit:
                 Cutoff should be in range (0 < cutoff < 1).
         """
         logger.debug("Updating conformers based on occupancy")
+        logger.debug(f"Number of conformers before removing low occupancy: {len(self._coor_set)}")
 
         # Check that all arrays match dimensions.
         assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
@@ -1306,13 +1307,9 @@ class QFitLigand(_BaseQFit):
                 self._local_search()
             self._coor_set.append(self._starting_coor_set)
             self.ligand._active[self.ligand._selection] = True
-            print('self.ligand._active')
-            print(self.ligand._active)
             logger.info("Starting sample internal dofs")
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
-            print('self._all_coor_set')
-            print(len(self._all_coor_set))
             self._all_bs += self._bs
             prefix_tmp = 'run_' + str(self._cluster)
             if self.options.write_intermediate_conformers:
@@ -1326,6 +1323,32 @@ class QFitLigand(_BaseQFit):
         self.ligand._active[self.ligand._selection] = True
         self._coor_set = self._all_coor_set
         self._bs = self._all_bs
+        self.ligand._selection.tofile('prefinal.pdb')
+        
+
+        self.ligand.active = True
+        new_coor_set = []
+        new_bs = []
+
+        for coor, b in zip(self._coor_set, self._bs):
+            self.ligand.coor = coor
+            self.ligand.b = b #self.ligand._coor[selection]
+            if self.options.remove_conformers_below_cutoff:  # Move on if these coordinates are unsupported by density
+                values = self.xmap.interpolate(coor)  
+                mask = (self.ligand.e != "H") 
+                if np.min(values[mask]) < self.options.density_cutoff:
+                    print('remove')
+                    continue
+            if self.options.external_clash:
+                if not self._cd() and self.ligand.clashes() == 0:
+                    new_coor_set.append(coor)
+                    new_bs.append(b)
+            elif self.ligand.clashes() == 0:
+                    new_coor_set.append(coor)
+                    new_bs.append(b)
+            self._coor_set = new_coor_set
+            self._bs = new_bs
+
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
@@ -1337,6 +1360,9 @@ class QFitLigand(_BaseQFit):
         self._solve()
         logger.debug("Updating conformers within run.")
         self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            prefix_tmp = 'qp' + str(self._cluster)
+            self._write_intermediate_conformers(prefix=prefix_tmp)
         if len(self._coor_set) < 1:
             print(f"{self.ligand.resn[0]}: QP {self._cluster_index}: {len(self._coor_set)} conformers")
             return
@@ -1348,8 +1374,8 @@ class QFitLigand(_BaseQFit):
                     cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            prefix_tmp = 'mipq' + str(self._cluster)
-            self._write_intermediate_conformers(prefix="miqp_solution")
+            prefix_tmp = 'miqp' + str(self._cluster)
+            self._write_intermediate_conformers(prefix=prefix_tmp)
 
     def _local_search(self):
         """Perform a local rigid body search on the cluster."""
@@ -1357,7 +1383,6 @@ class QFitLigand(_BaseQFit):
         # Set occupancies of rigid cluster and its direct neighboring atoms to
         # 1 for clash detection and MIQP
         selection = self.ligand._selection
-        #selection = self.ligand._selection[self._cluster]
         self.ligand._active[selection] = True
 
         center = self.ligand.coor[self._cluster].mean(axis=0)
@@ -1365,25 +1390,9 @@ class QFitLigand(_BaseQFit):
         new_bs = []
 
         for coor, b in zip(self._coor_set, self._bs):
-            print('local search coord') #debug
-            #print(coor)
-            print('self.ligand._coor')
-            #print(self.ligand._coor)
-            print(len(self.ligand._coor))
-            #print(self.ligand.coor)
-            #print(len(self.ligand.coor))
-            #self.ligand._coor = coor #self.ligand._coor[selection]
             self.ligand._coor[selection] = coor
-            #print(len(self.ligand._coor[selection]))
             self.ligand._b[selection] = b 
-            #print(self.ligand._b[self._cluster])
-            #print(len(self.ligand._b[self._cluster]))
-            print('self.ligand._coor 2')
-            #print(self.ligand._coor)
-            print(len(self.ligand._coor))
-            #self.ligand.tofile('ligand1.pdb')
             rotator = GlobalRotator(self.ligand, center=center) #sample around local rotation
-            #print(rotator)
             for rotmat in RotationSets.get_local_set():
                 rotator(rotmat)
                 translator = Translator(self.ligand)
@@ -1391,9 +1400,7 @@ class QFitLigand(_BaseQFit):
                     np.arange(*trans) for trans in self._trans_box]) 
                 for translation in iterator: #for each rotation, sample around the potential translations
                     translator(translation)
-                    new_coor = self.ligand.coor #[self._cluster]
-                    #print('len(new_coor)')
-                    #print(len(new_coor))
+                    new_coor = self.ligand.coor 
                     if self.options.remove_conformers_below_cutoff:  # Move on if these coordinates are unsupported by density
                         values = self.xmap.interpolate(new_coor)  #[active_mask]
                         mask = (self.ligand.e != "H") #[active_mask] [self._cluster]
@@ -1486,17 +1493,15 @@ class QFitLigand(_BaseQFit):
                 new_coor_set = []
                 new_bs = []
                 for coor, b in zip(self._coor_set, self._bs):
-                    self.ligand.coor[:] = coor
-                    self.ligand.b[:] = b
+                    self.ligand._coor[selection] = coor #self.ligand.coor[:] self.ligand._coor[selection] = coor
+                    self.ligand._b[selection] = b #self.ligand.b[:]
                     rotator = BondRotator(self.ligand, *atoms)
                     for angle in sampling_range:
                         new_coor = rotator(angle)
 
                         if self.options.remove_conformers_below_cutoff:
-                            values = self.xmap.interpolate(new_coor[self.ligand._active[selection]]) #new_coor) #[self.ligand._active[selection]]
-                            #print(values)
-                            mask = (self.ligand.e[self.ligand._active[selection]] != "H") #[self.ligand._active[selection]]
-                            #print(mask)
+                            values = self.xmap.interpolate(new_coor[self.ligand._active[selection]])
+                            mask = (self.ligand.e[self.ligand._active[selection]] != "H")
                             if np.min(values[mask]) < self.options.density_cutoff:
                                 continue
                         if self.options.external_clash:
