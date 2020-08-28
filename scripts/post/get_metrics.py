@@ -8,7 +8,7 @@ import os
 import sys
 import time
 from string import ascii_uppercase
-from qfit import Structure
+from qfit.structure import Structure
 
 
 def parse_args():

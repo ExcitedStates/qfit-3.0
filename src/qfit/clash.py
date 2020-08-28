@@ -32,7 +32,7 @@ class ClashDetector:
 
     """Detect clashes between ligand and receptor using spatial hashing."""
 
-    def __init__(self, ligand, receptor, scaling_factor=0.85, exclude=None):
+    def __init__(self, ligand, receptor, scaling_factor, exclude=None):
 
         self.ligand = ligand
         self.scaling_factor = scaling_factor

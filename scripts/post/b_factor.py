@@ -24,8 +24,6 @@ from math import ceil
 from qfit.structure import Structure
 
 
-os.environ["OMP_NUM_THREADS"] = "1"
-
 def build_argparser():
     p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,

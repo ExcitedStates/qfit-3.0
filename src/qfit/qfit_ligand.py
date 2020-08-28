@@ -86,15 +86,14 @@ def build_argparser():
             help="Do not build ligand.")
     p.add_argument("-nl", "--no-local", action="store_false", dest="local_search",
             help="Do not perform a local search.")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
-                   dest="remove_conformers_below_cutoff",
-            help=("Remove conformers during sampling that have atoms that have "
+    p.add_argument("--remove-conformers-below-cutoff", action="store_false", dest="remove_conformers_below_cutoff",
+            help=("Do not remove conformers during sampling that have atoms that have "
                   "no density support for, i.e. atoms are positioned at density "
-                  "values below cutoff value."))
+                  "values below cutoff value (Default: 0.3)"))
     p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
             help="Set clash scaling factor. Default = 0.75")
-    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
-            help="Enable external clash detection during sampling.")
+    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_false",
+            help="Disable external clash detection during sampling.")
     p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
             help="Bulk solvent level in absolute values.")
     p.add_argument("-b", "--build-stepsize", type=int, default=2, metavar="<int>", dest="dofs_per_iteration",
@@ -110,10 +109,10 @@ def build_argparser():
             help="Threshold constraint during intermediate MIQP.")
     p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
             help="Cardinality constraint used during intermediate MIQP.")
-    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
-            help="Include hydrogens during calculations.")
     p.add_argument("-T","--no-threshold-selection", dest="bic_threshold", action="store_false",
             help="Do not use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument('-rmsd', "--rmsd_cutoff", default=0.01, metavar="<float>", type=float,
+            help="RMSD cutoff for removal of identical conformers.")
 
 
     # Output options
@@ -146,20 +145,21 @@ def prepare_qfit_ligand(options):
         icode = ''
 
     # Extract the ligand:
-    structure_ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+    ligand = structure.extract(f'resi {resi} and chain {chainid}') #fix ligand name
+    #ligand.tofile('ligand.pdb') #debug
 
     if icode:
-        structure_ligand = structure_ligand.extract('icode', icode) #fix ligand name
+        ligand = ligand.extract('icode', icode) 
     sel_str = f"resi {resi} and chain {chainid}"
     sel_str = f"not ({sel_str})" #TO DO COLLAPSE
-    receptor = structure.extract(sel_str) #selecting everything that is no the ligand of interest
+    receptor_nolig = structure.extract(sel_str) #selecting everything that is no the ligand of interest
 
-    receptor = receptor.extract("record", "ATOM") #receptor.extract('resn', 'HOH', '!=')
+    receptor = receptor_nolig.extract('resn', 'HOH', '!=')
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
 
-    altlocs = sorted(list(set(structure_ligand.altloc)))
+    altlocs = sorted(list(set(ligand.altloc)))
     if len(altlocs) > 1:
         try:
             altlocs.remove('')
@@ -168,19 +168,20 @@ def prepare_qfit_ligand(options):
         for altloc in altlocs[1:]:
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
-            structure_ligand = structure_ligand.extract(sel_str)
+            ligand = ligand.extract(sel_str)
             receptor = receptor.extract(f"not altloc {altloc}")
-    altloc = structure_ligand.altloc[-1]
+    altloc = ligand.altloc[-1]
+    ligand.altloc[-1]
 
     if options.cif_file: #TO DO: STEPHANIE
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data,
+        ligand = _Ligand(ligand.data,
+                         ligand._selection,
+                         link_data=ligand.link_data,
                          cif_file=args.cif_file)
     else:
-        ligand = _Ligand(structure_ligand.data,
-                         structure_ligand._selection,
-                         link_data=structure_ligand.link_data)
+        ligand = _Ligand(ligand.data,
+                         ligand._selection,
+                         link_data=ligand.link_data)
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check "
                            " the selection input.")
@@ -199,7 +200,7 @@ def prepare_qfit_ligand(options):
         # Prepare X-ray map
         scaler = MapScaler(xmap, scattering=options.scattering)
         if options.omit:
-            footprint = structure_ligand
+            footprint = ligand
         else:
             footprint = structure
         radius = 1.5
@@ -220,7 +221,7 @@ def prepare_qfit_ligand(options):
     scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode, receptor_nolig
 
 
 def main():
@@ -244,7 +245,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
@@ -265,10 +266,17 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
+    
+    
+    
     fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}.pdb')
+    str_fname = os.path.join(options.directory, pdb_id + f'qFit_ligand.pdb')
+
     if icode:
         fname = os.path.join(options.directory, pdb_id + f'multiconformer_{chainid}_{resi}_{icode}.pdb')
     try:
         multiconformer.tofile(fname)
+        str_lig = receptor.combine(multiconformer).reorder()
+        str_lig.tofile(str_fname)
     except NameError:
         logger.error("qFit-ligand failed to produce any valid conformers.")
