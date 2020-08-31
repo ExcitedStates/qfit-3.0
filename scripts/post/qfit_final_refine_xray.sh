@@ -153,6 +153,7 @@ while [ $zeroes -gt 1 ]; do
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
                   "${multiconf}.f_modified.ligands.cif" \
+                  "$adp" \
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
@@ -162,6 +163,7 @@ while [ $zeroes -gt 1 ]; do
   else
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
+                  "$adp" \
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
