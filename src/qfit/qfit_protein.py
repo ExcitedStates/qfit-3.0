@@ -72,16 +72,16 @@ def build_argparser():
                    help="Map file is an OMIT map. This affects the scaling procedure of the map.")
 
     # Map prep options
-    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
-                   help="Do not scale density.")
+    p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
+                   help="Scale density.")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>.")
     p.add_argument("-dv", "--density-cutoff-value", default=-1,
                    metavar="<float>", type=float,
                    help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
-                   help="Do not subtract Fcalc of the neighboring residues when running qFit.")
+    p.add_argument("--subtract", action=ToggleActionFlag, dest="subtract", default=True,
+                   help="Subtract Fcalc of neighboring residues when running qFit.")
     p.add_argument("-pad", "--padding", default=8.0,
                    metavar="<float>", type=float,
                    help="Padding size for map creation.")
@@ -89,8 +89,8 @@ def build_argparser():
                    help="Keep waters, but do not consider them for soft clash detection.")
 
     # Sampling options
-    p.add_argument('-bb', "--no-backbone", action="store_false", dest="sample_backbone",
-                   help="Do not sample backbone using inverse kinematics.")
+    p.add_argument("--backbone", action=ToggleActionFlag, dest="sample_backbone", default=True,
+                   help="Sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", default=0.1, dest="sample_backbone_step",
                    metavar="<float>", type=float,
                    help="Stepsize for the amplitude of backbone sampling (Å).")
@@ -100,8 +100,8 @@ def build_argparser():
     p.add_argument('-bbv', "--backbone-sigma", default=0.125, dest="sample_backbone_sigma",
                    metavar="<float>", type=float,
                    help="Backbone random-sampling displacement (Å).")
-    p.add_argument('-sa', "--no-sample-angle", action="store_false", dest="sample_angle",
-                   help="Do not sample CA-CB-CG angle.")
+    p.add_argument("--sample-angle", action=ToggleActionFlag, dest="sample_angle", default=True,
+                   help="Sample CA-CB-CG angle for aromatic F/H/W/Y residues")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
                    metavar="<float>", type=float,
                    help="CA-CB-CG bond angle sampling step in degrees.")
@@ -141,8 +141,8 @@ def build_argparser():
     p.add_argument('-rmsd', "--rmsd_cutoff", default=0.01,
                    metavar="<float>", type=float,
                    help="RMSD cutoff for removal of identical conformers.")
-    p.add_argument("-T", "--no-threshold-selection", dest="bic_threshold",
-                   action="store_false", help="Do not use BIC to select the most parsimonious MIQP threshold")
+    p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
+                   help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
                    help="Number of processors to use.")
 
@@ -150,9 +150,8 @@ def build_argparser():
     p.add_argument("-f", "--fragment-length", default=4, dest="fragment_length",
                    metavar="<int>", type=int,
                    help="Fragment length used during qfit_segment.")
-    p.add_argument("-Ts", "--no-segment-threshold-selection", action="store_false", dest="seg_bic_threshold",
-                   help="Do not use BIC to select the most "
-                        "parsimonious MIQP threshold (segment).")
+    p.add_argument("--segment-threshold-selection", action=ToggleActionFlag, dest="seg_bic_threshold", default=True,
+                   help="Use BIC to select the most parsimonious MIQP threshold (segment).")
 
     # Output options
     p.add_argument("-d", "--directory", default='.',
