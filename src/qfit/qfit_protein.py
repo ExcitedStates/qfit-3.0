@@ -61,7 +61,7 @@ def build_argparser():
     p.add_argument('-r', "--resolution", default=None,
                    metavar="<float>", type=float,
                    help="Map resolution in angstrom. Only use when providing CCP4 map files.")
-    p.add_argument("-m", "--resolution_min", default=None,
+    p.add_argument("-m", "--resolution-min", default=None,
                    metavar="<float>", type=float,
                    help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
@@ -122,12 +122,12 @@ def build_argparser():
                    help=("Remove conformers during sampling that have atoms "
                          "with no density support, i.e. atoms are positioned "
                          "at density values below <density-cutoff>."))
-    p.add_argument('-cf', "--clash_scaling_factor", default=0.75,
+    p.add_argument('-cf', "--clash-scaling-factor", default=0.75,
                    metavar="<float>", type=float,
                    help="Set clash scaling factor.")
-    p.add_argument('-ec', "--external_clash", action="store_true", dest="external_clash",
+    p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
                    help="Enable external clash detection during sampling.")
-    p.add_argument("-bs", "--bulk_solvent_level", default=0.3,
+    p.add_argument("-bs", "--bulk-solvent-level", default=0.3,
                    metavar="<float>", type=float,
                    help="Bulk solvent level in absolute values.")
     p.add_argument("-c", "--cardinality", default=5,
@@ -138,7 +138,7 @@ def build_argparser():
                    help="Threshold constraint used during MIQP.")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
                    help="Include hydrogens during calculations.")
-    p.add_argument('-rmsd', "--rmsd_cutoff", default=0.01,
+    p.add_argument('-rmsd', "--rmsd-cutoff", default=0.01,
                    metavar="<float>", type=float,
                    help="RMSD cutoff for removal of identical conformers.")
     p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
@@ -161,7 +161,7 @@ def build_argparser():
                    help="Be verbose.")
     p.add_argument("--debug", action="store_true",
                    help="Log as much information as possible.")
-    p.add_argument("--write_intermediate_conformers", action="store_true",
+    p.add_argument("--write-intermediate-conformers", action="store_true",
                    help="Write intermediate structures to file (useful with debugging).")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
