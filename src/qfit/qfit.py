@@ -69,7 +69,7 @@ class _BaseQFitOptions:
         self.density_cutoff_value = -1
         self.subtract = True
         self.padding = 8.0
-        self.nowaters = False
+        self.waters_clash = True
 
         # Density creation options
         self.map_type = None
@@ -201,7 +201,7 @@ class _BaseQFit:
     def _subtract_transformer(self, residue, structure):
         # Select the atoms whose density we are going to subtract:
         subtract_structure = structure.extract_neighbors(residue, self.options.padding)
-        if self.options.nowaters:
+        if not self.options.waters_clash:
             subtract_structure = subtract_structure.extract("resn", "HOH", "!=")
 
         # Calculate the density that we are going to subtract:

@@ -85,8 +85,8 @@ def build_argparser():
     p.add_argument("-pad", "--padding", default=8.0,
                    metavar="<float>", type=float,
                    help="Padding size for map creation.")
-    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
-                   help="Keep waters, but do not consider them for soft clash detection.")
+    p.add_argument("--waters-clash", action=ToggleActionFlag, dest="waters_clash", default=True,
+                   help="Consider waters for soft clash detection.")
 
     # Sampling options
     p.add_argument("--backbone", action=ToggleActionFlag, dest="sample_backbone", default=True,
