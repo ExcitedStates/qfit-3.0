@@ -32,6 +32,7 @@ import os
 import sys
 import time
 import argparse
+from .custom_argparsers import CustomHelpFormatter
 import logging
 import traceback
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
@@ -41,11 +42,6 @@ from .structure.rotamers import ROTAMERS
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
-
-
-class CustomHelpFormatter(argparse.RawDescriptionHelpFormatter,
-                          argparse.ArgumentDefaultsHelpFormatter):
-    pass
 
 
 def build_argparser():
