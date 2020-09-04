@@ -33,6 +33,7 @@ This section guides you through submitting a bug report for qFit. Following thes
     * **Note:** If you find a **Closed** issue that seems like it is the same thing that you're experiencing, open a new issue and include a link to the original issue in the body of your new one.
 
 2. **Submit a bug report** to our issue tracker.
+    * We have an [issue template](.github/ISSUE_TEMPLATE/bug_report.md): the information the template asks for helps us to resolve issues faster.
     * Explain the problem and include additional details to help maintainers reproduce the problem:
         * **Use a clear and descriptive title** for the issue to identify the problem.
         * **Describe your configuration and environment.** Which version of qFit are you using? What's the name and version of the OS you're using?
