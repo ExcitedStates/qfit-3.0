@@ -395,16 +395,40 @@ class Structure(_BaseStructure):
                     residue2._altloc[residue2._selection] = ''
         return multiconformer
 
-    def average_conformers(self):
-        total_res = 0.0
-        total_altlocs = 0.0
-        for i, rg in enumerate(self.extract('record',"ATOM").residue_groups):
-            total_res += 1
-            altlocs = list(set(rg.altloc))
-            if '' in altlocs and len(altlocs) > 1:
-                altlocs.remove('')
+    @property
+    def n_residue_conformers(self):
+        """Total of conformers over all residues in the structure (exclude heteroatoms).
+
+        Returns:
+            int
+        """
+        total_altlocs = 0
+        for rg in self.extract("record", "ATOM").residue_groups:
+            altlocs = set(rg.altloc)
+            if "" in altlocs and len(altlocs) > 1:
+                altlocs.remove("")
             total_altlocs += len(altlocs)
-        return total_altlocs/total_res
+        return total_altlocs            
+
+    @property
+    def n_residues(self):
+        """Number of residues in the structure (exclude heteroatoms).
+
+        Required because Structure.residue_groups is a generator.
+
+        Returns:
+            int
+        """
+        residue_groups = self.extract("record", "ATOM").residue_groups
+        return sum(1 for _ in residue_groups)
+
+    def average_conformers(self):
+        """Average number of conformers over the structure (exclude heteroatoms).
+
+        Returns:
+            float
+        """
+        return self.n_residue_conformers / self.n_residues
 
     def _init_clash_detection(self):
         # Setup the condensed distance based arrays for clash detection and
@@ -831,30 +855,37 @@ class _Segment(_BaseStructure):
         raise ValueError("Residue is not part of segment.")
 
     def rotate_psi(self, index, angle):
-        """Rotate along psi dihedral."""
+        """Rotate along psi dihedral (about the CA--C bond)."""
         selection = [residue._selection
                      for residue in self.residues[index + 1:]]
         residue = self.residues[index]
         selection.append(residue.select('name', ('O', 'OXT')))
         selection = np.concatenate(selection)
-        coor = self._coor[selection]
+
         # Make an orthogonal axis system based on 3 atoms
+        # TODO: Use .math.gram_schmidt_orthonormal_zx (or something similar)
+        #       Note that here, the axes are 1→2, 2→1, 0=1×2.
+        origin = system_coor[0].copy()
         CA = residue.extract('name', 'CA').coor[0]
         C = residue.extract('name', 'C').coor[0]
         O = residue.extract('name', 'O').coor[0]
         system_coor = np.vstack((CA, C, O))
-        origin = system_coor[0].copy()
         system_coor -= origin
-        zaxis = system_coor[1]
-        norm = np.linalg.norm
-        zaxis /= norm(zaxis)
+        zaxis = system_coor[1] / np.linalg.norm(system_coor[1])
         yaxis = system_coor[2] - np.inner(system_coor[2], zaxis) * zaxis
-        yaxis /= norm(yaxis)
+        yaxis /= np.linalg.norm(yaxis)
         xaxis = np.cross(yaxis, zaxis)
-        backward = np.asmatrix(np.vstack((xaxis, yaxis, zaxis)))
+
+        # Create transformation matrix
+        backward = np.vstack((xaxis, yaxis, zaxis))
         forward = backward.T
         angle = np.deg2rad(angle)
-        coor -= origin
         rotation = Rz(angle)
-        R = forward * rotation * backward
-        self._coor[selection] = np.dot(coor, R.T) + origin
+        R = forward @ rotation @ backward
+
+        # Apply transformation
+        coor = self._coor[selection]
+        coor -= origin
+        coor = np.dot(coor, R.T)
+        coor += origin
+        self._coor[selection] = coor

@@ -1,13 +1,20 @@
 import pytest
 import os
+import logging
 import multiprocessing as mp
 
 from qfit.qfit_protein import (
     QFitProteinOptions,
     build_argparser,
     prepare_qfit_protein,
-    print_run_info,
 )
+from qfit.logtools import (
+    setup_logging,
+    log_run_info,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def setup_module(module):
@@ -44,9 +51,15 @@ class TestQFitProtein:
             os.mkdir(args.directory)
         except OSError:
             pass
-        print_run_info(args)
+
+        # Apply the arguments to options
         options = QFitProteinOptions()
         options.apply_command_args(args)
+        options.debug = True  # For debugging in tests
+
+        # Setup logger
+        setup_logging(options=options)
+        log_run_info(options, logger)
 
         # Build a QFitProtein job
         qfit = prepare_qfit_protein(options)

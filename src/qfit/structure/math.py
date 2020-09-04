@@ -25,39 +25,99 @@ IN THE SOFTWARE.
 
 import numpy as np
 
+
+def gram_schmidt_orthonormal_zx(coords):
+    """Create an orthonormal basis from atom vectors z & x.
+
+    This function preserves the direction of the z atom-vector.
+    This is based off the Gram-Schmidt process.
+
+    Args:
+        coords (np.ndarray[float]): A nx3 matrix of row-vectors,
+            with each row containing the position of an atom.
+
+    Returns:
+        np.ndarray[float]: A 3x3 orthonormal set of row-vectors,
+            where the z-axis is parallel to the input z-atom vector.
+    """
+    zaxis = coords[2] / np.linalg.norm(coords[2])
+    yaxis = coords[0] - np.inner(coords[0], zaxis) * zaxis
+    yaxis /= np.linalg.norm(yaxis)
+    xaxis = np.cross(yaxis, zaxis)
+    return np.vstack((xaxis, yaxis, zaxis))
+
+
 def Rz(theta):
-    """Rotate along z-axis."""
+    """Create a rotation matrix for rotating about z-axis.
+
+    Args:
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+    """
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
-    return np.asarray([[cos_theta, -sin_theta, 0],
-                       [sin_theta,  cos_theta, 0],
-                       [        0,          0, 1]])
+    return np.array([[cos_theta, -sin_theta, 0],
+                     [sin_theta,  cos_theta, 0],
+                     [        0,          0, 1]])
 
-def Rv(vector,theta):
-      """Rotate along a vector."""
-      vector = vector/np.linalg.norm(vector)
-      x, y, z = vector
-      K = np.asmatrix([[0, -z, y],
-                       [z, 0, -x],
-                       [-y, x, 0]])
-      rot = np.cos(theta) * np.identity(3) + np.sin(theta) * K + (1 - np.cos(theta))* np.outer(vector,vector)
-      return rot
+
+def Ry(theta):
+    """Create a rotation matrix for rotating about y-axis.
+
+    Args:
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about y.
+    """
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    return np.array([[ cos_theta, 0, sin_theta],
+                     [         0, 1,         0],
+                     [-sin_theta, 0, cos_theta]])
+
+
+def Rv(vector, theta):
+    """Create a rotation matrix for rotating about a vector.
+
+    Args:
+        vector (np.ndarray[np.float]): A (3,) vector about which to rotate.
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+    """
+    (x, y, z) = vector / np.linalg.norm(vector)
+    K = np.array([[ 0, -z,  y],
+                  [ z,  0, -x],
+                  [-y,  x,  0]])
+    rot = np.cos(theta) * np.identity(3) + np.sin(theta) * K + (1 - np.cos(theta)) * np.outer(vector, vector)
+    return rot
 
 
 def aa_to_rotmat(axis, angle):
-    """Axis angle to rotation matrix."""
+    """Create a rotation matrix for a given Euler axis, angle rotation.
+
+    Args:
+        axis (np.ndarray[np.float]): A (3,) vector about which to rotate.
+        theta (float): Angle of rotation in radians.
+
+    Returns:
+         np.ndarray[float]: A 3x3 rotation matrix for rotation about axis.
+    """
     kx, ky, kz = axis
-    K = np.asmatrix([[0, -kz, ky],
-                     [kz, 0, -kx],
-                     [-ky, kx, 0]])
-    K2 = K * K
+    K = np.array([[  0, -kz,  ky],
+                  [ kz,   0, -kx],
+                  [-ky,  kx,   0]])
+    K2 = K @ K
     R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
     return R
 
 
 def dihedral_angle(coor):
     """Calculate dihedral angle starting from four points."""
-
     b1 = coor[0] - coor[1]
     b2 = coor[3] - coor[2]
     b3 = coor[2] - coor[1]
@@ -70,6 +130,7 @@ def dihedral_angle(coor):
     sinv = norm(m1) / normfactor
     cosv = np.inner(n1, n2) / normfactor
     angle = np.rad2deg(np.arctan2(sinv, cosv))
+
     # Check sign of angle
     u = np.cross(n1, n2)
     if np.inner(u, b3) < 0:

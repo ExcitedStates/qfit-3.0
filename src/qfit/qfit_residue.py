@@ -33,7 +33,7 @@ import sys
 import time
 import numpy as np
 from string import ascii_uppercase
-from .qfit import print_run_info
+from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
 from . import QFitRotamericResidue, QFitRotamericResidueOptions
 from .structure import residue_type
@@ -149,9 +149,16 @@ def main():
         os.makedirs(args.directory)
     except OSError:
         pass
-    print_run_info(args)
     time0 = time.time()
-    
+
+    # Apply the arguments to options
+    options = QFitRotamericResidueOptions()
+    options.apply_command_args(args)
+
+    # Setup logger
+    setup_logging(options=options)
+    log_run_info(options, logger)
+
     #Skip over if everything is completed
     #try:
     print(args.directory)
@@ -234,8 +241,6 @@ def main():
     residue_name = residue.resn[0]
     logger.info(f"Residue: {residue_name} {chainid}_{resi}{icode}")
 
-    options = QFitRotamericResidueOptions()
-    options.apply_command_args(args)
     xmap = XMap.fromfile(args.map, resolution=args.resolution, label=args.label)
     xmap = xmap.canonical_unit_cell()
     if args.scale:

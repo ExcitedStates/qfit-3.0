@@ -23,22 +23,23 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 import gc
-import pkg_resources  # part of setuptools
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
-from .qfit import print_run_info
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
 import os
 import sys
 import time
-import copy
 import argparse
-from math import ceil
+import logging
+import traceback
+from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
+
+logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
@@ -96,18 +97,21 @@ def build_argparser():
                    help="Do not sample backbone using inverse kinematics.")
     p.add_argument('-bbs', "--backbone-step", default=0.1, dest="sample_backbone_step",
                    metavar="<float>", type=float,
-                   help="Stepsize for the amplitude of backbone sampling.")
+                   help="Stepsize for the amplitude of backbone sampling (Å).")
     p.add_argument('-bba', "--backbone-amplitude", default=0.3, dest="sample_backbone_amplitude",
                    metavar="<float>", type=float,
-                   help="Maximum backbone amplitude.")
+                   help="Maximum backbone amplitude (Å).")
+    p.add_argument('-bbv', "--backbone-sigma", default=0.125, dest="sample_backbone_sigma",
+                   metavar="<float>", type=float,
+                   help="Backbone random-sampling displacement (Å).")
     p.add_argument('-sa', "--no-sample-angle", action="store_false", dest="sample_angle",
-                   help="Do not sample N-CA-CB angle.")
+                   help="Do not sample CA-CB-CG angle.")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling step in degrees.")
+                   help="CA-CB-CG bond angle sampling step in degrees.")
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
-                   help="N-CA-CB bond angle sampling range in degrees [-x,x].")
+                   help="CA-CB-CG bond angle sampling range in degrees [-x,x].")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
                    help="Number of internal degrees that are sampled/built per iteration.")
@@ -116,8 +120,9 @@ def build_argparser():
                    help="Stepsize for dihedral angle sampling in degrees.")
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
-                   help="Neighborhood of rotamer to sample in degrees.")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_true", dest="remove_conformers_below_cutoff",
+                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x].")
+    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
+                   dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
                          "with no density support, i.e. atoms are positioned "
                          "at density values below <density-cutoff>."))
@@ -157,10 +162,12 @@ def build_argparser():
     p.add_argument("-d", "--directory", default='.',
                    metavar="<dir>", type=os.path.abspath,
                    help="Directory to store results.")
-    p.add_argument("--debug", action="store_true",
-                   help="Write intermediate structures to file for debugging.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
+    p.add_argument("--debug", action="store_true",
+                   help="Log as much information as possible.")
+    p.add_argument("--write_intermediate_conformers", action="store_true",
+                   help="Write intermediate structures to file (useful with debugging).")
     p.add_argument("--pdb", help="Name of the input PDB.")
 
     return p
@@ -188,7 +195,7 @@ class QFitProtein:
         else:
             self.pdb = ''
         multiconformer = self._run_qfit_residue_parallel()
-        structure = Structure.fromfile('multiconformer_model.pdb')#.reorder()
+        structure = Structure.fromfile('multiconformer_model.pdb')  # .reorder()
         structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
@@ -205,11 +212,21 @@ class QFitProtein:
 
         # Print execution stats
         residues = list(self.structure.single_conformer_residues)
-        print(f"RESIDUES: {len(residues)}")
-        print(f"NPROC: {self.options.nproc}")
+        logger.info(f"RESIDUES: {len(residues)}")
+        logger.info(f"NPROC: {self.options.nproc}")
+
+        # Build a Manager, have it construct a Queue. This will conduct
+        #   thread-safe and process-safe passing of LogRecords.
+        # Then launch a QueueListener Thread to read & handle LogRecords
+        #   that are placed on the Queue.
+        mgr = mp.Manager()
+        logqueue = mgr.Queue()
+        listener = QueueListener(logqueue)
+        listener.start()
 
         # Initialise progress bar
         progress = tqdm(total=len(residues),
+                        desc="Sampling residues",
                         unit="residue",
                         unit_scale=True,
                         leave=True,
@@ -217,13 +234,14 @@ class QFitProtein:
 
         # Define callbacks and error callbacks to be attached to Jobs
         def _cb(result):
-            progress.update()
             if result:
-                progress.write(result)
+                logger.info(result)
+            progress.update()
 
         def _error_cb(e):
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.critical(tb)
             progress.update()
-            raise e
 
         # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
@@ -232,7 +250,8 @@ class QFitProtein:
                                         kwds={'residue': residue,
                                               'structure': self.structure,
                                               'xmap': self.xmap,
-                                              'options': self.options},
+                                              'options': self.options,
+                                              'logqueue': logqueue},
                                         callback=_cb,
                                         error_callback=_error_cb)
                        for residue in residues]
@@ -245,6 +264,10 @@ class QFitProtein:
         pool.close()
         pool.join()
         progress.close()
+
+        # There are no more sub-processes, so we stop the QueueListener
+        listener.stop()
+        listener.join()
 
         # Extract non-protein atoms
         hetatms = self.structure.extract('record', 'HETATM', '==')
@@ -272,7 +295,7 @@ class QFitProtein:
             except UnboundLocalError:
                 multiconformer = residue_multiconformer
             except FileNotFoundError:
-                print("File not found!", fname)
+                logger.error(f"File \"{fname}\" not found!")
                 pass
 
         multiconformer = multiconformer.combine(hetatms)
@@ -297,12 +320,15 @@ class QFitProtein:
         return multiconformer
 
     @staticmethod
-    def _run_qfit_residue(residue, structure, xmap, options):
+    def _run_qfit_residue(residue, structure, xmap, options, logqueue):
         """Run qfit on a single residue to determine density-supported conformers."""
 
         # Don't run qfit if we have a ligand or water
         if residue.type != 'rotamer-residue':
             return
+
+        # Set up logger hierarchy in this subprocess
+        poolworker_setup_logging(logqueue)
 
         # This function is run in a subprocess, so `structure` and `residue` have
         #     been 'copied' (pickled+unpickled) as best as possible.
@@ -338,9 +364,6 @@ class QFitProtein:
             selection=residue._selection,
             parent=residue.parent,
         )
-
-        # We don't want this subprocess to be verbose
-        options.verbose = False
 
         # Build the residue results directory
         chainid = residue.chain[0]
@@ -387,9 +410,13 @@ class QFitProtein:
                                     xmap_reduced, options)
         try:
             qfit.run()
-        except RuntimeError:
-            print(f"[WARNING] qFit was unable to produce an alternate conformer for residue {resi} of chain {chainid}.")
-            print(f"Using deposited conformer A for this residue.")
+        except RuntimeError as e:
+            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.warning(f"[{qfit.identifier}] "
+                           f"Unable to produce an alternate conformer. "
+                           f"Using deposited conformer A for this residue.")
+            logger.info(f"[{qfit.identifier}] This is a result of the following exception:\n"
+                        f"{tb})")
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
@@ -397,6 +424,7 @@ class QFitProtein:
 
         # Save multiconformer_residue
         qfit.tofile()
+        qfit_id = qfit.identifier
 
         # How many conformers were found?
         n_conformers = len(qfit.get_conformers())
@@ -407,7 +435,7 @@ class QFitProtein:
         gc.collect()
 
         # Return a string about the residue that was completed.
-        return f"{identifier} {residue.resn[0]}: {n_conformers} conformers"
+        return f"[{qfit_id}]: {n_conformers} conformers"
 
 
 def prepare_qfit_protein(options):
@@ -449,14 +477,19 @@ def main():
         os.mkdir(args.directory)
     except OSError:
         pass
-    print_run_info(args)
+
+    # Apply the arguments to options
     options = QFitProteinOptions()
     options.apply_command_args(args)
 
+    # Setup logger
+    setup_logging(options=options)
+    log_run_info(options, logger)
+
     # Build a QFitProtein job
-    qfit = prepare_qfit_protein(options)
+    qfit = prepare_qfit_protein(options=options)
 
     # Run the QFitProtein job
     time0 = time.time()
     multiconformer = qfit.run()
-    print(f"Total time: {time.time() - time0}s")
+    logger.info(f"Total time: {time.time() - time0}s")

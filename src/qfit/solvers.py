@@ -23,8 +23,14 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 
+import logging
+
 import numpy as np
 from scipy import sparse
+
+
+logger = logging.getLogger(__name__)
+
 
 # Try load solver sets
 try:
@@ -75,14 +81,9 @@ if CPLEX:
 
         def initialize(self):
             # Set up the matrices and restraints
-            self._quad_obj = cvxopt.matrix(0, (self._nconformers, self._nconformers), tc='d')
-            self._lin_obj = cvxopt.matrix(self._nconformers * [0], tc='d')
-            for i in range(self._nconformers):
-                for j in range(i, self._nconformers):
-                    self._quad_obj[i, j] = np.inner(self._models[i], self._models[j])
-                    # Matrix is symmetric
-                    self._quad_obj[j, i] = self._quad_obj[i, j]
-                self._lin_obj[i] = -np.inner(self._models[i], self._target)
+            logger.debug(f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})")
+            self._quad_obj = cvxopt.matrix(np.inner(self._models, self._models), tc='d')
+            self._lin_obj = cvxopt.matrix(-np.inner(self._models, self._target), tc='d')
 
             # lower-equal constraints.
             # Each weight falls in the closed interval [0..1] and its sum is <= 1.
@@ -120,15 +121,8 @@ if CPLEX:
             self.threads = threads
 
         def initialize(self):
-
-            self._quad_obj = np.zeros((self._nconformers, self._nconformers))
-            self._lin_obj = np.zeros(self._nconformers)
-            for i in range(self._nconformers):
-                for j in range(i, self._nconformers):
-                    self._quad_obj[i, j] = np.inner(self._models[i], self._models[j])
-                    # Matrix is symmetric
-                    self._quad_obj[j, i] = self._quad_obj[i, j]
-                self._lin_obj[i] = -np.inner(self._models[i], self._target)
+            self._quad_obj = np.inner(self._models, self._models)
+            self._lin_obj = -np.inner(self._models, self._target)
 
             self.initialized = True
 

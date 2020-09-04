@@ -28,6 +28,8 @@ import os.path
 import numpy as np
 import copy
 
+from .structure.math import Rz, Ry, gram_schmidt_orthonormal_zx
+
 
 class BackboneRotator:
 
@@ -85,7 +87,7 @@ class BackboneRotator:
                 continue
             coor = self.segment._coor[atoms_to_rotate]
             coor -= origin
-            R = np.asarray(aligner.forward_rotation * Rz(torsion) * aligner.backward_rotation)
+            R = aligner.forward_rotation @ Rz(torsion) @ aligner.backward_rotation
             coor = np.dot(coor, R.T)
             coor += origin
             self.segment._coor[atoms_to_rotate] = coor
@@ -102,31 +104,55 @@ class Translator:
 
 
 class CBAngleRotator:
+    """Deflects a residue's sidechain by bending the CA-CB-CG angle.
+
+    Attributes:
+        residue (qfit._BaseResidue): Residue being manipulated.
+        atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
+            the flexion.
+    """
 
     def __init__(self, residue):
+        """Inits a CBAngleRotator to flex the CA-CB-CG angle of a residue.
+
+        Args:
+            residue (qfit._BaseResidue): Residue to manipulate.
+        """
         self.residue = residue
-        angle_selection = residue.select('name', ('N', 'CA', 'CB'))
+
+        # These atoms define the angle
+        angle_selection = residue.select('name', ('CA', 'CB', 'CG'))
         if angle_selection.size != 3:
-            raise RuntimeError("Residue does not have N, CA and CB atom for rotation.")
-        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O','H','HA'), '!=')
-        self._origin = self.residue.extract('name', 'CA').coor[0]
+            raise RuntimeError("Residue does not have CA, CB and xG atom for rotation.")
+
+        # Only atoms after CB can be moved
+        self.atoms_to_rotate = residue.select('name', ('N', 'CA', 'C', 'O', 'CB', 'H', 'HA', 'HB2', 'HB3'), '!=')
+
+        # Define rotation unit vector
+        self._origin = self.residue.extract('name', 'CB').coor[0]
         self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
         self._coor_to_rotate -= self._origin
-        axis_coor = residue.extract('name', ('N', 'CB')).coor
+        axis_coor = self.residue.extract('name', ('CA', 'CG')).coor
         axis_coor -= self._origin
         axis = np.cross(axis_coor[0], axis_coor[1])
         axis /= np.linalg.norm(axis)
+
+        # Align rotation unit vector to Z-axis
         aligner = ZAxisAligner(axis)
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def __call__(self, angle):
+        """Flex CA-CB-CG by specified angle.
+
+        Args:
+            angle (int): Angle (degrees) for sidechain deflection.
+        """
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(np.deg2rad(angle)))
-        self.residue._coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._origin
+        R = self._forward @ Rz(np.deg2rad(angle))
+        self.residue._coor[self.atoms_to_rotate] = (R @ self._coor_to_rotate.T).T + self._origin
 
 
 class GlobalRotator:
@@ -140,7 +166,7 @@ class GlobalRotator:
         ligand_coor = self.ligand.coor
         if self._center is None:
             self._center = ligand_coor.mean(axis=0)
-        self._coor_to_rotate = np.asmatrix(ligand_coor - self._center)
+        self._coor_to_rotate = ligand_coor - self._center
         self._intermediate = np.zeros_like(ligand_coor)
 
     def __call__(self, rotmat):
@@ -157,7 +183,7 @@ class PrincipalAxisRotator:
         self.ligand = ligand
         self._center = ligand.coor.mean(axis=0)
         self._coor_to_rotate = self.ligand.coor - self._center
-        gyration_tensor = np.asmatrix(self._coor_to_rotate).T * np.asmatrix(self._coor_to_rotate)
+        gyration_tensor = self._coor_to_rotate.T @ self._coor_to_rotate
         eig_values, eig_vectors = np.linalg.eigh(gyration_tensor)
         # Sort eigenvalues such that lx <= ly <= lz
         sort_ind = np.argsort(eig_values)
@@ -167,8 +193,8 @@ class PrincipalAxisRotator:
 
     def __call__(self, angle, axis=2):
         aligner = self.aligners[axis]
-        R = aligner.forward_rotation * np.asmatrix(Rz(angle)) * aligner.backward_rotation
-        self.ligand.coor[:] = (R * self._coor_to_rotate.T).T + self._center
+        R = aligner.forward_rotation @ Rz(angle) @ aligner.backward_rotation
+        self.ligand.coor[:] = (R @ self._coor_to_rotate.T).T + self._center
 
 
 # TODO Make a super class combining the BondRotator with the AngleRotator or at
@@ -206,8 +232,7 @@ class BondAngleRotator:
         # Align the rotation axis to the z-axis for the coordinates
         aligner = ZAxisAligner(axis)
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def _find_neighbours_recursively(self, curr):
         self.atoms_to_rotate.append(curr)
@@ -219,12 +244,11 @@ class BondAngleRotator:
                 self._find_neighbours_recursively(b)
 
     def __call__(self, angle):
-
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        self.ligand.coor[self.atoms_to_rotate] = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        self.ligand.coor[self.atoms_to_rotate] = (R @ self._coor_to_rotate.T).T + self._t
 
 
 class ChiRotator:
@@ -245,21 +269,15 @@ class ChiRotator:
                     break
         selection = new_selection
 
-        # Build a coordinate frame around it using Gram-Schmidt orthogonalization
+        # Translate coordinates to center on coor[1]
         norm = np.linalg.norm
         coor = self.residue._coor[selection]
         self._origin = coor[1].copy()
         coor -= self._origin
-        zaxis = coor[2]
-        zaxis /= norm(zaxis)
-        yaxis = coor[0] - np.inner(coor[0], zaxis) * zaxis
-        yaxis /= norm(yaxis)
-        xaxis = np.cross(yaxis, zaxis)
-        self._backward = np.asmatrix(np.zeros((3, 3), float))
-        self._backward[0] = xaxis
-        self._backward[1] = yaxis
-        self._backward[2] = zaxis
-        self._forward= self._backward.T.copy()
+
+        # Make an orthogonal axis system based on 3 atoms
+        self._backward = gram_schmidt_orthonormal_zx(coor)
+        self._forward = self._backward.T.copy()
 
         # Save the coordinates aligned along the Z-axis for fast future rotation
         atoms_to_rotate = self.residue._rotamers['chi-rotate'][chi_index]
@@ -277,7 +295,7 @@ class ChiRotator:
         self._tmp = np.zeros_like(self._coor_to_rotate)
 
     def __call__(self, angle):
-        R = self._forward * Rz(np.deg2rad(angle))
+        R = self._forward @ Rz(np.deg2rad(angle))
         np.dot(self._coor_to_rotate, R.T, self._tmp)
         self._tmp += self._origin
         self.residue._coor[self._atom_selection] = self._tmp
@@ -310,15 +328,14 @@ class CovalentBondRotator:
 
         # Align the rotation axis to the z-axis for the coordinates
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def __call__(self, angle):
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate them and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        rotated = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        rotated = (R @ self._coor_to_rotate.T).T + self._t
         coor = copy.deepcopy(self.ligand.coor)
         coor[self.atoms_to_rotate] = rotated
         return coor
@@ -355,8 +372,7 @@ class BondRotator:
 
         # Align the rotation axis to the z-axis for the coordinates
         self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation *
-                np.asmatrix(self._coor_to_rotate.T)).T
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
 
     def _find_neighbours_recursively(self, curr):
         self.atoms_to_rotate.append(curr)
@@ -372,69 +388,40 @@ class BondRotator:
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate them and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward * np.asmatrix(Rz(angle))
-        rotated = (R * self._coor_to_rotate.T).T + self._t
+        R = self._forward @ Rz(angle)
+        rotated = (R @ self._coor_to_rotate.T).T + self._t
         coor = copy.deepcopy(self.ligand.coor)
         coor[self.atoms_to_rotate] = rotated
         return coor
 
 
 class ZAxisAligner:
-
     """Find the rotation that aligns a vector to the Z-axis."""
-
     def __init__(self, axis):
         # Find angle between rotation axis and x-axis
         axis = axis / np.linalg.norm(axis[:-1])
         xaxis_angle = np.arccos(axis[0])
         if axis[1] < 0:
             xaxis_angle *= -1
+
         # Rotate around Z-axis
         self._Rz = Rz(xaxis_angle)
         axis = np.dot(self._Rz.T, axis.reshape(3, -1)).ravel()
+
         # Find angle between rotation axis and z-axis
         zaxis_angle = np.arccos(axis[2] / np.linalg.norm(axis))
         if axis[0] < 0:
             zaxis_angle *= -1
         self._Ry = Ry(zaxis_angle)
+
         # Check whether the transformation is correct.
         # Rotate around the Y-axis to align to the Z-axis.
         axis = np.dot(self._Ry.T, axis.reshape(3, -1)).ravel() / np.linalg.norm(axis)
         if not np.allclose(axis, [0, 0, 1]):
-            print(axis)
-            raise ValueError("Axis is not aligned to z-axis.")
-        self.backward_rotation = np.asmatrix(self._Ry).T * np.asmatrix(self._Rz).T
-        self.forward_rotation = np.asmatrix(self._Rz) * np.asmatrix(self._Ry)
+            raise ValueError(f"Axis {axis} is not aligned to z-axis.")
 
-
-def Rz(theta):
-    """Rotate along z-axis."""
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.asarray([[cos_theta, -sin_theta, 0],
-                       [sin_theta,  cos_theta, 0],
-                       [        0,          0, 1]])
-
-
-def Ry(theta):
-    """Rotate along y-axis."""
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.asarray([[ cos_theta, 0, sin_theta],
-                       [         0, 1,         0],
-                       [-sin_theta, 0, cos_theta]])
-
-
-def aa_to_rotmat(axis, angle):
-    """Axis angle to rotation matrix."""
-
-    kx, ky, kz = axis
-    K = np.asmatrix([[0, -kz, ky],
-                     [kz, 0, -kx],
-                     [-ky, kx, 0]])
-    K2 = K * K
-    R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
-    return R
+        self.backward_rotation = self._Ry.T @ self._Rz.T
+        self.forward_rotation = self._Rz @ self._Ry
 
 
 class RotationSets:
@@ -456,19 +443,19 @@ class RotationSets:
         fname = cls.SETS[diff.index(min(diff))][0]
         with open(os.path.join(cls._DATA_DIRECTORY, fname)) as f:
             quat_weights = np.load(f)
-        return cls.quat_to_rotmat(quat_weights[:, :4])
+        return cls.quats_to_rotmats(quat_weights[:, :4])
 
     @classmethod
     def get_local_set(cls, fname='local_10_10.npy'):
         quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
-        return cls.quat_to_rotmat(quats)
+        return cls.quats_to_rotmats(quats)
 
     @classmethod
     def local(cls, max_angle, nrots=100):
         quats = []
         radian_max_angle = np.deg2rad(max_angle)
         while len(quats) < nrots - 1:
-            quat = cls.random_rotmat(matrix=False)
+            quat = cls.random_rotation()
             angle = 2 * np.arccos(quat[0])
             if angle <= radian_max_angle:
                 quats.append(quat)
@@ -476,64 +463,77 @@ class RotationSets:
         return np.asarray(quats)
 
     @staticmethod
-    def quat_to_rotmat(quaternions):
+    def quats_to_rotmats(quaternions):
+        """Converts an array of quaternions to rotation matrices.
 
-        quaternions = np.asarray(quaternions)
+        Args:
+            quaternions (np.ndarray[np.float]):
+                A (n, 4) array of rotations, expressed as quaternions.
 
-        w = quaternions[:, 0]
-        x = quaternions[:, 1]
-        y = quaternions[:, 2]
-        z = quaternions[:, 3]
+        Returns:
+            np.ndarray[np.float]:
+                A (n, 3, 3) array of rotations, expressed as rotation matrices.
+        """
 
+        # Unpack quaternions into columns of coefficients
+        (w, x, y, z) = quaternions.T
+
+        # Calculate the magnitude of the quats
         Nq = w**2 + x**2 + y**2 + z**2
-        s = np.zeros(Nq.shape, dtype=np.float64)
-        s[Nq >  0.0] = 2.0/Nq[Nq > 0.0]
-        s[Nq <= 0.0] = 0
 
-        X = x*s
-        Y = y*s
-        Z = z*s
+        # Determine values of scalars required to make unit quats
+        s = 1.0 / Nq
 
-        rotmat = np.zeros((quaternions.shape[0],3,3), dtype=np.float64)
-        rotmat[:,0,0] = 1.0 - (y*Y + z*Z)
-        rotmat[:,0,1] = x*Y - w*Z
-        rotmat[:,0,2] = x*Z + w*Y
+        # Calculate scaled X, Y, Z
+        X, Y, Z = x * s * 2, y * s * 2, z * s * 2
 
-        rotmat[:,1,0] = x*Y + w*Z
-        rotmat[:,1,1] = 1.0 - (x*X + z*Z)
-        rotmat[:,1,2] = y*Z - w*X
+        # Fill rotmats array
+        rotmats = np.empty((quaternions.shape[0], 3, 3), dtype=np.float64)
+        rotmats[:, 0, 0] = 1.0 - (y*Y + z*Z)
+        rotmats[:, 0, 1] = x*Y - w*Z
+        rotmats[:, 0, 2] = x*Z + w*Y
 
-        rotmat[:,2,0] = x*Z - w*Y
-        rotmat[:,2,1] = y*Z + w*X
-        rotmat[:,2,2] = 1.0 - (x*X + y*Y)
+        rotmats[:, 1, 0] = x*Y + w*Z
+        rotmats[:, 1, 1] = 1.0 - (x*X + z*Z)
+        rotmats[:, 1, 2] = y*Z - w*X
 
-        np.around(rotmat, decimals=8, out=rotmat)
+        rotmats[:, 2, 0] = x*Z - w*Y
+        rotmats[:, 2, 1] = y*Z + w*X
+        rotmats[:, 2, 2] = 1.0 - (x*X + y*Y)
 
-        return rotmat
+        # In place round to 8dp
+        rotmats.round(decimals=8, out=rotmats)
+
+        return rotmats
 
     @classmethod
-    def random_rotmat(cls, matrix=True):
-        """Return a random rotation matrix"""
+    def random_rotation(cls):
+        """Return a random rotation, expressed as a unit quaternion.
 
+        This algorithm generates uniformly sampled unit quaternions.
+
+        Returns:
+            np.ndarray[float]: A (4,) unit quaternion for rotation.
+
+        Citations:
+            Marsaglia G: Choosing a Point from the Surface of a Sphere.
+                Ann Math Stat 1972, 43:645–646.
+                doi:10.1214/aoms/1177692644
+        """
+        # Choose e1, e2 independent uniform on (-1, 1), until s1 < 1
         s1 = 1
         while s1 >= 1.0:
-            e1 = np.random.random() * 2 - 1
-            e2 = np.random.random() * 2 - 1
+            e1, e2 = np.random.uniform(-1, 1, size=(2,))
             s1 = e1**2 + e2**2
 
+        # Choose e3, e4 independent uniform on (-1, 1), until s2 < 1
         s2 = 1
         while s2 >= 1.0:
-            e3 = np.random.random() * 2 - 1
-            e4 = np.random.random() * 2 - 1
+            e3, e4 = np.random.uniform(-1, 1, size=(2,))
             s2 = e3**2 + e4**2
 
-        q0 = e1
-        q1 = e2
-        q2 = e3 * np.sqrt((1 - s1)/s2 )
-        q3 = e4 * np.sqrt((1 - s1)/s2 )
+        # Then construct point on surface of 4-sphere
+        root = np.sqrt((1 - s1) / s2)
+        quat = np.array([e1, e2, e3 * root, e4 * root])
 
-        quat = [q0, q1, q2, q3]
-        if matrix:
-            return cls.quat_to_rotmat(np.asarray(quat).reshape(1, 4))[0]
-        else:
-            return quat
+        return quat

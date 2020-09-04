@@ -39,7 +39,7 @@ class Validator(object):
         self.xmap = xmap
         self.resolution = resolution
         self.scattering = scattering
-        self.fname = os.path.join(directory,'Validation_Metrics.txt')
+        self.fname = os.path.join(directory,'validation_metrics.txt')
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
         model_map = XMap.zeros_like(self.xmap)
