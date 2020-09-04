@@ -1,4 +1,4 @@
-# qFit 3.1.2 (Version beta)
+# qFit 3.2.0
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 
