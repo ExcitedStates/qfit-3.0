@@ -57,113 +57,113 @@ def build_argparser():
     # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT",
                    metavar="<F,PHI>",
-                   help="MTZ column labels to build density.")
+                   help="MTZ column labels to build density")
     p.add_argument('-r', "--resolution", default=None,
                    metavar="<float>", type=float,
-                   help="Map resolution in angstrom. Only use when providing CCP4 map files.")
+                   help="Map resolution (Å) (only use when providing CCP4 map files)")
     p.add_argument("-m", "--resolution-min", default=None,
                    metavar="<float>", type=float,
-                   help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
+                   help="Lower resolution bound (Å) (only use when providing CCP4 map files)")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-                   help="Scattering type.")
+                   help="Scattering type")
     p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
-                   help="Randomize B-factors of generated conformers.")
+                   help="Randomize B-factors of generated conformers")
     p.add_argument('-o', '--omit', action="store_true",
-                   help="Map file is an OMIT map. This affects the scaling procedure of the map.")
+                   help="Treat map file as an OMIT map in map scaling routines")
 
     # Map prep options
     p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
-                   help="Scale density.")
+                   help="Scale density")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
-                   help="Density values below this value are set to <density-cutoff-value>.")
+                   help="Density values below this value are set to <density-cutoff-value>")
     p.add_argument("-dv", "--density-cutoff-value", default=-1,
                    metavar="<float>", type=float,
-                   help="Density values below <density-cutoff> are set to this value.")
+                   help="Density values below <density-cutoff> are set to this value")
     p.add_argument("--subtract", action=ToggleActionFlag, dest="subtract", default=True,
-                   help="Subtract Fcalc of neighboring residues when running qFit.")
+                   help="Subtract Fcalc of neighboring residues when running qFit")
     p.add_argument("-pad", "--padding", default=8.0,
                    metavar="<float>", type=float,
-                   help="Padding size for map creation.")
+                   help="Padding size for map creation")
     p.add_argument("--waters-clash", action=ToggleActionFlag, dest="waters_clash", default=True,
-                   help="Consider waters for soft clash detection.")
+                   help="Consider waters for soft clash detection")
 
     # Sampling options
     p.add_argument("--backbone", action=ToggleActionFlag, dest="sample_backbone", default=True,
-                   help="Sample backbone using inverse kinematics.")
+                   help="Sample backbone using inverse kinematics")
     p.add_argument('-bbs', "--backbone-step", default=0.1, dest="sample_backbone_step",
                    metavar="<float>", type=float,
-                   help="Stepsize for the amplitude of backbone sampling (Å).")
+                   help="Stepsize for the amplitude of backbone sampling (Å)")
     p.add_argument('-bba', "--backbone-amplitude", default=0.3, dest="sample_backbone_amplitude",
                    metavar="<float>", type=float,
-                   help="Maximum backbone amplitude (Å).")
+                   help="Maximum backbone amplitude (Å)")
     p.add_argument('-bbv', "--backbone-sigma", default=0.125, dest="sample_backbone_sigma",
                    metavar="<float>", type=float,
-                   help="Backbone random-sampling displacement (Å).")
+                   help="Backbone random-sampling displacement (Å)")
     p.add_argument("--sample-angle", action=ToggleActionFlag, dest="sample_angle", default=True,
                    help="Sample CA-CB-CG angle for aromatic F/H/W/Y residues")
     p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
                    metavar="<float>", type=float,
-                   help="CA-CB-CG bond angle sampling step in degrees.")
+                   help="CA-CB-CG bond angle sampling step in degrees")
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
-                   help="CA-CB-CG bond angle sampling range in degrees [-x,x].")
+                   help="CA-CB-CG bond angle sampling range in degrees [-x,x]")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
-                   help="Number of internal degrees that are sampled/built per iteration.")
+                   help="Number of internal degrees that are sampled/built per iteration")
     p.add_argument("-s", "--dihedral-stepsize", default=10,
                    metavar="<float>", type=float,
-                   help="Stepsize for dihedral angle sampling in degrees.")
+                   help="Stepsize for dihedral angle sampling in degrees")
     p.add_argument("-rn", "--rotamer-neighborhood", default=60,
                    metavar="<float>", type=float,
-                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x].")
+                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
                    help=("Remove conformers during sampling that have atoms "
                          "with no density support, i.e. atoms are positioned "
-                         "at density values below <density-cutoff>."))
+                         "at density values below <density-cutoff>"))
     p.add_argument('-cf', "--clash-scaling-factor", default=0.75,
                    metavar="<float>", type=float,
-                   help="Set clash scaling factor.")
+                   help="Set clash scaling factor")
     p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
-                   help="Enable external clash detection during sampling.")
+                   help="Enable external clash detection during sampling")
     p.add_argument("-bs", "--bulk-solvent-level", default=0.3,
                    metavar="<float>", type=float,
-                   help="Bulk solvent level in absolute values.")
+                   help="Bulk solvent level in absolute values")
     p.add_argument("-c", "--cardinality", default=5,
                    metavar="<int>", type=int,
-                   help="Cardinality constraint used during MIQP.")
+                   help="Cardinality constraint used during MIQP")
     p.add_argument("-t", "--threshold", default=0.2,
                    metavar="<float>", type=float,
-                   help="Threshold constraint used during MIQP.")
+                   help="Threshold constraint used during MIQP")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
-                   help="Include hydrogens during calculations.")
+                   help="Include hydrogens during calculations")
     p.add_argument('-rmsd', "--rmsd-cutoff", default=0.01,
                    metavar="<float>", type=float,
-                   help="RMSD cutoff for removal of identical conformers.")
+                   help="RMSD cutoff for removal of identical conformers")
     p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
                    help="Use BIC to select the most parsimonious MIQP threshold")
     p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
-                   help="Number of processors to use.")
+                   help="Number of processors to use")
 
     # qFit Segment options
     p.add_argument("-f", "--fragment-length", default=4, dest="fragment_length",
                    metavar="<int>", type=int,
-                   help="Fragment length used during qfit_segment.")
+                   help="Fragment length used during qfit_segment")
     p.add_argument("--segment-threshold-selection", action=ToggleActionFlag, dest="seg_bic_threshold", default=True,
-                   help="Use BIC to select the most parsimonious MIQP threshold (segment).")
+                   help="Use BIC to select the most parsimonious MIQP threshold (segment)")
 
     # Output options
     p.add_argument("-d", "--directory", default='.',
                    metavar="<dir>", type=os.path.abspath,
-                   help="Directory to store results.")
+                   help="Directory to store results")
     p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
+                   help="Be verbose")
     p.add_argument("--debug", action="store_true",
-                   help="Log as much information as possible.")
+                   help="Log as much information as possible")
     p.add_argument("--write-intermediate-conformers", action="store_true",
-                   help="Write intermediate structures to file (useful with debugging).")
-    p.add_argument("--pdb", help="Name of the input PDB.")
+                   help="Write intermediate structures to file (useful with debugging)")
+    p.add_argument("--pdb", help="Name of the input PDB")
 
     return p
 
