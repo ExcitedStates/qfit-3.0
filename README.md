@@ -112,7 +112,7 @@ Using the example 3K0N:
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`/path/to/qfit-3.0/scripts/post/qfit_final_refine_xray.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
+`qfit_final_refine_xray.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. 
@@ -143,7 +143,7 @@ Using the example 3K0N:
 `qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb A,113 -r 1.39`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
-`/path/to/qfit-3.0/scripts/post/qfit_final_refine_cryoem.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
+`qfit_final_refine_cryoem.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. 
