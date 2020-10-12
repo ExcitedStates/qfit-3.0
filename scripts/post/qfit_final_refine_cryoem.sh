@@ -36,7 +36,7 @@ echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUN
 echo "original model : ${org_model} $([[ -f ${org_model} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "";
-if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ -f ${org_model} ]]; then
+if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ ! -f ${org_model} ]]; then
   qfit_usage;
 fi
 pdb_name="${mapfile%.ccp4}"
