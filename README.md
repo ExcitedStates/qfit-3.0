@@ -75,6 +75,7 @@ map. One way of generating such map is using the [Phenix software suite](https:/
 
 An example test case (3K0N) can be found in the *example* directory.
 
+
 ### 1. Recommended settings
 
 To model alternate conformers for all residues in a protein of interest using qFit,
@@ -93,8 +94,8 @@ using the flag *-d*.
 The *multiconformer_model.pdb* contains the output of running the qfit_residue
 routine for every protein residue. This file may contain up to five alternate
 conformers per residue. However, some of these conformers may be spurious as
- alternate conformers of neighboring residues are not consistent with regards to
- each other.
+alternate conformers of neighboring residues are not consistent with regards to
+each other.
 
 After calculating the conformers described in *multiconformer_model.pdb*,
 qfit_protein identifies consistent protein segments, where some of the spurious,
@@ -111,66 +112,58 @@ Using the example 3K0N:
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`/path/to/qfit-3.0/scripts/post_refine_phenix.csh multiconformer_model2.pdb /path/to/3K0N.mtz IOBS SIGIOBS`
+`qfit_final_refine_xray.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
 
 Bear in mind that this final step currently depends on an existing installation
-of the Phenix software suite. We plan to remove this dependency in future releases.
+of the Phenix software suite. 
+
 
 ### 2. Modelling alternate conformers for a residue of interest
 
-
 `qfit_residue [MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
-
 
 Using the example 3K0N:
 
-
 `qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113`
-
 
 This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
 
 
--------------
 ### 3. Using a map file in ".ccp4" format as input for qFit
 
 qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
 which can be achieved by using the flag *-r*.
 
-
 `qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN] -r [RESOLUTION]`
-
-
 
 Using the example 3K0N:
 
-
 `qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb A,113 -r 1.39`
 
--------------
+After *multiconformer_model2.pdb* has been generated, refine this model using:
+`qfit_final_refine_cryoem.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
+
+Bear in mind that this final step currently depends on an existing installation
+of the Phenix software suite. 
+
 
 ### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
-
 
 In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
 using our KGS routine. This can be disabled using the *-bb* flag.
 
-
 For even faster (and less precise) results, one can also disable the sampling of
 the bond angle N-CA-CB, which can be deactivated by means of the *-sa* flag.
 
-
 Other useful sampling parameters that can be tweaked to make qFit run faster at
 the cost of precision:
-
 
 * Increase step size (in degrees) sampled around each rotamer: *-s* flag (default: 10).
 * Decrease rotamer neighborhood sampled: *-rn* flag (default: 80)
 * Disable parsimonious selection of the number of conformers output by qFit using the Bayesian
 Information Criterion (BIC): *-T* flag.
-
 
 Using the example 3K0N:
 
@@ -181,58 +174,43 @@ For a full list of options, run:
 `qfit_residue -h`
 
 
--------------
-
 ### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
-
 
 Using the example 3K0N:
 
-
 `qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -s 20 -T -rn 45`
 
--------------
 
 ### 6.  Parallelization:
-
 
 The *qfit_protein* routine can be executed in parallel and the number of concurrent threads
 can be adjusted using the *-p* flag.
 
-
 Using the example 3K0N, spawning 30 parallel threads:
-
 
 `qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb  -p 30`
 
--------------
 
 ### 7. Revisiting the consistent protein segment output by qfit_protein
-
 
 Depending on the resolution, the default parameters for the identification of
 consistent protein segments may prove too strict, leading to the removal of
 perfectly valid alternate conformers. We are currently working towards calibration
 of the parameters in a resolution-dependent manner.
 
-
 In the meantime, if you notice that your conformer of interest is present in
 *multiconformer_model.pdb*, but was subsequently removed by *qfit_protein*, you
 can re-process the initial model with less stringent parameters using the *qfit_segment* routine:
 
-
 `qfit_segment /path/to/3K0N.mtz  -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb -Ts -f 3`
 
--------------
 
 ### 8. Modeling alternate conformers of a ligand (under development)
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
-
 `qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
-
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number).
