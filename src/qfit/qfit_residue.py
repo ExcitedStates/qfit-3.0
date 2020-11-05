@@ -114,6 +114,8 @@ def build_argparser():
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
                    help="CA-CB-CG bond angle sampling range in degrees [-x,x]")
+    p.add_argument("--sample-rotamers", action=ToggleActionFlag, dest="sample_rotamers", default=True,
+                   help="Sample sidechain rotamers")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
                    help="Number of internal degrees that are sampled/built per iteration")
