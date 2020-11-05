@@ -76,7 +76,7 @@ def build_argparser():
                    help="Scale density")
     p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
                    metavar="<float>", type=float,
-                   help="Radius mask for map scaling")
+                   help="Scaling factor for soft-clash mask radius")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>")
@@ -280,7 +280,6 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        #scaler.scale(footprint, radius=args.scale_rmask*radius)
         scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'

@@ -74,6 +74,9 @@ def build_argparser():
     # Map prep options
     p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
                    help="Scale density")
+    p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
+                   metavar="<float>", type=float,
+                   help="Scaling factor for soft-clash mask radius")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>")
@@ -456,7 +459,7 @@ def prepare_qfit_protein(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(structure, radius=radius)
+        scaler.scale(structure, radius=options.scale_rmask*radius)
 
     return QFitProtein(structure, xmap, options)
 

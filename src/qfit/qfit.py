@@ -78,6 +78,7 @@ class _BaseQFitOptions:
         self.scattering = 'xray'
         self.omit = False
         self.scale = True
+        self.scale_rmask = 1.
         self.randomize_b = False
         self.bulk_solvent_level = 0.3
 
