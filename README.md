@@ -152,22 +152,21 @@ of the Phenix software suite.
 ### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
 In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
-using our KGS routine. This can be disabled using the *-bb* flag.
+using our KGS routine. This can be disabled using the *--no-backbone* flag.
 
 For even faster (and less precise) results, one can also disable the sampling of
-the bond angle N-CA-CB, which can be deactivated by means of the *-sa* flag.
+the bond angle Cα-Cβ-Cγ, which can be deactivated by means of the *--no-sample-angle* flag.
 
 Other useful sampling parameters that can be tweaked to make qFit run faster at
 the cost of precision:
 
-* Increase step size (in degrees) sampled around each rotamer: *-s* flag (default: 10).
-* Decrease rotamer neighborhood sampled: *-rn* flag (default: 80)
-* Disable parsimonious selection of the number of conformers output by qFit using the Bayesian
-Information Criterion (BIC): *-T* flag.
+* Increase step size (in degrees) of sampling around each rotamer: *-s* flag (default: 10)
+* Decrease range/neighborhood of sampling about preferred rotamers: *-rn* flag (default: 60)
+* Disable parsimonious selection of the number of conformers output by qFit using the Bayesian Information Criterion (BIC): *--no-threshold-selection* flag.
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113 -bb -sa -s 20 -T -rn 45`
+`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
@@ -178,17 +177,17 @@ For a full list of options, run:
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -bb -sa -s 20 -T -rn 45`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 
 ### 6.  Parallelization:
 
-The *qfit_protein* routine can be executed in parallel and the number of concurrent threads
+The *qfit_protein* program can be executed in parallel and the number of concurrent processes
 can be adjusted using the *-p* flag.
 
-Using the example 3K0N, spawning 30 parallel threads:
+Using the example 3K0N, spawning 30 parallel processes:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb  -p 30`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -p 30`
 
 
 ### 7. Revisiting the consistent protein segment output by qfit_protein
@@ -200,9 +199,9 @@ of the parameters in a resolution-dependent manner.
 
 In the meantime, if you notice that your conformer of interest is present in
 *multiconformer_model.pdb*, but was subsequently removed by *qfit_protein*, you
-can re-process the initial model with less stringent parameters using the *qfit_segment* routine:
+can re-process the initial model with less stringent parameters using the *qfit_segment* program:
 
-`qfit_segment /path/to/3K0N.mtz  -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb -Ts -f 3`
+`qfit_segment /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb --no-segment-threshold-selection -f 3`
 
 
 ### 8. Modeling alternate conformers of a ligand (under development)
