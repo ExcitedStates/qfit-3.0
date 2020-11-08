@@ -1160,7 +1160,10 @@ class QFitSegment(_BaseQFit):
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
         logger.info(f"Average number of conformers after removal of identical conformers: "
                     f"{multiconformers.average_conformers():.2f}")
+
+        # Build an instance of Relabeller
         relab_options = RelabellerOptions()
+        relab_options.apply_command_args(self.options)  # Update RelabellerOptions with QFitSegmentOptions
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
