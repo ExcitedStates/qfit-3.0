@@ -4,5 +4,5 @@ requires = [
 	"setuptools",  # PEP 508 specifications.
 	"wheel",       # PEP 508 specifications.
 	"setuptools_scm",
-	"numpy>=1.14",
+	"numpy>=1.17",
 ]
