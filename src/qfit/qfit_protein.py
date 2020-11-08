@@ -158,6 +158,11 @@ def build_argparser():
     p.add_argument("--segment-threshold-selection", action=ToggleActionFlag, dest="seg_bic_threshold", default=True,
                    help="Use BIC to select the most parsimonious MIQP threshold (segment)")
 
+    # Global options
+    p.add_argument("--random-seed", dest="random_seed",
+                   metavar="<int>", type=int,
+                   help="Seed value for PRNG")
+
     # Output options
     p.add_argument("-d", "--directory", default='.',
                    metavar="<dir>", type=os.path.abspath,

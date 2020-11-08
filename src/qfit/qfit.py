@@ -60,6 +60,7 @@ class _BaseQFitOptions:
         self.verbose = False
         self.debug = False
         self.write_intermediate_conformers = False
+        self.random_seed = None
         self.label = None
         self.map = None
         self.structure = None
