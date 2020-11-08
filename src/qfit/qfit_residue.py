@@ -76,7 +76,7 @@ def build_argparser():
                    help="Scale density")
     p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
                    metavar="<float>", type=float,
-                   help="Radius mask for map scaling")
+                   help="Scaling factor for soft-clash mask radius")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>")
@@ -114,6 +114,8 @@ def build_argparser():
     p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
                    metavar="<float>", type=float,
                    help="CA-CB-CG bond angle sampling range in degrees [-x,x]")
+    p.add_argument("--sample-rotamers", action=ToggleActionFlag, dest="sample_rotamers", default=True,
+                   help="Sample sidechain rotamers")
     p.add_argument("-b", "--dofs-per-iteration", default=2,
                    metavar="<int>", type=int,
                    help="Number of internal degrees that are sampled/built per iteration")
@@ -149,6 +151,11 @@ def build_argparser():
                    help="RMSD cutoff for removal of identical conformers")
     p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
                    help="Use BIC to select the most parsimonious MIQP threshold")
+
+    # Global options
+    p.add_argument("--random-seed", dest="random_seed",
+                   metavar="<int>", type=int,
+                   help="Seed value for PRNG")
 
     # Output options
     p.add_argument("-d", "--directory", default='.',
@@ -280,7 +287,6 @@ def main():
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        #scaler.scale(footprint, radius=args.scale_rmask*radius)
         scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
     ext = '.ccp4'

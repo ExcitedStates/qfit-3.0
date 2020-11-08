@@ -43,7 +43,7 @@ def main():
         'setuptools_scm',
     ]
     install_requires = [
-        'numpy>=1.14',
+        'numpy>=1.17',
         'scipy>=1.00',
         'pyparsing>=2.2.0',
         'tqdm>=4.0.0',

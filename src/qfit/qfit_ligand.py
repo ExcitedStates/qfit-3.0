@@ -75,6 +75,9 @@ def build_argparser():
     # Map prep options
     p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
                    help="Scale density")
+    p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
+                   metavar="<float>", type=float,
+                   help="Scaling factor for soft-clash mask radius")
     p.add_argument("-dc", "--density-cutoff", default=0.3,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>")
@@ -129,6 +132,11 @@ def build_argparser():
                    help="Include hydrogens during calculations")
     p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
                    help="Use BIC to select the most parsimonious MIQP threshold")
+
+    # Global options
+    p.add_argument("--random-seed", dest="random_seed",
+                   metavar="<int>", type=int,
+                   help="Seed value for PRNG")
 
     # Output options
     p.add_argument("-d", "--directory", default='.',
@@ -225,7 +233,7 @@ def prepare_qfit_ligand(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=radius)
+        scaler.scale(footprint, radius=options.scale_rmask*radius)
 
     xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = '.ccp4'

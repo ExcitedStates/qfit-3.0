@@ -60,6 +60,7 @@ class _BaseQFitOptions:
         self.verbose = False
         self.debug = False
         self.write_intermediate_conformers = False
+        self.random_seed = None
         self.label = None
         self.map = None
         self.structure = None
@@ -78,6 +79,7 @@ class _BaseQFitOptions:
         self.scattering = 'xray'
         self.omit = False
         self.scale = True
+        self.scale_rmask = 1.
         self.randomize_b = False
         self.bulk_solvent_level = 0.3
 
@@ -142,6 +144,7 @@ class _BaseQFit:
         self.xmap = xmap
         self.options = options
         self.BIC = np.inf
+        self.prng = np.random.default_rng(self.options.random_seed)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
         self._bs = [self.conformer.b]
@@ -270,7 +273,7 @@ class _BaseQFit:
         bs_copy = copy.deepcopy(bs)
         if self.options.randomize_b:
             mask = np.in1d(self.conformer.name, atoms)
-            add = 0.2 * np.random.rand(bs_copy[mask].shape[0]) - 0.1
+            add = 0.2 * self.prng.random(bs_copy[mask].shape[0]) - 0.1
             bs_copy[mask] += np.multiply(bs[mask], add)
         return bs_copy
 
@@ -740,7 +743,7 @@ class QFitRotamericResidue(_BaseQFit):
         start_coor = atom.coor[0]  # We are working on a single atom.
         torsion_solutions = []
         for amplitude, direction in itertools.product(amplitudes, directions):
-            delta = np.random.uniform(-sigma, sigma)
+            delta = self.prng.uniform(-sigma, sigma)
             endpoint = start_coor + (amplitude + delta) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
@@ -1157,7 +1160,10 @@ class QFitSegment(_BaseQFit):
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
         logger.info(f"Average number of conformers after removal of identical conformers: "
                     f"{multiconformers.average_conformers():.2f}")
+
+        # Build an instance of Relabeller
         relab_options = RelabellerOptions()
+        relab_options.apply_command_args(self.options)  # Update RelabellerOptions with QFitSegmentOptions
         relabeller = Relabeller(multiconformers, relab_options)
         multiconformers = relabeller.run()
         multiconformers = multiconformers.combine(hetatms)
@@ -1729,11 +1735,11 @@ class QFitCovalentLigand(_BaseQFit):
         sigma = self.options.sample_backbone_sigma
 
         for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + (amplitude + sigma * np.random.random()) * direction
+            endpoint = start_coor + (amplitude + sigma * self.prng.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
 
-            endpoint = start_coor - (amplitude + sigma * np.random.random()) * direction
+            endpoint = start_coor - (amplitude + sigma * self.prng.random()) * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result['x'])
 
