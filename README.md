@@ -73,7 +73,7 @@ map. One way of generating such map is using the [Phenix software suite](https:/
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
-An example test case (3K0N) can be found in the *example* directory.
+An example test case (3K0N) can be found in the *example* directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4L2L) in the *example* directory. 
 
 
 ### 1. Recommended settings
@@ -215,7 +215,12 @@ should be used:
 
 `qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
 
-Using example 
+Using the example 4L2L:
+
+`qfit_ligand /path/to/4l2l.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4l2l.pdb A,702`
+
+We then recommend re-refining the output of qFit ligand along with the protein using: 
+`qfit_final_refine_xray.sh 4l2l_qFit_ligand.pdb /path/to/4L2L.mtz`
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number).
