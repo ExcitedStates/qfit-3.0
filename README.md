@@ -136,14 +136,18 @@ qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
 which can be achieved by using the flag *-r*.
 
-`qfit_residue [MAP_FILE] [PDB_FILE] [RESIDUE,CHAIN] -r [RESOLUTION]`
+`qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb A,113 -r 1.39`
+`qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb -r 1.39`
+
+For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
+
+`qfit_protein /path/to/apoF_chainA.ccp4 /path/to/apoF_chainA.pdb -r 1.22 -z electron`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
-`qfit_final_refine_cryoem.sh multiconformer_model2.pdb /path/to/3K0N.mtz`
+`qfit_final_refine_cryoem.sh multiconformer_model2.pdb /path/to/apoF_chainA.ccp4`
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. 
@@ -204,12 +208,14 @@ can re-process the initial model with less stringent parameters using the *qfit_
 `qfit_segment /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb --no-segment-threshold-selection -f 3`
 
 
-### 8. Modeling alternate conformers of a ligand (under development)
+### 8. Modeling alternate conformers of a ligand
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
 `qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
+
+Using example 
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number).
