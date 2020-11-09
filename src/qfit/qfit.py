@@ -1372,7 +1372,7 @@ class QFitLigand(_BaseQFit):
                         if not self._cd() and not self.ligand.clashes():
                             if new_coor_set:
                                 delta = np.array(new_coor_set) - np.array(new_coor)
-                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= self.options.rmsd_cutoff:
                                     new_coor_set.append(new_coor)
                                     new_bs.append(b)
                             else:
@@ -1381,7 +1381,7 @@ class QFitLigand(_BaseQFit):
                     elif not self.ligand.clashes():
                         if new_coor_set:
                             delta = np.array(new_coor_set) - np.array(new_coor)
-                            if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                            if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= self.options.rmsd_cutoff:
                                 new_coor_set.append(new_coor)
                                 new_bs.append(b)
                         else:
@@ -1471,7 +1471,7 @@ class QFitLigand(_BaseQFit):
                             if not self._cd() and not self.ligand.clashes():
                                 if new_coor_set:
                                     delta = np.array(new_coor_set) - np.array(new_coor)
-                                    if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                    if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= self.options.rmsd_cutoff:
                                         new_coor_set.append(new_coor)
                                         new_bs.append(b)
                                 else:
@@ -1480,7 +1480,7 @@ class QFitLigand(_BaseQFit):
                         elif not self.ligand.clashes():
                             if new_coor_set:
                                 delta = np.array(new_coor_set) - np.array(new_coor)
-                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0.01:
+                                if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= self.options.rmsd_cutoff:
                                     new_coor_set.append(new_coor)
                                     new_bs.append(b)
                             else:
