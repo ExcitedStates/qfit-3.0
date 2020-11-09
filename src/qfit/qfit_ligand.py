@@ -130,6 +130,9 @@ def build_argparser():
                    help="Threshold constraint during intermediate MIQP")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
                    help="Include hydrogens during calculations")
+    p.add_argument('-rmsd', "--rmsd-cutoff", default=0.01,
+                   metavar="<float>", type=float,
+                   help="RMSD cutoff for removal of identical conformers")
     p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
                    help="Use BIC to select the most parsimonious MIQP threshold")
 
