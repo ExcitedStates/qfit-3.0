@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
-#Edited by Stephanie Wankowicz
-#began: 2019-05-01
 '''
 Excited States software: qFit 3.0
 Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
 Contact: vdbedem@stanford.edu
 How to run:
-b_factor $pdb.mtz $pdb.pdb --pdb $pdb
+b_factor $pdb.mtz $pdb.pdb --pdb $pdb 
 '''
 
 import pkg_resources  # part of setuptools
@@ -30,6 +28,8 @@ def build_argparser():
     p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+    p.add_argument("-c", "--carbon_alpha", action="store_true", dest="ca",
+                   help="Flag to get B-factors for alpha carbons only"
    # Output options
     p.add_argument("--pdb", help="Name of the input PDB.")
 
@@ -79,7 +79,10 @@ class B_factor():
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
             #is this going to give us the alternative coordinate for everything?
             resn_name = (np.array2string(np.unique(res_tmp.resi)), np.array2string(np.unique(res_tmp.resn)),np.array2string(np.unique(res_tmp.chain)))
-            b_factor = res_tmp.b
+            if self.options.ca:
+                b_factor = res_tmp.extract('atom', 'CA', '==').b
+            else:
+                b_factor = res_tmp.b
             B_factor.loc[n,'resseq'] = resn_name[0]
             B_factor.loc[n,'AA'] = resn_name[1]
             B_factor.loc[n,'Chain'] = resn_name[2]
