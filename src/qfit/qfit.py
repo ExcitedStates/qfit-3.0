@@ -41,13 +41,14 @@ from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver
 from .structure import Structure, _Segment
 from .structure.residue import residue_type
-from .structure.ligand import BondOrder
+from .structure.ligand import BondOrder, _Ligand
 from .transformer import Transformer
 from .validator import Validator
 from .volume import XMap
 from .scaler import MapScaler
 from .relabel import RelabellerOptions, Relabeller
 from .structure.rotamers import ROTAMERS
+
 
 
 logger = logging.getLogger(__name__)
@@ -1269,12 +1270,14 @@ class QFitLigand(_BaseQFit):
         self.receptor = receptor
         self.xmap = xmap
         self.options = options
-        csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
         # External clash detection:
         self._cd = ClashDetector(ligand, receptor, scaling_factor=self.options.clash_scaling_factor)
+
+        #Internal clash detection:
+        #self._internal = Ligand_Topo(ligand)
 
         # Determine which roots to start building from
         self._rigid_clusters = ligand.rigid_clusters()
@@ -1306,8 +1309,9 @@ class QFitLigand(_BaseQFit):
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
-            prefix_tmp = 'run_' + str(self._cluster)
-            self._write_intermediate_conformers(prefix=prefix_tmp)
+            if self.options.write_intermediate_conformers:
+                prefix_tmp = 'run_' + str(self._cluster_index)
+                self._write_intermediate_conformers(prefix=prefix_tmp)
             logger.info(f"Number of conformers: {len(self._coor_set)}")
             logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
 
@@ -1315,25 +1319,40 @@ class QFitLigand(_BaseQFit):
         self.conformer = self.ligand
         self.ligand._q[self.ligand._selection] = 1.0
         self.ligand._active[self.ligand._selection] = True
+        final_coor_set = []
+        final_bs = []
+        for coor, b in zip(self._all_coor_set, self._all_bs):
+            self.ligand.coor = coor
+            self.ligand.b = b
+            if self.options.external_clash:
+                if not self._cd() and self.ligand.clashes() == 0:
+                    finl_coor_set.append(coor)
+                    final_bs.append(b)
+            elif self.ligand.clashes() == 0:
+                final_coor_set.append(coor)
+                final_bs.append(b)
+            self._coor_set = final_coor_set
+            self._bs = final_bs
+
         self._coor_set = self._all_coor_set
         self._bs = self._all_bs
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
 
-        # QP score conformer occupancy
-        logger.debug("Converting densities within run.")
+        # QP score conformer occupancy 
+        logger.debug("Converting densities.") #not included
         self._convert()
-        logger.info("Solving QP within run.")
+        logger.info("Solving QP.")
         self._solve()
-        logger.debug("Updating conformers within run.")
+        logger.debug("Updating conformers.")
         self._update_conformers()
         if len(self._coor_set) < 1:
             print(f"{self.ligand.resn[0]}: QP {self._cluster_index}: {len(self._coor_set)} conformers")
             return
 
         # MIQP score conformer occupancy
-        logger.info("Solving MIQP within run.")
+        logger.info("Solving MIQP.")
         self._convert()
         self._solve(threshold=self.options.threshold,
                     cardinality=self.options.cardinality)
@@ -1405,10 +1424,10 @@ class QFitLigand(_BaseQFit):
         logger.debug("Converting densities.")
         self._convert()
         self._solve()
-        logger.debug("Updating conformers")
+        logger.debug("Updating conformers.")
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_qp" + str(self._cluster_index))
         if len(self._coor_set) < 1:
             logger.warning(f"{self.ligand.resn[0]}: "
                            f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
@@ -1420,10 +1439,9 @@ class QFitLigand(_BaseQFit):
                     cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_miqp" + str(self._cluster_index))
 
     def _sample_internal_dofs(self):
-        opt = self.options
         sampling_range = np.deg2rad(np.arange(0, 360, self.options.sample_ligand_stepsize))
 
         # bond_order = self.ligand.rotation_order(self._cluster[0])
@@ -1462,7 +1480,7 @@ class QFitLigand(_BaseQFit):
                     rotator = BondRotator(self.ligand, *atoms)
                     for angle in sampling_range:
                         new_coor = rotator(angle)
-                        if opt.remove_conformers_below_cutoff:
+                        if self.options.remove_conformers_below_cutoff:
                             values = self.xmap.interpolate(new_coor[self.ligand._active[selection]])
                             mask = (self.ligand.e[self.ligand._active[selection]] != "H")
                             if np.min(values[mask]) < self.options.density_cutoff:
@@ -1511,11 +1529,14 @@ class QFitLigand(_BaseQFit):
                 return
 
             # QP score conformer occupancy
+            logger.debug("Converting densities.")
             self._convert()
+            logger.debug("Solving QP.")
             self._solve()
+            logger.debug("Updating Conformers.")
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_qp")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_iterqp{self._cluster_index}")
             if len(self._coor_set) < 1:
                 logger.warning(f"{self.ligand.resn[0]}: "
                                f"QP search cluster {self._cluster_index} iteration {iteration}: "
@@ -1524,11 +1545,12 @@ class QFitLigand(_BaseQFit):
 
             # MIQP score conformer occupancy
             self._convert()
+            logger.debug("Solving MIQP.")
             self._solve(threshold=self.options.threshold,
                         cardinality=self.options.cardinality)
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_iter{self._cluster_index}_miqp")
 
             # Check if we are done
             if end_bond_index == nbonds:
@@ -1914,14 +1936,14 @@ class QFitCovalentLigand(_BaseQFit):
                 logger.info(f"Side chain sampling produced {len(self._coor_set)} conformers")
 
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}")
+                self._write_intermediate_conformers(prefix=f"sample_sidechain_iter{iteration}")
 
             # QP score conformer occupancy
             self._convert()
             self._solve()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_qp")
+                self._write_intermediate_conformers(prefix=f"sample_sidechain_iter{iteration}_qp")
 
             # MIQP score conformer occupancy
             self._convert()
@@ -1929,7 +1951,7 @@ class QFitCovalentLigand(_BaseQFit):
                         cardinality=self.options.cardinality)
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"_sample_sidechain_iter{iteration}_miqp")
+                self._write_intermediate_conformers(prefix=f"sample_sidechain_iter{iteration}_miqp")
 
             # Check if we are done
             if chi_index == self.covalent_residue.nchi:

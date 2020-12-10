@@ -531,7 +531,7 @@ class Covalent_Ligand(_BaseStructure):
 
     def clashes(self):
         """Checks if there are any internal clashes."""
-        ''' dist_matrix = squareform(pdist(self.coor))
+        dist_matrix = squareform(pdist(self.coor))
         mask = np.logical_not(self.connectivity)
         active_matrix = (self.active.reshape(1, -1) * self.active.reshape(-1, 1)) > 0
         mask &= active_matrix
@@ -539,7 +539,7 @@ class Covalent_Ligand(_BaseStructure):
         clash_matrix = dist_matrix < self._cutoff_matrix
         if np.any(np.logical_and(clash_matrix, mask)):
             return True
-        return False'''
+        return False
         pass
 
     def bonds(self):

@@ -198,7 +198,7 @@ def prepare_qfit_ligand(options):
             receptor = receptor.extract(f"not altloc {altloc}")
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file: #TO DO: STEPHANIE
+    if options.cif_file:
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
                          link_data=structure_ligand.link_data,
@@ -207,6 +207,7 @@ def prepare_qfit_ligand(options):
         ligand = _Ligand(structure_ligand.data,
                          structure_ligand._selection,
                          link_data=structure_ligand.link_data)
+
     if ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check "
                            " the selection input.")
@@ -246,7 +247,7 @@ def prepare_qfit_ligand(options):
     scaled_fname = os.path.join(options.directory, f'scaled{ext}') #this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode
 
 
 def main():
@@ -276,7 +277,7 @@ def main():
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    #POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    #POST qFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ''
