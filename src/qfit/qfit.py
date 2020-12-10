@@ -1326,7 +1326,7 @@ class QFitLigand(_BaseQFit):
             self.ligand.b = b
             if self.options.external_clash:
                 if not self._cd() and self.ligand.clashes() == 0:
-                    finl_coor_set.append(coor)
+                    final_coor_set.append(coor)
                     final_bs.append(b)
             elif self.ligand.clashes() == 0:
                 final_coor_set.append(coor)
@@ -1334,8 +1334,6 @@ class QFitLigand(_BaseQFit):
             self._coor_set = final_coor_set
             self._bs = final_bs
 
-        self._coor_set = self._all_coor_set
-        self._bs = self._all_bs
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
