@@ -149,6 +149,7 @@ zeroes=50
 i=1
 while [ $zeroes -gt 1 ]; do
   molprobity.reduce -build -allalt "${pdb_name}_002.$(printf '%03d' $((i-1))).pdb" > "${pdb_name}_002.pdb";
+  remove duplicates "${pdb_name}_002.000.pdb"  #molpobity adding suprious additional HEATOMS.
   if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
