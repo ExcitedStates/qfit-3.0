@@ -25,7 +25,6 @@ jobs:
         with:
           activate-environment: qfit
           enviornment-file: environment.yml
-          auto-update-conda: true
           auto-activate-base: false
           python-version: ${{ matrix.python-version }}
       #- name: Install Dependencies #Build conda environment
@@ -48,7 +47,9 @@ jobs:
       - name: Install qfit
         working-directory: .
         shell: bash -l -eo pipefail {0}
-        run: pip install .
+        run: |
+          pip install .
+          conda install tox
       - name: Describe qfit environment
         shell: bash -l -eo pipefail {0}
         run: |
