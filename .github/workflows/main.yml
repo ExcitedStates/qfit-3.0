@@ -24,7 +24,7 @@ jobs:
     - name: Update Conda environment with "environment.yml"
       uses: matthewrmshin/conda-action@v1
       with:
-        args: conda env update -f ./enviornment.yml
+        args: conda env update -f ./environment.yml
     - name: Run "pytest" with the Conda environment
       uses: matthewrmshin/conda-action@v1
       with:
