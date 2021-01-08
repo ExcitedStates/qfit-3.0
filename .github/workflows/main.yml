@@ -49,7 +49,7 @@ jobs:
         shell: bash -l -eo pipefail {0}
         run: |
           pip install .
-          conda install tox
+          pip install tox
       - name: Describe qfit environment
         shell: bash -l -eo pipefail {0}
         run: |
