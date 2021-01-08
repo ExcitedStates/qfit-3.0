@@ -74,5 +74,4 @@ jobs:
         run: qfit_protein --help
       - name: TEST (Full) Thoroughly test qFit with tox
         shell: bash -l -o pipefail {0}
-        run: |       
-          tox
+        run: tox -e py
