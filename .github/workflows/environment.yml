@@ -1,0 +1,10 @@
+name: qfit
+channels:
+  -anaconda
+dependencies:
+  -mkl
+  -numpy
+  -ibmdecisionoptimization
+  -cvxopt
+  -cplex
+  
