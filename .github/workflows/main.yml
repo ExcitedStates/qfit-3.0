@@ -20,22 +20,29 @@ jobs:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.7', '3.6']
     steps:
-      - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
+      #- name: Setup miniconda
+      - uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
           activate-environment: qfit
-      - name: Build conda environment
-        shell: bash -l -eo pipefail {0}
-        run: |
+          enviornment-file: environment.yml
+          auto-update-conda: true
+          auto-activate-base: false
+          python-version: ${{ matrix.python-version }}
+      #- name: Install Dependencies #Build conda environment
+      #  shell: bash -l -eo pipefail {0}
+      # run: |
+          # $CONDA is an environment variable pointing to the root of the miniconda directory
+          #$CONDA/bin/conda env update --file environment.yml --name base
+          # putting packages into base so it can presist between steps in the workflow
+          
+          
           # Set up channel priority
-          conda config --prepend channels conda-forge && \
-          conda config --prepend channels anaconda
+          #conda config --prepend channels conda-forge && \
+          #conda config --prepend channels anaconda
           # Set strict adherence to channels
-          conda update --strict-channel-priority --all
+          #conda update --strict-channel-priority --all
           # Install tox-conda (testing automator)
-          conda install --yes tox-conda
+          #conda install --yes tox-conda
       - name: Checkout qfit
         uses: actions/checkout@v2
       - name: Install qfit
@@ -46,19 +53,19 @@ jobs:
         shell: bash -l -eo pipefail {0}
         run: |
           # Read conda environment variables
-          echo "PATH: ${PATH}"
-          echo "PYTHONPATH: ${PYTHONPATH}"
-          echo "CONDA_EXE: ${CONDA_EXE}"
-          echo "CONDA_ROOT: $(conda config --show root_prefix)"
-          export CONDA_INIT_SCRIPT="$(conda config --show root_prefix | cut -d':' -f 2- | xargs)/etc/profile.d/conda.sh"
-          [ ! -f "${CONDA_INIT_SCRIPT}" ] && export CONDA_INIT_SCRIPT="$(dirname ${CONDA_EXE})/../etc/profile.d/conda.sh"
-          echo "CONDA_INIT_SCRIPT: ${CONDA_INIT_SCRIPT}"
+          #echo "PATH: ${PATH}"
+          #echo "PYTHONPATH: ${PYTHONPATH}"
+          #echo "CONDA_EXE: ${CONDA_EXE}"
+          #echo "CONDA_ROOT: $(conda config --show root_prefix)"
+          #export CONDA_INIT_SCRIPT="$(conda config --show root_prefix | cut -d':' -f 2- | xargs)/etc/profile.d/conda.sh"
+          #[ ! -f "${CONDA_INIT_SCRIPT}" ] && export CONDA_INIT_SCRIPT="$(dirname ${CONDA_EXE})/../etc/profile.d/conda.sh"
+          #echo "CONDA_INIT_SCRIPT: ${CONDA_INIT_SCRIPT}"
           # Persist CONDA_INIT_SCRIPT between steps
-          echo "::set-env name=CONDA_INIT_SCRIPT::${CONDA_INIT_SCRIPT}"
+          #echo "::set-env name=CONDA_INIT_SCRIPT::${CONDA_INIT_SCRIPT}"
           # How is conda configured?
           conda info
           # Read channels priority
-          conda config --show channels
+          #conda config --show channels
           # Which packages are installed?
           conda list
       - name: TEST (Basic) Check qfit_protein can execute (test --help)
@@ -67,6 +74,6 @@ jobs:
       - name: TEST (Full) Thoroughly test qFit with tox
         shell: bash -l -o pipefail {0}
         run: |
-          echo "${CONDA_INIT_SCRIPT}"
-          if [ -f "${CONDA_INIT_SCRIPT}" ]; then echo "CONDA_INIT_SCRIPT: exists"; else echo "CONDA_INIT_SCRIPT: MISSING"; fi
+          #echo "${CONDA_INIT_SCRIPT}"
+          #if [ -f "${CONDA_INIT_SCRIPT}" ]; then echo "CONDA_INIT_SCRIPT: exists"; else echo "CONDA_INIT_SCRIPT: MISSING"; fi
           tox
