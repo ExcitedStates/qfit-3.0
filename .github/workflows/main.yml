@@ -20,22 +20,22 @@ jobs:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.7', '3.6']
     steps:
-    - uses: actions/checkout@v1
-    - name: Update Conda environment with "environment.yml"
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        activate-enironment: qfit
-        environment-file: environment.yml
-        auto-activate-base: false
-    - shell: bash -l {0}
-      run: |
-        conda info
-        conda list
-    - name: Run "pytest" with the Conda environment
-      shell: bash -l {0}
-      run:  |
-        conda install pytest
-        pytest
+      - name: Update Conda environment with "environment.yml"
+        uses: actions/checkout@v1
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-enironment: qfit
+          environment-file: environment.yml
+          auto-activate-base: false
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+      - name: Run "pytest" with the Conda environment
+        shell: bash -l {0}
+        run:  |
+          conda install pytest
+          pytest
 
 
 #jobs:
@@ -67,7 +67,6 @@ jobs:
 #        shell: bash -l -eo pipefail {0}
 #        run: |
 #          # Read conda environment variables
-          # How is conda configured?
  #         conda info
           # Read channels priority
           #conda config --show channels
