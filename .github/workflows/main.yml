@@ -21,18 +21,18 @@ jobs:
         python-version: ['3.7', '3.6']
     steps:
       - name: Setup Conda
-        uses: s-weigand/setup-conda@v1
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          #activate-environment: qfit
-          #environment-file: environment.yml
-          update-conda: true
+          activate-environment: qfit
+          environment-file: environment.yml
+          auto-update-conda: true
           python-version: ${{ matrix.python-version }}
-          #auto-activate-base: false
-      - name: Create Conda Environment
-        run: |
-          conda env create -f environment.yml
-          source activate qfit
-          pip install -e .
+          auto-activate-base: false
+      #- name: Create Conda Environment
+      #  run: |
+      #    conda env create -f environment.yml
+      #    source activate qfit
+      #    pip install -e .
       - name: Conda info
         shell: bash -l {0}
         run: |
