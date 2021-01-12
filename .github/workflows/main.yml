@@ -30,7 +30,7 @@ jobs:
           #auto-activate-base: false
       - name: Create Conda Environment
         run: |
-          conda env create -f ./.github/workflows/environment.yml
+          conda env create -f environment.yml
           source activate qfit
           pip install -e .
       - name: Conda info
