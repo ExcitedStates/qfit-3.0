@@ -34,4 +34,7 @@ jobs:
           conda list
       - name: Run pytest with the Conda environment
         shell: bash -l {0}
-        run: pytest
+        run: |
+          pytest
+          conda install pytest
+          $CONDA/bin/pytest
