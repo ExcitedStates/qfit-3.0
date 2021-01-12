@@ -24,25 +24,25 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: qfit
-          environment-file: ect/environment.yml
+          #environment-file: ect/environment.yml
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
-          auto-activate-base: false
-      #- name: Create Conda Environment
-      #  run: |
-      #    conda env create -f environment.yml
+          #auto-activate-base: false
+      - name: Create Conda Environment
+        run: |
+          conda env update -f ect/environment.yml
       #    source activate qfit
       #    pip install -e .
       - name: Conda info
         shell: bash -l {0}
         run: |
-          source activate qfit
+          #source activate qfit
           conda info
           conda list
       - name: Run pytest with the Conda environment
         shell: bash -l {0}
         run: |
-          source activate qfit
+          #source activate qfit
           pytest
           #conda install pytest
           #$CONDA/bin/pytest
