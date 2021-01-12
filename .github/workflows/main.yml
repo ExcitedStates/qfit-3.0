@@ -30,7 +30,7 @@ jobs:
           #auto-activate-base: false
       - name: Create Conda Environment
         run: |
-          conda env update --file ect/env.yml --name qfit
+          conda update --file ect/env.yml --name qfit
       #    source activate qfit
       #    pip install -e .
       - name: Conda info
