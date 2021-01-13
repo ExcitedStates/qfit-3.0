@@ -35,7 +35,6 @@ class TestQFitProtein:
             "./example/3K0N.mtz",  # mapfile, using relative directory from tests/
             "./example/3K0N.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT"
-            #"--directory", f"{os.environ['QFIT_OUTPUT_DIR']}",
         ]
 
         # Add options to reduce computational load
@@ -74,7 +73,6 @@ class TestQFitProtein:
 
     @pytest.mark.timeout(240)
     def test_run_qfit_residue_parallel(self):
-        print(os.getcwd())
         qfit = self.mock_main()
 
         # Run qfit object
