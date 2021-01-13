@@ -21,13 +21,10 @@ jobs:
         python-version: ['3.7', '3.6']
     steps:
       - uses: actions/checkout@v2
-      #- name: Setup Conda
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          #auto-update-conda: true
           channels: anaconda,ibmdecisionoptimization
           auto-activate-base: false
-          #miniconda-version: 'latest'
           python-version: ${{ matrix.python-version }}
           environment-file: env.yml
           activate-environment: qfit
@@ -40,8 +37,5 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install .
-          #pip install tox-conda
-          #conda install --yes tox-conda
           conda install pytest
-          #$CONDA/bin/pytest
           pytest
