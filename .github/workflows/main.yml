@@ -31,13 +31,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: env.yml
           activate-environment: qfit
-          #use-only-tar-bz2: true
-      #- name: Create Conda Environment
-      #  run: |
-       #   conda update --file /ect/env.yml --name qfit
-      #    conda activate qfit
-      #    source activate qfit
-      #    pip install -e .
       - name: Conda info
         shell: bash -l {0}
         run: |
@@ -47,7 +40,7 @@ jobs:
       - name: Run pytest with the Conda environment
         shell: bash -l {0}
         run: |
-          #source activate qfit
+          pip install .
           pytest
           #conda install pytest
           #$CONDA/bin/pytest
