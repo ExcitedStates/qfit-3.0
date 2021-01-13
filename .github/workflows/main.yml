@@ -40,8 +40,8 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install .
-          pip install tox-conda
+          #pip install tox-conda
           #conda install --yes tox-conda
-          #conda install pytest
+          conda install pytest
           #$CONDA/bin/pytest
-          tox
+          pytest
