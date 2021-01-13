@@ -74,6 +74,7 @@ class TestQFitProtein:
 
     @pytest.mark.timeout(240)
     def test_run_qfit_residue_parallel(self):
+        print(os.getcwd())
         qfit = self.mock_main()
 
         # Run qfit object
