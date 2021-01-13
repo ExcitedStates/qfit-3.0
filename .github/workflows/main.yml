@@ -34,13 +34,13 @@ jobs:
       - name: Conda info
         shell: bash -l {0}
         run: |
-          #source activate qfit
           conda info
           conda list
       - name: Run pytest with the Conda environment
         shell: bash -l {0}
         run: |
           pip install .
-          pytest
+          conda install --yes tox-conda
           #conda install pytest
           #$CONDA/bin/pytest
+          tox
