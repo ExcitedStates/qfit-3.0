@@ -1,22 +1,8 @@
-#!/usr/bin/env python
-
-#Edited by Stephanie Wankowicz
-#began: 2019-05-01
-'''
-Excited States software: qFit 3.0
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
-Contact: vdbedem@stanford.edu
-How to run:
-b_factor $pdb.mtz $pdb.pdb --pdb $pdb
-'''
-
-import pkg_resources  # part of setuptools
+import pkg_resources 
 from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os.path
 import os
 import sys
-import copy
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
@@ -39,6 +25,7 @@ class Bfactor_options(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
         self.pdb = None
+        self.ca = None
 
 class B_factor():
     def __init__(self, structure, options):
@@ -61,6 +48,9 @@ class B_factor():
         residue_num = []
         model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
+        select = select.extract('e', 'H', '!=')
+        if not self.options.ca == None:
+           select = select.extract('name', 'CA', '==')
         n = 0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
