@@ -3,7 +3,6 @@ from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 import os.path
 import os
 import sys
-import copy
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
