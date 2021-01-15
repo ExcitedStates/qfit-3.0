@@ -50,7 +50,6 @@ from .relabel import RelabellerOptions, Relabeller
 from .structure.rotamers import ROTAMERS
 
 
-
 logger = logging.getLogger(__name__)
 
 
