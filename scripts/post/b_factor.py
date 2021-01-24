@@ -1,16 +1,13 @@
-import pkg_resources 
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-import os.path
-import os
+#!/usr/bin/env python
+
 import sys
+from argparse import ArgumentParser
+
 import numpy as np
 import pandas as pd
-from argparse import ArgumentParser
-from math import ceil
+from qfit.qfit import QFitRotamericResidueOptions
 from qfit.structure import Structure
 
-
-os.environ["OMP_NUM_THREADS"] = "1"
 
 def build_argparser():
     p = ArgumentParser(description=__doc__)
