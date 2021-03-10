@@ -1421,7 +1421,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers.")
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="localsearch_ligand_qp" + str(self._cluster_index))
+            self._write_intermediate_conformers(prefix=f"localsearch_ligand_clust{self._cluster_index}_qp")
         if len(self._coor_set) < 1:
             logger.warning(f"{self.ligand.resn[0]}: "
                            f"Local search QP {self._cluster_index}: {len(self._coor_set)} conformers")
