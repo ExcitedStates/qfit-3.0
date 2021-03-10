@@ -1337,7 +1337,7 @@ class QFitLigand(_BaseQFit):
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
 
-        # QP score conformer occupancy 
+        # QP score conformer occupancy
         logger.debug("Converting densities.") #not included
         self._convert()
         logger.info("Solving QP.")
