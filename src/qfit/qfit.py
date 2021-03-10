@@ -1335,7 +1335,7 @@ class QFitLigand(_BaseQFit):
             return
 
         # QP score conformer occupancy
-        logger.debug("Converting densities.") #not included
+        logger.debug("Converting densities.")
         self._convert()
         logger.info("Solving QP.")
         self._solve()
