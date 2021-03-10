@@ -1530,7 +1530,7 @@ class QFitLigand(_BaseQFit):
             logger.debug("Updating Conformers.")
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"sample_ligand_iterqp{self._cluster_index}")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_clust{self._cluster_index}_iter{iteration}_qp")
             if len(self._coor_set) < 1:
                 logger.warning(f"{self.ligand.resn[0]}: "
                                f"QP search cluster {self._cluster_index} iteration {iteration}: "
@@ -1544,7 +1544,7 @@ class QFitLigand(_BaseQFit):
                         cardinality=self.options.cardinality)
             self._update_conformers()
             if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix=f"sample_ligand_iter{self._cluster_index}_miqp")
+                self._write_intermediate_conformers(prefix=f"sample_ligand_clust{self._cluster_index}_iter{iteration}_miqp")
 
             # Check if we are done
             if end_bond_index == nbonds:
