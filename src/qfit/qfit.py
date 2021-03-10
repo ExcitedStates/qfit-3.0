@@ -1306,7 +1306,7 @@ class QFitLigand(_BaseQFit):
             self._all_coor_set += self._coor_set
             self._all_bs += self._bs
             if self.options.write_intermediate_conformers:
-                prefix_tmp = 'run_' + str(self._cluster_index)
+                prefix_tmp = 'clust' + str(self._cluster_index)
                 self._write_intermediate_conformers(prefix=prefix_tmp)
             logger.info(f"Number of conformers: {len(self._coor_set)}")
             logger.info(f"Number of final conformers: {len(self._all_coor_set)}")
