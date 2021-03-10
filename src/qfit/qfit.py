@@ -1433,7 +1433,7 @@ class QFitLigand(_BaseQFit):
                     cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="localsearch_ligand_miqp" + str(self._cluster_index))
+            self._write_intermediate_conformers(prefix=f"localsearch_ligand_clust{self._cluster_index}_miqp")
 
     def _sample_internal_dofs(self):
         sampling_range = np.deg2rad(np.arange(0, 360, self.options.sample_ligand_stepsize))
