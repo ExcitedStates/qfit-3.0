@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-"""Automatically build a multiconformer residue"""
+"""Calculate RMSF by residue and altloc.
+
+Iterate through altlocs of each residue,
+reporting mean RMSD from all other altlocs in the residue.
+"""
+
 import numpy as np
 import argparse
 import logging
@@ -12,7 +17,10 @@ from qfit import Structure
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
 
