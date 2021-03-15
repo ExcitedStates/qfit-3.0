@@ -43,14 +43,17 @@ def main():
 
     structure = Structure.fromfile(args.structure).reorder()
 
-
-    for residue in structure.extract('record',"ATOM").extract(
-      'resn', "HOH","!=").residue_groups:
+    for residue in (
+        structure.extract('record', "ATOM")
+                 .extract('resn', "HOH", "!=")
+                 .extract('name', "H", "!=")
+    ).residue_groups:
         altlocs = sorted(list(set(residue.altloc)))
         resi = residue.resi[0]
         chainid = residue.chain[0]
         tot_rmsd = 0.0
         numlocs = 0
+
         if len(altlocs) > 1:
             try:
                 altlocs.remove('')
