@@ -56,18 +56,18 @@ def main():
                 altlocs.remove('')
             except ValueError:
                 pass
-            for altloc in altlocs:
-                conf1 = residue.extract('altloc',altloc)
+            for altloc1 in altlocs:
+                conf1 = residue.extract('altloc', altloc1)
                 for altloc2 in altlocs:
-                    if altloc != altloc2:
-                        conf2 = residue.extract('altloc',altloc2)
+                    if altloc1 != altloc2:
+                        conf2 = residue.extract('altloc', altloc2)
                         rmsd = conf1.rmsd(conf2)
                         tot_rmsd += rmsd
                         numlocs += 1
                 if numlocs > 0:
-                        print(resi,chainid,round(tot_rmsd/numlocs,2),len(altlocs))
+                    print(resi, chainid, round(tot_rmsd / numlocs, 2), len(altlocs))
         else:
-            print(resi,chainid,0.0,len(altlocs))
+            print(resi, chainid, 0.0, len(altlocs))
 
 
 if __name__ == '__main__':
