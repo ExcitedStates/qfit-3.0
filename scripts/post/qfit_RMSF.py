@@ -74,7 +74,7 @@ class RMSF():
                             atom_alt=tmp_atom.extract('altloc', i, '==')
                             RMSF_atom=np.linalg.norm(atom_alt.coor-atom_center, axis=1)
                             RMSF_atom_list.append(RMSF_atom)
-                        RMSF_list.append((sum(RMSF_atom_list)/len(RMSF_atom_list))
+                        RMSF_list.append((sum(RMSF_atom_list)/len(RMSF_atom_list))[0])
                         rmsf_data.append(tuple((resn_name[0],resn_name[1],resn_name[2],(sum(RMSF_list)/len(RMSF_list)))))
                 else:
                     rmsf_data.append(tuple((resn_name[0],resn_name[1],resn_name[2],0)))
