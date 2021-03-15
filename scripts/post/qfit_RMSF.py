@@ -59,7 +59,7 @@ class RMSF():
                 
             for id in residue_ids:
                 res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
-                resn_name = (np.array2string(np.unique(res_tmp.resi)), np.array2string(np.unique(res_tmp.resn)),np.array2string(np.unique(res_tmp.chain)))
+                resn_name = (np.unique(res_tmp.resi)[0], np.unique(res_tmp.resn)[0], np.unique(res_tmp.chain)[0])
                 if len(np.unique(res_tmp.altloc))>1:
                     RMSF_list = []
                     num_alt = len(np.unique(res_tmp.altloc))
@@ -80,14 +80,6 @@ class RMSF():
                     rmsf_data.append(tuple((resn_name[0],resn_name[1],resn_name[2],0)))
                                          
         rmsf = pd.DataFrame(rmsf_data, columns=['resseq', 'AA', 'Chain', 'RMSF'])
-        rmsf['resseq'] = rmsf['resseq'].str.replace('[', '')
-        rmsf['resseq'] = rmsf['resseq'].str.replace(']', '')
-        rmsf['AA'] = rmsf['AA'].str.replace('[', '')
-        rmsf['AA'] = rmsf['AA'].str.replace(']', '')
-        rmsf['AA'] = rmsf['AA'].str.replace('\'', '')
-        rmsf['Chain'] = rmsf['Chain'].str.replace('[', '')
-        rmsf['Chain'] = rmsf['Chain'].str.replace(']', '')
-        rmsf['Chain'] = rmsf['Chain'].str.replace('\'', '')
         rmsf['PDB_name'] = self.options.pdb
         rmsf.to_csv(self.pdb + 'qfit_RMSF.csv')
 
