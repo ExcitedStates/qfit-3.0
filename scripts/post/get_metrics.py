@@ -1,22 +1,22 @@
 #!/usr/bin/env python
-
 """Calculate RMSF by residue and altloc.
 
 Iterate through altlocs of each residue,
-reporting mean RMSD from all other altlocs in the residue.
+reporting mean heavy-atom RMSD from all other altlocs of the residue.
 """
 
-import numpy as np
-import argparse
-import logging
+from __future__ import annotations
+
 import os
-import sys
-import time
-from string import ascii_uppercase
+import argparse
+import itertools as itl
+from typing import Generator, Sequence, TypeVar
 from qfit import Structure
 
+T = TypeVar('T')
 
-def parse_args():
+
+def _build_argparser():
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -29,19 +29,35 @@ def parse_args():
                    metavar="<dir>", help="Directory to store results.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Be verbose.")
-    args = p.parse_args()
 
-    return args
+    return p
 
 
-def main():
-    args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+def pivot_and_remainder(seq: Sequence[T]) -> Generator[tuple[T, list[T]], None, None]:
+    """Iterates over a sequence, yielding an element and the remainder of the sequence as a list.
 
-    structure = Structure.fromfile(args.structure).reorder()
+    >>> p = pivot_and_remainder([2, 3, 5, 8])
+    >>> next(p)
+    (2, [3, 5, 8])
+    >>> next(p)
+    (3, [2, 5, 8])
+
+    >>> p = pivot_and_remainder([2])
+    >>> next(p)
+    (2, [])
+    """
+    for i in range(len(seq)):
+        yield seq[i], list(itl.chain(seq[:i], seq[i+1:]))
+
+
+def get_metrics(structure: Structure) -> None:
+    """Calculate RMSF by residue and altloc.
+
+    Iterate through altlocs of each residue,
+    reporting mean heavy-atom RMSD from all other altlocs of the residue."""
+
+     # Print a column header
+    print("resi", "chain", "residue_altloc_rmsd", "n_altlocs")
 
     for residue in (
         structure.extract('record', "ATOM")     # Don't analyse metals/ligands
@@ -52,27 +68,49 @@ def main():
         altlocs = sorted(list(set(residue.altloc)))
         resi = residue.resi[0]
         chainid = residue.chain[0]
-        tot_rmsd = 0.0
-        numlocs = 0
 
-        if len(altlocs) > 1:
+        # Guard: if there's only 1 altloc at this residue...
+        if len(altlocs) == 1:
+            print(resi, chainid, 0., len(altlocs))
+            continue
+
+        try:
+            altlocs.remove('')  # Remove the 'common backbone' from analysis, if present
+        except ValueError:
+            pass
+
+        for altloc1, remaining_altlocs in pivot_and_remainder(altlocs):
+            conf1 = residue.extract('altloc', altloc1)
+            tot_rmsd: float = 0.
+            numlocs: int = 0
+
+            for altloc2 in remaining_altlocs:
+                conf2 = residue.extract('altloc', altloc2)
+                tot_rmsd += conf1.rmsd(conf2)
+                numlocs += 1
+
             try:
-                altlocs.remove('')
-            except ValueError:
-                pass
-            for altloc1 in altlocs:
-                conf1 = residue.extract('altloc', altloc1)
-                for altloc2 in altlocs:
-                    if altloc1 != altloc2:
-                        conf2 = residue.extract('altloc', altloc2)
-                        rmsd = conf1.rmsd(conf2)
-                        tot_rmsd += rmsd
-                        numlocs += 1
-                if numlocs > 0:
-                    print(resi, chainid, round(tot_rmsd / numlocs, 2), len(altlocs))
-        else:
-            print(resi, chainid, 0.0, len(altlocs))
+                avg_rmsd: float = tot_rmsd / numlocs
+            except ZeroDivisionError:
+                avg_rmsd = 0.
+
+            print(resi, chainid, round(avg_rmsd, 2), len(altlocs))
+
+
+def _main():
+    # Collect and act on arguments
+    #   (When args==None, argparse will default to sys.argv[1:])
+    argparser = _build_argparser()
+    cmdline_args = argparser.parse_args(args=None)
+
+    try:
+        os.mkdir(cmdline_args.directory)
+    except OSError:
+        pass
+
+    # Run main script
+    get_metrics(Structure.fromfile(cmdline_args.structure).reorder())
 
 
 if __name__ == '__main__':
-    main()
+    _main()
