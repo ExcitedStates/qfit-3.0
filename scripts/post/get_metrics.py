@@ -44,9 +44,10 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
 
     for residue in (
-        structure.extract('record', "ATOM")
-                 .extract('resn', "HOH", "!=")
-                 .extract('name', "H", "!=")
+        structure.extract('record', "ATOM")     # Don't analyse metals/ligands
+                 .extract('resn', "HOH", "!=")  # Don't analyse waters
+                 .extract('name', "H", "!=")    # Sometimes backbone N-H atoms are present in some altlocs, not all. Avoid analysing them.
+                 .extract('e', "H", "!=")       # Sometimes His protonation states differ between altlocs. Avoid analysing all H.
     ).residue_groups:
         altlocs = sorted(list(set(residue.altloc)))
         resi = residue.resi[0]
