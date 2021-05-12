@@ -54,7 +54,9 @@ remove_duplicates "${multiconf}"
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
-phenix.ready_set hydrogens=false pdb_file_name=${multiconf}.f_modified.pdb
+phenix.ready_set hydrogens=false \
+                 trust_residue_code_is_chemical_components_code=true \
+                 pdb_file_name="${multiconf}.f_modified.pdb"
 
 #__________________________________REFINEMENT WITHOUT HYDROGENS__________________________________
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
