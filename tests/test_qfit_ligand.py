@@ -1,5 +1,7 @@
 import os
 import logging
+import numpy as np
+print(np.__version__, np.__file__)
 
 from qfit.qfit_ligand import (
     QFitLigandOptions,

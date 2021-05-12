@@ -34,6 +34,7 @@ def main():
     package_dir = {'': 'src'}
     packages = find_packages('src')
     package_data = {'qfit': [os.path.join('data', '*.npy'), ]}
+    print(f"<<<<<USING NUMPY>>>>> {np.__version__}, {np.__file__}")
 
     ext_modules = [Extension("qfit._extensions",
                              [os.path.join("src", "_extensions.c")],
