@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 import os
 import sys
