@@ -1,12 +1,13 @@
-#!/usr/bin/env python
+import numpy as np
+import argparse
+import logging
+import copy
+import os
+import sys
+from string import ascii_uppercase
+from qfit.structure import Structure
 
 """Ordering PDB so that the ATOMs are listed first, and then HETATOMs"""
-
-import argparse
-import os
-
-import numpy as np
-from qfit.structure import Structure
 
 
 def parse_args():
@@ -19,7 +20,6 @@ def parse_args():
     args = p.parse_args()
 
     return args
-
 
 def main():
     args = parse_args()
@@ -35,7 +35,6 @@ def main():
         output = output.combine(tmp)
         output = output.combine(tmp_het)
     output.tofile(output_file)
-
 
 if __name__ == '__main__':
     main()
