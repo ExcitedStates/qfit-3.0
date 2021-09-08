@@ -43,7 +43,7 @@ def main():
         'setuptools_scm',
     ]
     install_requires = [
-        'numpy>=1.20',
+        'numpy>=1.19',
         'scipy>=1.00',
         'pyparsing>=2.2.0',
         'tqdm>=4.0.0',
@@ -61,7 +61,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
-          python_requires='>=3.7', 
+          python_requires='>=3.6', 
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
