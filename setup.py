@@ -93,7 +93,8 @@ def main():
               'scripts/post/compare_apo_holo.py',
               'scripts/post/get_metrics.py',
               'scripts/post/b_factor.py',
-              'scripts/post/subset_structure_AH.py'
+              'scripts/post/subset_structure_AH.py',
+              'scripts/post/lig_occ.py',
           ],
     )
 
