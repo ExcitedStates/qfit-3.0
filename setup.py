@@ -93,6 +93,7 @@ def main():
               'scripts/post/get_metrics.py',
               'scripts/post/b_factor.py',
               'scripts/post/subset_structure_AH.py',
+              'scripts/post/alpha_rmsd.py',
               'scripts/post/lig_occ.py'
           ],
     )
