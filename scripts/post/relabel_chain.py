@@ -1,13 +1,13 @@
-#!/usr/bin/env python
-
-"""Renaming Chains in holo based on corresponding apo"""
-
-import argparse
-import os
-
 import numpy as np
+import argparse
+import logging
+import copy
+import os
+import sys
+from string import ascii_uppercase
 from qfit.structure import Structure
 
+"""Renaming Chains in holo based on corresponding apo"""
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -24,7 +24,6 @@ def parse_args():
 
     return args
 
-
 def main():
     args = parse_args()
     output_holo_file = os.path.join(args.holo_str[:-4]+"_renamed.pdb")
@@ -32,7 +31,7 @@ def main():
     holo = Structure.fromfile(args.holo_str)
     apo = Structure.fromfile(args.apo_str)
     apo = apo.extract('record', 'ATOM')
-    output_holo = holo.extract("resi", 0, '==')
+    output_holo = holo.extract("resi", 0, '==')   
     for chain_h in np.unique(holo.chain):
         holo_copy = holo.copy()
         tmp_h = holo.extract("chain", chain_h, '==')
@@ -42,13 +41,13 @@ def main():
             tmp_a = apo.extract("chain", chain_a, '==')
             tot_dist = 0
             for coor in tmp_h_atom.coor:
-                tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
-                tmp_dist = np.median(tot_dist)
-            if dist is None:
-                dist = tmp_dist
-                rename_chain = chain_a
+               tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
+               tmp_dist = np.median(tot_dist) 
+            if dist == None:
+                 dist = tmp_dist
+                 rename_chain = chain_a
             else:
-                if dist > tmp_dist:
+                 if dist > tmp_dist:
                     print('switching')
                     dist = tmp_dist
                     rename_chain = chain_a
@@ -57,7 +56,6 @@ def main():
         output_holo = output_holo.combine(output)
         del tmp_h
     output_holo.tofile(output_holo_file)
-
 
 if __name__ == '__main__':
     main()
