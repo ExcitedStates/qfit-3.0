@@ -61,7 +61,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
-          python_requires='>=3.6', 
+          python_requires='>=3.7', 
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
