@@ -32,7 +32,6 @@ def parse_args():
 
 def rmsd_alpha_carbon(holo, apo, holo_name, apo_name):
    for chain in np.unique(holo.chain):
-    #print(chain)
     if chain not in apo.chain:
        print('not in apo')
        continue
