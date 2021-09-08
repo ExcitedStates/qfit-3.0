@@ -97,6 +97,7 @@ def main():
               'scripts/post/reorder_pdb.py',
               'scripts/post/relabel_chain.py',
               'scripts/post/water_stats.py', 
+              'scripts/post/water_clash.py',
               'scripts/post/lig_occ.py'
           ],
     )
