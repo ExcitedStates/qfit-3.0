@@ -44,8 +44,7 @@ def main():
     ]
     install_requires = [
         'numpy>=1.17,<1.20',
-        'scipy>=1.0',
-        'pandas>=1.1,<1.4',
+        'scipy>=1.00',
         'pyparsing>=2.2.0',
         'tqdm>=4.0.0',
     ]
@@ -62,7 +61,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
-          python_requires='>=3.6',
+          python_requires='>=3.6', 
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
@@ -94,12 +93,7 @@ def main():
               'scripts/post/get_metrics.py',
               'scripts/post/b_factor.py',
               'scripts/post/subset_structure_AH.py',
-              'scripts/post/alpha_rmsd.py',
-              'scripts/post/reorder_pdb.py',
-              'scripts/post/relabel_chain.py',
-              'scripts/post/water_stats.py',
-              'scripts/post/water_clash.py',
-              'scripts/post/lig_occ.py',
+              'scripts/post/lig_occ.py'
           ],
     )
 
