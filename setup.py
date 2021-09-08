@@ -96,6 +96,7 @@ def main():
               'scripts/post/alpha_rmsd.py',
               'scripts/post/reorder_pdb.py',
               'scripts/post/relabel_chain.py',
+              'scripts/post/water_stats.py', 
               'scripts/post/lig_occ.py'
           ],
     )
