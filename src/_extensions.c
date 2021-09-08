@@ -1,5 +1,5 @@
 #include "Python.h"
-#define NPY_NO_DEPRECATED_API NPY_1_14_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_17_API_VERSION
 #include "numpy/arrayobject.h"
 
 //#include "PTripepClosure.h"
