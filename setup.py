@@ -95,6 +95,7 @@ def main():
               'scripts/post/subset_structure_AH.py',
               'scripts/post/alpha_rmsd.py',
               'scripts/post/reorder_pdb.py',
+              'scripts/post/relabel_chain.py',
               'scripts/post/lig_occ.py'
           ],
     )
