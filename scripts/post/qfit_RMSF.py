@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os
+from argparse import ArgumentParser
+
 import numpy as np
 import pandas as pd
-from argparse import ArgumentParser
+from qfit.qfit import QFitRotamericResidueOptions
 from qfit.structure import Structure
 
 
