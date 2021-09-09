@@ -59,8 +59,8 @@ class RMSF():
                     resi = tmp_i
                 residue_ids.append(resi)
 
-            for id in residue_ids:
-                res_tmp = select2.extract('resi', int(id), '==')  # this separates each residue
+            for resid in residue_ids:
+                res_tmp = select2.extract('resi', int(resid), '==')  # this separates each residue
                 resn_name = (np.unique(res_tmp.resi)[0], np.unique(res_tmp.resn)[0], np.unique(res_tmp.chain)[0])
                 if len(np.unique(res_tmp.altloc))>1:
                     RMSF_list = []
@@ -94,7 +94,7 @@ def main():
     options.apply_command_args(args)
 
     rmsf = RMSF(options)
-    rmsf_final = rmsf.run()
+    rmsf.run()
 
 
 if __name__ == '__main__':
