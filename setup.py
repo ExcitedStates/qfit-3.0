@@ -44,7 +44,8 @@ def main():
     ]
     install_requires = [
         'numpy>=1.17,<1.20',
-        'scipy>=1.00',
+        'scipy>=1.0',
+        'pandas>=1.1,<1.4',
         'pyparsing>=2.2.0',
         'tqdm>=4.0.0',
     ]
@@ -61,7 +62,7 @@ def main():
           setup_requires=setup_requires,
           install_requires=install_requires,
           zip_safe=False,
-          python_requires='>=3.6', 
+          python_requires='>=3.6',
           entry_points={
               'console_scripts': [
                   'qfit_protein = qfit.qfit_protein:main',
