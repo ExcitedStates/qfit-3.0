@@ -34,7 +34,7 @@ class RMSF():
         self.structure = self.options.structure
 
     def run(self):
-        if not self.options.pdb == None:
+        if not self.options.pdb is None:
             self.pdb = self.options.pdb + '_'
         else:
             self.pdb = ''
