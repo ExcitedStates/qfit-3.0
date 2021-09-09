@@ -92,7 +92,7 @@ def main():
     else:
         pdb_name = ''
     residue_closest(structure, args.dist, pdb_name)
-    partial_occ_water(structure, args.pdb)
+    # partial_occ_water(structure, args.pdb)
 
 
 if __name__ == '__main__':
