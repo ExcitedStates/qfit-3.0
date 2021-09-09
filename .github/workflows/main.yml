@@ -26,7 +26,7 @@ jobs:
           channels: anaconda,ibmdecisionoptimization
           auto-activate-base: false
           python-version: ${{ matrix.python-version }}
-          environment-file: env.yml
+          environment-file: environment.yml
           activate-environment: qfit
       - name: Conda info
         shell: bash -l {0}
