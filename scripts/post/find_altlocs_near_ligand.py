@@ -25,7 +25,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if not args.pdb_name == None:
+    if not args.pdb_name is None:
         pdb_name = args.pdb_name
     else:
         pdb_name = ''

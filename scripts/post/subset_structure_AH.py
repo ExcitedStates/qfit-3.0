@@ -72,17 +72,17 @@ class QFitMultiResidue:
         self.close_atoms_chain_holo = None
         self.close_atoms_chain_apo = None
         self.close_hetatoms_apo = None
+        self.pdb_holo = ''
+        self.pdb_apo = ''
         self.options = options #user input
 
     def run(self):
-        if not self.options.pdb_holo==None:
+        if not self.options.pdb_holo is None:
             self.pdb_holo=self.options.pdb_holo + '_'
-        else:
-            self.pdb_holo=''
-        if not self.options.pdb_apo==None:
+
+        if not self.options.pdb_apo is None:
             self.pdb_apo=self.options.pdb_apo + '_'
-        else:
-            self.pdb_apo=''
+
         print(self.options.ligand_start)
 
         lig_structure = self.select_lig()
