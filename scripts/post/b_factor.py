@@ -1,16 +1,13 @@
-import pkg_resources 
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-import os.path
-import os
+#!/usr/bin/env python
+
 import sys
+from argparse import ArgumentParser
+
 import numpy as np
 import pandas as pd
-from argparse import ArgumentParser
-from math import ceil
+from qfit.qfit import QFitRotamericResidueOptions
 from qfit.structure import Structure
 
-
-os.environ["OMP_NUM_THREADS"] = "1"
 
 def build_argparser():
     p = ArgumentParser(description=__doc__)
@@ -21,19 +18,21 @@ def build_argparser():
 
     return p
 
+
 class Bfactor_options(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
         self.pdb = None
         self.ca = None
 
-class B_factor():
+
+class Bfactor():
     def __init__(self, structure, options):
-        self.structure = structure 
-        self.options = options 
-    
+        self.structure = structure
+        self.options = options
+
     def run(self):
-        if not self.options.pdb == None:
+        if not self.options.pdb is None:
             self.pdb = self.options.pdb+'_'
         else:
             self.pdb = ''
@@ -41,16 +40,11 @@ class B_factor():
 
     def get_bfactors(self):
         B_factor = pd.DataFrame()
-        atom_name = []
-        chain_ser = []
-        residue_name = []
         b_factor = []
-        residue_num = []
-        model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
         select = select.extract('e', 'H', '!=')
-        if not self.options.ca == None:
-           select = select.extract('name', 'CA', '==')
+        if not self.options.ca is None:
+            select = select.extract('name', 'CA', '==')
         n = 0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
@@ -63,8 +57,8 @@ class B_factor():
                 else:
                     resi = tmp_i
                 residue_ids.append(resi)
-        
-        n=1
+
+        n = 1
         for id in residue_ids:
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
             #is this going to give us the alternative coordinate for everything?
@@ -75,8 +69,9 @@ class B_factor():
             B_factor.loc[n,'Chain'] = resn_name[2]
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
             B_factor.loc[n, 'Average_Bfactor'] = np.average(b_factor)
-            n+=1
+            n += 1
         B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
+
 
 def main():
     print(sys.path)
@@ -88,8 +83,8 @@ def main():
     B_options = Bfactor_options()
     B_options.apply_command_args(args)
 
-    b_factor = B_factor(structure, B_options)
-    b_fin = b_factor.run()
+    b_factor = Bfactor(structure, B_options)
+    b_factor.run()
 
 
 if __name__ == '__main__':
