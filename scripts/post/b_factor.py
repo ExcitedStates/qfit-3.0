@@ -18,6 +18,7 @@ def build_argparser():
 
     return p
 
+
 class Bfactor_options(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
@@ -26,9 +27,9 @@ class Bfactor_options(QFitRotamericResidueOptions):
 
 class B_factor():
     def __init__(self, structure, options):
-        self.structure = structure 
-        self.options = options 
-    
+        self.structure = structure
+        self.options = options
+
     def run(self):
         if not self.options.pdb == None:
             self.pdb = self.options.pdb+'_'
@@ -47,7 +48,7 @@ class B_factor():
         select = self.structure.extract('record', 'ATOM', '==')
         select = select.extract('e', 'H', '!=')
         if not self.options.ca == None:
-           select = select.extract('name', 'CA', '==')
+            select = select.extract('name', 'CA', '==')
         n = 0
         for chain in np.unique(select.chain):
             select2 = select.extract('chain', chain, '==')
@@ -60,8 +61,8 @@ class B_factor():
                 else:
                     resi = tmp_i
                 residue_ids.append(resi)
-        
-        n=1
+
+        n = 1
         for id in residue_ids:
             res_tmp = select2.extract('resi', int(id), '==') #this is seperating each residues
             #is this going to give us the alternative coordinate for everything?
@@ -72,8 +73,9 @@ class B_factor():
             B_factor.loc[n,'Chain'] = resn_name[2]
             B_factor.loc[n,'Max_Bfactor'] = np.amax(b_factor)
             B_factor.loc[n, 'Average_Bfactor'] = np.average(b_factor)
-            n+=1
+            n += 1
         B_factor.to_csv(self.pdb + '_B_factors.csv', index=False)
+
 
 def main():
     print(sys.path)
