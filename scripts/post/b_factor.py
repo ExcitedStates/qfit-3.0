@@ -31,7 +31,7 @@ class B_factor():
         self.options = options
 
     def run(self):
-        if not self.options.pdb == None:
+        if not self.options.pdb is None:
             self.pdb = self.options.pdb+'_'
         else:
             self.pdb = ''
@@ -47,7 +47,7 @@ class B_factor():
         model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
         select = select.extract('e', 'H', '!=')
-        if not self.options.ca == None:
+        if not self.options.ca is None:
             select = select.extract('name', 'CA', '==')
         n = 0
         for chain in np.unique(select.chain):
