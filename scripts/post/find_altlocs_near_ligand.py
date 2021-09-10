@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
 """Automatically build a multiconformer residue"""
-import numpy as np
+
 import argparse
 import os
-import sys
-import time
+
+import numpy as np
+import pandas as pd
 from qfit.structure import Structure
 from qfit.structure.rotamers import ROTAMERS
 

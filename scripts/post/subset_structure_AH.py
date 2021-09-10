@@ -9,22 +9,14 @@ Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, St
 Contact: vdbedem@stanford.edu
 '''
 
-import pkg_resources  # part of setuptools
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from qfit.qfit_protein import QFitProteinOptions, QFitProtein
-import os.path
 import os
-import sys
+import os.path
 import time
-import copy
-import numpy as np
 from argparse import ArgumentParser
-from math import ceil
-from qfit import MapScaler, Structure, XMap
-from qfit.structure.base_structure import _BaseStructure
-#from .structure.ligand import
-#from .structure,.residue import residue_type
 
+import numpy as np
+from qfit import Structure
+from qfit.qfit import QFitRotamericResidueOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
 

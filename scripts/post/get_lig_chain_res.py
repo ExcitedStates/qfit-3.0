@@ -6,11 +6,9 @@ to get the residue ID and chain ID of a ligand of interest.
 Can be fed into qfit ligand.
 '''
 
-import numpy as np
 import argparse
-import os
-import sys
-from string import ascii_uppercase
+
+import numpy as np
 from qfit import Structure
 
 
