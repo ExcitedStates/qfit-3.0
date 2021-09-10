@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 '''
-This script is for an automated way 
-to get the residue ID and chain ID of a ligand of interest. 
+This script is for an automated way
+to get the residue ID and chain ID of a ligand of interest.
 Can be fed into qfit ligand.
 '''
 
@@ -13,12 +13,13 @@ import sys
 from string import ascii_uppercase
 from qfit import Structure
 
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
     p.add_argument("lig_name", type=str, help="Ligand Name")
-    
+
     args = p.parse_args()
     return args
 
@@ -33,7 +34,7 @@ def main():
     resi2 = ' '.join(map(str, resi))
 
     with open(args.lig_name + '_chain_resi.txt', 'w') as file:
-           file.write(chain2 + ',' + resi2)
+        file.write(chain2 + ',' + resi2)
 
 
 if __name__ == '__main__':
