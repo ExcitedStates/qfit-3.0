@@ -25,7 +25,8 @@ class Bfactor_options(QFitRotamericResidueOptions):
         self.pdb = None
         self.ca = None
 
-class B_factor():
+
+class Bfactor():
     def __init__(self, structure, options):
         self.structure = structure
         self.options = options
@@ -39,12 +40,7 @@ class B_factor():
 
     def get_bfactors(self):
         B_factor = pd.DataFrame()
-        atom_name = []
-        chain_ser = []
-        residue_name = []
         b_factor = []
-        residue_num = []
-        model_number = []
         select = self.structure.extract('record', 'ATOM', '==')
         select = select.extract('e', 'H', '!=')
         if not self.options.ca is None:
@@ -87,8 +83,8 @@ def main():
     B_options = Bfactor_options()
     B_options.apply_command_args(args)
 
-    b_factor = B_factor(structure, B_options)
-    b_fin = b_factor.run()
+    b_factor = Bfactor(structure, B_options)
+    b_factor.run()
 
 
 if __name__ == '__main__':
