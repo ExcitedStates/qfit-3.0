@@ -9,24 +9,17 @@ Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, St
 Contact: vdbedem@stanford.edu
 '''
 
-import pkg_resources  # part of setuptools
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from qfit.qfit_protein import QFitProteinOptions, QFitProtein
-import os.path
 import os
-import sys
+import os.path
 import time
-import copy
-import numpy as np
 from argparse import ArgumentParser
-from math import ceil
-from qfit import MapScaler, Structure, XMap
-from qfit.structure.base_structure import _BaseStructure
-#from .structure.ligand import
-#from .structure,.residue import residue_type
 
+import numpy as np
+from qfit import Structure
+from qfit.qfit import QFitRotamericResidueOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
+
 
 def parse_args():
     p = ArgumentParser(description=__doc__)
@@ -44,8 +37,8 @@ def parse_args():
                    help="Be verbose.")
     p.add_argument("--pdb_holo", help="Name of the input Holo PDB.")
     p.add_argument("--pdb_apo", help="Name of the input Apo PDB.")
-    
- #new subset arguments
+
+    # New subset arguments
     p.add_argument("-dis", "--distance", type=float, default='5.0',
                   metavar="<float>", help="Distance from start site to identify ")
     p.add_argument("-sta", "--starting_site", type=float, default='1.0',
@@ -53,6 +46,7 @@ def parse_args():
     p.add_argument("-ls", "--ligand_start", help="Ligand in which you want to measure your distance from")
     args = p.parse_args()
     return args
+
 
 class QFitMultiResOptions(QFitRotamericResidueOptions):
     def __init__(self):
@@ -70,19 +64,20 @@ class QFitMultiResidue:
         self.close_atoms_chain_holo = None
         self.close_atoms_chain_apo = None
         self.close_hetatoms_apo = None
+        self.pdb_holo = ''
+        self.pdb_apo = ''
         self.options = options #user input
 
     def run(self):
-        if not self.options.pdb_holo==None:
+        if not self.options.pdb_holo is None:
             self.pdb_holo=self.options.pdb_holo + '_'
-        else:
-            self.pdb_holo=''
-        if not self.options.pdb_apo==None:
+
+        if not self.options.pdb_apo is None:
             self.pdb_apo=self.options.pdb_apo + '_'
-        else:
-            self.pdb_apo=''
+
         print(self.options.ligand_start)
-        lig_strucutre = self.select_lig()
+
+        lig_structure = self.select_lig()
         lig_overlap = self.select_close_ligands()
         if not lig_overlap == None:
             with open(self.pdb_apo + 'ligand_overlap.txt', 'w') as file:
@@ -112,10 +107,9 @@ class QFitMultiResidue:
     def select_close_ligands(self):
         self.hetatoms_apo = self.apo_structure.extract('record', 'HETATOM', '==')
         dist_apo=np.linalg.norm(self.hetatoms_apo.coor[:][:]-self.lig_center, axis=1)
-        mask_apo = dist_apo < 10.0#self.options.distance
+        mask_apo = dist_apo < 10.0  # self.options.distance
         sel_residue_apo = self.hetatoms_apo.resi[mask_apo]
         sel_chain_apo = self.hetatoms_apo.chain[mask_apo]
-        #print('ligands overlap:')
         for chain in set(sel_chain_apo):
             mask_lig = select_chain_apo == chain
             sel_residue_apo = sel_residue_apo[mask_lig]
@@ -126,7 +120,7 @@ class QFitMultiResidue:
                 except NameError:
                     self.close_hetatoms_apo = self.hetatoms_apo.extract(f'chain {chain} and resi {residue}')
         return self.close_hetatoms_apo
-        
+
     def select_close_residues(self):
         self.atoms_holo = self.holo_structure.extract('record', 'ATOM', '==')
         self.atoms_apo = self.apo_structure.extract('record', 'ATOM', '==')
@@ -158,6 +152,7 @@ class QFitMultiResidue:
                     self.close_atoms_chain_apo=self.atoms_apo.extract(f'chain {chain} and resi {residue}')
         fname_holo = (self.pdb_holo+"_subset.pdb") #self.options.distance + pdbname
         return self.close_atoms_chain_apo, self.close_atoms_chain_holo
+
 
 def main():
     args = parse_args()
