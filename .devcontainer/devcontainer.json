@@ -16,6 +16,16 @@
 		"terminal.integrated.defaultProfile.linux": "bash",
 		"terminal.integrated.inheritEnv": false,
 		"python.pythonPath": "${env:CONDA_PREFIX}/bin/python",
+		"python.linting.enabled": true,
+		"python.linting.pydocstyleEnabled": true,
+		"python.linting.pylintEnabled": true,
+		"python.linting.pylintUseMinimalCheckers": false,
+		"python.linting.mypyEnabled": true,
+		"python.linting.mypyArgs": [
+			"--ignore-missing-imports",
+			"--follow-imports=silent",
+			"--show-column-numbers",
+		],
 	},
 
 	// Add the IDs of extensions you want installed when the container is created.
