@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 
-import numpy as np
 import argparse
-import logging
 import os
-import sys
-import time
-from string import ascii_uppercase
+
 from qfit.structure import Structure
 
 
@@ -20,7 +16,7 @@ def parse_args():
                     help="PDB-file containing structure2.")
     p.add_argument("res_list",type=str,
                     help="Path to the file containing the list of residues to compare")
-    
+
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
                    metavar="<dir>", help="Directory to store results.")
