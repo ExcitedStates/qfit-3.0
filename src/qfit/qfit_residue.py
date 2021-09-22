@@ -189,13 +189,8 @@ def main():
     log_run_info(options, logger)
 
     #Skip over if everything is completed
-    #try:
-    print(args.directory)
     if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
-        print('This residue has completed')
         exit()
-    else:
-        print('Beginning qfit_residue')
      
     # Setup logger
     logging_fname = os.path.join(args.directory, 'qfit_residue.log')
