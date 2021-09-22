@@ -53,6 +53,8 @@ class _BaseStructure:
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
         self.link_data = None
+        self.cryst_info = None
+        self.scale = None
         for attr, array in data.items():
             hattr = '_' + attr
             setattr(self, hattr, array)
@@ -63,10 +65,13 @@ class _BaseStructure:
             hattr = '_' + attr
             prop = self._structure_property(hattr)
             setattr(self.__class__, attr, prop)
-
         for key, value in kwargs.items():
             if key == "link_data":
                 self.link_data = value
+            if key == "scale":
+                self.scale = value
+            if key == "cryst_info":
+                self.cryst_info = value
 
         if selection is None:
             self.natoms = self._coor.shape[0]
@@ -188,7 +193,11 @@ class _BaseStructure:
             selection = self._selection[mask]
         return selection
 
-    def tofile(self, fname):
+    def tofile(self, fname, scale=None, cryst=None):
+        if scale != None:
+            self.scale = scale
+        if scale != None:
+            self.cryst_info = cryst
         PDBFile.write(fname, self)
 
     def translate(self, translation):
