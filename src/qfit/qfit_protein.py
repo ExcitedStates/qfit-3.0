@@ -306,11 +306,7 @@ class QFitProtein:
         multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
-        logger.info(self.structure.scale)
-        if self.structure.scale or self.structure.cryst_info:
-          multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
-        else:
-          multiconformer.tofile(fname)
+        multiconformer.tofile(fname)
         return multiconformer
 
     def _run_qfit_segment(self, multiconformer):
@@ -325,10 +321,7 @@ class QFitProtein:
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
                              self.pdb + "multiconformer_model2.pdb")
-        if self.structure.scale or self.structure.cryst_info:
-          multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
-        else:
-          multiconformer.tofile(fname)
+        multiconformer.tofile(fname)
         return multiconformer
 
     @staticmethod
