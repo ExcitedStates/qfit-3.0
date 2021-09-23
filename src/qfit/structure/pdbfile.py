@@ -41,6 +41,8 @@ class PDBFile:
         anisou (dict[str, list]): anisotropic displacement parameter data
         link (dict[str, list]): link records
         cryst1 (dict[str, Union[str, float, int]]): cryst1 record
+        scale (array): scale record
+        cryst_info (array): cryst1 record
         resolution (Optional[float]): resolution of pdb file
     """
 
@@ -59,6 +61,8 @@ class PDBFile:
         cls.anisou = defaultdict(list)
         cls.link = defaultdict(list)
         cls.cryst1 = {}
+        cls.scale = [] #store header info
+        cls.cryst_info = [] #store header info
         cls.resolution = None
 
         if fname.endswith('.gz'):
@@ -95,15 +99,14 @@ class PDBFile:
                         logger.error("PDBFile.read: could not parse LINK data.")
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
+                    cls.cryst_info.append(line)
+                elif line.startswith('SCALE'):
+                    cls.scale.append(line)
         return cls
 
     @staticmethod
     def write(fname, structure):
         """Write a structure to a pdb file.
-
-        Note:
-            This is not complete. At the moment, we only write out LINK data
-            and coordinate (ATOM) data.
 
         Args:
             fname (str): filename to write to
@@ -112,6 +115,12 @@ class PDBFile:
         """
         with open(fname, 'w') as f:
             # Write LINK records
+            if structure.cryst_info:
+                for item in structure.cryst_info:
+                   f.write("%s" % item)
+            if structure.scale:
+               for item in structure.scale:
+                   f.write("%s" % item) 
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
                     record = dict(zip(LinkRecord.fields, record))

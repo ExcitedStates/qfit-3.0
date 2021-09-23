@@ -88,7 +88,7 @@ class Structure(_BaseStructure):
                                      'gamma', 'spg']]
             cls.unit_cell = UnitCell(*values)
 
-        return cls(data, link_data=link_data)
+        return cls(data, link_data=link_data, scale=pdbfile.scale, cryst_info=pdbfile.cryst_info)
 
     @classmethod
     def fromstructurelike(cls, structure_like):
@@ -345,7 +345,7 @@ class Structure(_BaseStructure):
         data = {}
         for attr, value in self.data.items():
             data[attr] = value[ordering]
-        return Structure(data, link_data=self.link_data)
+        return Structure(data, link_data=self.link_data, scale=self.scale, cryst_info=self.cryst_info)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
