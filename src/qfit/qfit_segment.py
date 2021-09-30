@@ -26,11 +26,10 @@ IN THE SOFTWARE.
 import os.path
 import os
 import time
-import logger
+import logging
 from argparse import ArgumentParser
-
 from . import MapScaler, Structure, XMap
-from .qfit import QFitSegment, QFitSegmentOptions
+from .qfit import QFitSegment, _BaseQFitOptions
 from .logtools import setup_logging, log_run_info
 
 
@@ -116,7 +115,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = QFitSegmentOptions()
+    options = _BaseQFitOptions()
     options = options.apply_command_args(args)
 
     # Setup logger

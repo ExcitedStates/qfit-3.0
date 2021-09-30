@@ -35,12 +35,15 @@ import numpy as np
 from string import ascii_uppercase
 from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
-from . import QFitRotamericResidue, QFitRotamericResidueOptions
+from . import QFitRotamericResidue, _BaseQFitOptions
 from .structure import residue_type
 
+#This creates a log instance for every run since __name__ defaults to name of the module 
 logger = logging.getLogger(__name__)
+#Adding a new environemnt variable "OMP_NUM_THREADS" and setting it to "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
+#creating a parser using argparse. __doc__ by default sets the help message to display when the file is run with --help
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
@@ -150,9 +153,9 @@ def main():
     except OSError:
         pass
     time0 = time.time()
-
+################Start from here
     # Apply the arguments to options
-    options = QFitRotamericResidueOptions()
+    options = _BaseQFitOptions()
     options.apply_command_args(args)
 
     # Setup logger
@@ -167,7 +170,7 @@ def main():
         exit()
     else:
         print('Beginning qfit_residue')
-     
+#Question- Why is debug and info 'int' below?     
     # Setup logger
     logging_fname = os.path.join(args.directory, 'qfit_residue.log')
     if args.debug:
