@@ -27,8 +27,7 @@ from .structure.rotamers import ROTAMERS
 
 logger = logging.getLogger(__name__)
 
-# Merging classes inheriting from _BaseQFitOptions
-# Rotamer_neighbourhood value changed from 80 to 60 for QFitCovalentOptions to match with QFitRotamericResidueOptions for merging
+# Merged _BaseQFitOptions with other classes that were inheriting from the same
 class _BaseQFitOptions:
     def __init__(self):
         # General options
