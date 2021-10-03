@@ -5,12 +5,13 @@ from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
 import logging
 import os.path
 import os
-import sys
+import sys #Where are we using this
 import time
 import numpy as np
 from string import ascii_uppercase
 from . import MapScaler, Structure, XMap, _Ligand
-from .qfit import QFitLigand, QFitLigandOptions
+from .qfit import _BaseQFitOptions
+from qfit import QFitLigand
 from .logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = QFitLigandOptions()
+    options = _BaseQFitOptions()
     options.apply_command_args(args)
 
     # Setup logger
