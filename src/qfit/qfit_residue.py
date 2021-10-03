@@ -44,10 +44,13 @@ logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
 =======
+=======
+>>>>>>> bc1dd27e56467f36f2e2a5d6e7a436f3d503ae21
 #creating a parser using argparse. __doc__ by default sets the help message to display when the file is run with --help
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -187,7 +190,7 @@ def main():
     except OSError:
         pass
     time0 = time.time()
-
+################Start from here
     # Apply the arguments to options
     options = _BaseQFitOptions()
     options.apply_command_args(args)
@@ -204,7 +207,11 @@ def main():
         exit()
     else:
         print('Beginning qfit_residue')
+<<<<<<< HEAD
 
+=======
+#Question- Why is debug and info 'int' below?     
+>>>>>>> bc1dd27e56467f36f2e2a5d6e7a436f3d503ae21
     # Setup logger
     logging_fname = os.path.join(args.directory, 'qfit_residue.log')
     if args.debug:
