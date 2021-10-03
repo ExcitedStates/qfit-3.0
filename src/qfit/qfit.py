@@ -52,11 +52,7 @@ from .structure.rotamers import ROTAMERS
 
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD
 # Merged _BaseQFitOptions with other classes that were inheriting from the same
-=======
-# Why not merge _BaseQFitOptions and _QFitrotamericresidueoptions?
->>>>>>> bc1dd27e56467f36f2e2a5d6e7a436f3d503ae21
 class _BaseQFitOptions:
     def __init__(self):
         # General options
@@ -152,10 +148,6 @@ class _BaseQFitOptions:
         self.checkpoint = False
         self.pdb = None
 
-<<<<<<< HEAD
-=======
-#Can we change this to something less complicated? Vars itself has so many dependencies
->>>>>>> bc1dd27e56467f36f2e2a5d6e7a436f3d503ae21
 #.items is how to access characters of a dictionary which in this case is the args
     def apply_command_args(self, args):
         for key, value in vars(args).items():
