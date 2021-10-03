@@ -52,7 +52,8 @@ from .structure.rotamers import ROTAMERS
 
 logger = logging.getLogger(__name__)
 
-
+# Merging classes inheriting from _BaseQFitOptions
+# Rotamer_neighbourhood value changed from 80 to 60 for QFitCovalentOptions to match with QFitRotamericResidueOptions for merging
 class _BaseQFitOptions:
     def __init__(self):
         # General options
@@ -98,17 +99,7 @@ class _BaseQFitOptions:
         self.bic_threshold = True
         self.seg_bic_threshold = True
 
-    def apply_command_args(self, args):
-        for key, value in vars(args).items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        return self
-
-
-class QFitRotamericResidueOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
+        #From QFitRotamericResidueOptions
         # Backbone sampling
         self.sample_backbone = True
         self.neighbor_residues_required = 3
@@ -128,12 +119,42 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
         # Anisotropic refinement using phenix
         self.phenix_aniso = False
+   
+        # Additional variables for QFitCovalentLigandOptions
+        # Ligand sampling
+        self.sample_ligand = True
+        self.sample_ligand_stepsize = 8
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
         # influence QP / MIQP. Provide a list of atom names, e.g. ['N', 'CA']
         # TODO not implemented
         self.exclude_atoms = None
+        
+        # From QFitSegmentOptions
+        self.fragment_length = None
+
+        # From QFitLigandOptions
+        self.dofs_per_iteration = 2
+        self.remove_conformers_below_cutoff = False
+        self.local_search = True
+        self.sample_ligand_stepsize = 10
+        self.selection = None
+        self.cif_file = None
+        
+        # From QFitProteinOptions
+        self.nproc = 1
+        self.verbose = True
+        self.omit = False
+        self.checkpoint = False
+        self.pdb = None
+
+#.items is how to access characters of a dictionary which in this case is the args
+    def apply_command_args(self, args):
+        for key, value in vars(args).items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
 
 
 class _BaseQFit:
@@ -1017,12 +1038,6 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue.tofile(fname)
 
 
-class QFitSegmentOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-        self.fragment_length = None
-
-
 class QFitSegment(_BaseQFit):
     """Determines consistent protein segments based on occupancy and
        density fit"""
@@ -1241,10 +1256,6 @@ class QFitSegment(_BaseQFit):
                     # coor.append(fragment.coor[i])
             logger.info(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
 
-
-class QFitLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
 
         self.dofs_per_iteration = 2
         self.remove_conformers_below_cutoff = False
@@ -1542,32 +1553,6 @@ class QFitLigand(_BaseQFit):
             iteration += 1
 
 
-class QFitCovalentLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
-        # Backbone sampling
-        self.sample_backbone = True
-        self.neighbor_residues_required = 3
-        self.sample_backbone_amplitude = 0.30
-        self.sample_backbone_step = 0.1
-        self.sample_backbone_sigma = 0.125
-
-        # N-CA-CB angle sampling
-        self.sample_angle = True
-        self.sample_angle_range = 7.5
-        self.sample_angle_step = 3.75
-
-        # Rotamer sampling
-        self.sample_rotamers = True
-        self.rotamer_neighborhood = 80
-        self.remove_conformers_below_cutoff = False
-
-        # Ligand sampling
-        self.sample_ligand = True
-        self.sample_ligand_stepsize = 8
-
-
 class QFitCovalentLigand(_BaseQFit):
     def __init__(self, covalent_ligand, receptor, xmap, options):
         self.chain = covalent_ligand.chain[0]
@@ -1824,7 +1809,7 @@ class QFitCovalentLigand(_BaseQFit):
                     deactivate = self.covalent_residue._rotamers['chi-rotate'][chi_index + 1]
                     selection = self.covalent_residue.select('name', deactivate)
                     self.covalent_residue._active[selection] = False
-                    bs_atoms = list(set(current) - set(deactivate))
+                    bs_atoms = list(set(logging.currentframe) - set(deactivate))
                 else:
                     bs_atoms = self.covalent_residue._rotamers['chi-rotate'][chi_index]
                 if self.options.sample_ligand:
@@ -1955,7 +1940,7 @@ class QFitCovalentLigand(_BaseQFit):
         selection = self.covalent_residue.select(sel_str)
         self.covalent_residue._active[selection] = True
         self.covalent_ligand._active[selection] = True
-        bs_atoms = list(set(current))
+        bs_atoms = list(set(logging.currentframe))
         new_coor_set = []
         new_bs = []
         n = 0

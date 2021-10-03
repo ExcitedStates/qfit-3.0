@@ -23,8 +23,9 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 '''
 import gc
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
+from .qfit import _BaseQFitOptions
+from .qfit import QFitRotamericResidue
+from .qfit import QFitSegment
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
@@ -176,16 +177,6 @@ def build_argparser():
     p.add_argument("--pdb", help="Name of the input PDB")
 
     return p
-
-
-class QFitProteinOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
-    def __init__(self):
-        super().__init__()
-        self.nproc = 1
-        self.verbose = True
-        self.omit = False
-        self.checkpoint = False
-        self.pdb = None
 
 
 class QFitProtein:
@@ -484,7 +475,7 @@ def main():
         pass
 
     # Apply the arguments to options
-    options = QFitProteinOptions()
+    options = _BaseQFitOptions()
     options.apply_command_args(args)
 
     # Setup logger
