@@ -123,7 +123,6 @@ class _BaseQFitOptions:
         self.checkpoint = False
         self.pdb = None
 
-#.items is how to access characters of a dictionary which in this case is the args
     def apply_command_args(self, args):
         for key, value in vars(args).items():
             if hasattr(self, key):
@@ -1783,7 +1782,7 @@ class QFitCovalentLigand(_BaseQFit):
                     deactivate = self.covalent_residue._rotamers['chi-rotate'][chi_index + 1]
                     selection = self.covalent_residue.select('name', deactivate)
                     self.covalent_residue._active[selection] = False
-                    bs_atoms = list(set(logging.currentframe) - set(deactivate))
+                    bs_atoms = list(set(current) - set(deactivate))
                 else:
                     bs_atoms = self.covalent_residue._rotamers['chi-rotate'][chi_index]
                 if self.options.sample_ligand:
@@ -1914,7 +1913,7 @@ class QFitCovalentLigand(_BaseQFit):
         selection = self.covalent_residue.select(sel_str)
         self.covalent_residue._active[selection] = True
         self.covalent_ligand._active[selection] = True
-        bs_atoms = list(set(logging.currentframe))
+        bs_atoms = list(set(current))
         new_coor_set = []
         new_bs = []
         n = 0

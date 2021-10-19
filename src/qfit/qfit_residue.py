@@ -13,9 +13,7 @@ from . import MapScaler, Structure, XMap
 from . import QFitRotamericResidue, _BaseQFitOptions
 from .structure import residue_type
 
-#This creates a log instance for every run since __name__ defaults to name of the module 
 logger = logging.getLogger(__name__)
-#Adding a new environemnt variable "OMP_NUM_THREADS" and setting it to "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 #creating a parser using argparse. __doc__ by default sets the help message to display when the file is run with --help
