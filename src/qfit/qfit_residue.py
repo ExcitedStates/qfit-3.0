@@ -37,7 +37,7 @@ from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
 from . import QFitRotamericResidue, _BaseQFitOptions
 from .structure import residue_type
- 
+
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -46,7 +46,6 @@ def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
 
-#creating a parser using argparse. __doc__ by default sets the help message to display when the file is run with --help
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
