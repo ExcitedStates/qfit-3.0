@@ -315,7 +315,7 @@ class CovalentBondRotator:
         # Determine which atoms will be moved by the rotation.
         self._root = getattr(covalent_residue, key).tolist().index(a1)
         self._conn = ligand.connectivity
-        self.atoms_to_rotate = [range(len(ligand.name))]
+        self.atoms_to_rotate = range(len(ligand.name))
 
         # Find the rigid motion that aligns the axis of rotation onto the z-axis.
         self._coor_to_rotate = self.ligand.coor[self.atoms_to_rotate].copy()
