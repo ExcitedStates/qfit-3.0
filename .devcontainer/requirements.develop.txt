@@ -1,0 +1,21 @@
+# editable package
+-e .
+
+# dev utils
+ipython
+
+# tests
+codecov
+pytest
+pytest-cov
+pytest-mock
+
+# static analysis and style
+autopep8
+black
+flake8
+flake8-type-annotations
+mypy
+pycodestyle
+pydocstyle
+pylint

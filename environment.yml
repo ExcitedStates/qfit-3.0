@@ -12,4 +12,4 @@ dependencies:
   - pyparsing>=2.2.0
   - cvxopt
   - cplex
-  - pytest
+  - tqdm
