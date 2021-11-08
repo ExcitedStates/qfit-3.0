@@ -65,7 +65,7 @@ class Structure(_BaseStructure):
 
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
-        data['active'] = np.ones(len(dd['x']), dtype=np.bool)
+        data['active'] = np.ones(len(dd['x']), dtype=bool)
         if pdbfile.anisou:
             natoms = len(data['record'])
             anisou = np.zeros((natoms, 6), float)
