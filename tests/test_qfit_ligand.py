@@ -19,11 +19,10 @@ class TestQFitLigand:
     def mock_main(self):
         # Prepare args
         args = [
-            "../example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
-            "../example/4ms6.pdb",  # structurefile, using relative directory from tests/
+            "./example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
+            "./example/4ms6.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
             "A, 702",  # selection
-            "--directory", f"{os.environ['QFIT_OUTPUT_DIR']}",
         ]
 
         # TODO: Add options to reduce computational load

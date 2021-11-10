@@ -1,31 +1,7 @@
-'''
-Excited States software: qFit 3.0
-
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
-Contact: vdbedem@stanford.edu
-
-Copyright (C) 2009-2019 Stanford University
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-This entire text, including the above copyright notice and this permission notice
-shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-'''
-
 """Hierarchically build a multiconformer ligand."""
 
 import argparse
+from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
 import logging
 import os.path
 import os
@@ -41,7 +17,8 @@ logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 def build_argparser():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
+                                description=__doc__)
     p.add_argument("map", type=str,
             help="Density map in CCP4 or MRC format, or an MTZ file "
                  "containing reflections and phases. For MTZ files "
@@ -54,78 +31,102 @@ def build_argparser():
             help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.")
 
     # Map input options
-    p.add_argument("-l", "--label", default="FWT,PHWT", metavar="<F,PHI>",
-            help="MTZ column labels to build density.")
-    p.add_argument('-r', "--resolution", type=float, default=None, metavar="<float>",
-            help="Map resolution in angstrom. Only use when providing CCP4 map files.")
-    p.add_argument("-m", "--resolution_min", type=float, default=None, metavar="<float>",
-            help="Lower resolution bound in angstrom. Only use when providing CCP4 map files.")
+    p.add_argument("-l", "--label", default="FWT,PHWT",
+                   metavar="<F,PHI>",
+                   help="MTZ column labels to build density")
+    p.add_argument('-r', "--resolution", default=None,
+                   metavar="<float>", type=float,
+                   help="Map resolution (Å) (only use when providing CCP4 map files)")
+    p.add_argument("-m", "--resolution-min", default=None,
+                   metavar="<float>", type=float,
+                   help="Lower resolution bound (Å) (only use when providing CCP4 map files)")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-            help="Scattering type.")
+                   help="Scattering type")
     p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
-        help="Randomize B-factors of generated conformers.")
+                   help="Randomize B-factors of generated conformers")
     p.add_argument('-o', '--omit', action="store_true",
-            help="Map file is an OMIT map. This affects the scaling procedure of the map.")
+                   help="Treat map file as an OMIT map in map scaling routines")
 
     # Map prep options
-    p.add_argument("-ns", "--no-scale", action="store_false", dest="scale",
-            help="Do not scale density.")
-    p.add_argument("-dc", "--density-cutoff", type=float, default=0.3, metavar="<float>",
-            help="Densities values below cutoff are set to <density_cutoff_value")
-    p.add_argument("-dv", "--density-cutoff-value", type=float, default=-1, metavar="<float>",
-            help="Density values below <density-cutoff> are set to this value.")
-    p.add_argument("-nosub", "--no-subtract", action="store_false", dest="subtract",
-            help="Do not subtract Fcalc of the neighboring residues when running qFit.")
-    p.add_argument("-pad", "--padding", type=float, default=8.0, metavar="<float>",
-            help="Padding size for map creation.")
-    p.add_argument("-nw", "--no-waters", action="store_true", dest="nowaters",
-        help="Keep waters, but do not consider them for soft clash detection.")
+    p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
+                   help="Scale density")
+    p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
+                   metavar="<float>", type=float,
+                   help="Scaling factor for soft-clash mask radius")
+    p.add_argument("-dc", "--density-cutoff", default=0.3,
+                   metavar="<float>", type=float,
+                   help="Density values below this value are set to <density-cutoff-value>")
+    p.add_argument("-dv", "--density-cutoff-value", default=-1,
+                   metavar="<float>", type=float,
+                   help="Density values below <density-cutoff> are set to this value")
+    p.add_argument("--subtract", action=ToggleActionFlag, dest="subtract", default=True,
+                   help="Subtract Fcalc of neighboring residues when running qFit")
+    p.add_argument("-pad", "--padding", default=8.0,
+                   metavar="<float>", type=float,
+                   help="Padding size for map creation")
+    p.add_argument("--waters-clash", action=ToggleActionFlag, dest="waters_clash", default=True,
+                   help="Consider waters for soft clash detection")
 
     # Sampling options
-    p.add_argument("-nb", "--no-build", action="store_false", dest="build",
-            help="Do not build ligand.")
-    p.add_argument("-nl", "--no-local", action="store_false", dest="local_search",
-            help="Do not perform a local search.")
+    p.add_argument("--build", action=ToggleActionFlag, dest="build", default=True,
+                   help="Build ligand")
+    p.add_argument("--local", action=ToggleActionFlag, dest="local_search", default=True,
+                   help="Perform a local search")
     p.add_argument("--remove-conformers-below-cutoff", action="store_true",
                    dest="remove_conformers_below_cutoff",
-            help=("Remove conformers during sampling that have atoms that have "
-                  "no density support for, i.e. atoms are positioned at density "
-                  "values below cutoff value."))
-    p.add_argument('-cf', "--clash_scaling_factor", type=float, default=0.75, metavar="<float>",
-            help="Set clash scaling factor. Default = 0.75")
-    p.add_argument('-ec', "--external_clash", dest="external_clash", action="store_true",
-            help="Enable external clash detection during sampling.")
-    p.add_argument("-bs", "--bulk_solvent_level", default=0.3, type=float, metavar="<float>",
-            help="Bulk solvent level in absolute values.")
-    p.add_argument("-b", "--build-stepsize", type=int, default=2, metavar="<int>", dest="dofs_per_iteration",
-            help="Number of internal degrees that are sampled/built per iteration.")
-    p.add_argument("-s", "--stepsize", type=float, default=10,
-            metavar="<float>", dest="sample_ligand_stepsize",
-            help="Stepsize for dihedral angle sampling in degree.")
-    p.add_argument("-c", "--cardinality", type=int, default=5, metavar="<int>",
-            help="Cardinality constraint used during MIQP.")
-    p.add_argument("-t", "--threshold", type=float, default=0.2, metavar="<float>",
-            help="Threshold constraint used during MIQP.")
-    p.add_argument("-it", "--intermediate-threshold", type=float, default=0.01, metavar="<float>",
-            help="Threshold constraint during intermediate MIQP.")
-    p.add_argument("-ic", "--intermediate-cardinality", type=int, default=5, metavar="<int>",
-            help="Cardinality constraint used during intermediate MIQP.")
-    p.add_argument("-hy", "--hydro", dest="hydro", action="store_true",
-            help="Include hydrogens during calculations.")
-    p.add_argument("-T","--no-threshold-selection", dest="bic_threshold", action="store_false",
-            help="Do not use BIC to select the most parsimonious MIQP threshold")
+                   help=("Remove conformers during sampling that have atoms "
+                         "with no density support, i.e. atoms are positioned "
+                         "at density values below <density-cutoff>"))
+    p.add_argument('-cf', "--clash-scaling-factor", default=0.75,
+                   metavar="<float>", type=float,
+                   help="Set clash scaling factor")
+    p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
+                   help="Enable external clash detection during sampling")
+    p.add_argument("-bs", "--bulk-solvent-level", default=0.3,
+                   metavar="<float>", type=float,
+                   help="Bulk solvent level in absolute values")
+    p.add_argument("-b", "--dofs-per-iteration", default=2,
+                   metavar="<int>", type=int,
+                   help="Number of internal degrees that are sampled/built per iteration")
+    p.add_argument("-s", "--dihedral-stepsize", default=10,
+                   metavar="<float>", type=float,
+                   help="Stepsize for dihedral angle sampling in degrees")
+    p.add_argument("-c", "--cardinality", default=5,
+                   metavar="<int>", type=int,
+                   help="Cardinality constraint used during MIQP")
+    p.add_argument("-t", "--threshold", default=0.2,
+                   metavar="<float>", type=float,
+                   help="Threshold constraint used during MIQP")
+    p.add_argument("-ic", "--intermediate-cardinality", default=5,
+                   metavar="<int>", type=int,
+                   help="Cardinality constraint used during intermediate MIQP")
+    p.add_argument("-it", "--intermediate-threshold", default=0.01,
+                   metavar="<float>", type=float,
+                   help="Threshold constraint during intermediate MIQP")
+    p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
+                   help="Include hydrogens during calculations")
+    p.add_argument('-rmsd', "--rmsd-cutoff", default=0.01,
+                   metavar="<float>", type=float,
+                   help="RMSD cutoff for removal of identical conformers")
+    p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
+                   help="Use BIC to select the most parsimonious MIQP threshold")
 
+    # Global options
+    p.add_argument("--random-seed", dest="random_seed",
+                   metavar="<int>", type=int,
+                   help="Seed value for PRNG")
 
     # Output options
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.', metavar="<dir>",
-            help="Directory to store results.")
+    p.add_argument("-d", "--directory", default='.',
+                   metavar="<dir>", type=os.path.abspath,
+                   help="Directory to store results")
     p.add_argument("-v", "--verbose", action="store_true",
-            help="Be verbose.")
+                   help="Be verbose")
     p.add_argument("--debug", action="store_true",
-            help="Log as much information as possible.")
-    p.add_argument("--write_intermediate_conformers", action="store_true",
-            help="Write intermediate structures to file (useful with debugging).")
-    p.add_argument("--pdb", help="Name of the input PDB.")
+                   help="Log as much information as possible")
+    p.add_argument("--write-intermediate-conformers", action="store_true",
+                   help="Write intermediate structures to file (useful with debugging)")
+    p.add_argument("--pdb", help="Name of the input PDB")
 
     return p
 
@@ -210,7 +211,7 @@ def prepare_qfit_ligand(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=radius)
+        scaler.scale(footprint, radius=options.scale_rmask*radius)
 
     xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = '.ccp4'

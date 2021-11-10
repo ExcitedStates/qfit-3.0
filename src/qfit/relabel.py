@@ -1,32 +1,6 @@
-'''
-Excited States software: qFit 3.0
-
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
-Contact: vdbedem@stanford.edu
-
-Copyright (C) 2009-2019 Stanford University
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-This entire text, including the above copyright notice and this permission notice
-shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-'''
-
 import argparse
 import sys
 import numpy as np
-import random
 import itertools as itl
 import copy
 import tqdm
@@ -50,9 +24,9 @@ class RelabellerOptions:
     def __init__(self, nSims=10000, nChains=10):
         self.nSims = nSims
         self.nChains = nChains
+        self.random_seed = None
 
     def apply_command_args(self, args):
-
         for key, value in vars(args).items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -66,6 +40,8 @@ class Relabeller:
         self.structure = structure
         self.nSims = options.nSims
         self.nChains = options.nChains
+
+        self.prng = np.random.default_rng(options.random_seed)
 
         self.nodes = []
         self.permutation = []
@@ -171,7 +147,7 @@ class Relabeller:
             # Perturb the current solution:
             tmpPerm = copy.deepcopy(permutation)
             # Choose five random indices of residues to swap:
-            for x in np.random.randint(len(tmpPerm), size=5):
+            for x in self.prng.integers(len(tmpPerm), size=5):
                 # If the residue has a single conformer:
                 if not tmpPerm[x]:
                     continue
@@ -201,10 +177,10 @@ class Relabeller:
                     u_index += 1
                 u_index -= 1
                 ordering = list(range(len(tmpPerm[x])))
-                np.random.shuffle(ordering)
+                self.prng.shuffle(ordering)
                 for counter in range(l_index,u_index+1):
                     tmpPerm[counter] = [tmpPerm[counter][li] for li in ordering]
-                # np.random.shuffle(tmpPerm[x])
+                # self.prng.shuffle(tmpPerm[x])
 
             # Calculate the new clusters:
             tmpCluster  = [[] for x in clusters]
@@ -219,7 +195,7 @@ class Relabeller:
                 tmpEnergies[i] = np.sum(self.metric[b[:,0],b[:,1]])/2
 
             # If the new energy is better than the old one:
-            if  np.sum(energies) >= np.sum(tmpEnergies) or np.exp(-(np.sum(tmpEnergies)-np.sum(energies))/temperature) >= np.random.uniform() :
+            if np.sum(energies) >= np.sum(tmpEnergies) or np.exp(-(np.sum(tmpEnergies)-np.sum(energies))/temperature) >= self.prng.uniform() :
                 energies = tmpEnergies[:]
                 clusters = tmpCluster[:]
                 permutation = copy.deepcopy(tmpPerm)
@@ -274,12 +250,17 @@ def parse_args():
     p.add_argument("-NC", "--number-of-chains", type=int,dest="nChains", default=10, metavar="<int>",
             help="Number of chains for MCMC.")
 
+    # Global options
+    p.add_argument("--random-seed", dest="random_seed",
+                   metavar="<int>", type=int,
+                   help="Seed value for PRNG")
+
     args = p.parse_args()
     return args
 
 def main():
     args = parse_args()
-    random.seed(17)
+
     # Extract residue and prepare it
     structure = Structure.fromfile(args.structure).reorder()
 

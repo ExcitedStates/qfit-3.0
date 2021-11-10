@@ -101,7 +101,9 @@ remove_duplicates "${multiconf}"
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
-phenix.ready_set hydrogens=false pdb_file_name="${multiconf}.f_modified.pdb"
+phenix.ready_set hydrogens=false \
+                 trust_residue_code_is_chemical_components_code=true \
+                 pdb_file_name="${multiconf}.f_modified.pdb"
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
 if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
   cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
