@@ -23,21 +23,21 @@ def parse_args():
 
 
 def rmsd_alpha_carbon(holo, apo, holo_name, apo_name):
+    rmsd = []
     for chain in np.unique(holo.chain):
         if chain not in apo.chain:
             print('not in apo')
             continue
-    holo = holo.extract('chain', chain, '==')
-    apo = apo.extract('chain', chain, '==')
-    rmsd = []
-    for i in np.unique(holo.resi):
-        CA_holo = holo.extract(f'chain {chain} and resi {i}')
-        CA_apo = apo.extract(f'chain {chain} and resi {i}')
-        CA_holo = CA_holo.extract('name','CA', '==').coor.mean(axis=0)
-        CA_apo = CA_apo.extract('name','CA', '==').coor.mean(axis=0)
-        rmsd.append(tuple((chain, i, np.linalg.norm(CA_holo - CA_apo, axis=0))))
+        holo = holo.extract('chain', chain, '==')
+        apo = apo.extract('chain', chain, '==')
+        for i in np.unique(holo.resi):
+            CA_holo = holo.extract(f'chain {chain} and resi {i}')
+            CA_apo = apo.extract(f'chain {chain} and resi {i}')
+            CA_holo = CA_holo.extract('name', 'CA', '==').coor.mean(axis=0)
+            CA_apo = CA_apo.extract('name', 'CA', '==').coor.mean(axis=0)
+            rmsd.append(tuple((chain, i, np.linalg.norm(CA_holo - CA_apo, axis=0))))
     df_rmsf = pd.DataFrame(rmsd, columns=['Chain', 'Residue', 'RMSD'])
-    df_rmsf.to_csv(holo_name + '_' + apo_name + '_rmsd.csv')
+    df_rmsf.to_csv(f"{holo_name}_{apo_name}_rmsd.csv")
 
 
 def main():

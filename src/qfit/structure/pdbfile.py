@@ -1,28 +1,3 @@
-'''
-Excited States software: qFit 3.0
-
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
-Contact: vdbedem@stanford.edu
-
-Copyright (C) 2009-2019 Stanford University
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-This entire text, including the above copyright notice and this permission notice
-shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-'''
-
 import gzip
 from collections import defaultdict
 import itertools as itl
@@ -41,6 +16,8 @@ class PDBFile:
         anisou (dict[str, list]): anisotropic displacement parameter data
         link (dict[str, list]): link records
         cryst1 (dict[str, Union[str, float, int]]): cryst1 record
+        scale (array): scale record
+        cryst_info (array): cryst1 record
         resolution (Optional[float]): resolution of pdb file
     """
 
@@ -59,6 +36,8 @@ class PDBFile:
         cls.anisou = defaultdict(list)
         cls.link = defaultdict(list)
         cls.cryst1 = {}
+        cls.scale = []  # store header info
+        cls.cryst_info = []  # store header info
         cls.resolution = None
 
         if fname.endswith('.gz'):
@@ -95,6 +74,10 @@ class PDBFile:
                         logger.error("PDBFile.read: could not parse LINK data.")
                 elif line.startswith('CRYST1'):
                     cls.cryst1 = Cryst1Record.parse_line(line)
+                    cls.cryst_info.append(line)
+                elif line.startswith('SCALE'):
+                    cls.scale.append(line)
+
         return cls
 
     @staticmethod
@@ -111,7 +94,12 @@ class PDBFile:
                 to PDB.
         """
         with open(fname, 'w') as f:
-            # Write LINK records
+            if structure.cryst_info:
+                for item in structure.cryst_info:
+                    f.write("%s" % item)
+            if structure.scale:
+                for item in structure.scale:
+                    f.write("%s" % item) 
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
                     record = dict(zip(LinkRecord.fields, record))

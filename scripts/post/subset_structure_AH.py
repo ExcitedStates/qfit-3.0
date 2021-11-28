@@ -3,11 +3,6 @@
 #Edited by Stephanie Wankowicz
 #began: 2019-04-10
 #last edited: 2019-09-17
-'''
-Excited States software: qFit 3.0
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, Henry van den Bedem, Stephanie Wankowicz
-Contact: vdbedem@stanford.edu
-'''
 
 import os
 import os.path
