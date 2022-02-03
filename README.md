@@ -31,7 +31,7 @@ Once these are installed, you can:
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl numpy
+   conda install -c anaconda mkl numpy=1.20
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
