@@ -1,27 +1,27 @@
 import gc
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitSegment, QFitSegmentOptions
+from .qfit import QFitRotamericResidueOptions
 import multiprocessing as mp
 from tqdm import tqdm
 import os.path
 import os
 import sys
+import itertools
 import argparse
 from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
 import logging
 import traceback
-import pandas as pd
 import numpy as np
 import time 
 import math
-#import ray
 
-
+from .clash import ClashDetector
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 from .structure.waters import WATERS
 from .structure.chi1 import chi_atoms
+from .transformer import Transformer
+from .solvers import QPSolver, MIQPSolver
 
 
 
@@ -117,7 +117,7 @@ def build_argparser():
     return p
 
 
-class QFitWaterOptions(QFitRotamericResidueOptions, QFitSegmentOptions):
+class QFitWaterOptions(QFitRotamericResidueOptions):
     def __init__(self):
         super().__init__()
         self.nproc = 1
@@ -134,6 +134,13 @@ class QFitWater:
         self.xmap = xmap
         self.structure = structure
         self.options = options
+        self._xmap_model = xmap.zeros_like(self.xmap)
+        self._xmap_model.set_space_group("P1")
+        self._smax = None
+        self._smin = None
+        self._simple = True
+        self._rmask = 1.5
+
 
     def run(self):
         if self.options.pdb is not None:
@@ -142,113 +149,69 @@ class QFitWater:
             self.pdb = ''
         self.water = self.structure.extract('resn', 'HOH', '==')#create blank water object
         self.water = self.water.extract('resi', self.water.resi[0], '==')
+        self.protein = self.structure.extract('record', 'ATOM', '==')
 
+        #for labeling water molecule numbers
+        self.n = len(list(np.unique(self.structure.extract('resn', 'HOH', '!=').resi))) + 1
         #get a list of all residues
         residues = list(np.unique(self.structure.extract('record', 'ATOM', '==').resi)) #need to figure out with multiple chains
         
         for r in residues:
           print(r)
+          
+          # These lists will be used to combine coor_sets output for
+          self._all_coor_set = []
+          self._all_bs = []
           #subset map
           xmap = self.xmap.extract(self.structure.extract('resi', r, '==').coor, padding=5)
           #This funciton will run each residue seperately
-          multiconformer = self._run_water_sampling(self.structure.extract('resi', r, '=='), xmap) 
-        #self._run_water_clash() #this will be segment-ish and deal with clashes
+          self.residue = self.structure.extract('resi', r, '==')
+          self._bs = self.residue.b
+          water = self._run_water_sampling(xmap) 
+        
+        #now that all the individual residues have run...
+        # Combine all multiconformer residues into one structure
+          resid = r
+          directory = os.path.join(self.options.directory)
+          fname = os.path.join(directory, f'{resid}_resi_waternew.pdb')
+          if not os.path.exists(fname):
+                continue
+          residue_multiconformer = Structure.fromfile(fname)
+          try:
+              multiconformer = multiconformer.combine(residue_multiconformer)
+          except:
+              multiconformer = residue_multiconformer
+          #except FileNotFoundError:
+          #      logger.error(f"File \"{fname}\" not found!")
+          #      pass
+
+        fname = os.path.join(self.options.directory,
+                             "multiconformer_model_water.pdb")
+        multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
         return multiconformer
-    
+        #self._run_water_clash() #this will be segment-ish and deal with clashes
+   
 
-    def calc_chi1(self, v1, v2, v3, v4):
-        b1 = v1.flatten() - v2.flatten()
-        b2 = v2.flatten() - v3.flatten()
-        b3 = v3.flatten() - v4.flatten()
-
-        n1 = np.cross(b1, b2)/np.linalg.norm(np.cross(b1, b2))
-        n2 = np.cross(b2, b3)/np.linalg.norm(np.cross(b2, b3))
-        b2 = b2/np.linalg.norm(b2)
-
-        x = np.dot(n1, n2)
-        y = np.dot(np.cross(n1, b2), n2)
-
-        radians = math.atan2(y, x)
-        return math.degrees(radians)
-
-    def choose_rot(self, dihedral, r):
-        if dihedral < 0:
-          rot = 360 + dihedral
-        else:
-          rot = dihedral
-        #if np.unique(r.resn)[0] in ('PRO', 'ALA'):
-        #   rotamer = 'all'
-        if 0 <= rot < 120:
-           rotamer = 'g+'
-        elif 120 <= rot < 240:
-           rotamer = 't'
-        elif 240 <= rot < 360:
-           rotamer = 'g-'
-        return rotamer
-
-
-    def trilaterate(self,P1,P2,P3,r1,r2,r3): 
-        # find location of the water molecule                      
-        temp1 = P2.flatten()- P1.flatten()
-        e_x = temp1/np.linalg.norm(temp1)                              
-        temp2 = P3.flatten() - P1.flatten()                                      
-        i = np.dot(e_x,temp2)                                   
-        temp3 = temp2 - i*e_x                               
-        e_y = temp3/np.linalg.norm(temp3)                              
-        e_z = np.cross(e_x,e_y)                                 
-        d = np.linalg.norm(P2.flatten()-P1.flatten())                                      
-        j = np.dot(e_y,temp2)                                   
-        x = (r1*r1 - r2*r2 + d*d) / (2*d)                    
-        y = (r1*r1 - r3*r3 -2*i*x + i*i + j*j) / (2*j)       
-        temp4 = r1*r1 - x*x - y*y                            
-        z = np.sqrt(temp4)                                      
-        p_12_a = P1.flatten() + x*e_x + y*e_y + z*e_z                  
-        p_12_b = P1.flatten() + x*e_x + y*e_y - z*e_z                  
-        return p_12_a.reshape(3, 1).T #,p_12_b
-
-
-    def _place_waters(self, residue, wat_loc, altloc, resn):
-        """create new residue structure with residue atoms & new water atoms
-           take OG residue, output new residue
-        """
-        water_new = self.water.copy() #create blank water structure
-        water_new.resi = 0
-        water_new.chain = 'S'
-        if np.unique(residue.extract('resn', resn, '==')).all() == 1.0:
-          water_new.q = 1.0
-        else:
-          water_new.q = np.unique(residue.extract('altloc', altloc, '==').q)[0]
-          water_new.altloc = altloc
-        water_new.coor = wat_loc
-        water_new.b = np.mean(residue.b) #amend in the future
-        r = residue.combine(water_new)
-        r.tofile(str(residue.resi[0]) + '_resi_waternew.pdb')
-        return r
-
-    def choose_rotamer(self, resn, r_pro, a):
-        chi1 = chi_atoms[resn]
-        atom_altlocs = ['altloc_0', 'altloc_1', 'altloc_2', 'altloc_3']
-        for i in range(len(chi1)): # we need to label atoms that don't have altloc (ie backbones)
-          if len(np.unique(r_pro.extract('name', chi1[i], '==').altloc)) == 1:
-             atom_altlocs[i] = '""'
-          else: 
-             atom_altlocs[i] = a
-        dihedral = self.calc_chi1(r_pro.extract(f'name {chi1[0]} and altloc {atom_altlocs[0]}').coor, r_pro.extract(f'name {chi1[1]} and altloc {atom_altlocs[1]}').coor, r_pro.extract(f'name {chi1[2]} and altloc {atom_altlocs[2]}').coor, r_pro.extract(f'name {chi1[3]} and altloc {atom_altlocs[3]}').coor)
-        rotamer = self.choose_rot(dihedral, r_pro)
-        return rotamer 
-
-    def _run_water_sampling(self, r, xmap):
+    def _run_water_sampling(self, xmap):
         """Run qfit water on each residue."""
-        r_pro = r.extract('resn', 'HOH', '!=')
+        r_pro = self.residue.extract('resn', 'HOH', '!=')
+        self.residue._init_clash_detection()
+        self._update_transformer(self.residue)
+        self._starting_coor_set = [self.residue.coor.copy()]
+        self._starting_bs = [self.residue.b.copy()]
+        self._coor_set = list(self._starting_coor_set)
+        new_coor_set = []
+        new_bs = []
+
         altlocs = np.unique(r_pro.altloc)
         if len(altlocs) > 1:
              for a in altlocs:
               if a == '': continue # only look at 'proper' altloc
-              #get rotamer 
-              if r.resn[0] in ('PRO', 'ALA'): 
+              print(a)
+              if self.residue.resn[0] in ('ALA', 'GLY'): 
                 rotamer = 'all'
               else:
-               rotamer = self.choose_rotamer(r.resn[0], r_pro, a)
+               rotamer = self.choose_rotamer(self.residue.resn[0], r_pro, a)
 
               #get distance of water molecules from protein atoms
               close_atoms = WATERS[r_pro.resn[0]][rotamer]
@@ -270,14 +233,17 @@ class QFitWater:
                 values = xmap.interpolate(wat_loc)
                 if np.min(values) < 0.3: 
                   continue
-                else: 
-                  r = self._place_waters(r, wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
+                else:
+                  #clash
+                  new_coor_set.append(new_coor)
+                  new_bs.append(b) 
+                  self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
         else:
-            if r.resn[0] in ('PRO', 'ALA'): 
+            if self.residue.resn[0] in ('ALA', 'GLY'): 
               rotamer = 'all'
             else:
-              rotamer = self.choose_rotamer(r.resn[0], r_pro, '')
-            close_atoms = WATERS[r.resn[0]][rotamer]
+              rotamer = self.choose_rotamer(self.residue.resn[0], r_pro, '')
+            close_atoms = WATERS[self.residue.resn[0]][rotamer]
             for i in range(0, len(close_atoms)):
               atom = list(close_atoms[i][i+1].keys())
               dist = list(close_atoms[i][i+1].values())
@@ -287,32 +253,230 @@ class QFitWater:
               if np.min(values) < 0.3: #density cutoff value
                 continue
               else:
+                if self._run_water_clash(self.protein, self.water):
+                   new_coor_set.append(water_loc)
+                   new_bs.append(np.mean(self.residue.b))
                 #place all water molecules along with residue!  
-                r = self._place_waters(r, wat_loc, '', r.resn[0])
+                self._place_waters(wat_loc, '', r_pro.resn[0])
+        #now we need to remove/adjust overlapping water molecules
 
-        # should we be playing aorund with different density cutoffs at this point.
-
-
-
-
-            #fcalc based on oxygen water (0.1) * occ & delete if density not supported
-            #else, keep it
-            #ouptut individual residue & water
-
-        #combine backbone water molecules & residues + water molecules
-          #for each water molecule, if does not clash:
-            #confirm H-bonding patterns
-            #if it does clash:
-              #if clash with fully occupied protein atom: ????
-              #if clash with partially occupied protein atom: 
-                #adjust occupancy of water molecule
-                #assess H-bonding patterns
-                  #if acceptable, keep, else throw out
-
-
-
+        #QP
+        # print('initial')
+        # print(self.residue.coor)
+        # self._update_transformer(self.residue)
+        # print('transformer')
+        # print(self.residue.coor)
+        # self.conformer = self.residue
+        # self._coor_set = self.residue.coor
+        # print('_coor_set')
+        # print(self._coor_set)
+        # self._bs = self.residue.b
+        # self._occupancies = self.residue.q
+        # logger.debug("Converting densities within run.")
+        # self._convert()
+        # print('convert:')
+        # print(self.residue.coor)
         
+        # logger.info("Solving QP within run.")
+        # print('solve:')
+        # self._solve()
+        # print(self.residue.coor)
+        # logger.debug("Updating conformers within run.")
+        # self._update_conformers()
+        self.residue.tofile(str(self.residue.resi[0]) + '_resi_waternew.pdb')
 
+    def _run_water_clash(self, protein, water):
+        full_occ = protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
+        self._cd = ClashDetector(water, full_occ, scaling_factor=self.options.clash_scaling_factor)
+        if not self._cd():
+          return True
+        else:
+          return False
+
+    def calc_chi1(self, v1, v2, v3, v4):
+        b1 = v1.flatten() - v2.flatten()
+        b2 = v2.flatten() - v3.flatten()
+        b3 = v3.flatten() - v4.flatten()
+
+        n1 = np.cross(b1, b2)/np.linalg.norm(np.cross(b1, b2))
+        n2 = np.cross(b2, b3)/np.linalg.norm(np.cross(b2, b3))
+        b2 = b2/np.linalg.norm(b2)
+
+        x = np.dot(n1, n2)
+        y = np.dot(np.cross(n1, b2), n2)
+
+        radians = math.atan2(y, x)
+        return math.degrees(radians)
+
+
+    def choose_rot(self, dihedral, r):
+        if dihedral < 0:
+          rot = 360 + dihedral
+        else:
+          rot = dihedral
+        if 0 <= rot < 120:
+           rotamer = 'g+'
+        elif 120 <= rot < 240:
+           rotamer = 't'
+        elif 240 <= rot < 360:
+           rotamer = 'g-'
+        return rotamer
+
+
+    def trilaterate(self,P1,P2,P3,r1,r2,r3): 
+        # find location of the water molecule                      
+        #print(P1)
+        #print(P2)
+        #print(P3)
+        temp1 = P2.flatten()- P1.flatten()
+        e_x = temp1/np.linalg.norm(temp1)                              
+        temp2 = P3.flatten() - P1.flatten()                                      
+        i = np.dot(e_x,temp2)                                   
+        temp3 = temp2 - i*e_x                               
+        e_y = temp3/np.linalg.norm(temp3)                              
+        e_z = np.cross(e_x,e_y)                                 
+        d = np.linalg.norm(P2.flatten()-P1.flatten())                                      
+        j = np.dot(e_y,temp2)                                   
+        x = (r1*r1 - r2*r2 + d*d) / (2*d)                    
+        y = (r1*r1 - r3*r3 -2*i*x + i*i + j*j) / (2*j)       
+        temp4 = r1*r1 - x*x - y*y                            
+        z = np.sqrt(temp4)                                      
+        p_12_a = P1.flatten() + x*e_x + y*e_y + z*e_z                  
+        p_12_b = P1.flatten() + x*e_x + y*e_y - z*e_z                  
+        return p_12_a.reshape(3, 1).T #,p_12_b
+
+
+    def _place_waters(self, wat_loc, altloc, resn):
+        """create new residue structure with residue atoms & new water atoms
+           take OG residue, output new residue
+        """
+        self.water.resi = self.n #giving each water molecule its own resi
+        self.water.chain = 'S'
+        if np.unique(self.residue.extract('resn', resn, '==')).all() == 1.0:
+          self.water.q = 1.0
+        else:
+          self.water.q = np.unique(self.residue.extract('altloc', altloc, '==').q)[0]
+          self.water.altloc = altloc
+        self.water.coor = wat_loc
+        self.water.b = np.mean(self.residue.b) #amend in the future
+        self.residue = self.residue.combine(self.water)
+        self.n += 1 
+          #
+        #else:
+        #  self.residue = residue
+
+    def choose_rotamer(self, resn, r_pro, a):
+        chi1 = chi_atoms[resn]
+        atom_altlocs = ['altloc_0', 'altloc_1', 'altloc_2', 'altloc_3']
+        for i in range(len(chi1)): # we need to label atoms that don't have altloc (ie backbones)
+          if len(np.unique(r_pro.extract('name', chi1[i], '==').altloc)) == 1:
+             atom_altlocs[i] = '""'
+          else: 
+             atom_altlocs[i] = a
+        print(atom_altlocs)
+        dihedral = self.calc_chi1(r_pro.extract(f'name {chi1[0]} and altloc {atom_altlocs[0]}').coor, r_pro.extract(f'name {chi1[1]} and altloc {atom_altlocs[1]}').coor, r_pro.extract(f'name {chi1[2]} and altloc {atom_altlocs[2]}').coor, r_pro.extract(f'name {chi1[3]} and altloc {atom_altlocs[3]}').coor)
+        rotamer = self.choose_rot(dihedral, r_pro)
+        return rotamer 
+
+
+    def _convert(self):
+        """Convert structures to densities and extract relevant values for (MI)QP."""
+        self._transformer.reset(full=True)
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            self._transformer.mask(self._rmask)
+        mask = (self._transformer.xmap.array > 0)
+        self._transformer.reset(full=True)
+
+        nvalues = mask.sum()
+        self._target = self.xmap.array[mask]
+        nmodels = len(self._coor_set)
+        self._models = np.zeros((nmodels, nvalues), float)
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            self.conformer.b = self._bs[n]
+            self._transformer.density()
+            model = self._models[n]
+            model[:] = self._transformer.xmap.array[mask]
+            np.maximum(model, self.options.bulk_solvent_level, out=model)
+            self._transformer.reset(full=True)
+
+    def _solve(self, cardinality=None, threshold=None,
+               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
+        # Create and run QP or MIQP solver
+        do_qp = cardinality is threshold is None
+        if do_qp:
+            logger.info("Solving QP")
+            #print('models:')
+            #print(self._models)
+            solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
+            solver()
+        else:
+            logger.info("Solving MIQP")
+            solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
+
+            # Threshold selection by BIC:
+            if self.options.bic_threshold:
+                self.BIC = np.inf
+                for threshold in loop_range:
+                    solver(cardinality=None, threshold=threshold)
+                    rss = solver.obj_value * self._voxel_volume
+                    confs = np.sum(solver.weights >= 0.002)
+                    n = len(self._target)
+                    try:
+                        natoms = len(self.residue._rotamers['atoms'])
+                        k = 4 * confs * natoms
+                    except AttributeError:
+                        k = 4 * confs
+                    except:
+                        natoms = np.sum(self.ligand.active)
+                        k = 4 * confs * natoms
+                    BIC = n * np.log(rss / n) + k * np.log(n)
+                    if BIC < self.BIC:
+                        self.BIC = BIC
+                    # else:
+                    #     break
+            else:
+                solver(cardinality=cardinality, threshold=threshold)
+
+        # Update occupancies from solver weights
+        self._occupancies = solver.weights
+
+        # logger.info(f"Residual under footprint: {residual:.4f}")
+        # residual = 0
+        return solver.obj_value
+
+    def _update_conformers(self, cutoff=0.002):
+        """Removes conformers with occupancy lower than cutoff.
+
+        Args:
+            cutoff (float, optional): Lowest acceptable occupancy for a conformer.
+                Cutoff should be in range (0 < cutoff < 1).
+        """
+        logger.debug("Updating conformers based on occupancy")
+
+        # Check that all arrays match dimensions.
+        assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
+
+        # Filter all arrays & lists based on self._occupancies
+        print(self._occupancies)
+        filterarray = (self._occupancies >= cutoff)
+        self._occupancies = self._occupancies[filterarray]
+        self._coor_set = list(itertools.compress(self._coor_set, filterarray))
+        self._bs = list(itertools.compress(self._bs, filterarray))
+
+        logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
+
+    def _update_transformer(self, structure):
+        self.conformer = structure
+        self._transformer = Transformer(
+            structure, self._xmap_model,
+            smax=self._smax, smin=self._smin,
+            simple=self._simple,
+            scattering=self.options.scattering,
+        )
+        logger.debug("[_BaseQFit._update_transformer]: Initializing radial density lookup table.")
+        self._transformer.initialize()
 
 
 def prepare_qfit_water(options):
