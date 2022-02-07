@@ -145,10 +145,7 @@ def main():
                 # How many occupancy-values can we find in each altconf?
                 occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
                                                          if agroup.id[1] != ""]
-                if occs_per_alt.count(1) == len(occs_per_alt):
-                    redistribute_occupancies_by_residue(residue, args.occ_cutoff)
-                else:
-                    redistribute_occupancies_by_atom(residue, args.occ_cutoff)
+                redistribute_occupancies_by_atom(residue, args.occ_cutoff)
 
     # Create structure without low occupancy confs (culling)
     data = {}
@@ -158,7 +155,25 @@ def main():
 
     # Reattach LINK records
     structure.link_data = link_data
-
+    
+    # Normalize occupancies and fix altloc labels:
+    for chain in structure:
+        for residue in chain:
+            altlocs=list(set(residue.altloc))
+            try:
+                altlocs.remove('')
+            except ValueError:
+                pass
+            naltlocs = len(altlocs)
+            if naltlocs < 2:
+                residue._q[residue._selection] = 1.0
+                residue._altloc[residue._selection] = ''
+            else:
+                conf = residue.extract('altloc',altlocs)
+                natoms = len(residue.extract('altloc',altlocs[-1]).name)
+                factor = natoms/np.sum(conf.q)
+                residue._q[conf._selection] *= factor
+    
     # Save structure
     structure.tofile(output_file)
 
