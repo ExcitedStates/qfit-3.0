@@ -4,6 +4,7 @@ import logging
 import os
 from collections import namedtuple
 from . import Structure
+from .structure.rotamers import ROTAMERS
 
 
 def parse_args():
@@ -44,10 +45,11 @@ def redistribute_occupancies_by_atom(residue, cutoff):
         if name not in atom_occs:
             atom_occs[name] = list()
         atom_occs[name].append(AltAtom(altloc, atomidx, q))
-
     # For each atomname:
     for name, altatom_list in atom_occs.items():
         # If any of the qs are less than cutoff
+        #print(name)
+        #print(atom.q)
         if any(atom.q < cutoff for atom in altatom_list):
             # Which confs are either side of the cutoff?
             confs_low = [atom for atom in altatom_list
@@ -130,6 +132,9 @@ def main():
         output_file = args.structure[:-4] + "_norm.pdb"
 
     structure = Structure.fromfile(args.structure)
+    #seperate het versus atom (het allowed to have <1 occ)
+    hetatm = structure.extract('record', 'HETATM', '==')
+    structure = structure.extract('record', 'ATOM', '==')
 
     # Capture LINK records
     link_data = structure.link_data
@@ -147,19 +152,13 @@ def main():
                                                          if agroup.id[1] != ""]
                 redistribute_occupancies_by_atom(residue, args.occ_cutoff)
 
-    # Create structure without low occupancy confs (culling)
-    data = {}
-    for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[~mask]
-    structure = Structure(data).reorder()
-
-    # Reattach LINK records
-    structure.link_data = link_data
-    
     # Normalize occupancies and fix altloc labels:
+    to_remove = []
     for chain in structure:
         for residue in chain:
-            altlocs=list(set(residue.altloc))
+            rotamer = ROTAMERS[residue.resn[0]]
+            altlocs = list(set(residue.altloc))
+            atoms = list(set(residue.e))
             try:
                 altlocs.remove('')
             except ValueError:
@@ -169,12 +168,51 @@ def main():
                 residue._q[residue._selection] = 1.0
                 residue._altloc[residue._selection] = ''
             else:
+                h_altlocs = []
                 conf = residue.extract('altloc',altlocs)
+
+                #check to see if H are off in la la land by themselves, remove and reassign H-bonds
+                for a in altlocs:
+                    conf = residue.extract('altloc', a)
+                    if all(i == 'H' for i in set(conf.e)):
+                         h_altlocs.append(a)     
+                if len(h_altlocs) == 0:
+                    continue
+                elif len(h_altlocs) == 1:
+                    conf2 = residue.extract('altloc', h_altlocs[0])
+                    conf2 = conf2.extract('name', (rotamer['hydrogens']))
+                    residue._q[conf2._selection] == 1.0
+                    residue._altloc[conf2._selection] == ''
+                else:
+                    conf1 = residue.extract("altloc", h_altlocs[0])
+                    conf1 = conf1.extract("name",(rotamer['hydrogens']))
+                    conf1._q[conf1._selection] = 1.0
+                    conf1._altloc[conf1._selection] = ''
+                    for altloc2 in h_altlocs[1:]:
+                        conf2 = residue.extract("altloc",altloc2)
+                        conf2 = conf2.extract("e",('H'))
+                        [to_remove.append(x) for x in conf2._selection]
+                    conf2 = residue.extract(f'altloc {h_altlocs[0]}').extract('e', 'H', '==')
                 natoms = len(residue.extract('altloc',altlocs[-1]).name)
                 factor = natoms/np.sum(conf.q)
                 residue._q[conf._selection] *= factor
-    
-    # Save structure
+
+
+
+    #remove trailing hydrogens
+    mask = structure.active
+    mask[to_remove] = False
+    data = {}
+    for attr in structure.data:
+        data[attr] = getattr(structure, attr).copy()[mask]
+    structure = Structure(data).reorder()
+
+    #add het atoms back in
+    structure = structure.combine(hetatm)
+    # Reattach LINK records
+    structure.link_data = link_data
+
+    #output structure
     structure.tofile(output_file)
 
     print(f"normalize_occupancies: {n_removed} atoms had occ < {args.occ_cutoff} and were removed.")
