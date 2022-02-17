@@ -198,6 +198,16 @@ class XMap(_BaseVolume):
         return xmap
 
     @classmethod
+    def copy(cls, xmap):
+        try:
+            uc = xmap.unit_cell.copy()
+        except AttributeError:
+            uc = None
+        hkl = copy(xmap.hkl)
+        return cls(xmap.array.copy(), grid_parameters=xmap.grid_parameters.copy(), unit_cell=uc, hkl=hkl,
+                     resolution=xmap.resolution.copy(), origin=xmap.origin.copy())
+
+    @classmethod
     def zeros_like(cls, xmap):
         array = np.zeros_like(xmap.array)
         try:
