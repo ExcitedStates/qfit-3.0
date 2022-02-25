@@ -150,8 +150,8 @@ class QFitWater:
             self.pdb = ''
         self.water = self.structure.extract('resn', 'HOH', '==')#create blank water object
         self.water = self.water.extract('resi', self.water.resi[0], '==')
-        self.protein = self.structure.extract('record', 'ATOM', '==')
-
+        self.protein = self.structure.extract('resn', 'HOH', '!=')
+        self.full_occ = self.protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
         #for labeling water molecule numbers
         self.n = len(list(np.unique(self.structure.extract('resn', 'HOH', '!=').resi))) + 1
         #get a list of all residues
@@ -159,13 +159,11 @@ class QFitWater:
         
         for r in residues:
           print(r)
-          # These lists will be used to combine coor_sets output for
-          self._all_coor_set = []
-          self._all_bs = []
           #subset map
           #This funciton will run each residue seperately
           self.residue = self.structure.extract('resi', r, '==')
           self.residue = self.residue.combine(self.water)
+
           xmap = self.xmap.extract(self.residue.coor, padding=8)
           self._bs = self.residue.b
           water = self._run_water_sampling(xmap) 
@@ -195,11 +193,8 @@ class QFitWater:
         r_pro = self.residue.extract('resn', 'HOH', '!=')
         self.residue._init_clash_detection()
         self._update_transformer(self.residue) #this should now include water molecules
-        self._starting_coor_set = [self.residue.coor.copy()]
-        self._starting_bs = [self.residue.b.copy()]
-        self._coor_set = list(self._starting_coor_set)
-        new_coor_set = []
-        new_bs = []
+        self._bs = []
+        self._coor_set = []
 
         altlocs = np.unique(r_pro.altloc)
         if len(altlocs) > 1:
@@ -207,18 +202,19 @@ class QFitWater:
              pro_full = r_pro.extract('q', 1.0, '==') 
              for a in altlocs:
               if a == '': continue # only look at 'proper' altloc
-              pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
+              self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
+              self.base_residue = self.pro_alt.combine(self.water)
               if self.residue.resn[0] in ('ALA', 'GLY'): 
                 rotamer = 'all'
               else:
-               rotamer = self.choose_rotamer(r_pro.resn[0], pro_alt, a)
+               rotamer = self.choose_rotamer(r_pro.resn[0], self.pro_alt, a)
 
               #get distance of water molecules from protein atoms
-              close_atoms = WATERS[pro_alt.resn[0]][rotamer]
+              close_atoms = WATERS[self.pro_alt.resn[0]][rotamer]
               for i in range(0, len(close_atoms)):
                 atom = list(close_atoms[i][i+1].keys())
                 dist = list(close_atoms[i][i+1].values())
-                wat_loc = self.trilaterate(pro_alt.extract(f'name {atom[0]}').coor, pro_alt.extract(f'name {atom[1]}').coor, pro_alt.extract(f'name {atom[2]}').coor, dist[0], dist[1], dist[2]) 
+                wat_loc = self.trilaterate(self.pro_alt.extract(f'name {atom[0]}').coor, self.pro_alt.extract(f'name {atom[1]}').coor, self.pro_alt.extract(f'name {atom[2]}').coor, dist[0], dist[1], dist[2]) 
                 if wat_loc == 'None': continue
               
               #is new water location supported by density
@@ -226,48 +222,39 @@ class QFitWater:
                 if np.min(values) < 0.3: 
                   continue
                 else:
-                  #clash
-                  #new_coor_set.append(new_coor)
-                  #new_bs.append(b) 
-                  self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
+                  if self._run_water_clash(self.water):
+                    self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
         else:
+            self.base_residue = r_pro.combine(self.water)
             if self.residue.resn[0] in ('ALA', 'GLY'): 
               rotamer = 'all'
             else:
               rotamer = self.choose_rotamer(self.residue.resn[0], r_pro, '')
             close_atoms = WATERS[self.residue.resn[0]][rotamer]
+            #always add just protein to self.coor_set
+
+            #new_coor_set.append()
             for i in range(0, len(close_atoms)):
               atom = list(close_atoms[i][i+1].keys())
               dist = list(close_atoms[i][i+1].values())
-              wat_loc = self.trilaterate(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, dist[0], dist[1], dist[2]) 
+              wat_loc = self.trilaterate(self.r_pro.extract('name', atom[0],'==').coor, self.r_pro.extract('name', atom[1],'==').coor, self.r_pro.extract('name', atom[2],'==').coor, dist[0], dist[1], dist[2]) 
               #is new water location supported by density
               values = xmap.interpolate(wat_loc)
               if np.min(values) < 0.3: #density cutoff value
                 continue
               else:
-                if self._run_water_clash(self.protein, self.water):
-                   #new_coor_set.append(water_loc)
-                   #new_bs.append(np.mean(self.residue.b))
+                if self._run_water_clash(self.water):
                 #place all water molecules along with residue!  
-                  self._place_waters(wat_loc, '', r_pro.resn[0])
+                  self._place_waters(wat_loc, '', self.r_pro.resn[0])
         #now we need to remove/adjust overlapping water molecules
 
         #QP
-        print('initial')
-        self.conformer = self.residue
-        self._coor_set = self.conformer.coor
-        self._bs = self.residue.b
-        self._occupancies = self.residue.q
+        self.conformer = self.base_residue
+        self._occupancies = self.base_residue.q
         # logger.debug("Converting densities within run.")
         self._convert()
-        # print('targets:')
-        # print(self._target)
-        # print('models:')
-        # print(self._models)
-        # print('solve:')
         self._solve()
 
-        # print(self.residue.coor)
         # logger.debug("Updating conformers within run.")
         self._update_conformers()
         #write out multiconformer residues
@@ -293,9 +280,8 @@ class QFitWater:
 
         #residue.tofile(str(self.residue.resi[0]) + '_resi_waternew.pdb')
 
-    def _run_water_clash(self, protein, water):
-        full_occ = protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
-        self._cd = ClashDetector(water, full_occ, scaling_factor=self.options.clash_scaling_factor)
+    def _run_water_clash(self, water):
+        self._cd = ClashDetector(water, self.full_occ, scaling_factor=self.options.clash_scaling_factor)
         if not self._cd():
           return True
         else:
@@ -355,60 +341,72 @@ class QFitWater:
         """create new residue structure with residue atoms & new water atoms
            take OG residue, output new residue
         """
-        self.water.resi = self.n #giving each water molecule its own resi
-        self.water.chain = 'S'
-        if np.unique(self.residue.extract('resn', resn, '==')).all() == 1.0:
-          self.water.q = 1.0
+        water = self.base_residue.extract('resn', 'HOH', '==')
+        water.resi = self.n #giving each water molecule its own resi
+        water.chain = 'S'
+        if np.unique(self.base_residue.extract('resn', resn, '==')).all() == 1.0:
+          water.q = 1.0
+          water.altloc = ''
         else:
-          self.water.q = np.unique(self.residue.extract('altloc', altloc, '==').q)[0]
-          self.water.altloc = altloc
-        self.water.coor = wat_loc
-        self.water.b = np.mean(self.residue.b) #amend in the future
-        self.residue = self.residue.combine(self.water)
+          water.q = np.unique(self.base_residue.q)[0]
+          water.altloc = altloc
+        water.coor = wat_loc
+        water.b = np.mean(self.base_residue.b) #amend in the future
+        residue = self.base_residue.extract('resn', resn, '==').combine(water)
+        self._coor_set.append(residue.coor)
+        self._bs.append(residue.b)
         self.n += 1 
 
-    def choose_rotamer(self, resn, r_pro, a):
+    def choose_rotamer(self, resn, r_pro,a):
         chi1 = chi_atoms[resn]
-
         dihedral = self.calc_chi1(r_pro.extract(f'name {chi1[0]}').coor, r_pro.extract(f'name {chi1[1]}').coor, r_pro.extract(f'name {chi1[2]}').coor, r_pro.extract(f'name {chi1[3]}').coor)
         rotamer = self.choose_rot(dihedral, r_pro)
         return rotamer 
 
 
     def _convert(self): #figure out why 28 atoms on conformer.coor and not 17?
-        #28 would include alt loc + water
         """Convert structures to densities and extract relevant values for (MI)QP."""
         print("Converting conformers to density")
         print("Masking")
         self._transformer.reset(full=True) #converting self.xmap.array to zero
-        #for n, coor in enumerate(self._coor_set):
         for n, coor in enumerate(self._coor_set):
-            print('len self.conformer.coor')
-            print(len(self.conformer.coor))
-            #print(self.conformer.coor)
             self.conformer.coor = coor
             self._transformer.mask(self._rmask)
-        #self.conformer.coor = self._coor_set
-        #self._transformer.mask(self._rmask)
         mask = (self._transformer.xmap.array > 0)
         self._transformer.reset(full=True)
 
         nvalues = mask.sum()
-        #print(nvalues)
         self._target = self.xmap.array[mask]
+        logger.debug("Density")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
-        #for n, coor in enumerate(self._coor_set):
-        self.conformer.coor = self._coor_set
-        print('conformer')
-        print(self.conformer.coor)
-        self.conformer.b = self._bs
-        self._transformer.density()
-        model = self._models
-        model[:] = self._transformer.xmap.array[mask]
-            #print(np.maximum(model, self.options.bulk_solvent_level, out=model))
-        np.maximum(model, self.options.bulk_solvent_level, out=model)
-        self._transformer.reset(full=True)
+        # target_sum = self._target.sum()
+        # Create an initial density to calculate the total integral density of
+        # the model. This way we can derive an approximation of the solvent
+        # level.
+        # self.conformer.coor = self._coor_set[0]
+        # self._transformer.density()
+        # model_sum = self._transformer.xmap.array.sum()
+        # residual_sum = target_sum - model_sum
+        # solvent_level = residual_sum / nvalues
+        # scaling_factor = model_sum / target_sum
+        # self._target *= scaling_factor
+        # logger.debug("Solvent level advice:", solvent_level)
+        # logger.debug("Scaling factor:", scaling_factor)
+        # logger.debug("Target sum:", target_sum)
+        # logger.debug("Model sum:", model_sum)
+        # self._transformer.reset(full=True)
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            self.conformer.b = self._bs[n]
+            if self.options.randomize_b:
+                self._update_transformer(self.conformer)
+            self._transformer.density()
+            model = self._models[n]
+            model[:] = self._transformer.xmap.array[mask]
+            np.maximum(model, self.options.bulk_solvent_level, out=model)
+            self._transformer.reset(full=True)
+
 
     def _solve(self, cardinality=None, threshold=None,
                loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
@@ -463,8 +461,6 @@ class QFitWater:
         # Check that all arrays match dimensions.
         assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
 
-        # Filter all arrays & lists based on self._occupancies
-        print(self._occupancies)
         filterarray = (self._occupancies >= cutoff)
         self._occupancies = self._occupancies[filterarray]
         self._coor_set = list(itertools.compress(self._coor_set, filterarray))
@@ -486,9 +482,7 @@ class QFitWater:
     def get_conformers(self):
         conformers = []
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
-            conformer = self.conformer.copy()
-            conformer = conformer.extract(f"resi {self.conformer.resi[0]} and "
-                                          f"chain {self.conformer.chain[0]}")
+            conformer = self.base_residue.copy()
             conformer.q = q
             conformer.coor = coor
             conformer.b = b
@@ -500,8 +494,7 @@ def prepare_qfit_water(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure)
-    if not options.hydro:
-        structure = structure.extract('e', 'H', '!=')
+    structure = structure.extract('e', 'H', '!=')
 
     # Load map and prepare it
     xmap = XMap.fromfile(
