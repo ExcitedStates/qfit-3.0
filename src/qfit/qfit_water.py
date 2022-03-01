@@ -13,6 +13,7 @@ import traceback
 import numpy as np
 import time 
 import math
+import copy
 from string import ascii_uppercase
 
 from .clash import ClashDetector
@@ -61,7 +62,7 @@ def build_argparser():
     p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
                    metavar="<float>", type=float,
                    help="Scaling factor for soft-clash mask radius")
-    p.add_argument("-dc", "--density-cutoff", default=0.3,
+    p.add_argument("-dc", "--density-cutoff", default=0.2,
                    metavar="<float>", type=float,
                    help="Density values below this value are set to <density-cutoff-value>")
     p.add_argument("-dv", "--density-cutoff-value", default=-1,
@@ -69,26 +70,24 @@ def build_argparser():
                    help="Density values below <density-cutoff> are set to this value")
     p.add_argument("--subtract", action=ToggleActionFlag, dest="subtract", default=True,
                    help="Subtract Fcalc of neighboring residues when running qFit")
-    p.add_argument("--padding", default=8.0,
+    p.add_argument("--padding", default=10.0,
                    metavar="<float>", type=float,
                    help="Padding size for map creation")
-    p.add_argument("--waters-clash", action=ToggleActionFlag, dest="waters_clash", default=True,
-                   help="Consider waters for soft clash detection")
 
     
     #arguments
-    p.add_argument('-cf', "--clash-scaling-factor", default=0.75,
+    p.add_argument('-cf', "--clash-scaling-factor", default=0.6,
                    metavar="<float>", type=float,
                    help="Set clash scaling factor")
     p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
                    help="Enable external clash detection during sampling")
-    p.add_argument("-bs", "--bulk-solvent-level", default=0.1,
+    p.add_argument("-bs", "--bulk-solvent-level", default=0.05,
                    metavar="<float>", type=float,
                    help="Bulk solvent level in absolute values")
-    p.add_argument("-c", "--cardinality", default=5,
+    p.add_argument("-c", "--cardinality", default=10,
                    metavar="<int>", type=int,
                    help="Cardinality constraint used during MIQP")
-    p.add_argument("-t", "--threshold", default=0.2,
+    p.add_argument("-t", "--threshold", default=0.1,
                    metavar="<float>", type=float,
                    help="Threshold constraint used during MIQP")
     p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
@@ -137,6 +136,8 @@ class QFitWater:
         self.options = options
         self._xmap_model = xmap.zeros_like(self.xmap)
         self._xmap_model.set_space_group("P1")
+        self._voxel_volume = self.xmap.unit_cell.calc_volume()
+        self._voxel_volume /= self.xmap.array.size
         self._smax = None
         self._smin = None
         self._simple = True
@@ -152,6 +153,7 @@ class QFitWater:
         self.water = self.water.extract('resi', self.water.resi[0], '==')
         self.protein = self.structure.extract('resn', 'HOH', '!=')
         self.full_occ = self.protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
+        
         #for labeling water molecule numbers
         self.n = len(list(np.unique(self.structure.extract('resn', 'HOH', '!=').resi))) + 1
         #get a list of all residues
@@ -159,10 +161,12 @@ class QFitWater:
         
         for r in residues:
           print(r)
-          #subset map
-          #This funciton will run each residue seperately
           self.residue = self.structure.extract('resi', r, '==')
           self.residue = self.residue.combine(self.water)
+          
+          self.water_holder = copy.deepcopy(self.water) 
+          self.water_holder_coor = np.empty((1, 3))
+          self.water_holder_coor[:] = np.nan
 
           xmap = self.xmap.extract(self.residue.coor, padding=8)
           self._bs = self.residue.b
@@ -183,6 +187,7 @@ class QFitWater:
 
         fname = os.path.join(self.options.directory,
                              "multiconformer_model_water.pdb")
+        multiconformer = multiconformer.reorder()
         multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
         return multiconformer
         #self._run_water_clash() #this will be segment-ish and deal with clashes
@@ -204,6 +209,9 @@ class QFitWater:
               if a == '': continue # only look at 'proper' altloc
               self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
               self.base_residue = self.pro_alt.combine(self.water)
+              prot_only_coor = np.concatenate((self.pro_alt.coor, self.water_holder_coor))
+              self._coor_set.append(prot_only_coor)
+              self._bs.append(self.base_residue.b)
               if self.residue.resn[0] in ('ALA', 'GLY'): 
                 rotamer = 'all'
               else:
@@ -226,6 +234,10 @@ class QFitWater:
                     self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
         else:
             self.base_residue = r_pro.combine(self.water)
+            prot_only = r_pro.combine(self.water_holder)
+            prot_only_coor = np.concatenate((r_pro.coor, self.water_holder_coor))
+            self._coor_set.append(prot_only_coor)
+            self._bs.append(self.base_residue.b)
             if self.residue.resn[0] in ('ALA', 'GLY'): 
               rotamer = 'all'
             else:
@@ -237,7 +249,7 @@ class QFitWater:
             for i in range(0, len(close_atoms)):
               atom = list(close_atoms[i][i+1].keys())
               dist = list(close_atoms[i][i+1].values())
-              wat_loc = self.trilaterate(self.r_pro.extract('name', atom[0],'==').coor, self.r_pro.extract('name', atom[1],'==').coor, self.r_pro.extract('name', atom[2],'==').coor, dist[0], dist[1], dist[2]) 
+              wat_loc = self.trilaterate(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, dist[0], dist[1], dist[2]) 
               #is new water location supported by density
               values = xmap.interpolate(wat_loc)
               if np.min(values) < 0.3: #density cutoff value
@@ -245,18 +257,25 @@ class QFitWater:
               else:
                 if self._run_water_clash(self.water):
                 #place all water molecules along with residue!  
-                  self._place_waters(wat_loc, '', self.r_pro.resn[0])
+                  self._place_waters(wat_loc, '', r_pro.resn[0])
         #now we need to remove/adjust overlapping water molecules
 
         #QP
         self.conformer = self.base_residue
         self._occupancies = self.base_residue.q
-        # logger.debug("Converting densities within run.")
+        self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_sample")
         self._convert()
         self._solve()
-
-        # logger.debug("Updating conformers within run.")
         self._update_conformers()
+        self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_qp_solution")
+
+        # MIQP score conformer occupancy
+        #self._convert()
+        #self._solve(threshold=self.options.threshold,
+                        #cardinality=self.options.cardinality, loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+        #self._update_conformers()
+
+
         #write out multiconformer residues
         conformers = self.get_conformers()
         nconformers = len(conformers)
@@ -264,14 +283,34 @@ class QFitWater:
             msg = ("No conformers could be generated. "
                    "Check for initial clashes.")
             raise RuntimeError(msg)
-        mc_residue = Structure.fromstructurelike(conformers[0])
+
+        pro_coor = []
         if nconformers == 1:
+            #determine if HOH location is nan
+            mc_residue = Structure.fromstructurelike(conformers[0])
+            if mc_residue.extract('resn', 'HOH', '==').coor.all == np.nan:
+               mc_residue = mc_reside.extract('resn', 'HOH', '!=')
             mc_residue.altloc = ''
+        
         else:
-            mc_residue.altloc = 'A'
-            for altloc, conformer in zip(ascii_uppercase[1:], conformers[1:]):
-                conformer.altloc = altloc
-                mc_residue = mc_residue.combine(conformer)
+            #first determine if HOH == nan
+            for conformer in conformers:
+                if np.isnan(np.sum(conformer.extract('resn', 'HOH', '==').coor)):
+                    conformer = conformer.extract('resn', 'HOH', '!=')
+                print(conformer.coor)
+                if len(pro_coor) == 0:
+                   mc_residue = conformer 
+                   mc_residue.altloc = 'A'
+                   pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
+                else:
+                  delta = np.array(pro_coor) - np.array(conformer.extract('resn', 'HOH', '!=').coor)
+                  if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0:
+                     conformer.altloc = ascii_uppercase[2]
+                     mc_residue = mc_residue.combine(conformer)
+                  else:
+                     if conformer.extract('resn', 'HOH', '==').coor.all != np.nan:
+                      #only add water
+                      mc_residue = mc_residue.combine(conformer.extract('resn', 'HOH', '=='))
 
         mc_residue = mc_residue.reorder()
         fname = os.path.join(self.options.directory,
@@ -366,8 +405,7 @@ class QFitWater:
 
     def _convert(self): #figure out why 28 atoms on conformer.coor and not 17?
         """Convert structures to densities and extract relevant values for (MI)QP."""
-        print("Converting conformers to density")
-        print("Masking")
+        #print("Converting conformers to density")
         self._transformer.reset(full=True) #converting self.xmap.array to zero
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
@@ -377,30 +415,13 @@ class QFitWater:
 
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
-        logger.debug("Density")
+        #print("Density")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
-        # target_sum = self._target.sum()
-        # Create an initial density to calculate the total integral density of
-        # the model. This way we can derive an approximation of the solvent
-        # level.
-        # self.conformer.coor = self._coor_set[0]
-        # self._transformer.density()
-        # model_sum = self._transformer.xmap.array.sum()
-        # residual_sum = target_sum - model_sum
-        # solvent_level = residual_sum / nvalues
-        # scaling_factor = model_sum / target_sum
-        # self._target *= scaling_factor
-        # logger.debug("Solvent level advice:", solvent_level)
-        # logger.debug("Scaling factor:", scaling_factor)
-        # logger.debug("Target sum:", target_sum)
-        # logger.debug("Model sum:", model_sum)
-        # self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
-            if self.options.randomize_b:
-                self._update_transformer(self.conformer)
+            self._update_transformer(self.conformer)
             self._transformer.density()
             model = self._models[n]
             model[:] = self._transformer.xmap.array[mask]
@@ -419,28 +440,8 @@ class QFitWater:
         else:
             logger.info("Solving MIQP")
             solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
-
-            # Threshold selection by BIC:
-            if self.options.bic_threshold:
-                self.BIC = np.inf
-                for threshold in loop_range:
-                    solver(cardinality=None, threshold=threshold)
-                    rss = solver.obj_value * self._voxel_volume
-                    confs = np.sum(solver.weights >= 0.002)
-                    n = len(self._target)
-                    try:
-                        natoms = len(self.residue._rotamers['atoms'])
-                        k = 4 * confs * natoms
-                    except AttributeError:
-                        k = 4 * confs
-                    except:
-                        natoms = np.sum(self.ligand.active)
-                        k = 4 * confs * natoms
-                    BIC = n * np.log(rss / n) + k * np.log(n)
-                    if BIC < self.BIC:
-                        self.BIC = BIC
-            else:
-                solver(cardinality=cardinality, threshold=threshold)
+            solver(cardinality=cardinality, threshold=threshold)
+                
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
@@ -476,7 +477,6 @@ class QFitWater:
             simple=self._simple,
             scattering=self.options.scattering,
         )
-        print("[_BaseQFit._update_transformer]: Initializing radial density lookup table.")
         self._transformer.initialize()
 
     def get_conformers(self):
@@ -488,6 +488,17 @@ class QFitWater:
             conformer.b = b
             conformers.append(conformer)
         return conformers
+
+    def _write_intermediate_conformers(self, prefix="_conformer"):
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
+
+            data = {}
+            for attr in self.conformer.data:
+                array1 = getattr(self.conformer, attr)
+                data[attr] = array1[self.conformer.active]
+            Structure(data).tofile(fname)
 
 
 def prepare_qfit_water(options):
