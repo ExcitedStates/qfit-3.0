@@ -76,12 +76,12 @@ def build_argparser():
 
     
     #arguments
-    p.add_argument('-cf', "--clash-scaling-factor", default=0.6,
+    p.add_argument('-cf', "--clash-scaling-factor", default=0.7,
                    metavar="<float>", type=float,
                    help="Set clash scaling factor")
     p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
                    help="Enable external clash detection during sampling")
-    p.add_argument("-bs", "--bulk-solvent-level", default=0.05,
+    p.add_argument("-bs", "--bulk-solvent-level", default=0.1,
                    metavar="<float>", type=float,
                    help="Bulk solvent level in absolute values")
     p.add_argument("-c", "--cardinality", default=10,
@@ -151,6 +151,12 @@ class QFitWater:
             self.pdb = ''
         self.water = self.structure.extract('resn', 'HOH', '==')#create blank water object
         self.water = self.water.extract('resi', self.water.resi[0], '==')
+        if len(self.water.altloc) > 1:
+           self.water = self.water.extract('altloc', self.water.altloc[0], '==')
+           if len(self.water.resi) > 1:
+              logger.error("Duplicate water molecules found. Please run remove_duplicates")
+              return 
+        print(self.water)
         self.protein = self.structure.extract('resn', 'HOH', '!=')
         self.full_occ = self.protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
         
@@ -190,13 +196,13 @@ class QFitWater:
         multiconformer = multiconformer.reorder()
         multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
         return multiconformer
-        #self._run_water_clash() #this will be segment-ish and deal with clashes
    
 
     def _run_water_sampling(self, xmap):
         """Run qfit water on each residue."""
         r_pro = self.residue.extract('resn', 'HOH', '!=')
-        self.residue._init_clash_detection()
+        r_pro._init_clash_detection()
+        #self.residue._init_clash_detection()
         self._update_transformer(self.residue) #this should now include water molecules
         self._bs = []
         self._coor_set = []
@@ -210,6 +216,7 @@ class QFitWater:
               self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
               self.base_residue = self.pro_alt.combine(self.water)
               prot_only_coor = np.concatenate((self.pro_alt.coor, self.water_holder_coor))
+              
               self._coor_set.append(prot_only_coor)
               self._bs.append(self.base_residue.b)
               if self.residue.resn[0] in ('ALA', 'GLY'): 
@@ -288,8 +295,8 @@ class QFitWater:
         if nconformers == 1:
             #determine if HOH location is nan
             mc_residue = Structure.fromstructurelike(conformers[0])
-            if mc_residue.extract('resn', 'HOH', '==').coor.all == np.nan:
-               mc_residue = mc_reside.extract('resn', 'HOH', '!=')
+            if np.isnan(np.sum(mc_residue.extract('resn', 'HOH', '==').coor)):
+               mc_residue = mc_residue.extract('resn', 'HOH', '!=')
             mc_residue.altloc = ''
         
         else:
@@ -297,7 +304,6 @@ class QFitWater:
             for conformer in conformers:
                 if np.isnan(np.sum(conformer.extract('resn', 'HOH', '==').coor)):
                     conformer = conformer.extract('resn', 'HOH', '!=')
-                print(conformer.coor)
                 if len(pro_coor) == 0:
                    mc_residue = conformer 
                    mc_residue.altloc = 'A'
