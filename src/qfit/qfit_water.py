@@ -15,12 +15,13 @@ import time
 import math
 import copy
 from string import ascii_uppercase
+from scipy.optimize import least_squares
 
 from .clash import ClashDetector
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
-from .structure.waters import WATERS
+from .structure.WATER_LOCS_5 import WATERS
 from .structure.chi1 import chi_atoms
 from .transformer import Transformer
 from .solvers import QPSolver, MIQPSolver
@@ -156,7 +157,6 @@ class QFitWater:
            if len(self.water.resi) > 1:
               logger.error("Duplicate water molecules found. Please run remove_duplicates")
               return 
-        print(self.water)
         self.protein = self.structure.extract('resn', 'HOH', '!=')
         self.full_occ = self.protein.extract('q', 1.0, '==')  #subset out protein that is full occupancy
         
@@ -227,9 +227,9 @@ class QFitWater:
               #get distance of water molecules from protein atoms
               close_atoms = WATERS[self.pro_alt.resn[0]][rotamer]
               for i in range(0, len(close_atoms)):
-                atom = list(close_atoms[i][i+1].keys())
-                dist = list(close_atoms[i][i+1].values())
-                wat_loc = self.trilaterate(self.pro_alt.extract(f'name {atom[0]}').coor, self.pro_alt.extract(f'name {atom[1]}').coor, self.pro_alt.extract(f'name {atom[2]}').coor, dist[0], dist[1], dist[2]) 
+                atom = list(close_atoms[i+1].keys())
+                dist = list(close_atoms[i+1].values()) #[i+1]
+                wat_loc = self.least_squares(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, r_pro.extract('name', atom[3],'==').coor, r_pro.extract('name', atom[4],'==').coor, dist[0], dist[1], dist[2], dist[3], dist[4])
                 if wat_loc == 'None': continue
               
               #is new water location supported by density
@@ -254,9 +254,9 @@ class QFitWater:
 
             #new_coor_set.append()
             for i in range(0, len(close_atoms)):
-              atom = list(close_atoms[i][i+1].keys())
-              dist = list(close_atoms[i][i+1].values())
-              wat_loc = self.trilaterate(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, dist[0], dist[1], dist[2]) 
+              atom = list(close_atoms[i+1].keys())
+              dist = list(close_atoms[i+1].values())
+              wat_loc = self.least_squares(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, r_pro.extract('name', atom[3],'==').coor, r_pro.extract('name', atom[4],'==').coor, dist[0], dist[1], dist[2], dist[3], dist[4]) 
               #is new water location supported by density
               values = xmap.interpolate(wat_loc)
               if np.min(values) < 0.3: #density cutoff value
@@ -300,23 +300,39 @@ class QFitWater:
             mc_residue.altloc = ''
         
         else:
+            #split protein and water
             #first determine if HOH == nan
-            for conformer in conformers:
-                if np.isnan(np.sum(conformer.extract('resn', 'HOH', '==').coor)):
-                    conformer = conformer.extract('resn', 'HOH', '!=')
-                if len(pro_coor) == 0:
-                   mc_residue = conformer 
-                   mc_residue.altloc = 'A'
-                   pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
+            for altloc, conformer in zip(ascii_uppercase, conformers):
+                #if the water value is NaN
+                if np.isnan(np.sum(conformer.extract('resn', 'HOH', '==').coor)): 
+                    #only select the protein
+                    conformer = conformer.extract('resn', 'HOH', '!=') 
                 else:
-                  delta = np.array(pro_coor) - np.array(conformer.extract('resn', 'HOH', '!=').coor)
-                  if np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1))) >= 0:
-                     conformer.altloc = ascii_uppercase[2]
-                     mc_residue = mc_residue.combine(conformer)
+                   pro_conf = conformer.extract('resn', 'HOH', '!=')
+                   wat_conf = conformer.extract('resn', 'HOH', '!=')
+                if len(pro_coor) == 0: #if no protein has been placed yet
+                   mc_residue = pro_conf
+                   wat_conf.n = self.n 
+                   self.n += 1 
+                   mc_residue.combine(wat_conf)
+                   pro_coor.append(pro_conf.coor)
+
+                else:
+                  delta = np.array(pro_coor) - np.array(pro_conf.coor) #determine if protein coor already exists
+                  if np.sum(delta) > 0: #protein coor is new, get new altloc and append
+                     #conformer.altloc = altloc
+                     wat_conf.n = self.n
+                     mc_residue = mc_residue.combine(pro_conf)
+                     mc_residue = mc_residue.combine(wat_conf)
+                     pro_coor.append(pro_conf.coor)
                   else:
-                     if conformer.extract('resn', 'HOH', '==').coor.all != np.nan:
+
+                     #determine which alt loc the protein is closest to 
+                     #print(mc_residue.altloc[dist_pdb == np.amin(dist_pdb)])
                       #only add water
-                      mc_residue = mc_residue.combine(conformer.extract('resn', 'HOH', '=='))
+                      wat_conf.resi = self.n
+                      self.n += 1
+                      mc_residue = mc_residue.combine(wat_conf)
 
         mc_residue = mc_residue.reorder()
         fname = os.path.join(self.options.directory,
@@ -361,6 +377,55 @@ class QFitWater:
            rotamer = 'g-'
         return rotamer
 
+    def least_squares(self, P1, P2, P3, P4, P5, dist_1, dist_2, dist_3, dist_4, dist_5):
+        def equations5(guess):
+            x, y, z = guess
+            return(
+            (x - x1)**2 + (y - y1)**2 + (z - z1)**2 - (dist_1)**2,
+            (x - x2)**2 + (y - y2)**2 + (z - z2)**2 - (dist_2)**2,
+            (x - x3)**2 + (y - y3)**2 + (z - z3)**2 - (dist_3)**2,
+            (x - x4)**2 + (y - y4)**2 + (z - z4)**2 - (dist_4)**2,
+            (x - x4)**2 + (y - y4)**2 + (z - z4)**2 - (dist_5)**2
+            )
+
+        x1, y1, z1 = [P1.flatten().tolist()[i] for i in (0, 1, 2)]
+        x2, y2, z2 = [P2.flatten().tolist()[i] for i in (0, 1, 2)]
+        x3, y3, z3 = [P3.flatten().tolist()[i] for i in (0, 1, 2)]
+        x4, y4, z4 = [P4.flatten().tolist()[i] for i in (0, 1, 2)]
+        x5, y5, z5 = [P5.flatten().tolist()[i] for i in (0, 1, 2)]
+        x_g = np.array(np.mean(P1.flatten()))
+        y_g = np.array(np.mean(P2.flatten()))
+        z_g = np.array(np.mean(P3.flatten()))
+        initial_guess = (x_g, y_g, z_g)
+        results_5 = least_squares(equations5, initial_guess)
+        dist_err = sum([abs(f) for f in results_5.fun])/len(results_5.fun) #avg sum of absolute val of residuals
+        x, y, z = results_5.x
+        return results_5.x.reshape(3, 1).T
+      
+    def trilaterate_3D(self,p1,p2,p3,p4,r1,r2,r3,r4):
+      e_x=(p2.flatten()-p1.flatten())/np.linalg.norm(p2.flatten()-p1.flatten())
+      i=np.dot(e_x,(p3.flatten()-p1.flatten()))
+      print(i.shape)
+      e_y=(p3.flatten()-p1.flatten()-(i*e_x))/(np.linalg.norm(p3.flatten()-p1.flatten()-(i*e_x)))
+      print(e_y.shape)
+      print(e_x.shape)
+      e_z=np.cross(e_x,e_y)
+      d=np.linalg.norm(p2.flatten()-p1.flatten())
+      j=np.dot(e_y,(p3.flatten()-p1.flatten()))
+      x=((r1**2)-(r2**2)+(d**2))/(2*d)
+      y=(((r1**2)-(r3**2)+(i**2)+(j**2))/(2*j))-((i/j)*(x))
+      z1=np.sqrt(r1**2-x**2-y**2)
+      z2=np.sqrt(r1**2-x**2-y**2)*(-1)
+      ans1=p1+(x*e_x)+(y*e_y)+(z1*e_z)
+      ans2=p1+(x*e_x)+(y*e_y)+(z2*e_z)
+      dist1=np.linalg.norm(p4-ans1)
+      dist2=np.linalg.norm(p4-ans2)
+      print('returning')
+      if np.abs(r4-dist1)<np.abs(r4-dist2):
+        return ans1.reshape(3, 1).T
+      else: 
+        return ans2.reshape(3, 1).T
+
 
     def trilaterate(self,P1,P2,P3,r1,r2,r3): 
         # find location of the water molecule                      
@@ -396,7 +461,7 @@ class QFitWater:
           water.q = np.unique(self.base_residue.q)[0]
           water.altloc = altloc
         water.coor = wat_loc
-        water.b = np.mean(self.base_residue.b) #amend in the future
+        water.b = np.mean(self.base_residue.b)*1.2 #make b-factor higher
         residue = self.base_residue.extract('resn', resn, '==').combine(water)
         self._coor_set.append(residue.coor)
         self._bs.append(residue.b)
