@@ -206,19 +206,24 @@ class QFitWater:
         self._update_transformer(self.residue) #this should now include water molecules
         self._bs = []
         self._coor_set = []
+        self._occupancies = []
 
         altlocs = np.unique(r_pro.altloc)
         if len(altlocs) > 1:
              #full occupancy portion of the residue
              pro_full = r_pro.extract('q', 1.0, '==') 
              for a in altlocs:
+              print(a)
               if a == '': continue # only look at 'proper' altloc
               self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
               self.base_residue = self.pro_alt.combine(self.water)
+              #print(self.base_residue.coor)
               prot_only_coor = np.concatenate((self.pro_alt.coor, self.water_holder_coor))
-              
               self._coor_set.append(prot_only_coor)
+              #print(len(self._coor_set))
+              #print(self._coor_set)
               self._bs.append(self.base_residue.b)
+              self._occupancies.append(self.base_residue.q)
               if self.residue.resn[0] in ('ALA', 'GLY'): 
                 rotamer = 'all'
               else:
@@ -248,6 +253,7 @@ class QFitWater:
             prot_only_coor = np.concatenate((r_pro.coor, self.water_holder_coor))
             self._coor_set.append(prot_only_coor)
             self._bs.append(self.base_residue.b)
+            self._occupancies.append(self.base_residue.q)
             if self.residue.resn[0] in ('ALA', 'GLY'): 
               rotamer = 'all'
             else:
@@ -273,7 +279,10 @@ class QFitWater:
 
         #QP
         self.conformer = self.base_residue
-        self._occupancies = self.base_residue.q
+        #self._occupancies = self.base_residue.q
+        #print('here')
+        #print(self._coor_set)
+        #print('pre QP')
         self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_sample")
         self._convert()
         self._solve()
@@ -354,6 +363,8 @@ class QFitWater:
                       mc_residue = mc_residue.combine(conformer)
 
         mc_residue = mc_residue.reorder()
+        if len(np.unique(mc_residue.altloc)) == 1:
+            mc_residue.altloc = ''
         fname = os.path.join(self.options.directory,
                              f"{self.residue.resi[0]}_resi_waternew.pdb")
         mc_residue.tofile(fname)
@@ -457,10 +468,11 @@ class QFitWater:
           water.q = np.unique(self.base_residue.extract('resn', resn, '==').q)[0]
           water.altloc = altloc
         water.coor = wat_loc
-        water.b = np.mean(self.base_residue.b)*1.2 #make b-factor higher
+        water.b = np.mean(self.base_residue.b)*1.5 #make b-factor higher
         residue = self.base_residue.extract('resn', resn, '==').combine(water)
         self._coor_set.append(residue.coor)
         self._bs.append(residue.b)
+        self._occupancies.append(residue.q)
         #self.n += 1 
 
     def choose_rotamer(self, resn, r_pro,a):
@@ -557,15 +569,29 @@ class QFitWater:
         return conformers
 
     def _write_intermediate_conformers(self, prefix="_conformer"):
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
-            fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
+        # print('writing')
+        # print(len(self._coor_set))
+        # print(self._coor_set)
 
-            data = {}
-            for attr in self.conformer.data:
-                array1 = getattr(self.conformer, attr)
-                data[attr] = array1[self.conformer.active]
-            Structure(data).tofile(fname)
+        conformers = []
+        for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
+            conformer = self.base_residue.copy()
+            conformer.q = q
+            conformer.coor = coor
+            conformer.b = b
+            conformers.append(conformer)
+        for i in range(len(conformers)):
+           conf = Structure.fromstructurelike(conformers[i])
+           if np.isnan(np.sum(conf.extract('resn', 'HOH', '==').coor)):
+              conf = conf.extract('resn', 'HOH', '!=')
+           conf.altloc = ascii_uppercase[a]
+           if i == 0:
+              final_conf = conf
+           else:
+              final_conf = final_conf.combine(conf)
+
+        fname = os.path.join(self.options.directory, f"{prefix}.pdb")
+        final_conf.tofile(fname)
 
 
 def prepare_qfit_water(options):
