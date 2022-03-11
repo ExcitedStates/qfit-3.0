@@ -295,12 +295,17 @@ class QFitWater:
                    "Check for initial clashes.")
             raise RuntimeError(msg)
 
+        d_pro_coor = {}
         pro_coor = []
         if nconformers == 1:
             #determine if HOH location is nan
-            mc_residue = Structure.fromstructurelike(conformers[0])
-            if np.isnan(np.sum(mc_residue.extract('resn', 'HOH', '==').coor)):
-               mc_residue = mc_residue.extract('resn', 'HOH', '!=')
+            conformer = Structure.fromstructurelike(conformers[0])
+            if np.isnan(np.sum(conformer.extract('resn', 'HOH', '==').coor)):
+               mc_residue = conformer.extract('resn', 'HOH', '!=')
+            else:
+               conformer.extract('resn', 'HOH', '==').resi = self.n
+               self.n += 1
+               mc_residue = conformer
             mc_residue.altloc = ''
         
         else:
@@ -312,14 +317,16 @@ class QFitWater:
                     #only select the protein
                    water_nan = True
                    conformer = conformer.extract('resn', 'HOH', '!=') 
-                if len(pro_coor) == 0: #if no protein has been placed yet
+                if not pro_coor: #if no protein has been placed yet
                    conformer.altloc = ascii_uppercase[a]
-                   a += 1
+                   d_pro_coor[ascii_uppercase[a]] = conformer.extract('resn', 'HOH', '!=').coor
+                   pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
+                   a += 1 
                    if not water_nan:
                      conformer.extract('resn', 'HOH', '==').resi = self.n
                      self.n += 1
                    mc_residue = conformer
-                   pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
+                   #pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
 
                 else:
                   delta = np.array(pro_coor) - np.array(conformer.extract('resn', 'HOH', '!=').coor) #determine if protein coor already exists
@@ -328,17 +335,22 @@ class QFitWater:
                         conformer.extract('resn', 'HOH', '==').resi = self.n
                         self.n += 1
                      conformer.altloc = ascii_uppercase[a]
+                     d_pro_coor[ascii_uppercase[a]] = conformer.extract('resn', 'HOH', '!=').coor
+                     pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
                      a += 1
                      mc_residue = mc_residue.combine(conformer)
-
-                     pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
                   else:
                      if not water_nan:
                       #determine which alt loc the protein is closest to 
                       #only add water
+                      alt_conf = ''
+                      for alt, coor in d_pro_coor.items():
+                        if np.array_equal(conformer.extract('resn', 'HOH', '!=').coor, coor):
+                            alt_conf = alt
                       conformer = conformer.extract('resn', 'HOH', '==')
                       conformer.resi = self.n
                       self.n += 1
+                      conformer.altloc = alt_conf
                       mc_residue = mc_residue.combine(conformer)
 
         mc_residue = mc_residue.reorder()
@@ -442,7 +454,7 @@ class QFitWater:
           water.q = 1.0
           water.altloc = ''
         else:
-          water.q = np.unique(self.base_residue.q)[0]
+          water.q = np.unique(self.base_residue.extract('resn', resn, '==').q)[0]
           water.altloc = altloc
         water.coor = wat_loc
         water.b = np.mean(self.base_residue.b)*1.2 #make b-factor higher
