@@ -58,6 +58,7 @@ class QFitWater_Residue:
 						self._smin = None
 						self._simple = True
 						self._rmask = 1.5 
+						self._occupancies =[]
 
 
 				def run(self):
@@ -73,9 +74,9 @@ class QFitWater_Residue:
 								#self.residue._init_clash_detection()
 								self.water_holder_coor = np.empty((1, 3))
 								self.water_holder_coor[:] = np.nan
-								self._bs = []
-								self._coor_set = []
-								self._occupancies = []
+								new_coor_set = []
+								new_bs = []
+								occ = []
 
 								altlocs = np.unique(r_pro.altloc)
 								if len(altlocs) > 1:
@@ -86,13 +87,10 @@ class QFitWater_Residue:
 														if a == '': continue # only look at 'proper' altloc
 														self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
 														self.base_residue = self.pro_alt.combine(self.water)
-														#print(self.base_residue.coor)
 														prot_only_coor = np.concatenate((self.pro_alt.coor, self.water_holder_coor))
-														self._coor_set.append(prot_only_coor)
-														#print(len(self._coor_set))
-														#print(self._coor_set)
-														self._bs.append(self.base_residue.b)
-														self._occupancies.append(self.base_residue.q)
+														new_coor_set.append(prot_only_coor)
+														new_bs.append(self.base_residue.b)
+														occ.append(self.base_residue.q)
 														if self.residue.resn[0] in ('ALA', 'GLY'): 
 																rotamer = 'all'
 														else:
@@ -102,7 +100,7 @@ class QFitWater_Residue:
 														close_atoms = WATERS[self.pro_alt.resn[0]][rotamer]
 														for i in range(0, len(close_atoms)):
 																atom = list(close_atoms[i+1].keys())
-																dist = list(close_atoms[i+1].values()) #[i+1]
+																dist = list(close_atoms[i+1].values())
 																if self.residue.resn[0] == 'GLY':
 																		wat_loc = self.least_squares_gly(r_pro.extract('name', atom[0],'==').coor, r_pro.extract('name', atom[1],'==').coor, r_pro.extract('name', atom[2],'==').coor, r_pro.extract('name', atom[3],'==').coor, dist[0], dist[1], dist[2], dist[3])
 																else:
@@ -112,17 +110,19 @@ class QFitWater_Residue:
 														#is new water location supported by density
 																values = self.xmap.interpolate(wat_loc)
 																if np.min(values) < 0.3: 
-																		continue
+																		print('removed')
+																		#continue
 																else:
 																		if self._run_water_clash(self.water):
-																				self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!  
+																				coor, b = self._place_waters(wat_loc, a, r_pro.resn[0]) #place all water molecules along with residue!
+																				new_coor_set.append(coor) 
+																				new_bs.append(b) 
 								else:
 												self.base_residue = r_pro.combine(self.water)
-												prot_only = r_pro.combine(self.water_holder)
 												prot_only_coor = np.concatenate((r_pro.coor, self.water_holder_coor))
-												self._coor_set.append(prot_only_coor)
-												self._bs.append(self.base_residue.b)
-												self._occupancies.append(self.base_residue.q)
+												new_coor_set.append(prot_only_coor)
+												new_bs.append(self.base_residue.b)
+												occ.append(self.base_residue.q)
 												if self.residue.resn[0] in ('ALA', 'GLY'): 
 														rotamer = 'all'
 												else:
@@ -143,18 +143,25 @@ class QFitWater_Residue:
 														else:
 																if self._run_water_clash(self.water):
 																#place all water molecules along with residue!  
-																		self._place_waters(wat_loc, '', r_pro.resn[0])
+																		coor, b = self._place_waters(wat_loc, '', r_pro.resn[0])
+																		new_coor_set.append(coor) 
+																		new_bs.append(b) 
 								#now we need to remove/adjust overlapping water molecules
+								self.conformer = self.base_residue
+								self.conformer.q = 1.0
+								self._coor_set = new_coor_set
+								self._bs = new_bs
 
 								#QP
-								self.conformer = self.base_residue
 								self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_sample")
+								print(f"Remaining valid conformations: {len(self._coor_set)}")
 								self._convert()
 								self._solve()
 								self._update_conformers()
 								self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_qp_solution")
 
 								# MIQP score conformer occupancy
+								print(f"Remaining valid conformations: {len(self._coor_set)}")
 								self._convert()
 								self._solve(threshold=self.options.threshold,
 																								cardinality=self.options.cardinality) #, loop_range=[0.34, 0.25, 0.2, 0.16, 0.14]
@@ -178,7 +185,7 @@ class QFitWater_Residue:
 														 mc_residue = conformer.extract('resn', 'HOH', '!=')
 												else:
 														 conformer.extract('resn', 'HOH', '==').resi = self.n
-														 self.n += 1
+														 #self.n += 1
 														 mc_residue = conformer
 												mc_residue.altloc = ''
 								
@@ -198,7 +205,7 @@ class QFitWater_Residue:
 																		 a += 1 
 																		 if not water_nan:
 																				 conformer.extract('resn', 'HOH', '==').resi = self.n
-																				 self.n += 1
+																				 #self.n += 1
 																		 mc_residue = conformer
 																else:
 																		delta = np.array(pro_coor) - np.array(conformer.extract('resn', 'HOH', '!=').coor) #determine if protein coor already exists
@@ -208,7 +215,7 @@ class QFitWater_Residue:
 																										 mc_residue.extract(f"resn HOH").q += conformer.extract('resn', 'HOH', '==').q[0]
 																								else:
 																										conformer.extract('resn', 'HOH', '==').resi = self.n
-																										self.n += 1
+																										#self.n += 1
 																				 conformer.altloc = ascii_uppercase[a]
 																				 d_pro_coor[ascii_uppercase[a]] = conformer.extract('resn', 'HOH', '!=').coor
 																				 pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
@@ -230,11 +237,11 @@ class QFitWater_Residue:
 																										 mc_residue.extract(f"resn HOH and altloc {alt}").q += wat.q[0]
 																								else:
 																										wat.resi = self.n
-																										self.n += 1
+																										#self.n += 1
 																										wat.altloc = alt_conf
 																										mc_residue = mc_residue.combine(wat)
 								
-								mc_residue = mc_residue.collapse_backbone(mc_residue.resi[0], mc_residue.chain[0])
+								#mc_residue = mc_residue.collapse_backbone(mc_residue.resi[0], mc_residue.chain[0])
 								mc_residue = mc_residue.reorder()
 
 								if len(np.unique(mc_residue.altloc)) == 1:
@@ -344,9 +351,10 @@ class QFitWater_Residue:
 								water.coor = wat_loc
 								water.b = np.mean(self.base_residue.b)*1.5 #make b-factor higher
 								residue = self.base_residue.extract('resn', resn, '==').combine(water)
-								self._coor_set.append(residue.coor)
-								self._bs.append(residue.b)
-								self._occupancies.append(residue.q)
+								return residue.coor, residue.b
+								#self._coor_set.append(residue.coor)
+								#self._bs.append(residue.b)
+								#self._occupancies.append(residue.q)
 								#self.n += 1 
 
 				def choose_rotamer(self, resn, r_pro,a):
@@ -356,13 +364,13 @@ class QFitWater_Residue:
 								return rotamer 
 
 
-				def _convert(self): #figure out why 28 atoms on conformer.coor and not 17?
+				def _convert(self): 
 								"""Convert structures to densities and extract relevant values for (MI)QP."""
 								#print("Converting conformers to density")
 								self._transformer.reset(full=True) #converting self.xmap.array to zero
 								for n, coor in enumerate(self._coor_set):
-												self.conformer.coor = coor
-												self._transformer.mask(self._rmask)
+									self.conformer.coor = coor
+									self._transformer.mask(1.0) #self._rmask
 								mask = (self._transformer.xmap.array > 0)
 								self._transformer.reset(full=True)
 
@@ -377,13 +385,16 @@ class QFitWater_Residue:
 												self._update_transformer(self.conformer)
 												self._transformer.density()
 												model = self._models[n]
+												#print(model)
 												model[:] = self._transformer.xmap.array[mask]
-												np.maximum(model, self.options.bulk_solvent_level, out=model)
+												np.maximum(model, 0.0, out=model) #self.options.bulk_solvent_level
+												if np.sum(model) > 0.0:
+														print(np.sum(model))
 												self._transformer.reset(full=True)
 
 
 				def _solve(self, cardinality=None, threshold=None,
-														 loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
+														 loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2, 0.1]):
 								# Create and run QP or MIQP solver
 								do_qp = cardinality is threshold is None
 								if do_qp:
@@ -445,7 +456,15 @@ class QFitWater_Residue:
 				def _write_intermediate_conformers(self, prefix="_conformer"):
 
 								conformers = []
-								for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
+								if len(self._occupancies) == 0:
+									 for coor, b in zip(self._coor_set, self._bs):
+												conformer = self.base_residue.copy()
+												conformer.q = 1.0
+												conformer.coor = coor
+												conformer.b = b
+												conformers.append(conformer)
+								else:	 	
+									for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
 												conformer = self.base_residue.copy()
 												conformer.q = q
 												conformer.coor = coor
