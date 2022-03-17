@@ -44,6 +44,7 @@ def main():
                   'qfit_residue = qfit.qfit_residue:main',
                   'qfit_ligand  = qfit.qfit_ligand:main',
                   'qfit_covalent_ligand = qfit.qfit_covalent_ligand:main',
+                  'qfit_water = qfit.run_qfit_water:main',
                   'qfit_segment = qfit.qfit_segment:main',
                   'qfit_prep_map = qfit.qfit_prep_map:main',
                   'qfit_density = qfit.qfit_density:main',
