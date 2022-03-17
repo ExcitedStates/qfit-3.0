@@ -57,10 +57,10 @@ def build_argparser():
 	# Map prep options
 	p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
 					 help="Scale density")
-	p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
+	p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=0.8,
 					 metavar="<float>", type=float,
 					 help="Scaling factor for soft-clash mask radius")
-	p.add_argument("-dc", "--density-cutoff", default=0.2,
+	p.add_argument("-dc", "--density-cutoff", default=0.3,
 					 metavar="<float>", type=float,
 					 help="Density values below this value are set to <density-cutoff-value>")
 	p.add_argument("-dv", "--density-cutoff-value", default=-1,
@@ -79,7 +79,7 @@ def build_argparser():
 					 help="Set clash scaling factor")
 	p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
 					 help="Enable external clash detection during sampling")
-	p.add_argument("-bs", "--bulk-solvent-level", default=0.1,
+	p.add_argument("-bs", "--bulk-solvent-level", default=0.0,
 					 metavar="<float>", type=float,
 					 help="Bulk solvent level in absolute values")
 	p.add_argument("-c", "--cardinality", default=10,
@@ -153,25 +153,29 @@ class QFitWater:
 			#xmap_reduced.tofile('reduced.ccp4')
 			residue = residue.combine(self.water_holder)
 			qfit = QFitWater_Residue(residue, full_occ, xmap_reduced, self.water_holder, n, self.options)
-			qfit.run() #make sure things are written out in this function
+			qfit.run() 
 			del xmap_reduced
 			del qfit
 
 		#now that all the individual residues have run...
 		# Combine all multiconformer residues into one structure
+		
+		for res in residues:
 			directory = os.path.join(self.options.directory)
 			fname = os.path.join(directory, f'{res}_resi_waternew.pdb')
 				#if not os.path.exists(fname): continue
 			residue_multiconformer = Structure.fromfile(fname)
+			for water in residue_multiconformer.extract('resn', 'HOH', '==').resi:
+				  residue_multiconformer.extract('resi', water, '==').resi = n
+				  n += 1 
 			try:
 					multiconformer = multiconformer.combine(residue_multiconformer)
 			except:
 					multiconformer = residue_multiconformer
 
-			fname = os.path.join(self.options.directory, "multiconformer_model_water.pdb")
-			multiconformer = multiconformer.reorder()
-			multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
-			return multiconformer		
+		fname = os.path.join(self.options.directory, "multiconformer_model_water.pdb")
+		multiconformer = multiconformer.reorder()
+		multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
 		
 def prepare_qfit_water(options):
 
