@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import argparse
-import logging
-import copy
 import os
-import sys
 from string import ascii_uppercase
 from qfit.structure import Structure
 
