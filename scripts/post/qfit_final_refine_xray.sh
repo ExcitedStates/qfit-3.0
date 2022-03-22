@@ -1,5 +1,7 @@
 #!/bin/bash
-
+'''
+This script works with Phenix version 1.18. 
+'''
 qfit_usage() {
   echo >&2 "Usage:";
   echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
