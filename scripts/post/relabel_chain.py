@@ -52,7 +52,7 @@ def parse_args():
         output.chain = rename_chain
         output_holo = output_holo.combine(output)
         del tmp_h
-    output_holo.tofile(output_holo_file)
+    output_holo.reorder().tofile(output_holo_file)
 
 if __name__ == '__main__':
     main()
