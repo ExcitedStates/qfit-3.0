@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class _BaseStructure:
 
     REQUIRED_ATTRIBUTES = ["record", "name", "b", "q", "coor", "resn", "resi",
-                           "icode", "e", "charge", "chain", "altloc"]
-    _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
+                           "icode", "e", "charge", "chain", "altloc", "atomid"]
+    _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, str, int]
     _selector = _Selector()
     _COMPARISON_DICT = {'==': eq, '!=': eq, '>': gt, '>=': ge, '<=': le, '<': lt}
 
