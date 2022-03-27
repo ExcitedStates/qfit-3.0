@@ -20,6 +20,9 @@ def build_argparser():
     return p
 
 def get_bfactor(structure, pdb, ca = None, sidechain = None):
+    if ca and sidechain:
+        print('Both alpha carbon and sidechain selected. Please choose one')
+        return
     bfactors = []
     select = structure.extract('record', 'ATOM', '==')
     select = select.extract('e', 'H', '!=')
