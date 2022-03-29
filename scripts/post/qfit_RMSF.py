@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
+from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
+from qfit.qfit_protein import QFitProteinOptions, QFitProtein
 import os
-from argparse import ArgumentParser
-
 import numpy as np
 import pandas as pd
-from qfit.qfit import QFitRotamericResidueOptions
+from argparse import ArgumentParser
 from qfit.structure import Structure
 
 
@@ -44,7 +44,6 @@ class RMSF():
     def average_coor_heavy_atom(self):
         structure = Structure.fromfile(self.structure)
         select = structure.extract('record', 'ATOM', '==')
-
         rmsf_data = []
 
         for chain in np.unique(select.chain):
@@ -58,7 +57,6 @@ class RMSF():
                 else:
                     resi = tmp_i
                 residue_ids.append(resi)
-
             for resid in residue_ids:
                 res_tmp = select2.extract('resi', int(resid), '==')  # this separates each residue
                 resn_name = (np.unique(res_tmp.resi)[0], np.unique(res_tmp.resn)[0], np.unique(res_tmp.chain)[0])
@@ -66,12 +64,10 @@ class RMSF():
                     RMSF_list = []
                     num_alt = len(np.unique(res_tmp.altloc))
                     #iterating over each atom and getting center for each atom
-
                     for atom in np.unique(res_tmp.name):
                         RMSF_atom_list = []
                         tmp_atom = res_tmp.extract('name', atom, '==')
                         atom_center = tmp_atom.coor.mean(axis=0)
-
                         for i in np.unique(tmp_atom.altloc):
                             atom_alt=tmp_atom.extract('altloc', i, '==')
                             RMSF_atom=np.linalg.norm(atom_alt.coor-atom_center, axis=1)
