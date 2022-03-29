@@ -69,12 +69,14 @@ def main():
               'scripts/post/get_metrics.py',
               'scripts/post/b_factor.py',
               'scripts/post/subset_structure_AH.py',
-              'scripts/post/alpha_rmsd.py',
+              'scripts/post/alpha_carbon_rmsd.py',
               'scripts/post/reorder_pdb.py',
               'scripts/post/relabel_chain.py',
               'scripts/post/water_stats.py',
               'scripts/post/water_clash.py',
               'scripts/post/lig_occ.py',
+              'scripts/post/calc_OP.py',
+              'scripts/post/make_methyl_df.py',
           ],
     )
 
