@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-import os
+
 import sys
+import os
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
-from qfit.structure import Structure
 
 def build_argparser():
     p = ArgumentParser(description=__doc__)
@@ -19,6 +18,7 @@ def build_argparser():
     p.add_argument("--pdb", help="Name of the input PDB.")
     return p
 
+  
 def get_bfactor(structure, pdb, ca = None, sidechain = None):
     if ca and sidechain:
         print('Both alpha carbon and sidechain selected. Please choose one')
@@ -43,6 +43,3 @@ def main():
     args = p.parse_args()
     B_factor = get_bfactor(args.structure, args.pdb, args.ca, args.sc)
     B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)                        
-
-if __name__ == '__main__':
-    main()

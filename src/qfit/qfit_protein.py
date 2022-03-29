@@ -1,27 +1,3 @@
-'''
-Excited States software: qFit 3.0
-
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
-Contact: vdbedem@stanford.edu
-
-Copyright (C) 2009-2019 Stanford University
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-This entire text, including the above copyright notice and this permission notice
-shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-'''
 import gc
 from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
 from .qfit import QFitSegment, QFitSegmentOptions
@@ -306,7 +282,10 @@ class QFitProtein:
         multiconformer = multiconformer.combine(hetatms)
         fname = os.path.join(self.options.directory,
                              "multiconformer_model.pdb")
-        multiconformer.tofile(fname)
+        if self.structure.scale or self.structure.cryst_info:
+            multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
+        else:
+            multiconformer.tofile(fname)
         return multiconformer
 
     def _run_qfit_segment(self, multiconformer):
@@ -321,7 +300,10 @@ class QFitProtein:
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
                              self.pdb + "multiconformer_model2.pdb")
-        multiconformer.tofile(fname)
+        if self.structure.scale or self.structure.cryst_info:
+            multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
+        else:
+            multiconformer.tofile(fname)
         return multiconformer
 
     @staticmethod

@@ -1,34 +1,10 @@
-'''
-Excited States software: qFit 3.0
-
-Contributors: Saulo H. P. de Oliveira, Gydo van Zundert, and Henry van den Bedem.
-Contact: vdbedem@stanford.edu
-
-Copyright (C) 2009-2019 Stanford University
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-This entire text, including the above copyright notice and this permission notice
-shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-'''
-
 import numpy as np
 import argparse
 import logging
 import os
 from collections import namedtuple
 from . import Structure
+from .structure.rotamers import ROTAMERS
 
 
 def parse_args():
@@ -69,10 +45,11 @@ def redistribute_occupancies_by_atom(residue, cutoff):
         if name not in atom_occs:
             atom_occs[name] = list()
         atom_occs[name].append(AltAtom(altloc, atomidx, q))
-
     # For each atomname:
     for name, altatom_list in atom_occs.items():
         # If any of the qs are less than cutoff
+        #print(name)
+        #print(atom.q)
         if any(atom.q < cutoff for atom in altatom_list):
             # Which confs are either side of the cutoff?
             confs_low = [atom for atom in altatom_list
@@ -155,6 +132,9 @@ def main():
         output_file = args.structure[:-4] + "_norm.pdb"
 
     structure = Structure.fromfile(args.structure)
+    #seperate het versus atom (het allowed to have <1 occ)
+    hetatm = structure.extract('record', 'HETATM', '==')
+    structure = structure.extract('record', 'ATOM', '==')
 
     # Capture LINK records
     link_data = structure.link_data
@@ -170,21 +150,69 @@ def main():
                 # How many occupancy-values can we find in each altconf?
                 occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
                                                          if agroup.id[1] != ""]
-                if occs_per_alt.count(1) == len(occs_per_alt):
-                    redistribute_occupancies_by_residue(residue, args.occ_cutoff)
-                else:
-                    redistribute_occupancies_by_atom(residue, args.occ_cutoff)
+                redistribute_occupancies_by_atom(residue, args.occ_cutoff)
 
-    # Create structure without low occupancy confs (culling)
+    # Normalize occupancies and fix altloc labels:
+    to_remove = []
+    for chain in structure:
+        for residue in chain:
+            rotamer = ROTAMERS[residue.resn[0]]
+            altlocs = list(set(residue.altloc))
+            atoms = list(set(residue.e))
+            try:
+                altlocs.remove('')
+            except ValueError:
+                pass
+            naltlocs = len(altlocs)
+            if naltlocs < 2:
+                residue._q[residue._selection] = 1.0
+                residue._altloc[residue._selection] = ''
+            else:
+                h_altlocs = []
+                conf = residue.extract('altloc',altlocs)
+
+                #check to see if H are off in la la land by themselves, remove and reassign H-bonds
+                for a in altlocs:
+                    conf = residue.extract('altloc', a)
+                    if all(i == 'H' for i in set(conf.e)):
+                         h_altlocs.append(a)     
+                if len(h_altlocs) == 0:
+                    continue
+                elif len(h_altlocs) == 1:
+                    conf2 = residue.extract('altloc', h_altlocs[0])
+                    conf2 = conf2.extract('name', (rotamer['hydrogens']))
+                    residue._q[conf2._selection] == 1.0
+                    residue._altloc[conf2._selection] == ''
+                else:
+                    conf1 = residue.extract("altloc", h_altlocs[0])
+                    conf1 = conf1.extract("name",(rotamer['hydrogens']))
+                    conf1._q[conf1._selection] = 1.0
+                    conf1._altloc[conf1._selection] = ''
+                    for altloc2 in h_altlocs[1:]:
+                        conf2 = residue.extract("altloc",altloc2)
+                        conf2 = conf2.extract("e",('H'))
+                        [to_remove.append(x) for x in conf2._selection]
+                    conf2 = residue.extract(f'altloc {h_altlocs[0]}').extract('e', 'H', '==')
+                natoms = len(residue.extract('altloc',altlocs[-1]).name)
+                factor = natoms/np.sum(conf.q)
+                residue._q[conf._selection] *= factor
+
+
+
+    #remove trailing hydrogens
+    mask = structure.active
+    mask[to_remove] = False
     data = {}
     for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[~mask]
+        data[attr] = getattr(structure, attr).copy()[mask]
     structure = Structure(data).reorder()
 
+    #add het atoms back in
+    structure = structure.combine(hetatm)
     # Reattach LINK records
     structure.link_data = link_data
 
-    # Save structure
+    #output structure
     structure.tofile(output_file)
 
     print(f"normalize_occupancies: {n_removed} atoms had occ < {args.occ_cutoff} and were removed.")

@@ -43,6 +43,13 @@ def parse_args():
                  rename_chain = chain_a
             else:
                  if dist > tmp_dist:
+                tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
+                tmp_dist = np.median(tot_dist)
+            if dist is None:
+                dist = tmp_dist
+                rename_chain = chain_a
+            else:
+                if dist > tmp_dist:
                     dist = tmp_dist
                     rename_chain = chain_a
         output = holo_copy.extract("chain", chain_h, '==')
@@ -53,5 +60,4 @@ def parse_args():
 
 if __name__ == '__main__':
     main()
-                                                                                                             62,10         Bot
-
+                                                                                                            
