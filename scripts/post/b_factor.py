@@ -42,4 +42,8 @@ def main():
     p = build_argparser()
     args = p.parse_args()
     B_factor = get_bfactor(args.structure, args.pdb, args.ca, args.sc)
-    B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)                        
+    B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)   
+                  
+                            
+if __name__ == '__main__':
+    _main()
