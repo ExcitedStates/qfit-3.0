@@ -48,3 +48,6 @@ def main():
     apo_receptor = apo_receptor.extract('e', 'H', '!=')
 
     rmsd_alpha_carbon(holo_receptor, apo_receptor, args.holo_pdb_name, args.apo_pdb_name)
+
+if __name__ == '__main__':
+    _main()
