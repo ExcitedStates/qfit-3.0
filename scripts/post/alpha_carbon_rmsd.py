@@ -50,4 +50,4 @@ def main():
     rmsd_alpha_carbon(holo_receptor, apo_receptor, args.holo_pdb_name, args.apo_pdb_name)
 
 if __name__ == '__main__':
-    _main()
+    main()
