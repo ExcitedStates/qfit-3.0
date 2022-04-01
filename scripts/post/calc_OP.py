@@ -123,9 +123,8 @@ def calc_S2(pdb_file, data_mat, res):
         for p in range(len(weight1)-1):
           coord2.append(coord2[0])
           bfac2.append(bfac2[0])
-     else:
-      # this is the normal behaviour, i.e. same number and occupancy for states
-      pass
+      else: # this is the normal behaviour, i.e. same number and occupancy for states
+         pass
     
     
      # Start calculations
