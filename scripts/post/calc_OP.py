@@ -127,32 +127,31 @@ def calc_S2(pdb_file, data_mat, res):
          pass
     
     
-     # Start calculations
-     struc = 0
-     S2ang = 0.0
-     S2ortho = 1.0
-     p = weight1
-     p2_list = []
-     b_list = []
-     for i in range(len(p)): #for every occupancy
-      p2_row = []
-      # this is for uncorrelated motion between the two points
-      S2ortho -= ((((bfac1[i] + bfac2[i])/(8*math.pi*math.pi)) * p[i]) * b)/(res*10)
-      b_list.append([bfac1,bfac2])
-      struc+=1
-      for j in range(len(weight1)): #for every occupancy
-        P2 = calc_p2(coord1[i], coord2[i],coord1[j],coord2[j])
-        S2ang += ( p[i] * p[j] * P2 )
-        p2_row.append(P2)
-      p2_list.append(p2_row)
-    b_mat.append(b_list)
-    p2_mat.append(p2_list)
-    prob_mat.append(p)
-    s2_ortho.append(S2ortho)
-    s2_ang.append(S2ang)
-
-    s2_calc.append(S2ang*S2ortho)
-    struc_mat.append(struc)
+       # Start calculations
+       struc = 0
+       S2ang = 0.0
+       S2ortho = 1.0
+       p = weight1
+       p2_list = []
+       b_list = []
+       for i in range(len(p)): #for every occupancy
+         p2_row = []
+         # this is for uncorrelated motion between the two points
+         S2ortho -= ((((bfac1[i] + bfac2[i])/(8*math.pi*math.pi)) * p[i]) * b)/(res*10)
+         b_list.append([bfac1,bfac2])
+         struc+=1
+         for j in range(len(weight1)): #for every occupancy
+           P2 = calc_p2(coord1[i], coord2[i],coord1[j],coord2[j])
+           S2ang += ( p[i] * p[j] * P2 )
+           p2_row.append(P2)
+         p2_list.append(p2_row)
+       b_mat.append(b_list)
+       p2_mat.append(p2_list)
+       prob_mat.append(p)
+       s2_ortho.append(S2ortho)
+       s2_ang.append(S2ang)
+       s2_calc.append(S2ang*S2ortho)
+       struc_mat.append(struc)
   return s2_calc,struc_mat,p2_mat,s2_ortho,s2_ang,prob_mat,b_mat
 
 def parse_input_data(data_file):
