@@ -79,7 +79,7 @@ class QFitWater_Residue:
 								occ = []
 								all_water_coor = []
 								water_coor = []
-
+								self.n = 100
 								altlocs = np.unique(r_pro.altloc)
 								if len(altlocs) > 1:
 												 #full occupancy portion of the residue
@@ -255,39 +255,41 @@ class QFitWater_Residue:
 															 for i in pro_coor:
 																	delta.append(np.linalg.norm(i - conformer.extract('resn', 'HOH', '!=').coor, axis=1))#determine if protein coor already exists
 															 if np.sum(delta) > 0: #protein coor is new, get new altloc and append
-																	print('new protein!')
 																	mc_residue = mc_residue.combine(conformer.extract('resn', 'HOH','!='))
 																	d_pro_coor[ascii_uppercase[a]] = conformer.extract('resn', 'HOH', '!=').coor
 																	pro_coor.append(conformer.extract('resn', 'HOH', '!=').coor)
 
 
 																	wat = conformer.extract('resn', 'HOH', '==')
+																	print('wat:')
+																	print(wat.coor)
 																	if len(wat.coor) > 0:
-																		if len(mc_residue.extract(f"resn HOH and altloc {a}").coor) == 0:
-																				print('adding')
-																				print(wat.extract('atomid', wat.atomid[0], '==').coor)
-																				mc_residue = mc_residue.combine(wat.extract('atomid', wat.atomid[0], '=='))
+																		#if len(mc_residue.extract(f"resn HOH and altloc {a}").coor) == 0:
+																		#		mc_residue = mc_residue.combine(wat.extract('atomid', wat.atomid[0], '=='))
 																		for n1, c1 in enumerate(wat.coor):
-																			print(n1)
-																			for n2, c2 in enumerate(mc_residue.extract(f"resn HOH").coor):
-																				delta = np.array(c1) - np.array(c2)
-																				print('delta')
-																				print(np.sqrt(np.square(delta).mean(axis=0)))
-																				if np.sqrt(np.sqrt(np.square(delta).mean(axis=0))) < 1.0:
+																			if np.any(np.linalg.norm(c1- mc_residue.extract(f"resn HOH").coor, axis=1) < 1.2):
+																					print(c1)
+																					print(mc_residue.extract(f"resn HOH").coor)
 																					atom1 = wat.atomid[n1]
-																					atom2 = mc_residue.extract(f"resn HOH").atomid[n2]
+																					#atom2 = mc_residue.extract(f"resn HOH").atomid[n2]
+																					#find closest
+																					delta2 = 100
+																					for n in mc_residue.extract(f"resn HOH").atomid:
+																							tmp = np.linalg.norm(c1 - mc_residue.extract("atomid", n, "==").coor)
+																							if tmp < delta2:
+																								 delta2 == tmp
+																								 atom2 = n
 																					mc_residue.extract("atomid", atom2, "==").q += wat.extract('atomid', atom1, '==').q[0]
-																				else:
+																			else:
 																					atom1 = wat.atomid[n1]
 																					wat.extract('atomid', atom1, '==').resi = self.n
+																					print('resi:')
+																					print(self.n)
+																					print(wat.extract('atomid', atom1, '==').resi)
 																					self.n += 1
 																					wat.extract('atomid', atom1, '==').altloc = ascii_uppercase[a]
-																					print('adding2')
-																					print(c1)
-																					print(c2)
-																					print(np.sqrt(np.sqrt(np.square(delta).mean(axis=0))))
-																					print(wat.extract('atomid', atom1, '==').coor)
 																					mc_residue = mc_residue.combine(wat.extract('atomid', atom1, '=='))
+																					print(mc_residue.resi)
 																	a += 1
 															 else:
 																		 alt_conf = ''
@@ -301,12 +303,16 @@ class QFitWater_Residue:
 																							wat = conformer.extract('resn', 'HOH', '==')
 																							if not len(wat.coor) == 0:			
 																								for n1, c1 in enumerate(wat.coor):
-																									for n2, c2 in enumerate(mc_residue.extract(f"resn HOH and altloc {a}").coor):
-																										delta = np.array(c1) - np.array(c2)
-																										print(np.sqrt(np.square(delta).mean(axis=0)))
-																										if np.sqrt(np.square(delta).mean(axis=0))< 1.0:
+																										if np.any(np.linalg.norm(c1- mc_residue.extract(f"resn HOH").coor, axis=1) < 1.2):
+																											 print(c1)
+																											 print(mc_residue.extract(f"resn HOH").coor)
 																											 atom1 = wat.atomid[n1]
-																											 atom2 = wat_mc.atomid[n2]
+																											 delta2 = 100
+																											 for n in mc_residue.extract(f"resn HOH").atomid:
+																													tmp = np.linalg.norm(c1 - mc_residue.extract("atomid", n, "==").coor)
+																													if tmp < delta2:
+																													 delta2 == tmp
+																													 atom2 = n
 																											 mc_residue.extract("atomid", atom2, "==").q += wat.extract('atomid', atom1, '==').q[0]
 																										else:
 																											 atom1 = wat.atomid[n1]
@@ -558,9 +564,12 @@ class QFitWater_Residue:
 												conformer.q = 1.0
 												conformer.coor = coor
 												conformer.b = self._bs[i]
-												conformer.resi = self.n 
+												for c in conformer.extract('resn', 'HOH', '==').atomid:
+													conformer.extract('atomid', c, '==').resi = self.n
+													self.n += 1
+												#conformer.resi = self.n 
 												conformers.append(conformer)
-												self.n += 1
+												#self.n += 1
 								else:
 									conformers = []
 									for i, coor in enumerate(self._coor_set):   
