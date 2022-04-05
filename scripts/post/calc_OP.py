@@ -142,13 +142,13 @@ def calc_S2(pdb_file, data_mat, res):
            S2ang += ( p[i] * p[j] * P2 )
            p2_row.append(P2)
          p2_list.append(p2_row)
-      b_mat.append(b_list)
-      p2_mat.append(p2_list)
-      prob_mat.append(p)
-      s2_ortho.append(S2ortho)
-      s2_ang.append(S2ang)
-      s2_calc.append(S2ang*S2ortho)
-      struc_mat.append(struc)
+    b_mat.append(b_list)
+    p2_mat.append(p2_list)
+    prob_mat.append(p)
+    s2_ortho.append(S2ortho)
+    s2_ang.append(S2ang)
+    s2_calc.append(S2ang*S2ortho)
+    struc_mat.append(struc)
   return s2_calc,struc_mat,p2_mat,s2_ortho,s2_ang,prob_mat,b_mat
 
 def parse_input_data(data_file):
