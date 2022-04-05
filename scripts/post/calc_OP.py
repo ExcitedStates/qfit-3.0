@@ -8,7 +8,7 @@ import numpy as np
 from sys import exit
 import pandas as pd
 from argparse import ArgumentParser
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from scipy import stats
 import math
 
@@ -20,7 +20,7 @@ def parse_args():
     p.add_argument("pdb", type=str, help="pdb file to extract order parameters from")
     p.add_argument("file_out", type=str, help="output file name")
     p.add_argument("-r", "--Resolution", type=float, help="Resolution of PDB")
-    p.add_argument("-b", "--B-factor", type=float, help="Mean B Factor of Heavy atoms of PDB")
+    p.add_argument("-b", "--Bfactor", type=float, help="Mean B Factor of Heavy atoms of PDB")
     args = p.parse_args()
     return args
  
@@ -105,11 +105,8 @@ def calc_S2(pdb_file, data_mat, res):
   for d in data_mat: #for everyline
     coord1, weight1, bfac1 = get_coords(pdb_file,d[0],d[1],d[6]) #pdb, residue, atom, chain
     coord2, weight2, bfac2 = get_coords(pdb_file,d[2],d[3],d[6]) #pdb, residue, atom, chain 
-    #print(coord1)
-    #print(coord2)
     # Check and correct some simple data consitencies
     if weight1 != weight2:
-      #if ((len(weight1) >1) and (len(weight2) >1)):
       if ((len(weight1) >1.001) and (len(weight2) >1.001)) \
       and (abs(sum(weight1)-sum(weight2)) > 0.0001):
         print("  .. Warning: unequal weights",d[0],":",weight1,weight2)
@@ -123,18 +120,18 @@ def calc_S2(pdb_file, data_mat, res):
         for p in range(len(weight1)-1):
           coord2.append(coord2[0])
           bfac2.append(bfac2[0])
-      else: # this is the normal behaviour, i.e. same number and occupancy for states
+    else: # this is the normal behaviour, i.e. same number and occupancy for states
          pass
     
     
-       # Start calculations
-       struc = 0
-       S2ang = 0.0
-       S2ortho = 1.0
-       p = weight1
-       p2_list = []
-       b_list = []
-       for i in range(len(p)): #for every occupancy
+    # Start calculations
+    struc = 0
+    S2ang = 0.0
+    S2ortho = 1.0
+    p = weight1
+    p2_list = []
+    b_list = []
+    for i in range(len(p)): #for every occupancy
          p2_row = []
          # this is for uncorrelated motion between the two points
          S2ortho -= ((((bfac1[i] + bfac2[i])/(8*math.pi*math.pi)) * p[i]) * b)/(res*10)
@@ -145,13 +142,13 @@ def calc_S2(pdb_file, data_mat, res):
            S2ang += ( p[i] * p[j] * P2 )
            p2_row.append(P2)
          p2_list.append(p2_row)
-       b_mat.append(b_list)
-       p2_mat.append(p2_list)
-       prob_mat.append(p)
-       s2_ortho.append(S2ortho)
-       s2_ang.append(S2ang)
-       s2_calc.append(S2ang*S2ortho)
-       struc_mat.append(struc)
+      b_mat.append(b_list)
+      p2_mat.append(p2_list)
+      prob_mat.append(p)
+      s2_ortho.append(S2ortho)
+      s2_ang.append(S2ang)
+      s2_calc.append(S2ang*S2ortho)
+      struc_mat.append(struc)
   return s2_calc,struc_mat,p2_mat,s2_ortho,s2_ang,prob_mat,b_mat
 
 def parse_input_data(data_file):
@@ -192,7 +189,6 @@ if __name__=="__main__":
   data_file = args.data_file
   pdb_file = args.pdb
   data_out = args.file_out
-  model = args.model
   if args.Resolution == None:
      resolution = 1.0
   else:
