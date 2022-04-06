@@ -23,11 +23,22 @@ from .logtools import setup_logging, log_run_info, poolworker_setup_logging, Que
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 from .structure.WATER_LOCS_5 import WATERS
-from .structure.chi1 import chi_atoms
+#from .structure.dih_info import all_coords
+from .structure.chi import chi_atoms, DICT4A
 from .transformer import Transformer
 from .solvers import QPSolver, MIQPSolver
 
+wat_center_coords = np.load(f'/Users/stephanie/Downloads/qfit-3.0/src/qfit/structure/center_coor_50000_75.npy',allow_pickle='TRUE').item()
+protein_coords = np.load(f'/Users/stephanie/Downloads/qfit-3.0/src/qfit/structure/dih_info.npy',allow_pickle='TRUE').item()
 
+dict_dist = {
+		'Cm' : 3.0,
+		'Nm' : 2.4,
+		'Om' : 2.4,
+		'S' : 2.4,
+		'C' : 3.0,
+		'N' : 2.4,
+		'O' : 2.4}
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -81,54 +92,70 @@ class QFitWater_Residue:
 								water_coor = []
 								self.n = 100
 								altlocs = np.unique(r_pro.altloc)
+								#WE NEED A NUMBER OF WATERS PLACED FOR ALL ATOMS (CALC NUMBER OF WATERS FOR ALL LYS, GLY, ECT). 
+															
+								#self.water.coor = self.water_holder_coor
+								for i in range(len(close_atoms)-1): #dictionary
+									self.water.atomid = i + np.max(self.pro_alt.atomid) + 2
+									water = copy.deepcopy(self.water)
+									water.atomid = i + np.max(self.pro_alt.atomid) + 1
+									if i == 0:
+										self.all_waters = water.combine(self.water)
+									else:
+										self.all_waters = self.all_waters.combine(self.water)
+								self.base_residue = self.pro_alt.combine(self.all_waters)
+								new_coor_set.append(self.base_residue.coor)
+								new_bs.append(self.base_residue.b)
+								occ.append(self.base_residue.q)
+
 								if len(altlocs) > 1:
 												 #full occupancy portion of the residue
-												 pro_full = r_pro.extract('q', 1.0, '==') 
-												 for a in altlocs:
-														water_coor = []
-														if a == '': continue # only look at 'proper' altloc
-														self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
-														if self.residue.resn[0] in ('ALA', 'GLY'): 
-																rotamer = 'all'
-														else:
-														 rotamer = self.choose_rotamer(r_pro.resn[0], self.pro_alt, a)
+												pro_full = r_pro.extract('q', 1.0, '==') 
+												for a in altlocs:
+													water_coor = []
+													if a == '': continue # only look at 'proper' altloc
+													self.pro_alt = pro_full.combine(r_pro.extract('altloc', a, '=='))
+														
+													#find 4 atoms segments and place waters
+													#chis = DICT4A[resn]
+													for atom_set_spec, atom_set_gen in DICT4A[resn].items():
+															n_idx=[]
+															#for i in range(len(chis)): #for every 4 atom segment, we are going to place waters
+															all_atoms = [y for x in atom_set_spec for y in (x if isinstance(x, tuple) else (x,))]
+															# this is for non aromatic residues
+															for at_s in all_atoms:
+																if at_s in list(res.name):
+																	n_idx.append(list(res.name).index(at_s))
+																	coords = self.pro_alt.coor[n_idx]
+																	all_coords = coords
+																	dih_val = self.new_dihedral(np.array(coords))
+																	#determine bucket for dih value (put this into another function)
+																	bucket=[]
+																	if len(np.array(min_ang[tuple(atom_set_gen)])) == 0:
+																		dih_id = 0
+																	else:
+																		diff_from_mins = dih_val - np.array(min_ang[tuple(atom_set_gen)])
+																		closest_min_idx = np.argsort(abs(diff_from_mins))[0]
+																		if diff_from_mins[closest_min_idx]>0:
+																			bucket.append(closest_min_idx+1)
+																		else:
+																			bucket.append(closest_min_idx)
+																	wat_centers = wat_center_coords[tuple(atom_set_gen)][dih_id] #import center coords
+																	holder = protein_coords[tuple(atom_set_gen)][dih_id][0] #import holder coord for 4 set of atoms
+																	R, t = rigid_transform_3D(np.array(holders).T, np.array(coords).T)
+																	wat_loc = (np.dot(R, np.array(wat_centers).T)+t.T)[0]
+																	print(wat_xyz)
 
-														#get distance of water molecules from protein atoms
-														close_atoms = WATERS[self.pro_alt.resn[0]][rotamer]
-														#create base residue that matches number of close atoms
-														self.water.coor = self.water_holder_coor
-														for i in range(len(close_atoms)-1):
-																self.water.atomid = i + np.max(self.pro_alt.atomid) + 2
-																water = copy.deepcopy(self.water)
-																water.atomid = i + np.max(self.pro_alt.atomid) + 1
-																if i == 0:
-																	self.all_waters = water.combine(self.water)
-																else:
-																	self.all_waters = self.all_waters.combine(self.water)
-														self.base_residue = self.pro_alt.combine(self.all_waters)
-														new_coor_set.append(self.base_residue.coor)
-														new_bs.append(self.base_residue.b)
-														occ.append(self.base_residue.q)
-														for i in range(0, len(close_atoms)):
-																atom = list(close_atoms[i+1].keys())
-																dist = list(close_atoms[i+1].values())
-																if self.residue.resn[0] == 'GLY':
-																		wat_loc = self.least_squares_gly(self.pro_alt.extract('name', atom[0],'==').coor, self.pro_alt.extract('name', atom[1],'==').coor, self.pro_alt.extract('name', atom[2],'==').coor, self.pro_alt.extract('name', atom[3],'==').coor, dist[0], dist[1], dist[2], dist[3])
-																else:
-																		wat_loc = self.least_squares(self.pro_alt.extract('name', atom[0],'==').coor, self.pro_alt.extract('name', atom[1],'==').coor, self.pro_alt.extract('name', atom[2],'==').coor, self.pro_alt.extract('name', atom[3],'==').coor, self.pro_alt.extract('name', atom[4],'==').coor, dist[0], dist[1], dist[2], dist[3], dist[4])
-																if wat_loc == 'None': print('none')#continue
 
-																#is new water location supported by density
-																values = self.xmap.interpolate(wat_loc)
-																if np.min(values) < 0.3: 
+																	values = self.xmap.interpolate(wat_loc)
+																	if np.min(values) < 0.3: 
 																		continue
-																else:
+																	else:
 																		self.water.coor = wat_loc
 																		if self._run_water_clash(self.water):
 																				water_coor.append(wat_loc)
 
-														
-														for i in range(1, len(water_coor)+1):
+													for i in range(1, len(water_coor)+1):
 																wat = []
 																wat = list(map(list, itertools.combinations(water_coor, i)))
 																for i, coor in enumerate(wat):
@@ -138,8 +165,7 @@ class QFitWater_Residue:
 																	for l in range(len(close_atoms)-len(water_place)):
 																		water_place.append(self.water_holder_coor)
 																	coor, b = self._place_waters(water_place, a, r_pro.resn[0]) #place all water molecules along with residue!
-																	#print('place:')
-																	#print(coor)
+
 																	new_coor_set.append(coor) 
 																	new_bs.append(b)
 								else:
@@ -179,9 +205,6 @@ class QFitWater_Residue:
 								self.conformer = self.base_residue
 								self.conformer.q = 1.0
 								self._coor_set = new_coor_set
-								#for i in self._coor_set:
-								#	print('new coor')
-								#	print(i)
 								self._bs = new_bs
 								#QP
 								#print(f"Remaining valid conformations: {len(self._coor_set)}")
@@ -189,9 +212,6 @@ class QFitWater_Residue:
 								self._write_intermediate_conformers(prefix=f"{r_pro.resi[0]}_sample")
 								print(f"Remaining valid conformations: {len(self._coor_set)}")
 								self._convert()
-								#for i in self._coor_set:
-								#	print('new coor 2')
-								#	print(i)
 								self._solve()
 								self._update_conformers()
 								print(f"Remaining valid conformations (post QP): {len(self._coor_set)}")
@@ -352,8 +372,37 @@ class QFitWater_Residue:
 								radians = math.atan2(y, x)
 								return math.degrees(radians)
 
+				def new_dihedral(self,p):
+						"""
+						Function for calculated the dihedral of a given set of 4 points.
+						(not my function)
+						Parameters 
+						----------
+						p : nd.array, shape=(4, 3)
+							4 points you want to calculate a dihedral from
+						Returns
+						-------
+						dih_ang : float
+							calculated dihedral angle
+						"""
+						p0 = p[0]
+						p1 = p[1]
+						p2 = p[2]
+						p3 = p[3]
 
-				def choose_rot(self, dihedral, r):
+						b0 = -1.0*(p1 - p0)
+						b1 = p2 - p1
+						b2 = p3 - p2
+						b1 /= np.linalg.norm(b1)
+
+						v = b0 - np.dot(b0, b1)*b1
+						w = b2 - np.dot(b2, b1)*b1
+						x = np.dot(v, w)
+						y = np.dot(np.cross(b1, v), w)
+						dih_ang = np.degrees(np.arctan2(y, x))
+						return dih_ang
+				
+				def choose_rot(self, dihedral):
 								if dihedral < 0:
 										rot = 360 + dihedral
 								else:
@@ -414,6 +463,50 @@ class QFitWater_Residue:
 								x, y, z = results_5.x
 								return results_5.x.reshape(3, 1).T
 
+				
+				def rigid_transform_3D(A, B):
+						'''
+						* Not my function *
+						from : https://github.com/nghiaho12/rigid_transform_3D/blob/master/rigid_transform_3D.py
+						function for calculating the optimal rotation and transformation matrix for a set of 4 points
+						onto another set of 4 points
+						Input: expects 3xN matrix of points
+						Returns R,t
+							R = 3x3 rotation matrix
+							t = 3x1 column vector
+						'''
+						assert A.shape == B.shape
+
+						num_rows, num_cols = A.shape
+						if num_rows != 3:
+							raise Exception(f"matrix A is not 3xN, it is {num_rows}x{num_cols}")
+
+						num_rows, num_cols = B.shape
+						if num_rows != 3:
+							raise Exception(f"matrix B is not 3xN, it is {num_rows}x{num_cols}")
+
+						# find mean column wise
+						centroid_A = np.mean(A, axis=1)
+						centroid_B = np.mean(B, axis=1)
+
+						# ensure centroids are 3x1
+						centroid_A = centroid_A.reshape(-1, 1)
+						centroid_B = centroid_B.reshape(-1, 1)
+
+						# subtract mean
+						Am = A - centroid_A
+						Bm = B - centroid_B
+
+						H = Am @ np.transpose(Bm)
+
+						# find rotation
+						U, S, Vt = np.linalg.svd(H)
+						R = Vt.T @ U.T
+
+						t = -R @ centroid_A + centroid_B
+						
+						return R, t
+
 				def _place_waters(self, wat_loc, altloc, resn):
 								"""create new residue structure with residue atoms & new water atoms
 										 take OG residue, output new residue
@@ -437,11 +530,13 @@ class QFitWater_Residue:
 											residue = residue.combine(water)
 								return residue.coor, residue.b 
 
-				def choose_rotamer(self, resn, r_pro,a):
-								chi1 = chi_atoms[resn]
-								dihedral = self.calc_chi1(r_pro.extract(f'name {chi1[0]}').coor, r_pro.extract(f'name {chi1[1]}').coor, r_pro.extract(f'name {chi1[2]}').coor, r_pro.extract(f'name {chi1[3]}').coor)
-								rotamer = self.choose_rot(dihedral, r_pro)
-								return rotamer 
+				def choose_rotamer(self, resn, r_pro, a):
+								chis = DICT4A[resn]
+								for i in range(len(chis)):
+									atoms = list(chis.keys())[i]
+									dihedral = self.calc_chi1(r_pro.extract(f'name {atoms[0]}').coor, r_pro.extract(f'name {atoms[1]}').coor, r_pro.extract(f'name {atoms[2]}').coor, r_pro.extract(f'name {atoms[3]}').coor)					
+									rotamer = self.choose_rot(dihedral, r_pro)
+									return rotamer 
 
 
 				def _convert(self): #figure out why 28 atoms on conformer.coor and not 17?
