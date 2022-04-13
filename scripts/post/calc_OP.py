@@ -87,10 +87,12 @@ def get_coords(pdb_file,r,a,ch): #pdb, residue, atom, chain
     coordslist.append(coords[c])
     weightlist.append(weight[c])
     bfactslist.append(bfacts[c])
-  if sum_weight != 1.0:
+  if sum_weight == 0.0:
+    for p in range(len(weightlist)):
+        weightlist[p] = weightlist[p]/0.0001
+  elif sum_weight != 1.0:
     for p in range(len(weightlist)):
       weightlist[p] = weightlist[p]/sum_weight
-  #return coords,weight,bfacts
   return coordslist,weightlist,bfactslist
 
 
@@ -101,8 +103,10 @@ def calc_S2(pdb_file, data_mat, res):
   p2_mat = []           # p2
   prob_mat = []         # probabilities of each state
   struc_mat = []        # number of structures (states)
-  b_mat = []            # B-factors
+  b_mat = []
+  print('starting')            # B-factors
   for d in data_mat: #for everyline
+    print(d)
     coord1, weight1, bfac1 = get_coords(pdb_file,d[0],d[1],d[6]) #pdb, residue, atom, chain
     coord2, weight2, bfac2 = get_coords(pdb_file,d[2],d[3],d[6]) #pdb, residue, atom, chain 
     # Check and correct some simple data consitencies
@@ -124,7 +128,7 @@ def calc_S2(pdb_file, data_mat, res):
          pass
     
     
-    # Start calculations
+      # Start calculations
     struc = 0
     S2ang = 0.0
     S2ortho = 1.0
@@ -135,6 +139,9 @@ def calc_S2(pdb_file, data_mat, res):
          p2_row = []
          # this is for uncorrelated motion between the two points
          S2ortho -= ((((bfac1[i] + bfac2[i])/(8*math.pi*math.pi)) * p[i]) * b)/(res*10)
+         print('bfactor')
+         print(bfac1[i])
+         print(S2ortho)
          b_list.append([bfac1,bfac2])
          struc+=1
          for j in range(len(weight1)): #for every occupancy
@@ -161,23 +168,27 @@ def parse_input_data(data_file):
   for line in fh_data:
     #print(line.split()[7])
     if line[0] == "#":pass
-    elif line.strip() =="":pass
-    elif line.split()[7] == 'G':pass
-    elif line.split()[7] == 'P':pass
+    elif line.split()[0] == "resi":pass
+    elif line.strip() =="" :pass
+    elif line.split()[7] == 'GLY' :pass
+    elif line.split()[7] == 'PRO' :pass
     else:
       data = line.split()
+      #print(data)
+      #print(data[0])
       r1 = int(data[0])
       a1 = data[1]
       r2 = int(data[2])
       a2 = data[3]
+      #print(a2)
       s2_expt = float(data[4])
       s2_expt_err = float(data[5])
       chain = data[6]
       chain_array.append(data[6])
       resn = data[7]
-      resi = data[8]
-      resn_array.append(data[7])
-      resi_array.append(data[8])
+      resi = data[0]
+      resn_array.append(resn)
+      resi_array.append(resi)
       data_mat.append([r1, a1, r2, a2, s2_expt, s2_expt_err, chain, resn, resi])
       s2_mat.append(s2_expt)
   fh_data.close()
@@ -200,7 +211,6 @@ if __name__=="__main__":
   output_s2_ortho_and_ang = False
 
   data_mat, s2_expt, resi, resn, chain = parse_input_data(data_file)
-
   s2_calc, struc_mat, p2_mat, s2_ortho, s2_ang, prob_mat, b_mat = calc_S2(pdb_file, data_mat, resolution)
 
   output = pd.DataFrame(columns=['s2calc', 's2ortho', 's2ang', 'resn', 'resi', 'chain'])
@@ -217,4 +227,3 @@ if __name__=="__main__":
   output['s2ortho'] = scaler1.fit_transform(output[['s2ortho']])
   output['s2calc'] = output['s2ortho'] * output['s2ang']
   output.to_csv(data_out, index=False)
-        
