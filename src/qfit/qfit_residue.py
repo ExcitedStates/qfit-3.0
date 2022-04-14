@@ -16,7 +16,15 @@ from .structure import residue_type
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
+<<<<<<< HEAD
 #creating a parser using argparse. __doc__ by default sets the help message to display when the file is run with --help
+=======
+
+def build_argparser():
+    p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
+                                description=__doc__)
+
+>>>>>>> 1735676ee10a083cdead6c381feef3d515d1eb2b
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("map", type=str,
