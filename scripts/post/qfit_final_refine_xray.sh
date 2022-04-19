@@ -161,7 +161,7 @@ while [ $zeroes -gt 1 ]; do
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
-                  main.nqh_flips=False \
+                  main.nqh_flips=True \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   else
@@ -171,7 +171,7 @@ while [ $zeroes -gt 1 ]; do
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
-                  main.nqh_flips=False \
+                  main.nqh_flips=True \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   fi
@@ -204,7 +204,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
+                main.nqh_flips=True \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 else
@@ -214,7 +214,7 @@ else
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
+                main.nqh_flips=True \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 fi
