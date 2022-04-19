@@ -148,6 +148,8 @@ mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
 zeroes=50
 i=1
 while [ $zeroes -gt 1 ]; do
+  echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
+
   if [ -f "${pdb_name}_002.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
@@ -178,6 +180,11 @@ while [ $zeroes -gt 1 ]; do
     exit 1;
   else
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
+  fi
+
+  if [ $i -ge 50 ]; then
+    echo "[WARNING] qfit_final_refine_xray.sh:: Aborting refinement loop after ${i} rounds.";
+    break;
   fi
 
   ((i++));
