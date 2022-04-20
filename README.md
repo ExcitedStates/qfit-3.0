@@ -45,6 +45,25 @@ Once these are installed, you can:
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
+### M1 Macs
+
+Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
+We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
+
+As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
+macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
+
+Instead of the first step in the above Installation section, use this:
+
+1. Create a new conda env & activate it
+   ```bash
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.8"
+   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
+   conda activate qfit
+   ```
+
+then follow the rest of the instructions.
+
 ### Advanced
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
