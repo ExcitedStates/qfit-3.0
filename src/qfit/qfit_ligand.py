@@ -10,7 +10,7 @@ import time
 import numpy as np
 from string import ascii_uppercase
 from . import MapScaler, Structure, XMap, _Ligand
-from .qfit import QFitLigand, QFitLigandOptions
+from .qfit import QFitLigand, _BaseQFitOptions
 from .logtools import setup_logging, log_run_info
 
 logger = logging.getLogger(__name__)
@@ -238,7 +238,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = QFitLigandOptions()
+    options = _BaseQFitOptions()
     options.apply_command_args(args)
 
     # Setup logger

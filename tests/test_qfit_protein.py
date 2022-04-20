@@ -4,7 +4,7 @@ import logging
 import multiprocessing as mp
 
 from qfit.qfit_protein import (
-    QFitProteinOptions,
+    _BaseQFitOptions,
     build_argparser,
     prepare_qfit_protein,
 )
@@ -52,7 +52,7 @@ class TestQFitProtein:
             pass
 
         # Apply the arguments to options
-        options = QFitProteinOptions()
+        options = _BaseQFitOptions()
         options.apply_command_args(args)
         options.debug = True  # For debugging in tests
 

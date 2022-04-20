@@ -73,16 +73,7 @@ class _BaseQFitOptions:
         self.bic_threshold = True
         self.seg_bic_threshold = True
 
-    def apply_command_args(self, args):
-        for key, value in vars(args).items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        return self
-
-
-class QFitRotamericResidueOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
+# From QFitRotamericResidueOptions:
 
         # Backbone sampling
         self.sample_backbone = True
@@ -109,6 +100,56 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         # influence QP / MIQP. Provide a list of atom names, e.g. ['N', 'CA']
         # TODO not implemented
         self.exclude_atoms = None
+
+#From QFitLigandOptions:
+
+        self.dofs_per_iteration = 2
+        self.remove_conformers_below_cutoff = False
+        self.local_search = True
+        self.sample_ligand_stepsize = 10
+        self.selection = None
+        self.cif_file = None
+
+# From QFitSegmentOptions:
+
+        self.fragment_length = None
+
+#From QFitCovalentLigandOptions:
+
+        # Backbone sampling
+        self.sample_backbone = True
+        self.neighbor_residues_required = 3
+        self.sample_backbone_amplitude = 0.30
+        self.sample_backbone_step = 0.1
+        self.sample_backbone_sigma = 0.125
+
+        # N-CA-CB angle sampling
+        self.sample_angle = True
+        self.sample_angle_range = 7.5
+        self.sample_angle_step = 3.75
+
+        # Rotamer sampling
+        self.sample_rotamers = True
+        self.rotamer_neighborhood = 80
+        self.remove_conformers_below_cutoff = False
+
+        # Ligand sampling
+        self.sample_ligand = True
+        self.sample_ligand_stepsize = 8
+
+#From QFitProteinOptions:
+
+        self.nproc = 1
+        self.verbose = True
+        self.omit = False
+        self.checkpoint = False
+        self.pdb = None
+
+    def apply_command_args(self, args):
+        for key, value in vars(args).items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
 
 
 class _BaseQFit:
@@ -992,12 +1033,6 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue.tofile(fname)
 
 
-class QFitSegmentOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-        self.fragment_length = None
-
-
 class QFitSegment(_BaseQFit):
     """Determines consistent protein segments based on occupancy and
        density fit"""
@@ -1215,18 +1250,6 @@ class QFitSegment(_BaseQFit):
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
             logger.info(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
-
-
-class QFitLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
-        self.dofs_per_iteration = 2
-        self.remove_conformers_below_cutoff = False
-        self.local_search = True
-        self.sample_ligand_stepsize = 10
-        self.selection = None
-        self.cif_file = None
 
 
 class QFitLigand(_BaseQFit):
@@ -1515,32 +1538,6 @@ class QFitLigand(_BaseQFit):
             else:
                 starting_bond_index += self.options.dofs_per_iteration
             iteration += 1
-
-
-class QFitCovalentLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
-        # Backbone sampling
-        self.sample_backbone = True
-        self.neighbor_residues_required = 3
-        self.sample_backbone_amplitude = 0.30
-        self.sample_backbone_step = 0.1
-        self.sample_backbone_sigma = 0.125
-
-        # N-CA-CB angle sampling
-        self.sample_angle = True
-        self.sample_angle_range = 7.5
-        self.sample_angle_step = 3.75
-
-        # Rotamer sampling
-        self.sample_rotamers = True
-        self.rotamer_neighborhood = 80
-        self.remove_conformers_below_cutoff = False
-
-        # Ligand sampling
-        self.sample_ligand = True
-        self.sample_ligand_stepsize = 8
 
 
 class QFitCovalentLigand(_BaseQFit):

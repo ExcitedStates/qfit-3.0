@@ -1,8 +1,9 @@
 import logging
 
-from .qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from .qfit import QFitCovalentLigand, QFitCovalentLigandOptions
-from .qfit import QFitLigand, QFitLigandOptions
+from .qfit import _BaseQFitOptions
+from .qfit import QFitRotamericResidue
+from .qfit import QFitCovalentLigand
+from .qfit import QFitLigand
 from .scaler import MapScaler
 from .structure import Structure, _Segment
 from .structure.ligand import Covalent_Ligand, _Ligand
