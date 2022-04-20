@@ -147,6 +147,7 @@ mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 i=1
+too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
   echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
 
@@ -183,6 +184,7 @@ while [ $zeroes -gt 1 ]; do
   fi
 
   if [ $i -ge 50 ]; then
+    too_many_loops_flag=true
     echo "[WARNING] qfit_final_refine_xray.sh:: Aborting refinement loop after ${i} rounds.";
     break;
   fi
@@ -219,3 +221,14 @@ fi
 cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
 cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
 cp -v "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+
+#__________________________COMMENTARY FOR USER_______________________________________
+echo ""
+echo "[qfit_final_refine_xray] Refinement is complete."
+echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
+echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+
+if [ "${too_many_loops_flag}" = true ]; then
+  echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
+  echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
+fi
