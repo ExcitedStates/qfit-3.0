@@ -1,7 +1,6 @@
 #!/bin/bash
-'''
-This script works with Phenix version 1.18. 
-'''
+# This script works with Phenix version 1.20.
+
 qfit_usage() {
   echo >&2 "Usage:";
   echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
@@ -139,29 +138,28 @@ fi
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
-# Here we add H with phenix.reduce. Addition of H to the backbone is important
+# Here we add H with phenix.ready_set. Addition of H to the backbone is important
 #   since it introduces planarity restraints to the peptide bond.
-# This helps to prevent backbone conformers from being merged during
-#   subsequent rounds of refinement.
-cp "${pdb_name}_002.pdb" "${pdb_name}_002.000.pdb"
-# We reduce (for NQH flips) at the start of each loop in the following section
-#   so this is commented out:
-# phenix.reduce -build -allalt "${pdb_name}_002.000.pdb" > "${pdb_name}_002.pdb"
+# We will also create a cif file for any ligands in the structure at this point.
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
+mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 zeroes=50
 i=1
+too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
-  molprobity.reduce -build -allalt "${pdb_name}_002.$(printf '%03d' $((i-1))).pdb" > "${pdb_name}_002.pdb";
-  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
+
+  if [ -f "${pdb_name}_002.ligands.cif" ]; then
     phenix.refine "${pdb_name}_002.pdb" \
                   "${pdb_name}_002.mtz" \
-                  "${multiconf}.f_modified.ligands.cif" \
+                  "${pdb_name}_002.ligands.cif" \
                   "$adp" \
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
-                  main.nqh_flips=False \
+                  main.nqh_flips=True \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   else
@@ -171,7 +169,7 @@ while [ $zeroes -gt 1 ]; do
                   strategy="*individual_sites *individual_adp *occupancies" \
                   output.prefix="${pdb_name}" \
                   output.serial=3 \
-                  main.nqh_flips=False \
+                  main.nqh_flips=True \
                   main.number_of_macro_cycles=5 \
                   write_maps=false --overwrite
   fi
@@ -185,41 +183,52 @@ while [ $zeroes -gt 1 ]; do
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
   fi
 
-  # Backup maps and logs
-  cp -v "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
-  cp -v "${pdb_name}_003.mtz" "${pdb_name}_002.$(printf '%03d' $i).mtz";
-  cp -v "${pdb_name}_003.log" "${pdb_name}_002.$(printf '%03d' $i).log";
+  if [ $i -ge 50 ]; then
+    too_many_loops_flag=true
+    echo "[WARNING] qfit_final_refine_xray.sh:: Aborting refinement loop after ${i} rounds.";
+    break;
+  fi
 
   ((i++));
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
-mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
-molprobity.reduce -build -allalt "${pdb_name}_004.pdb" > "${pdb_name}_004_flipNQH.pdb"
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
+cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
+if [ -f "${pdb_name}_002.ligands.cif" ]; then
+  phenix.refine "${pdb_name}_002.pdb" \
                 "${pdb_name}_002.mtz" \
                 "${multiconf}.f_modified.ligands.cif" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
+                main.nqh_flips=True \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 else
-  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
+  phenix.refine "${pdb_name}_002.pdb" \
                 "${pdb_name}_002.mtz" \
                 "$adp" \
                 output.prefix="${pdb_name}" \
                 output.serial=5 \
                 strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
+                main.nqh_flips=True \
                 main.number_of_macro_cycles=5 \
                 write_maps=false --overwrite
 fi
 
 #__________________________________NAME FINAL FILES__________________________________
-cp "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
-cp "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
-cp "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
+cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
+cp -v "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+
+#__________________________COMMENTARY FOR USER_______________________________________
+echo ""
+echo "[qfit_final_refine_xray] Refinement is complete."
+echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
+echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+
+if [ "${too_many_loops_flag}" = true ]; then
+  echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
+  echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
+fi
