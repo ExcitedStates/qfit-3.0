@@ -191,7 +191,7 @@ while [ $zeroes -gt 1 ]; do
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
-mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
+cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   phenix.refine "${pdb_name}_002.pdb" \
                 "${pdb_name}_002.mtz" \
@@ -216,6 +216,6 @@ else
 fi
 
 #__________________________________NAME FINAL FILES__________________________________
-cp "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
-cp "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
-cp "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
+cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
+cp -v "${pdb_name}_005.log" "${pdb_name}_qFit.log"
