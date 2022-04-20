@@ -137,6 +137,8 @@ class XMap(_BaseVolume):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in ('.ccp4', '.mrc', '.map'):
+            if resolution is None:
+                raise ValueError(f"{fname} is a CCP4/MRC/MAP file. Please provide resolution using -r option")
             parser = parse_volume(fname, fmt=fmt)
             a, b, c = parser.abc
             alpha, beta, gamma = parser.angles
