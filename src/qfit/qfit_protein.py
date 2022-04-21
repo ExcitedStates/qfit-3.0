@@ -172,6 +172,18 @@ class QFitProtein:
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
 
+    def get_map_around_substructure(self, substructure):
+        """Make a subsection of the map near the substructure.
+
+        Args:
+            substructure (qfit.structure.base_structure._BaseStructure):
+                a substructure to carve a map around, commonly a Residue
+
+        Returns:
+            qfit.volume.XMap: a new (smaller) map
+        """
+        return self.xmap.extract(substructure.coor, padding=self.options.padding)
+
     def _run_qfit_residue_parallel(self):
         """Run qfit independently over all residues."""
         # This function hands out the job in parallel to a Pool of Workers.
@@ -221,7 +233,7 @@ class QFitProtein:
             futures = [pool.apply_async(QFitProtein._run_qfit_residue,
                                         kwds={'residue': residue,
                                               'structure': self.structure,
-                                              'xmap': self.xmap,
+                                              'xmap': self.get_map_around_substructure(residue),
                                               'options': self.options,
                                               'logqueue': logqueue},
                                         callback=_cb,
@@ -380,12 +392,9 @@ class QFitProtein:
                 sel_str = f"not ({sel_str})"
                 structure_new = structure_new.extract(sel_str)
 
-        # Copy the map
-        xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
-
         # Exception handling in case qFit-residue fails:
         qfit = QFitRotamericResidue(residue, structure_new,
-                                    xmap_reduced, options)
+                                    xmap, options)
         try:
             qfit.run()
         except RuntimeError as e:
@@ -408,7 +417,7 @@ class QFitProtein:
         n_conformers = len(qfit.get_conformers())
 
         # Freeing up some memory to avoid memory issues:
-        del xmap_reduced
+        del xmap
         del qfit
         gc.collect()
 
@@ -429,6 +438,8 @@ def prepare_qfit_protein(options):
         options.map, resolution=options.resolution, label=options.label
     )
     xmap = xmap.canonical_unit_cell()
+
+    # Scale map based on input structure
     if options.scale is True:
         scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
