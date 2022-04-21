@@ -113,7 +113,6 @@ class _BaseQFitOptions:
 
         ### From QFitProteinOptions
         self.nproc = 1
-        self.verbose = True
         self.checkpoint = False
         self.pdb = None
 
