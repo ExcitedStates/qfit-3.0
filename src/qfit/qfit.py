@@ -28,7 +28,7 @@ from .structure.rotamers import ROTAMERS
 logger = logging.getLogger(__name__)
 
 
-class _BaseQFitOptions:
+class QFitOptions:
     def __init__(self):
         # General options
         self.directory = '.'

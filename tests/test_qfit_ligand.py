@@ -2,7 +2,7 @@ import os
 import logging
 
 from qfit.qfit_ligand import (
-    _BaseQFitOptions,
+    QFitOptions,
     prepare_qfit_ligand,
     build_argparser,
 )
@@ -36,7 +36,7 @@ class TestQFitLigand:
             pass
 
         # Apply the arguments to options
-        options = _BaseQFitOptions()
+        options = QFitOptions()
         options.apply_command_args(args)
         options.debug = True  # For debugging in tests
 

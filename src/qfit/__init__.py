@@ -1,6 +1,6 @@
 import logging
 
-from .qfit import _BaseQFitOptions
+from .qfit import QFitOptions
 from .qfit import QFitRotamericResidue
 from .qfit import QFitCovalentLigand
 from .qfit import QFitLigand

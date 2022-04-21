@@ -1,5 +1,5 @@
 import gc
-from .qfit import _BaseQFitOptions
+from .qfit import QFitOptions
 from .qfit import QFitRotamericResidue
 from .qfit import QFitSegment
 import multiprocessing as mp
@@ -457,7 +457,7 @@ def main():
         pass
 
     # Apply the arguments to options
-    options = _BaseQFitOptions()
+    options = QFitOptions()
     options.apply_command_args(args)
 
     # Setup logger

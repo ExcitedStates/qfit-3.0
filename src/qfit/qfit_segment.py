@@ -5,7 +5,7 @@ import logger
 from argparse import ArgumentParser
 
 from . import MapScaler, Structure, XMap
-from .qfit import _BaseQFitOptions
+from .qfit import QFitOptions
 from .qfit import QFitSegment
 from .logtools import setup_logging, log_run_info
 
@@ -92,7 +92,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = _BaseQFitOptions()
+    options = QFitOptions()
     options = options.apply_command_args(args)
 
     # Setup logger

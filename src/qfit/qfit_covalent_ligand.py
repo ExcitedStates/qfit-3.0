@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 from . import MapScaler, Structure, XMap, Covalent_Ligand
-from . import QFitCovalentLigand, _BaseQFitOptions
+from . import QFitCovalentLigand, QFitOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -198,7 +198,7 @@ def main():
     receptor = structure.extract(sel_str)
     logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
 
-    options = _BaseQFitOptions()
+    options = QFitOptions()
     options.apply_command_args(args)
 
     # Load and process the electron density map:
