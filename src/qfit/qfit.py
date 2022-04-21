@@ -73,8 +73,7 @@ class _BaseQFitOptions:
         self.bic_threshold = True
         self.seg_bic_threshold = True
 
-# From QFitRotamericResidueOptions:
-
+        ### From QFitRotamericResidueOptions:
         # Backbone sampling
         self.sample_backbone = True
         self.neighbor_residues_required = 3
@@ -101,8 +100,8 @@ class _BaseQFitOptions:
         # TODO not implemented
         self.exclude_atoms = None
 
-#From QFitLigandOptions:
-
+        ### From QFitLigandOptions
+        # Ligand sampling
         self.dofs_per_iteration = 2
         self.remove_conformers_below_cutoff = False
         self.local_search = True
@@ -110,12 +109,10 @@ class _BaseQFitOptions:
         self.selection = None
         self.cif_file = None
 
-# From QFitSegmentOptions:
-
+        ### From QFitSegmentOptions
         self.fragment_length = None
 
-#From QFitCovalentLigandOptions:
-
+        ### From QFitCovalentLigandOptions
         # Backbone sampling
         self.sample_backbone = True
         self.neighbor_residues_required = 3
@@ -137,8 +134,7 @@ class _BaseQFitOptions:
         self.sample_ligand = True
         self.sample_ligand_stepsize = 8
 
-#From QFitProteinOptions:
-
+        ### From QFitProteinOptions
         self.nproc = 1
         self.verbose = True
         self.omit = False
