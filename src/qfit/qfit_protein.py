@@ -16,6 +16,7 @@ from .logtools import setup_logging, log_run_info, poolworker_setup_logging, Que
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
+
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -182,7 +183,7 @@ class QFitProtein:
             ctx = mp.get_context(method="spawn")
 
         # Print execution stats
-        residues = list(self.structure.single_conformer_residues) 
+        residues = list(self.structure.single_conformer_residues)
         logger.info(f"RESIDUES: {len(residues)}")
         logger.info(f"NPROC: {self.options.nproc}")
 
@@ -434,7 +435,7 @@ def prepare_qfit_protein(options):
     )
     xmap = xmap.canonical_unit_cell()
 
-    #scaling map based on input structure
+    # Scale map based on input structure
     if options.scale is True:
         scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
@@ -477,4 +478,3 @@ def main():
     time0 = time.time()
     multiconformer = qfit.run()
     logger.info(f"Total time: {time.time() - time0}s")
-
