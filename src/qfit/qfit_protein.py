@@ -172,6 +172,18 @@ class QFitProtein:
         multiconformer = self._run_qfit_segment(structure)
         return multiconformer
 
+    def get_map_around_substructure(self, substructure):
+        """Make a subsection of the map near the substructure.
+
+        Args:
+            substructure (qfit.structure.base_structure._BaseStructure):
+                a substructure to carve a map around, commonly a Residue
+
+        Returns:
+            qfit.volume.XMap: a new (smaller) map
+        """
+        return self.xmap.extract(substructure.coor, padding=self.options.padding)
+
     def _run_qfit_residue_parallel(self):
         """Run qfit independently over all residues."""
         # This function hands out the job in parallel to a Pool of Workers.
@@ -186,14 +198,6 @@ class QFitProtein:
         residues = list(self.structure.single_conformer_residues)
         logger.info(f"RESIDUES: {len(residues)}")
         logger.info(f"NPROC: {self.options.nproc}")
-
-        #split up map by residue to allow smaller maps to be spawned off in pool command
-        #create dictionary for residue:map pairings
-        residue_map_dict = {}
-        for residue in residues:
-            xmap_reduced = self.xmap.extract(residue.coor, padding=self.options.padding) #extract the map around the residue
-            residue_map_dict[residue] = xmap_reduced
-
 
         # Build a Manager, have it construct a Queue. This will conduct
         #   thread-safe and process-safe passing of LogRecords.
@@ -229,7 +233,7 @@ class QFitProtein:
             futures = [pool.apply_async(QFitProtein._run_qfit_residue,
                                         kwds={'residue': residue,
                                               'structure': self.structure,
-                                              'xmap': residue_map_dict[residue],
+                                              'xmap': self.get_map_around_substructure(residue),
                                               'options': self.options,
                                               'logqueue': logqueue},
                                         callback=_cb,
