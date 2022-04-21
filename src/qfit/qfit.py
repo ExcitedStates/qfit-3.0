@@ -102,8 +102,6 @@ class _BaseQFitOptions:
 
         ### From QFitLigandOptions
         # Ligand sampling
-        self.dofs_per_iteration = 2
-        self.remove_conformers_below_cutoff = False
         self.local_search = True
         self.sample_ligand = True  # From QFitCovalentLigandOptions
         self.sample_ligand_stepsize = 10  # Was 8 in QFitCovalentLigandOptions
@@ -116,7 +114,6 @@ class _BaseQFitOptions:
         ### From QFitProteinOptions
         self.nproc = 1
         self.verbose = True
-        self.omit = False
         self.checkpoint = False
         self.pdb = None
 
