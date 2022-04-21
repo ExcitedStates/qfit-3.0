@@ -113,7 +113,6 @@ class _BaseQFitOptions:
 
         ### From QFitProteinOptions
         self.nproc = 1
-        self.checkpoint = False
         self.pdb = None
 
     def apply_command_args(self, args):
