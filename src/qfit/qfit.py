@@ -978,10 +978,18 @@ class QFitRotamericResidue(_BaseQFit):
             iteration += 1
 
     def tofile(self):
+        # Which directory are we saving into?
+        residue_directory = f"{self.chain}_{self.resi}"
+        if self.icode:
+            residue_directory += f"_{self.icode}"
+        residue_directory = os.path.join(self.options.directory, residue_directory)
+
+        # Save the individual conformers
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
-            fname = os.path.join(self.options.directory, f'conformer_{n}.pdb')
+            fname = os.path.join(residue_directory, f'conformer_{n}.pdb')
             conformer.tofile(fname)
+
         # Make a multiconformer residue
         nconformers = len(conformers)
         if nconformers < 1:
@@ -996,10 +1004,10 @@ class QFitRotamericResidue(_BaseQFit):
             for altloc, conformer in zip(ascii_uppercase[1:], conformers[1:]):
                 conformer.altloc = altloc
                 mc_residue = mc_residue.combine(conformer)
-
         mc_residue = mc_residue.reorder()
-        fname = os.path.join(self.options.directory,
-                             f"multiconformer_residue.pdb")
+
+        # Save the multiconformer residue
+        fname = os.path.join(residue_directory, f"multiconformer_residue.pdb")
         mc_residue.tofile(fname)
 
 

@@ -380,15 +380,14 @@ class QFitProtein:
         identifier = f"{chainid}_{resi}"
         if icode:
             identifier += f'_{icode}'
-        base_directory = options.directory
-        options.directory = os.path.join(base_directory, identifier)
+        residue_directory = os.path.join(options.directory, identifier)
         try:
-            os.makedirs(options.directory)
+            os.makedirs(residue_directory)
         except OSError:
             pass
 
         # Exit early if we have already run qfit for this residue
-        fname = os.path.join(options.directory, 'multiconformer_residue.pdb')
+        fname = os.path.join(residue_directory, 'multiconformer_residue.pdb')
         if os.path.exists(fname):
             return
 
