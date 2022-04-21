@@ -278,37 +278,50 @@ class QFitProtein:
         waters = waters.extract('resn', 'HOH', '==')
         hetatms = hetatms.combine(waters)
 
-        # Combine all multiconformer residues into one structure
+        # Combine all multiconformer residues into one structure, multiconformer_model
+        multiconformer_model = None
         for residue in residues:
+            # Create the residue identifier
+            chain = residue.chain[0]
+            resid, icode = residue.id
+            residue_directory = f"{chain}_{resid}"
+            if icode:
+                residue_directory += f"_{icode}"
+
+            # Check the residue is a rotameric residue,
+            # if not, we won't have a multiconformer_residue.pdb.
+            # Make sure to append it to the hetatms object so it stays in the final output.
             if residue.resn[0] not in ROTAMERS:
                 hetatms = hetatms.combine(residue)
                 continue
-            chain = residue.chain[0]
-            resid, icode = residue.id
-            directory = os.path.join(self.options.directory,
-                                     f"{chain}_{resid}")
-            if icode:
-                directory += f"_{icode}"
-            fname = os.path.join(directory, 'multiconformer_residue.pdb')
+
+            # Load the multiconformer_residue.pdb file
+            fname = os.path.join(
+                self.options.directory,
+                residue_directory,
+                'multiconformer_residue.pdb',
+            )
             if not os.path.exists(fname):
+                logger.warn(f"[{residue_directory}] Couldn't find multiconformer_residue.pdb!"
+                             "Will not be present in multiconformer_model.pdb!")
                 continue
             residue_multiconformer = Structure.fromfile(fname)
-            try:
-                multiconformer = multiconformer.combine(residue_multiconformer)
-            except UnboundLocalError:
-                multiconformer = residue_multiconformer
-            except FileNotFoundError:
-                logger.error(f"File \"{fname}\" not found!")
-                pass
 
-        multiconformer = multiconformer.combine(hetatms)
-        fname = os.path.join(self.options.directory,
-                             "multiconformer_model.pdb")
+            # Stitch them together
+            if multiconformer_model is None:
+                multiconformer_model = residue_multiconformer
+            else:
+                multiconformer_model = multiconformer_model.combine(residue_multiconformer)
+
+        # Reattach the hetatms to the multiconformer_model & write out
+        multiconformer_model = multiconformer_model.combine(hetatms)
+        fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
         if self.structure.scale or self.structure.cryst_info:
-            multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
+            multiconformer_model.tofile(fname, self.structure.scale, self.structure.cryst_info)
         else:
-            multiconformer.tofile(fname)
-        return multiconformer
+            multiconformer_model.tofile(fname)
+
+        return multiconformer_model
 
     def _run_qfit_segment(self, multiconformer):
         self.options.randomize_b = False
@@ -334,7 +347,7 @@ class QFitProtein:
 
         # Don't run qfit if we have a ligand or water
         if residue.type != 'rotamer-residue':
-            return
+            raise RuntimeError(f"Residue {residue.id}: is not a rotamer-residue. Aborting qfit_residue sampling.")
 
         # Set up logger hierarchy in this subprocess
         poolworker_setup_logging(logqueue)
@@ -389,6 +402,7 @@ class QFitProtein:
         # Exit early if we have already run qfit for this residue
         fname = os.path.join(residue_directory, 'multiconformer_residue.pdb')
         if os.path.exists(fname):
+            logger.info(f"Residue {identifier}: {fname} already exists, using this checkpoint.")
             return
 
         # Copy the structure

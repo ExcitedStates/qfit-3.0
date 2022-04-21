@@ -979,10 +979,10 @@ class QFitRotamericResidue(_BaseQFit):
 
     def tofile(self):
         # Which directory are we saving into?
-        residue_directory = f"{self.chain}_{self.resi}"
+        resi_identifier = f"{self.chain}_{self.resi}"
         if self.icode:
-            residue_directory += f"_{self.icode}"
-        residue_directory = os.path.join(self.options.directory, residue_directory)
+            resi_identifier += f"_{self.icode}"
+        residue_directory = os.path.join(self.options.directory, resi_identifier)
 
         # Save the individual conformers
         conformers = self.get_conformers()
@@ -1007,6 +1007,7 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue = mc_residue.reorder()
 
         # Save the multiconformer residue
+        logger.info(f"Saving {resi_identifier} multiconformer to multiconformer_residue.pdb")
         fname = os.path.join(residue_directory, f"multiconformer_residue.pdb")
         mc_residue.tofile(fname)
 
