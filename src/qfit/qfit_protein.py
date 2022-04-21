@@ -27,9 +27,10 @@ def build_argparser():
     p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
-                        "use the --label options to specify columns to read.")
+                        "use the --label options to specify columns to read."                        
+                        "For CCP4 files, use the -r to specify resolution.", required=True)
     p.add_argument("structure",
-                   help="PDB-file containing structure.")
+                   help="PDB-file containing structure.", required=True)
 
     # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT",
