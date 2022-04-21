@@ -194,8 +194,21 @@ class QFitProtein:
         except ValueError:
             ctx = mp.get_context(method="spawn")
 
+        # Extract non-protein atoms
+        hetatms = self.structure.extract('record', 'HETATM', '==')
+        waters = self.structure.extract('record', 'ATOM', '==')
+        waters = waters.extract('resn', 'HOH', '==')
+        hetatms = hetatms.combine(waters)
+
+        # Create a list of residues from single conformations of proteinaceous residues.
+        # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
+        #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
+        #    And then as we re-combine HETATMs back into the multiconformer_model.
+        residues = list(self.structure.extract('record', 'HETATM', '!=')
+                                      .extract('resn', 'HOH', '!=')
+                                      .single_conformer_residues)
+
         # Print execution stats
-        residues = list(self.structure.single_conformer_residues)
         logger.info(f"RESIDUES: {len(residues)}")
         logger.info(f"NPROC: {self.options.nproc}")
 
@@ -271,12 +284,6 @@ class QFitProtein:
         # There are no more sub-processes, so we stop the QueueListener
         listener.stop()
         listener.join()
-
-        # Extract non-protein atoms
-        hetatms = self.structure.extract('record', 'HETATM', '==')
-        waters = self.structure.extract('record', 'ATOM', '==')
-        waters = waters.extract('resn', 'HOH', '==')
-        hetatms = hetatms.combine(waters)
 
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
