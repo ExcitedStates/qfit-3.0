@@ -73,7 +73,7 @@ class _BaseQFitOptions:
         self.bic_threshold = True
         self.seg_bic_threshold = True
 
-        ### From QFitRotamericResidueOptions:
+        ### From QFitRotamericResidueOptions, QFitCovalentLigandOptions
         # Backbone sampling
         self.sample_backbone = True
         self.neighbor_residues_required = 3
@@ -88,7 +88,7 @@ class _BaseQFitOptions:
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60
+        self.rotamer_neighborhood = 60  # Was 80 in QFitCovalentLigandOptions
         self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
@@ -105,34 +105,13 @@ class _BaseQFitOptions:
         self.dofs_per_iteration = 2
         self.remove_conformers_below_cutoff = False
         self.local_search = True
-        self.sample_ligand_stepsize = 10
+        self.sample_ligand = True  # From QFitCovalentLigandOptions
+        self.sample_ligand_stepsize = 10  # Was 8 in QFitCovalentLigandOptions
         self.selection = None
         self.cif_file = None
 
         ### From QFitSegmentOptions
         self.fragment_length = None
-
-        ### From QFitCovalentLigandOptions
-        # Backbone sampling
-        self.sample_backbone = True
-        self.neighbor_residues_required = 3
-        self.sample_backbone_amplitude = 0.30
-        self.sample_backbone_step = 0.1
-        self.sample_backbone_sigma = 0.125
-
-        # N-CA-CB angle sampling
-        self.sample_angle = True
-        self.sample_angle_range = 7.5
-        self.sample_angle_step = 3.75
-
-        # Rotamer sampling
-        self.sample_rotamers = True
-        self.rotamer_neighborhood = 80
-        self.remove_conformers_below_cutoff = False
-
-        # Ligand sampling
-        self.sample_ligand = True
-        self.sample_ligand_stepsize = 8
 
         ### From QFitProteinOptions
         self.nproc = 1
