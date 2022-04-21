@@ -227,26 +227,45 @@ class QFitProtein:
             logger.critical(tb)
             progress.update()
 
-        # Launch a Pool and run Jobs
         # Here, we calculate alternate conformers for individual residues.
-        with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
-            futures = [pool.apply_async(QFitProtein._run_qfit_residue,
-                                        kwds={'residue': residue,
-                                              'structure': self.structure,
-                                              'xmap': self.get_map_around_substructure(residue),
-                                              'options': self.options,
-                                              'logqueue': logqueue},
-                                        callback=_cb,
-                                        error_callback=_error_cb)
-                       for residue in residues]
+        if self.options.nproc > 1:
+            # If multiprocessing, launch a Pool and run Jobs
+            with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
+                futures = [pool.apply_async(QFitProtein._run_qfit_residue,
+                                            kwds={'residue': residue,
+                                                  'structure': self.structure,
+                                                  'xmap': self.get_map_around_substructure(residue),
+                                                  'options': self.options,
+                                                  'logqueue': logqueue},
+                                            callback=_cb,
+                                            error_callback=_error_cb)
+                           for residue in residues]
 
-            # Make sure all jobs are finished
-            for f in futures:
-                f.wait()
+                # Make sure all jobs are finished
+                # #TODO If a task crashes or is OOM killed, then there is no result.
+                #       f.wait waits forever. It would be good to handle this case.
+                for f in futures:
+                    f.wait()
+
+            # Wait until all workers have completed
+            pool.join()
+
+        else:
+            # Otherwise, run this in the MainProcess
+            for residue in residues:
+                try:
+                    result = QFitProtein._run_qfit_residue(
+                        residue=residue,
+                        structure=self.structure,
+                        xmap=self.get_map_around_substructure(residue),
+                        options=self.options,
+                        logqueue=logqueue,
+                    )
+                    _cb(result)
+                except Exception as e:
+                    _error_cb(e)
 
         # Close the progressbar
-        pool.close()
-        pool.join()
         progress.close()
 
         # There are no more sub-processes, so we stop the QueueListener
