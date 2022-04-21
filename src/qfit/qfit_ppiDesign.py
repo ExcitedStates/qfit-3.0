@@ -22,7 +22,7 @@ from .transformer import Transformer
 from .volume import XMap
 from .scaler import MapScaler
 from .relabel import RelabellerOptions, Relabeller
-from .qfit import QFitRotamericResidueOptions
+from .qfit import QFitOptions
 from .structure.rotamers import ROTAMERS
 from .vdw_radii import vdwRadiiTable, EpsilonTable
 from itertools import groupby
@@ -287,7 +287,7 @@ def main():
     sel_str = f"chain {chainID2}"
     prot2 = structure.extract(sel_str)
     """
-    options = QFitRotamericResidueOptions()
+    options = QFitOptions()
 
     L_res = []
     R_res = []

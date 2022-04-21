@@ -10,7 +10,8 @@ import numpy as np
 from string import ascii_uppercase
 from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
-from . import QFitRotamericResidue, QFitRotamericResidueOptions
+from .qfit import QFitOptions
+from . import QFitRotamericResidue
 from .structure import residue_type
 
 logger = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = QFitRotamericResidueOptions()
+    options = QFitOptions()
     options.apply_command_args(args)
 
     # Setup logger
