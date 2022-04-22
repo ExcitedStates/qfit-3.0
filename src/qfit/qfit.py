@@ -163,6 +163,11 @@ class _BaseQFit:
         self._xmap_model2.set_space_group("P1")
         self._voxel_volume = self.xmap.unit_cell.calc_volume()
         self._voxel_volume /= self.xmap.array.size
+    
+    @property
+    def directory_name(self):
+        dname = self.options.directory
+        return dname
 
     def get_conformers(self):
         conformers = []
@@ -330,7 +335,7 @@ class _BaseQFit:
     def _write_intermediate_conformers(self, prefix="_conformer"):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
+            fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
 
             data = {}
             for attr in self.conformer.data:
@@ -350,7 +355,7 @@ class _BaseQFit:
         #    self.conformer.q = q
         #    self.conformer.coor = coor
         #    self._transformer.mask(self._rmask)
-        # fname = os.path.join(self.options.directory, f'mask.{ext}')
+        # fname = os.path.join(self.directory_name, f'mask.{ext}')
         # self._transformer.xmap.tofile(fname)
         # mask = self._transformer.xmap.array > 0
         # self._transformer.reset(full=True)
@@ -360,23 +365,23 @@ class _BaseQFit:
             self.conformer.coor = coor
             self.conformer.b = b
             self._transformer.density()
-        fname = os.path.join(self.options.directory, f'model.{ext}')
+        fname = os.path.join(self.directory_name, f'model.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.xmap.array -= self.xmap.array
-        fname = os.path.join(self.options.directory, f'diff.{ext}')
+        fname = os.path.join(self.directory_name, f'diff.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.reset(full=True)
         # self._transformer.xmap.array *= -1
-        # fname = os.path.join(self.options.directory, f'diff_negative.{ext}')
+        # fname = os.path.join(self.directory_name, f'diff_negative.{ext}')
         # self._transformer.xmap.tofile(fname)
 
         # self._transformer.reset(full=True)
         # self._transformer.xmap.array[mask] = values
-        # fname = os.path.join(self.options.directory, f'model_masked.{ext}')
+        # fname = os.path.join(self.directory_name, f'model_masked.{ext}')
         # self._transformer.xmap.tofile(fname)
         # values = self.xmap.array[mask]
         # self._transformer.xmap.array[mask] -= values
-        # fname = os.path.join(self.options.directory, f'diff_masked.{ext}')
+        # fname = os.path.join(self.directory_name, f'diff_masked.{ext}')
         # self._transformer.xmap.tofile(fname)
 
 
@@ -524,7 +529,7 @@ class QFitRotamericResidue(_BaseQFit):
             if self.options.debug:
                 # This should be output with debugging, and shouldn't
                 #   require the write_intermediate_conformers option.
-                fname = os.path.join(self.options.directory, "rebuilt_residue.pdb")
+                fname = os.path.join(self.directory_name, "rebuilt_residue.pdb")
                 self.residue.tofile(fname)
 
         # If including hydrogens, report if any H are missing
@@ -562,6 +567,17 @@ class QFitRotamericResidue(_BaseQFit):
         if options.subtract:
             self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
+
+    @property
+    def directory_name(self):
+        # This is a QFitRotamericResidue, so we're working on a residue.
+        # Which residue are we working on?
+        resi_identifier = f"{self.chain}_{self.resi}"
+        if self.icode:
+            resi_identifier += f"_{self.icode}"
+
+        dname = os.path.join(super().directory_name, resi_identifier)
+        return dname
 
     def _setup_clash_detector(self):
         residue = self.residue
@@ -978,16 +994,10 @@ class QFitRotamericResidue(_BaseQFit):
             iteration += 1
 
     def tofile(self):
-        # Which directory are we saving into?
-        resi_identifier = f"{self.chain}_{self.resi}"
-        if self.icode:
-            resi_identifier += f"_{self.icode}"
-        residue_directory = os.path.join(self.options.directory, resi_identifier)
-
         # Save the individual conformers
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
-            fname = os.path.join(residue_directory, f'conformer_{n}.pdb')
+            fname = os.path.join(self.directory_name, f'conformer_{n}.pdb')
             conformer.tofile(fname)
 
         # Make a multiconformer residue
@@ -1007,8 +1017,8 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue = mc_residue.reorder()
 
         # Save the multiconformer residue
-        logger.info(f"Saving {resi_identifier} multiconformer to multiconformer_residue.pdb")
-        fname = os.path.join(residue_directory, f"multiconformer_residue.pdb")
+        logger.info(f"[{self.identifier}] Saving multiconformer_residue.pdb")
+        fname = os.path.join(self.directory_name, f"multiconformer_residue.pdb")
         mc_residue.tofile(fname)
 
 
