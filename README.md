@@ -164,7 +164,7 @@ Using the example 3K0N:
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
 
-`qfit_protein /path/to/apoF_chainA.ccp4 /path/to/apoF_chainA.pdb -r 1.22 -z electron`
+`qfit_protein /path/to/apoF_chainA.ccp4 /path/to/apoF_chainA.pdb -r 1.22`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh /path/to/apoF_chainA.ccp4 apoF_chainA.pdb multiconformer_model2.pdb`
