@@ -696,7 +696,7 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
             logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
-            logger.warning(f"[{self.identifier}] Got AttributeError for directions at Cβ.")
+            logger.info(f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using x,y,z vectors.")
             # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             directions = np.identity(3)
 
