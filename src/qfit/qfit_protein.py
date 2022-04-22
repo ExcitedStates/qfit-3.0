@@ -171,8 +171,6 @@ class QFitProtein:
         else:
             self.pdb = ''
         multiconformer = self._run_qfit_residue_parallel()
-        #structure = Structure.fromfile('multiconformer_model.pdb')  # .reorder()
-        #structure = structure.extract('e', 'H', '!=')
         multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
