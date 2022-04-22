@@ -39,6 +39,7 @@ if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
 fi
 pdb_name="${mapfile%.mtz}"
 
+
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 mtzmetadata=`phenix.mtz.dump "${pdb_name}.mtz"`
 resrange=`grep "Resolution range:" <<< "${mtzmetadata}"`
@@ -101,6 +102,11 @@ echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_na
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
+
+#__________________________________NORMALIZE OCCUPANCIES________________________________________
+redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
+mv -v "${multiconf}.fixed_norm.pdb" "${multiconf}.fixed"
+
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
