@@ -139,9 +139,6 @@ def calc_S2(pdb_file, data_mat, res):
          p2_row = []
          # this is for uncorrelated motion between the two points
          S2ortho -= ((((bfac1[i] + bfac2[i])/(8*math.pi*math.pi)) * p[i]) * b)/(res*10)
-         print('bfactor')
-         print(bfac1[i])
-         print(S2ortho)
          b_list.append([bfac1,bfac2])
          struc+=1
          for j in range(len(weight1)): #for every occupancy
