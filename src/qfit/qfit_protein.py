@@ -24,13 +24,23 @@ os.environ["OMP_NUM_THREADS"] = "1"
 def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
-    p.add_argument("map", type=str,
+
+    #file extension check for map and structure. 
+    def file_choices(choices,fname):
+        ext = os.path.splitext(fname)[1][1:]
+        if ext not in choices:
+           p.error(f"File doesn't end with one of {choices} Please make sure the map/model are in the correct order: map, model.")
+        return fname
+
+    p.add_argument("map",
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
                         "use the --label options to specify columns to read."                        
-                        "For CCP4 files, use the -r to specify resolution.", required=True)
+                        "For CCP4 files, use the -r to specify resolution.",
+                        type=lambda s:file_choices(("ccp4","mtz","mrc", "map"),s))
     p.add_argument("structure",
-                   help="PDB-file containing structure.", required=True)
+                   help="PDB-file containing structure.", 
+                   type=lambda s:file_choices(("pdb"),s))
 
     # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT",
@@ -463,6 +473,9 @@ def main():
     #   (When args==None, argparse will default to sys.argv[1:])
     p = build_argparser()
     args = p.parse_args(args=None)
+    #function to ensure map/model are correct
+    check_map_model_file()
+
     try:
         os.mkdir(args.directory)
     except OSError:
