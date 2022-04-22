@@ -44,7 +44,6 @@ def main():
                   'qfit_residue = qfit.qfit_residue:main',
                   'qfit_ligand  = qfit.qfit_ligand:main',
                   'qfit_covalent_ligand = qfit.qfit_covalent_ligand:main',
-                  'qfit_segment = qfit.qfit_segment:main',
                   'qfit_prep_map = qfit.qfit_prep_map:main',
                   'qfit_density = qfit.qfit_density:main',
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
@@ -54,7 +53,6 @@ def main():
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main',
                   'fix_restraints = qfit.fix_restraints:main',
-                  'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main'
               ]},
