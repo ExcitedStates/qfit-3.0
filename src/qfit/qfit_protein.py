@@ -46,7 +46,7 @@ def build_argparser():
                    metavar="<float>", type=float,
                    help="Lower resolution bound (Å) (only use when providing CCP4 map files)")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-                   help="Scattering type")
+                   help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]")
     p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
                    help="Randomize B-factors of generated conformers")
     p.add_argument('-o', '--omit', action="store_true",
