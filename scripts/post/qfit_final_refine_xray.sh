@@ -82,7 +82,7 @@ if [ -z "${xray_data_labels}" ]; then
   exit 1;
 else
   echo "data labels: ${xray_data_labels}"
-  #Start writing refinement parameters into a parameter file
+  # Start writing refinement parameters into a parameter file
   echo "refinement.input.xray_data.labels=$xray_data_labels" > ${pdb_name}_refine.params
 fi
 
@@ -119,15 +119,18 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
-#Writing refinement parameters into parameters file
+# Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
-echo "refinement.output.prefix=${pdb_name}"  >> ${pdb_name}_refine.params
-echo "refinement.output.serial=2"  >> ${pdb_name}_refine.params
-echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_refine.params
-echo "refinement.main.nqh_flips=False"  >> ${pdb_name}_refine.params
-echo "refinement.output.write_maps=False"  >> ${pdb_name}_refine.params
+echo "refinement.output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
+echo "refinement.output.serial=2"                    >> ${pdb_name}_refine.params
+echo "refinement.main.number_of_macro_cycles=5"      >> ${pdb_name}_refine.params
+echo "refinement.main.nqh_flips=False"               >> ${pdb_name}_refine.params
+echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.params
 
-phenix.refine  "${multiconf}.f_modified.updated.pdb" "${pdb_name}.mtz" "${pdb_name}_refine.params" --overwrite 
+phenix.refine  "${multiconf}.f_modified.updated.pdb" \
+               "${pdb_name}.mtz" \
+               "${pdb_name}_refine.params" \
+               --overwrite
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
@@ -138,14 +141,14 @@ phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
 mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
-#Writing refinement parameters into parameters file
+# Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
-echo "refinement.output.prefix=${pdb_name}"  >> ${pdb_name}_occ_refine.params
-echo "refinement.output.serial=3"  >> ${pdb_name}_occ_refine.params
-echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_occ_refine.params
-echo "refinement.main.nqh_flips=True"  >> ${pdb_name}_occ_refine.params
-echo "refinement.refine.${adp}" >> ${pdb_name}_occ_refine.params
-echo "refinement.output.write_maps=False"  >> ${pdb_name}_occ_refine.params
+echo "refinement.output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
+echo "refinement.output.serial=3"                                                >> ${pdb_name}_occ_refine.params
+echo "refinement.main.number_of_macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.main.nqh_flips=True"                                            >> ${pdb_name}_occ_refine.params
+echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_occ_refine.params
@@ -155,8 +158,10 @@ i=1
 too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
   echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
-  phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_occ_refine.params" --overwrite 
-
+  phenix.refine "${pdb_name}_002.pdb" \
+                "${pdb_name}_002.mtz" \
+                "${pdb_name}_occ_refine.params" \
+                --overwrite
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
@@ -178,14 +183,15 @@ done
 
 #__________________________________FINAL REFINEMENT__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
-#Writing refinement parameters into parameters file
+
+# Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
-echo "refinement.output.prefix=${pdb_name}"  >> ${pdb_name}_final_refine.params
-echo "refinement.output.serial=5"  >> ${pdb_name}_final_refine.params
+echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
+echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
-echo "refinement.main.nqh_flips=True"  >> ${pdb_name}_final_refine.params
-echo "refinement.refine.${adp}" >> ${pdb_name}_final_refine.params
-echo "refinement.output.write_maps=False"  >> ${pdb_name}_final_refine.params
+echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
+echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
+echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
