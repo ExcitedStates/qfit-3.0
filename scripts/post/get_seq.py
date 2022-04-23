@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+'''
+This script will take in a PDB and return a single letter code for every rotamer residue in the PDB. 
+'''
 
 import sys
 import os
