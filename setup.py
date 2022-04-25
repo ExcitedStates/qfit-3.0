@@ -75,6 +75,7 @@ def main():
               'scripts/post/lig_occ.py',
               'scripts/post/calc_OP.py',
               'scripts/post/make_methyl_df.py',
+              'scripts/post/get_seq.py'
           ],
     )
 
