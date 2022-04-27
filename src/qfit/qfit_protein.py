@@ -9,7 +9,7 @@ import os
 import sys
 import time
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
+from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
 import logging
 import traceback
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
@@ -24,12 +24,16 @@ os.environ["OMP_NUM_THREADS"] = "1"
 def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
-    p.add_argument("map", type=str,
+
+    p.add_argument("map",
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
-                        "use the --label options to specify columns to read.")
+                        "use the --label options to specify columns to read. "
+                        "For CCP4 files, use the -r to specify resolution.",
+                   type=str, action=ValidateMapFileArgument)
     p.add_argument("structure",
-                   help="PDB-file containing structure.")
+                   help="PDB-file containing structure.",
+                   type=str, action=ValidateStructureFileArgument)
 
     # Map input options
     p.add_argument("-l", "--label", default="FWT,PHWT",
@@ -501,6 +505,7 @@ def main():
     #   (When args==None, argparse will default to sys.argv[1:])
     p = build_argparser()
     args = p.parse_args(args=None)
+
     try:
         os.mkdir(args.directory)
     except OSError:
