@@ -310,7 +310,7 @@ class _BaseQFit:
                 solver(cardinality=cardinality, threshold=threshold)
                 
         if solver.error == True:
-           logger.debug('CPLEX ERROR: Removing conformer')
+            logger.debug('CPLEX ERROR: Removing conformer')
             self.CPLEX_error = True
             return
         else:
