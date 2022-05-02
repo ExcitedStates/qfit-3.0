@@ -323,7 +323,7 @@ class _BaseQFit:
         '''This will removed conformations with the closest backbone coords to other conformations with the lowest occupancy.
            This will remove CPLEX errors we are having.'''
         def find_rmsd(coor_a, coor_b):
-            rmsd = np.sqrt(np.mean((coor_a-coor_b)**2)) #np.sum(np.linalg.norm(diff, axis=1))
+            rmsd = np.sqrt(np.mean((coor_a-coor_b)**2)) 
             return rmsd
 
         rmsd = 100 #set arbitrarily high rsmd
