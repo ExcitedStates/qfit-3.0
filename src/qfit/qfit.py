@@ -326,6 +326,53 @@ class _BaseQFit:
         # residual = 0
         return solver.obj_value
 
+    def _removed_conformer_cplex(self):
+        """Remove the lowest occupancy, most similar conformer.
+
+        Find the most similar pair of conformers, based on backbone RMSD.
+        Of these, remove the conformer with the lowest occupancy.
+
+        This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
+        These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
+        """
+
+        def find_rmsd(coor_a, coor_b):
+            rmsd = np.sqrt(np.mean((coor_a - coor_b) ** 2))
+            return rmsd
+
+        rmsd = 100  # Set an arbitrarily high rmsd
+        for a, b in itertools.combinations(
+            self._coor_set, 2
+        ):  # For every combination of the list
+            if np.array_equal(a, b):
+                continue  # If we get the same conformation, continue
+            rmsd_tmp = find_rmsd(a, b)  # Find the RMSD between each conformation
+            if rmsd_tmp < rmsd:
+                rmsd = rmsd_tmp
+                remove_conf_1 = a
+                remove_conf_2 = b
+        logger.debug(f"Lowest rmsd between conformers: {rmsd}")
+
+        # Now we have our conformations that are closest, remove the one with the lower occupancy
+        for q, coor in zip(self._occupancies, self._coor_set):
+            if np.all(coor == remove_conf_1):
+                occ_1 = q
+            elif np.all(coor == remove_conf_2):
+                occ_2 = q
+        min_occ = min(occ_1, occ_2)
+        logger.debug(f"Minimum occupancy: {min_occ}")
+
+        if (
+            self.options.write_intermediate_conformers
+        ):  # Output all conformations before we remove them
+            self._write_intermediate_conformers(prefix="cplex_remove")
+        zero_occ_mask = (
+            self._occupancies == min_occ
+        )  # Create filter for those with the minimum occupancy to remove conf
+        self._occupancies[
+            zero_occ_mask
+        ] = 0  # Assign conformer you want to remove with an occupancy of 0
+
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
 
