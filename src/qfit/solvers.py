@@ -183,16 +183,6 @@ if CPLEX:
               logger.debug('CPLEX error')
               self.error = True
 
-            #print("CPLEX MIQP")
-            #print('P:', P)
-            #print('q:', q)
-            #print('w:', w)
-
-            #obj = 0.5 * w.T @ P @ w + q.T @ w
-            #print("calculated myself OBJ:", obj)
-            #print('from solver OBJ:', self.obj_value)
-            #print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
-
 
 # Create a "pseudo-class" to abstract the choice of solver.
 class QPSolver(object):
