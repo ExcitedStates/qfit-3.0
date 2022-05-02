@@ -309,15 +309,15 @@ class _BaseQFit:
             else:
                 solver(cardinality=cardinality, threshold=threshold)
                 
-                if solver.error == True:
-                    logger.debug('CPLEX ERROR: Removing conformer')
-                    self.CPLEX_error = True
-                    return
-                else:
-                    self.CPLEX_error = False
-                    # Update occupancies from solver weights
-                    self._occupancies = solver.weights
-                    return solver.obj_value
+        if solver.error == True:
+           logger.debug('CPLEX ERROR: Removing conformer')
+            self.CPLEX_error = True
+            return
+        else:
+            self.CPLEX_error = False
+            # Update occupancies from solver weights
+            self._occupancies = solver.weights
+            return solver.obj_value
         
     def _removed_conformer_cplex(self):
         '''This will removed conformations with the closest backbone coords to other conformations with the lowest occupancy.
