@@ -1224,6 +1224,9 @@ class QFitSegment(_BaseQFit):
                 self._solve(threshold=self.options.threshold,
                             cardinality=self.options.cardinality,
                             loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                while self.CPLEX_error == True: #cplex failed and we need to remove conformers that are close to each other
+                   self._removed_conformer_cplex() #remove conformer
+
 
                 # Update conformers
                 mask = self._occupancies >= 0.002
