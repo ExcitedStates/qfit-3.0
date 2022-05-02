@@ -1048,6 +1048,7 @@ class QFitSegment(_BaseQFit):
         self._simple = True
         self._rmask = 1.5
         reso = None
+        self.CPLEX_error = False #this is to catch CPLEX errors and iteratively remove conformer causing issues in CPLEX
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
         elif options.resolution is not None:
