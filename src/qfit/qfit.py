@@ -285,6 +285,10 @@ class _BaseQFit:
                 self.BIC = np.inf
                 for threshold in loop_range:
                     solver(cardinality=None, threshold=threshold)
+                    if solver.error == True: #catch if MIQP failed
+                       logger.debug('CPLEX ERROR: Removing conformer')
+                       self.CPLEX_error = True
+                       return
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
                     n = len(self._target)
@@ -303,13 +307,14 @@ class _BaseQFit:
                     #     break
             else:
                 solver(cardinality=cardinality, threshold=threshold)
-
-        # Update occupancies from solver weights
-        self._occupancies = solver.weights
-
-        # logger.info(f"Residual under footprint: {residual:.4f}")
-        # residual = 0
-        return solver.obj_value
+       if solver.error == True:
+           logger.debug('CPLEX ERROR: Removing conformer')
+           self.CPLEX_error = True
+           return
+        else:
+            # Update occupancies from solver weights
+            self._occupancies = solver.weights
+            return solver.obj_value
 
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
