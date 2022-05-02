@@ -328,7 +328,6 @@ class _BaseQFit:
 
         rmsd = 100 #set arbitrarily high rsmd
         for a, b in itertools.combinations(self._coor_set, 2): #for every combination of the list
-            if np.isnan(np.sum(a)) | np.isnan(np.sum(b)): continue
             if np.array_equal(a,b): continue # if we get the same conformation, continue
             rmsd_tmp = find_rmsd(a, b) #find the RMSD between each conformation
             if rmsd_tmp < rmsd:
