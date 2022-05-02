@@ -315,7 +315,41 @@ class _BaseQFit:
             # Update occupancies from solver weights
             self._occupancies = solver.weights
             return solver.obj_value
+        
+    def _removed_conformer_cplex(self):
+        '''This will removed conformations with the closest backbone coords to other conformations with the lowest occupancy.
+           This will remove CPLEX errors we are having.'''
+        def find_rmsd(coor_a, coor_b):
+            rmsd = np.sqrt(np.mean((coor_a-coor_b)**2)) #np.sum(np.linalg.norm(diff, axis=1))
+            return rmsd
 
+        rmsd = 100 #set arbitrarily high rsmd
+        for a, b in itertools.combinations(self._coor_set, 2): #for every combination of the list
+            if np.isnan(np.sum(a)) | np.isnan(np.sum(b)): continue
+            if np.array_equal(a,b): continue # if we get the same conformation, continue
+            rmsd_tmp = find_rmsd(a, b) #find the RMSD between each conformation
+            if rmsd_tmp < rmsd:
+               rmsd = rmsd_tmp
+               remove_conf_1 = a
+               remove_conf_2 = b
+        logger.debug(f'Lowest rmsd between conformers: {rmsd}')
+
+        #now we have our conformations that are closest, remove the one with the lower occupancy
+        for q, coor in zip(self._occupancies, self._coor_set):
+            if np.all(coor == remove_conf_1):
+               occ_1 = q
+            elif np.all(coor == remove_conf_2):
+               occ_2 = q
+        min_occ = min(occ_1, occ_2)
+        logger.debug(f'Minimum Occupancy: {min_occ}')
+        
+        if self.options.write_intermediate_conformers: #output conformation all conformations before we remove them
+           self._write_intermediate_conformers(prefix="cplex_remove")
+        zero_occ_mask = (self._occupancies == min_occ) #create filter for those with the minimum occupancy to remove conf
+        self._occupancies[zero_occ_mask] = 0 #assign conformer you want to remove with an occupancy of 0
+
+        
+ 
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
 
