@@ -53,6 +53,7 @@ if CPLEX:
 
             self._solution = None
             self.weights = None
+            self.error = False #to catch CPLEX errors
 
         def initialize(self):
             # Set up the matrices and restraints
