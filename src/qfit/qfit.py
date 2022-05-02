@@ -1260,6 +1260,20 @@ class QFitSegment(_BaseQFit):
                             loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
                 while self.CPLEX_error == True: #cplex failed and we need to remove conformers that are close to each other
                    self._removed_conformer_cplex() #remove conformer
+                   fragments = np.array(fragments) #update fragments
+                   mask = self._occupancies >= 0.002
+                   fragments = fragments[mask]
+                   self._occupancies = self._occupancies[mask]
+                   self._coor_set = [fragment.coor for fragment in fragments]
+                   self._bs = [fragment.b for fragment in fragments]
+                   logger.info(np.sum(self._occupancies))
+                   if self.debug:
+                      self._write_intermediate_conformers(prefix="cplex_kept")
+                   self._convert() #rerun covert with updated conformers
+                   self._solve(threshold=self.options.threshold,
+                            cardinality=self.options.cardinality,
+                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14]) #rerun solve with updated conformers
+
 
 
                 # Update conformers
