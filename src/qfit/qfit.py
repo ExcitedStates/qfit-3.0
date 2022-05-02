@@ -289,6 +289,8 @@ class _BaseQFit:
                        logger.debug('CPLEX ERROR: Removing conformer')
                        self.CPLEX_error = True
                        return
+                    else: 
+                       self.CPLEX_error = False
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
                     n = len(self._target)
@@ -312,6 +314,7 @@ class _BaseQFit:
            self.CPLEX_error = True
            return
         else:
+            self.CPLEX_error = False
             # Update occupancies from solver weights
             self._occupancies = solver.weights
             return solver.obj_value
