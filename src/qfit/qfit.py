@@ -1269,8 +1269,8 @@ class QFitSegment(_BaseQFit):
                    self._occupancies = self._occupancies[mask]
                    self._coor_set = [fragment.coor for fragment in fragments]
                    self._bs = [fragment.b for fragment in fragments]
-                   logger.info(np.sum(self._occupancies))
-                   if self.debug:
+
+                   if self.options.write_intermediate_conformers:
                       self._write_intermediate_conformers(prefix="cplex_kept")
                    self._convert() #rerun covert with updated conformers
                    self._solve(threshold=self.options.threshold,
