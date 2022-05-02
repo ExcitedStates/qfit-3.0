@@ -94,6 +94,7 @@ if CPLEX:
             self._nconformers = models.shape[0]
             self.initialized = False
             self.threads = threads
+            self.error = False #to catch CPLEX errors
 
         def initialize(self):
             self._quad_obj = np.inner(self._models, self._models)
@@ -170,14 +171,17 @@ if CPLEX:
                         rhs=[cardinality],
                         senses=senses,
                     )
-            miqp.solve()
-
-            self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(self._target, self._target)
-            self.weights = np.asarray(miqp.solution.get_values()[:self._nconformers])
-            miqp.end()
-            q = self._lin_obj.reshape(-1, 1)
-            P = self._quad_obj
-            w = self.weights.reshape(-1, 1)
+            try:         
+                miqp.solve()
+                self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(self._target, self._target)
+                self.weights = np.asarray(miqp.solution.get_values()[:self._nconformers])
+                miqp.end()
+                q = self._lin_obj.reshape(-1, 1)
+                P = self._quad_obj
+                w = self.weights.reshape(-1, 1)
+            except: #returning CPLEX failed error
+              logger.debug('CPLEX error')
+              self.error = True
 
             #print("CPLEX MIQP")
             #print('P:', P)
