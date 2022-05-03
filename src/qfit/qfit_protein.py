@@ -46,7 +46,7 @@ def build_argparser():
                    metavar="<float>", type=float,
                    help="Lower resolution bound (Å) (only use when providing CCP4 map files)")
     p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-                   help="Scattering type")
+                   help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]")
     p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
                    help="Randomize B-factors of generated conformers")
     p.add_argument('-o', '--omit', action="store_true",
@@ -171,9 +171,7 @@ class QFitProtein:
         else:
             self.pdb = ''
         multiconformer = self._run_qfit_residue_parallel()
-        structure = Structure.fromfile('multiconformer_model.pdb')  # .reorder()
-        structure = structure.extract('e', 'H', '!=')
-        multiconformer = self._run_qfit_segment(structure)
+        multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
     def get_map_around_substructure(self, substructure):
@@ -324,13 +322,17 @@ class QFitProtein:
             else:
                 multiconformer_model = multiconformer_model.combine(residue_multiconformer)
 
-        # Reattach the hetatms to the multiconformer_model & write out
+        # Reattach the hetatms to the multiconformer_model
         multiconformer_model = multiconformer_model.combine(hetatms)
-        fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-        if self.structure.scale or self.structure.cryst_info:
-            multiconformer_model.tofile(fname, self.structure.scale, self.structure.cryst_info)
-        else:
-            multiconformer_model.tofile(fname)
+
+        # Write out multiconformer_model.pdb only if in debug mode.
+        # This output is not a final qFit output, so it might confuse users.
+        if self.options.debug:
+            fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
+            if self.structure.scale or self.structure.cryst_info:
+                multiconformer_model.tofile(fname, self.structure.scale, self.structure.cryst_info)
+            else:
+                multiconformer_model.tofile(fname)
 
         return multiconformer_model
 
