@@ -351,24 +351,16 @@ class Structure(_BaseStructure):
                     pass
                 sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                 conformers = [self.extract(sel_str + x) for x in altlocs]
-                all_identical = True
-                for i in range(1,len(conformers)):
-                    diff = conformers[0].coor - conformers[i].coor
-                    dist = np.sum(np.linalg.norm(diff, axis=1))
+                for conf_a, conf_b in itertools.combinations(conformers, 2): #for every combindation of conformers
+                    dist = np.sqrt(np.mean((conf_a.coor - conf_b.coor)**2)) #calculate RMSD
                     if dist > rmsd_cutoff:
-                        all_identical = False
-                        break
-                if all_identical:
-                    for i in range(1,len(conformers)):
+                        continue #conformers are different
+                    else: #conformers are within in the rmsd_cutoff values, so remove one of the two conformers
                         multiconformer = multiconformer.remove_conformer(
                                          residue.resi[0],
                                          residue.chain[0],
-                                         conformers[0].altloc[0],
-                                         conformers[i].altloc[0])
-                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
-                    residue2 = multiconformer.extract(sel_str)
-                    residue2._q[residue2._selection] = 1.0
-                    residue2._altloc[residue2._selection] = ''
+                                         conf_a.altloc[0],
+                                         conf_b.altloc[0])
         return multiconformer
 
     @property
