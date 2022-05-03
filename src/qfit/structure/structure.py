@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import itertools
 
 from .base_structure import _BaseStructure, PDBFile
 from .ligand import _Ligand
