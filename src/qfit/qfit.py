@@ -311,11 +311,12 @@ class _BaseQFit:
         # residual = 0
         return solver.obj_value
 
-    def _removed_conformer_cplex(self):
-        """Remove the lowest occupancy, most similar conformer.
+    def _zero_out_most_similar_conformer(self):
+        """Zero-out the lowest occupancy, most similar conformer.
 
         Find the most similar pair of conformers, based on backbone RMSD.
         Of these, remove the conformer with the lowest occupancy.
+        This is done by setting its occupancy to 0.
 
         This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
         These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
