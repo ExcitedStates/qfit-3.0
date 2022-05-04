@@ -72,9 +72,9 @@ def get_coords(pdb_file,r,a,ch): #pdb, residue, atom, chain
          z = float(line[46:54]) #coord
          w = float(line[54:60])  #occupancy
          b = float(line[60:66]) #bfactors
-         coords[c] = [x,y,z] #coords.append([x,y,z])
-         weight[c] = w #weight.append(w)
-         bfacts[c] = b #bfacts.append(b)
+         coords[c] = [x,y,z] 
+         weight[c] = w 
+         bfacts[c] = b
          sum_weight += w
   fh_pdb.close()
 
@@ -104,9 +104,7 @@ def calc_S2(pdb_file, data_mat, res):
   prob_mat = []         # probabilities of each state
   struc_mat = []        # number of structures (states)
   b_mat = []
-  print('starting')            # B-factors
   for d in data_mat: #for everyline
-    print(d)
     coord1, weight1, bfac1 = get_coords(pdb_file,d[0],d[1],d[6]) #pdb, residue, atom, chain
     coord2, weight2, bfac2 = get_coords(pdb_file,d[2],d[3],d[6]) #pdb, residue, atom, chain 
     # Check and correct some simple data consitencies
@@ -167,17 +165,14 @@ def parse_input_data(data_file):
     if line[0] == "#":pass
     elif line.split()[0] == "resi":pass
     elif line.strip() =="" :pass
-    elif line.split()[7] == 'GLY' :pass
+    elif line.split()[7] == 'GLY' :pass #we do not get order parameters for glycine and prolines
     elif line.split()[7] == 'PRO' :pass
     else:
       data = line.split()
-      #print(data)
-      #print(data[0])
       r1 = int(data[0])
       a1 = data[1]
       r2 = int(data[2])
       a2 = data[3]
-      #print(a2)
       s2_expt = float(data[4])
       s2_expt_err = float(data[5])
       chain = data[6]
