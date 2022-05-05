@@ -1,0 +1,22 @@
+This is a draft area for everyone to put in PDBs that should be included in our larger biological testing script. We are aiming for 100 PDBs to be analyzed here.
+
+Considerations for PDBs to include:
+  #resolution
+  #method (X-ray v. Cyro)
+  #isotropic v. anisotropic
+  #biologically interesting residue
+  #including hydrogens
+  #containing nucleotides
+  #different types of proteins
+  #different types of ligands
+  #non-natural amino acids
+  #size 
+  
+Please add your PDBs below with a description of what categories about it meets. For PDBs to be included in this test set, it should be run t
+
+Potential PDBs (PDBs of interest based on criteria but HAVE NOT been vetted through qFit/manual review)
+
+PDBs to include (PDBs of interest based on criteria but HAVE been vetted through qFit/manual review)
+  -include PDB along with how it should be run in qFit protein 
+
+EXAMPLE: 3KON_composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT 3K0N.pdb; CypA, resolution: 1.39, bioliocally interesting residues, RT, X-ray, anisotropic refinement
