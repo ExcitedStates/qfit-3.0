@@ -290,13 +290,6 @@ class QFitProtein:
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
         for residue in residues:
-            # Create the residue identifier
-            chain = residue.chain[0]
-            resid, icode = residue.id
-            residue_directory = f"{chain}_{resid}"
-            if icode:
-                residue_directory += f"_{icode}"
-
             # Check the residue is a rotameric residue,
             # if not, we won't have a multiconformer_residue.pdb.
             # Make sure to append it to the hetatms object so it stays in the final output.
@@ -307,11 +300,11 @@ class QFitProtein:
             # Load the multiconformer_residue.pdb file
             fname = os.path.join(
                 self.options.directory,
-                residue_directory,
+                residue.shortcode,
                 'multiconformer_residue.pdb',
             )
             if not os.path.exists(fname):
-                logger.warn(f"[{residue_directory}] Couldn't find multiconformer_residue.pdb!"
+                logger.warn(f"[{residue.shortcode}] Couldn't find {fname}! "
                              "Will not be present in multiconformer_model.pdb!")
                 continue
             residue_multiconformer = Structure.fromfile(fname)
@@ -401,12 +394,7 @@ class QFitProtein:
         )
 
         # Build the residue results directory
-        chainid = residue.chain[0]
-        resi, icode = residue.id
-        identifier = f"{chainid}_{resi}"
-        if icode:
-            identifier += f'_{icode}'
-        residue_directory = os.path.join(options.directory, identifier)
+        residue_directory = os.path.join(options.directory, residue.shortcode)
         try:
             os.makedirs(residue_directory)
         except OSError:
@@ -415,14 +403,16 @@ class QFitProtein:
         # Exit early if we have already run qfit for this residue
         fname = os.path.join(residue_directory, 'multiconformer_residue.pdb')
         if os.path.exists(fname):
-            logger.info(f"Residue {identifier}: {fname} already exists, using this checkpoint.")
+            logger.info(f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint.")
             return
 
         # Copy the structure
-        structure_new = structure
-        structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+        (chainid, resi, icode) = residue._identifier_tuple
+        resi_selstr = f"chain {chainid} and resi {resi}"
         if icode:
-            structure_resi = structure_resi.extract('icode', icode)
+            resi_selstr += f" and icode {icode}"
+        structure_new = structure
+        structure_resi = structure.extract(resi_selstr)
         chain = structure_resi[chainid]
         conformer = chain.conformers[0]
         residue = conformer[residue.id]
