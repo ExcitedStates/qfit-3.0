@@ -17,6 +17,7 @@ from .custom_argparsers import (
 )
 import logging
 import traceback
+import itertools as itl
 from .logtools import (
     setup_logging,
     log_run_info,
@@ -427,9 +428,26 @@ class QFitProtein:
             .single_conformer_residues
         )
 
+        # Filter the residues: take only those not containing checkpoints.
+        def does_multiconformer_checkpoint_exist(residue):
+            fname = os.path.join(
+                self.options.directory,
+                residue.shortcode,
+                "multiconformer_residue.pdb",
+            )
+            if os.path.exists(fname):
+                logger.info(f"Residue {residue.shortcode}: {fname} already exists.")
+                return True
+            else:
+                return False
+
+        residues_to_sample = list(
+            itl.filterfalse(does_multiconformer_checkpoint_exist, residues)
+        )
+
         # Print execution stats
-        logger.info(f"RESIDUES: {len(residues)}")
-        logger.info(f"NPROC: {self.options.nproc}")
+        logger.info(f"Residues to sample: {len(residues_to_sample)}")
+        logger.info(f"nproc: {self.options.nproc}")
 
         # Build a Manager, have it construct a Queue. This will conduct
         #   thread-safe and process-safe passing of LogRecords.
@@ -442,7 +460,7 @@ class QFitProtein:
 
         # Initialise progress bar
         progress = tqdm(
-            total=len(residues),
+            total=len(residues_to_sample),
             desc="Sampling residues",
             unit="residue",
             unit_scale=True,
@@ -478,7 +496,7 @@ class QFitProtein:
                         callback=_cb,
                         error_callback=_error_cb,
                     )
-                    for residue in residues
+                    for residue in residues_to_sample
                 ]
 
                 # Make sure all jobs are finished
@@ -492,7 +510,7 @@ class QFitProtein:
 
         else:
             # Otherwise, run this in the MainProcess
-            for residue in residues:
+            for residue in residues_to_sample:
                 try:
                     result = QFitProtein._run_qfit_residue(
                         residue=residue,
