@@ -1248,6 +1248,13 @@ class QFitSegment(_BaseQFit):
                     # Update conformers
                     fragments = np.array(fragments)
                     mask = self._occupancies >= 0.002
+
+                    # Drop conformers below cutoff
+                    _resi_list = list(fragments[0].residues)
+                    logger.debug(
+                        f"Removing {np.sum(np.invert(mask))} conformers from "
+                        f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                    )
                     fragments = fragments[mask]
                     self._occupancies = self._occupancies[mask]
                     self._coor_set = [fragment.coor for fragment in fragments]
@@ -1261,6 +1268,7 @@ class QFitSegment(_BaseQFit):
                                     loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
                     except SolverError:
                         # MIQP failed and we need to remove conformers that are close to each other
+                        logger.debug("MIQP failed, dropping a fragment-conformer")
                         self._zero_out_most_similar_conformer()  # Remove conformer
                         if self.options.write_intermediate_conformers:
                             self._write_intermediate_conformers(prefix="cplex_kept")
@@ -1271,6 +1279,13 @@ class QFitSegment(_BaseQFit):
 
                 # Update conformers for the last time
                 mask = self._occupancies >= 0.002
+
+                # Drop conformers below cutoff
+                _resi_list = list(fragments[0].residues)
+                logger.debug(
+                    f"Removing {np.sum(np.invert(mask))} conformers from "
+                    f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                )
                 for fragment, occ in zip(fragments[mask],
                                          self._occupancies[mask]):
                     fragment.q = occ
