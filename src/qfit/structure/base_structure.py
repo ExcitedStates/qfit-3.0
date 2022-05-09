@@ -7,7 +7,7 @@ import numpy as np
 
 from .elements import ELEMENTS
 from .math import dihedral_angle
-from .pdbfile import PDBFile
+from .pdbfile import write_pdb
 from .selector import _Selector
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,7 @@ class _BaseStructure:
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
         self.link_data = None
-        self.scale = None
-        self.cryst_info = None
+        self.crystal_symmetry = None
         for attr, array in data.items():
             hattr = '_' + attr
             setattr(self, hattr, array)
@@ -42,12 +41,8 @@ class _BaseStructure:
             setattr(self.__class__, attr, prop)
 
         for key, value in kwargs.items():
-            if key == "link_data":
-                self.link_data = value
-            if key == "scale":
-                self.scale = value
-            if key == "cryst_info":
-                self.cryst_info = value
+            if key in ["link_data", "crystal_symmetry", "unit_cell"]:
+                setattr(self, key, value)
 
         if selection is None:
             self.natoms = self._coor.shape[0]
@@ -169,12 +164,10 @@ class _BaseStructure:
             selection = self._selection[mask]
         return selection
 
-    def tofile(self, fname, scale=None, cryst=None):
-        if scale != None:
-            self.scale = scale
-        if scale != None:
-            self.cryst_info = cryst
-        PDBFile.write(fname, self)
+    def tofile(self, fname, cryst=None):
+        if cryst != None:
+            self.crystal_symmetry = cryst
+        write_pdb(fname, self)
 
     def translate(self, translation):
         """Translate atoms"""

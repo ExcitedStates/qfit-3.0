@@ -14,7 +14,7 @@ from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver
-from .structure import Structure, _Segment
+from .structure import Structure, Segment
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
@@ -556,8 +556,8 @@ class QFitRotamericResidue(_BaseQFit):
         if self.segment is None:
             rtype = residue_type(self.residue)
             if rtype == "rotamer-residue":
-                self.segment = _Segment(self.structure.data, selection=self.residue._selection,
-                                        parent=self.structure, residues=[self.residue])
+                self.segment = Segment(self.structure.data, selection=self.residue._selection,
+                                       parent=self.structure, residues=[self.residue])
                 logger.warning(f"[{self.identifier}] Could not determine protein segment. "
                                f"Using independent protein segment.")
 

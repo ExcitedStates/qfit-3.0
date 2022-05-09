@@ -4,133 +4,137 @@ import itertools as itl
 from math import inf
 import logging
 
+import iotbx.pdb.hierarchy
+from libtbx import group_args
 
 logger = logging.getLogger(__name__)
 
+ANISOU_FIELDS = ['u00', 'u11', 'u22', 'u01', 'u02', 'u12']
 
-class PDBFile:
-    """Parsed PDB file representation by section. Contains reader and writer.
+def _extract_record_type(atoms):
+    records = []
+    for atom in atoms:
+        records.append("ATOM" if not atom.hetero else "HETATM")
+    return records
+
+
+def _extract_link_records(pdb_inp):
+    link = {}
+    for line in pdb_inp.extract_LINK_records():
+        try:
+            values = LinkRecord.parse_line(line)
+            for field in LinkRecord.fields:
+                link[field].append(values[field])
+        except:
+            logger.error("read_pdb: could not parse LINK data.")
+    return link
+
+
+def read_pdb(fname):
+    """
+    Parsed PDB file representation by section.
 
     Attributes:
         coor (dict[str, list): coordinate data
         anisou (dict[str, list]): anisotropic displacement parameter data
         link (dict[str, list]): link records
-        cryst1 (dict[str, Union[str, float, int]]): cryst1 record
-        scale (array): scale record
-        cryst_info (array): cryst1 record
+        crystal_symmetry (cctbx.crystal.symmetry): CRYST1 (and implicitly SCALE)
         resolution (Optional[float]): resolution of pdb file
+        unit_cell (Optional[UnitCell]): unit cell object
+        pdb_hierarchy (Optional[iotbx.pdb.hierarchy]): CCTBX PDB object
     """
 
-    @classmethod
-    def read(cls, fname):
-        """Read a pdb file and construct a PDBFile object.
+    """Read a pdb file using CCTBX and construct a PDBFile object."""
+    # this handles .gz extensions automatically
+    pdb_inp = iotbx.pdb.pdb_input(file_name=fname, source_info=None)
+    pdb_hierarchy = pdb_inp.construct_hierarchy()
+    if len(pdb_hierarchy.models()) > 1:
+        raise NotImplementedError("MODEL record is not implemented.")
+    crystal_symmetry = pdb_inp.crystal_symmetry()
+    atoms = pdb_hierarchy.atoms()
+    coordinates = atoms.extract_xyz()
+    # FIXME this is just a bad idea, we should work with the IOTBX objects
+    # if possible
+    data = {
+        "record": _extract_record_type(atoms),
+        "atomid": atoms.extract_serial(),
+        "name": [a.name.strip() for a in atoms],
+        "x": [xyz[0] for xyz in coordinates],
+        "y": [xyz[1] for xyz in coordinates],
+        "z": [xyz[2] for xyz in coordinates],
+        "b": atoms.extract_b().as_numpy_array(),
+        "q": atoms.extract_occ().as_numpy_array(),
+        "resn": [a.parent().resname for a in atoms],
+        "resi": [a.parent().parent().resseq_as_int() for a in atoms],
+        "icode": [a.parent().parent().icode for a in atoms],
+        "e": [a.element.strip() for a in atoms],
+        "charge": ["" for a in atoms],
+        "chain": [a.chain().id for a in atoms],
+        "altloc": [a.parent().altloc for a in atoms]
+    }
+    anisou = defaultdict(list)
+    for atom in atoms:
+        if atom.uij != (-1, -1, -1, -1, -1, -1):
+            anisou["atomid"].append(atom.serial)
+            for key, n_frac in zip(ANISOU_FIELDS, atom.uij):
+                anisou[key].append(int(n_frac*10000))
+    # FIXME this will only work for PDB, not mmCIF
+    link = _extract_link_records(pdb_inp)
+    return group_args(coor=data,
+                      anisou=anisou,
+                      link=link,
+                      resolution=pdb_inp.resolution(),
+                      crystal_symmetry=crystal_symmetry,
+                      pdb_hierarchy=pdb_hierarchy)
 
-        Args:
-            fname (str): filename of pdb file to read
 
-        Returns:
-            qfit.structure.PDBFile: object containing parsed sections
-                of the PDB file
-        """
-        cls.coor = defaultdict(list)
-        cls.anisou = defaultdict(list)
-        cls.link = defaultdict(list)
-        cls.cryst1 = {}
-        cls.scale = []  # store header info
-        cls.cryst_info = []  # store header info
-        cls.resolution = None
+def write_pdb(fname, structure):
+    """Write a structure to a pdb file.
 
-        if fname.endswith('.gz'):
-            fopen = gzip.open
-            mode = 'rt'
-        else:
-            fopen = open
-            mode = 'r'
+    Note:
+        This is not complete. At the moment, we only write out LINK data
+        and coordinate (ATOM) data.
 
-        with fopen(fname, mode) as f:
-            for line in f:
-                if line.startswith(('ATOM', 'HETATM')):
-                    values = CoorRecord.parse_line(line)
-                    for field in CoorRecord.fields:
-                        cls.coor[field].append(values[field])
-                elif line.startswith('ANISOU'):
-                    values = AnisouRecord.parse_line(line)
-                    for field in AnisouRecord.fields:
-                        cls.anisou[field].append(values[field])
-                elif line.startswith('MODEL'):
-                    raise NotImplementedError("MODEL record is not implemented.")
-                elif line.startswith('REMARK   2 RESOLUTION'):
-                    try:
-                        values = Remark2DiffractionRecord.parse_line(line)
-                        cls.resolution = values['resolution']
-                    except:
-                        logger.error("PDBFile.read: could not parse RESOLUTION data.")
-                elif line.startswith('LINK '):
-                    try:
-                        values = LinkRecord.parse_line(line)
-                        for field in LinkRecord.fields:
-                            cls.link[field].append(values[field])
-                    except:
-                        logger.error("PDBFile.read: could not parse LINK data.")
-                elif line.startswith('CRYST1'):
-                    cls.cryst1 = Cryst1Record.parse_line(line)
-                    cls.cryst_info.append(line)
-                elif line.startswith('SCALE'):
-                    cls.scale.append(line)
+    Args:
+        fname (str): filename to write to
+        structure (qfit.structure.Structure): a structure object to convert
+            to PDB.
+    """
+    with open(fname, 'w') as f:
+        if structure.crystal_symmetry:
+            f.write("{}\n".format(iotbx.pdb.format_cryst1_and_scale_records(
+                structure.crystal_symmetry)))
+        if structure.link_data:
+            for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
+                record = dict(zip(LinkRecord.fields, record))
+                if not record['length']:
+                    # If the LINK length is 0, then leave it blank.
+                    # This is a deviation from the PDB standard.
+                    record['length'] = ''
+                    fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
+                    f.write(fmtstr.format(*record.values()))
+                else:
+                    f.write(LinkRecord.fmtstr.format(*record.values()))
 
-        return cls
+        # Write ATOM records
+        atomid = 1
+        for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
+            record = dict(zip(CoorRecord.fields, record))
+            record['atomid'] = atomid  # Overwrite atomid for consistency within this file.
+            # If the element name is a single letter,
+            # PDB specification says the atom name should start one column in.
+            if len(record['e']) == 1 and not len(record['name']) == 4:
+                record['name'] = " " + record['name']
 
-    @staticmethod
-    def write(fname, structure):
-        """Write a structure to a pdb file.
+            # Write file
+            try:
+                f.write(CoorRecord.format_line(record.values()))
+            except TypeError:
+                logger.error(f"PDBFile.write: could not write: {record}")
+            atomid += 1
 
-        Note:
-            This is not complete. At the moment, we only write out LINK data
-            and coordinate (ATOM) data.
-
-        Args:
-            fname (str): filename to write to
-            structure (qfit.structure.Structure): a structure object to convert
-                to PDB.
-        """
-        with open(fname, 'w') as f:
-            if structure.cryst_info:
-                for item in structure.cryst_info:
-                    f.write("%s" % item)
-            if structure.scale:
-                for item in structure.scale:
-                    f.write("%s" % item) 
-            if structure.link_data:
-                for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
-                    record = dict(zip(LinkRecord.fields, record))
-                    if not record['length']:
-                        # If the LINK length is 0, then leave it blank.
-                        # This is a deviation from the PDB standard.
-                        record['length'] = ''
-                        fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
-                        f.write(fmtstr.format(*record.values()))
-                    else:
-                        f.write(LinkRecord.fmtstr.format(*record.values()))
-
-            # Write ATOM records
-            atomid = 1
-            for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
-                record = dict(zip(CoorRecord.fields, record))
-                record['atomid'] = atomid  # Overwrite atomid for consistency within this file.
-                # If the element name is a single letter,
-                # PDB specification says the atom name should start one column in.
-                if len(record['e']) == 1 and not len(record['name']) == 4:
-                    record['name'] = " " + record['name']
-
-                # Write file
-                try:
-                    f.write(CoorRecord.format_line(record.values()))
-                except TypeError:
-                    logger.error(f"PDBFile.write: could not write: {record}")
-                atomid += 1
-
-            # Write EndRecord
-            f.write(EndRecord.fmtstr)
+        # Write EndRecord
+        f.write(EndRecord.fmtstr)
 
 
 class RecordParser(object):

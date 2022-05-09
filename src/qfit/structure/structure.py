@@ -1,11 +1,13 @@
 import numpy as np
 import copy
 
-from .base_structure import _BaseStructure, PDBFile
+from .base_structure import _BaseStructure
+from .pdbfile import ANISOU_FIELDS, read_pdb
 from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
+from ..unitcell import UnitCell
 
 
 class Structure(_BaseStructure):
@@ -19,12 +21,9 @@ class Structure(_BaseStructure):
         super().__init__(data, **kwargs)
         self._chains = []
 
-    @classmethod
-    def fromfile(cls, fname):
-        if isinstance(fname, PDBFile):
-            pdbfile = fname
-        else:
-            pdbfile = PDBFile.read(fname)
+    @staticmethod
+    def fromfile(fname):
+        pdbfile = read_pdb(fname)
         dd = pdbfile.coor
         data = {}
         for attr, array in dd.items():
@@ -51,27 +50,35 @@ class Structure(_BaseStructure):
             nanisou = len(anisou_atomid)
             for i, atomid in enumerate(pdbfile.coor['atomid']):
                 if n < nanisou and atomid == anisou_atomid[n]:
-                    anisou[i] = [pdbfile.anisou[u][n] for u in us]
+                    anisou[i] = [pdbfile.anisou[u][n] for u in ANISOU_FIELDS]
                     n += 1
-            for n, key in enumerate(us):
+            for n, key in enumerate(ANISOU_FIELDS):
                 data[key] = anisou[:, n]
 
-        if pdbfile.cryst1:
-            from ..unitcell import UnitCell
+        unit_cell = None
+        if hasattr(pdbfile, "cryst1"):
             c = pdbfile.cryst1
             # FIXME Create correct SpaceGroup if not automatically found.
             values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta',
                                      'gamma', 'spg']]
-            cls.unit_cell = UnitCell(*values)
+            unit_cell = UnitCell(*values)
+        elif hasattr(pdbfile, "crystal_symmetry"):
+            spg = pdbfile.crystal_symmetry.space_group_info()
+            uc = pdbfile.crystal_symmetry.unit_cell()
+            values = list(uc.parameters()) + [spg.type().lookup_symbol()]
+            unit_cell = UnitCell(*values)
 
-        return cls(data, link_data=link_data, scale=pdbfile.scale, cryst_info=pdbfile.cryst_info)
+        return Structure(data,
+                         link_data=link_data,
+                         crystal_symmetry=pdbfile.crystal_symmetry,
+                         unit_cell=unit_cell)
 
-    @classmethod
-    def fromstructurelike(cls, structure_like):
+    @staticmethod
+    def fromstructurelike(structure_like):
         data = {}
         for attr in structure_like.data:
             data[attr] = getattr(structure_like, attr)
-        return cls(data)
+        return Structure(data)
 
     @classmethod
     def empty(self, cls):
@@ -260,7 +267,7 @@ class Structure(_BaseStructure):
                     for atom in atomnames:
                         if atom not in atom_order:
                             break
-                    # Check if the residue has alternate conformers. If the
+                  # Check if the residue has alternate conformers. If the
                     # number of altlocs is equal to the whole residue, sort
                     # it after one another. If its just a few, sort it like a
                     # zipper.
@@ -321,7 +328,10 @@ class Structure(_BaseStructure):
         data = {}
         for attr, value in self.data.items():
             data[attr] = value[ordering]
-        return Structure(data, link_data=self.link_data, scale=self.scale, cryst_info=self.cryst_info)
+        return Structure(data,
+                         link_data=self.link_data,
+                         crystal_symmetry=self._crystal_symmetry,
+                         unit_cell=self.unit_cell)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
@@ -448,6 +458,8 @@ class Structure(_BaseStructure):
         Deactivated atoms are not taken into account.
         """
 
+        if not hasattr(self, "_dist2_matrix"):
+            self._init_clash_detection()
         dm = self._dist2_matrix
         coor = self.coor
         dot = np.dot
@@ -782,12 +794,12 @@ class _Conformer(_BaseStructure):
             if len(segment) > 1:
                 selections = [residue._selection for residue in segment]
                 selection = np.concatenate(selections)
-                segment = _Segment(self.data, selection=selection,
-                                   parent=self, residues=segment)
+                segment = Segment(self.data, selection=selection,
+                                  parent=self, residues=segment)
                 self._segments.append(segment)
 
 
-class _Segment(_BaseStructure):
+class Segment(_BaseStructure):
 
     """Class that guarantees connected residues and allows
        backbone rotations."""
@@ -811,7 +823,7 @@ class _Segment(_BaseStructure):
             for residue in residues:
                 selections.append(residue._selection)
             selection = np.concatenate(selections)
-            return _Segment(self.data, selection=selection, parent=self.parent,
+            return Segment(self.data, selection=selection, parent=self.parent,
                             residues=residues)
         else:
             raise TypeError
