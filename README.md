@@ -71,6 +71,7 @@ If you prefer to manage your environments using other methods, qFit has the foll
 * [Python 3.6+](https://python.org)
 * [numpy](https://numpy.org)
 * [scipy](https://scipy.org)
+* [cctbx](https://github.com/cctbx/cctbx_project)[
 * [cvxopt](https://cvxopt.org)
 * [IBM ILOG CPLEX Optimization Studio (Community Edition)](https://www.ibm.com/products/ilog-cplex-optimization-studio)
 
