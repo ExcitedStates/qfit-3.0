@@ -335,16 +335,16 @@ class _BaseQFit:
         #   `idx_low_rmsd` will contain the coordinates of the lowest value in the pairwise matrix
         #   a.k.a. the indices of the closest confs
         idx_low_rmsd = np.array(np.unravel_index(np.argmin(pairwise_rmsd_matrix), pairwise_rmsd_matrix.shape))
-        rmsd = pairwise_rmsd_matrix[tuple(idx_low_rmsd)]
-        logger.debug(f"Lowest rmsd between conformers: {rmsd}")
+        low_rmsd = pairwise_rmsd_matrix[tuple(idx_low_rmsd)]
+        logger.debug(f"Lowest RMSD between conformers {idx_low_rmsd.tolist()}: {low_rmsd:.06f} Å")
 
         # Of these, which has the lowest occupancy?
         occs_low_rmsd = self._occupancies[idx_low_rmsd]
         idx_to_zero, idx_to_keep = idx_low_rmsd[occs_low_rmsd.argsort()]
-        min_occ = self._occupancies[idx_to_zero]
-        logger.debug(f"Minimum occupancy: {min_occ}")
 
         # Assign conformer we want to remove with an occupancy of 0
+        logger.debug(f"Zeroing occupancy of conf {idx_to_zero} (of {n_confs}): "
+                     f"occ={self._occupancies[idx_to_zero]:.06f} vs {self._occupancies[idx_to_keep]:.06f}")
         if self.options.write_intermediate_conformers:  # Output all conformations before we remove them
             self._write_intermediate_conformers(prefix="cplex_remove")
         self._occupancies[idx_to_zero] = 0
