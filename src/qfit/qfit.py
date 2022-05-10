@@ -13,7 +13,7 @@ from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver
+from .solvers import QPSolver, MIQPSolver, SolverError
 from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
@@ -1243,21 +1243,33 @@ class QFitSegment(_BaseQFit):
                 self._convert()
                 self._solve()
 
-                # Update conformers
-                fragments = np.array(fragments)
-                mask = self._occupancies >= 0.002
-                fragments = fragments[mask]
-                self._occupancies = self._occupancies[mask]
-                self._coor_set = [fragment.coor for fragment in fragments]
-                self._bs = [fragment.b for fragment in fragments]
+                # Run MIQP in a loop, removing the most similar conformer until a solution is found
+                while True:
+                    # Update conformers
+                    fragments = np.array(fragments)
+                    mask = self._occupancies >= 0.002
+                    fragments = fragments[mask]
+                    self._occupancies = self._occupancies[mask]
+                    self._coor_set = [fragment.coor for fragment in fragments]
+                    self._bs = [fragment.b for fragment in fragments]
 
-                # MIQP score segment occupancy
-                self._convert()
-                self._solve(threshold=self.options.threshold,
-                            cardinality=self.options.cardinality,
-                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    try:
+                        # MIQP score segment occupancy
+                        self._convert()
+                        self._solve(threshold=self.options.threshold,
+                                    cardinality=self.options.cardinality,
+                                    loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    except SolverError:
+                        # MIQP failed and we need to remove conformers that are close to each other
+                        self._zero_out_most_similar_conformer()  # Remove conformer
+                        if self.options.write_intermediate_conformers:
+                            self._write_intermediate_conformers(prefix="cplex_kept")
+                        continue
+                    else:
+                        # No Exceptions here! Solvable!
+                        break
 
-                # Update conformers
+                # Update conformers for the last time
                 mask = self._occupancies >= 0.002
                 for fragment, occ in zip(fragments[mask],
                                          self._occupancies[mask]):
