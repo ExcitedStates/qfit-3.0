@@ -15,10 +15,11 @@ except ImportError:
     CPLEX = False
 else:
     CPLEX = True
+    SolverError = cplex.exceptions.CplexSolverError
 
 
 # Only these classes should be "public"
-__all__ = ["QPSolver", "MIQPSolver"]
+__all__ = ["QPSolver", "MIQPSolver", "SolverError"]
 
 
 # Define the required functions for (MI)QP solver objects
