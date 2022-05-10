@@ -14,7 +14,7 @@ from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver
-from .structure import Structure, Segment
+from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
@@ -336,43 +336,39 @@ class _BaseQFit:
         This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
         These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
         """
+        n_confs = len(self._coor_set)
 
-        def find_rmsd(coor_a, coor_b):
-            rmsd = np.sqrt(np.mean((coor_a - coor_b) ** 2))
-            return rmsd
+        # Make a square matrix for pairwise RMSDs, where
+        #   - the lower triangle (and diagonal) are np.inf
+        #   - the upper triangle contains the pairwise RMSDs (k=1 to exclude diagonal)
+        pairwise_rmsd_matrix = np.zeros((n_confs,) * 2)
+        pairwise_rmsd_matrix[np.tril_indices(n_confs)] = np.inf
+        for i, j in zip(*np.triu_indices(n_confs, k=1)):
+            pairwise_rmsd_matrix[i, j] = calc_rmsd(self._coor_set[i], self._coor_set[j])
 
-        rmsd = 100  # Set an arbitrarily high rmsd
-        for a, b in itertools.combinations(
-            self._coor_set, 2
-        ):  # For every combination of the list
-            if np.array_equal(a, b):
-                continue  # If we get the same conformation, continue
-            rmsd_tmp = find_rmsd(a, b)  # Find the RMSD between each conformation
-            if rmsd_tmp < rmsd:
-                rmsd = rmsd_tmp
-                remove_conf_1 = a
-                remove_conf_2 = b
+        # Which coords have the lowest RMSD?
+        #   `idx_low_rmsd` will contain the coordinates of the lowest value in the pairwise matrix
+        #   a.k.a. the indices of the closest confs
+        idx_low_rmsd = np.array(
+            np.unravel_index(
+                np.argmin(pairwise_rmsd_matrix), pairwise_rmsd_matrix.shape
+            )
+        )
+        rmsd = pairwise_rmsd_matrix[tuple(idx_low_rmsd)]
         logger.debug(f"Lowest rmsd between conformers: {rmsd}")
 
-        # Now we have our conformations that are closest, remove the one with the lower occupancy
-        for q, coor in zip(self._occupancies, self._coor_set):
-            if np.all(coor == remove_conf_1):
-                occ_1 = q
-            elif np.all(coor == remove_conf_2):
-                occ_2 = q
-        min_occ = min(occ_1, occ_2)
+        # Of these, which has the lowest occupancy?
+        occs_low_rmsd = self._occupancies[idx_low_rmsd]
+        idx_to_zero, idx_to_keep = idx_low_rmsd[occs_low_rmsd.argsort()]
+        min_occ = self._occupancies[idx_to_zero]
         logger.debug(f"Minimum occupancy: {min_occ}")
 
+        # Assign conformer we want to remove with an occupancy of 0
         if (
             self.options.write_intermediate_conformers
         ):  # Output all conformations before we remove them
             self._write_intermediate_conformers(prefix="cplex_remove")
-        zero_occ_mask = (
-            self._occupancies == min_occ
-        )  # Create filter for those with the minimum occupancy to remove conf
-        self._occupancies[
-            zero_occ_mask
-        ] = 0  # Assign conformer you want to remove with an occupancy of 0
+        self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
@@ -654,7 +650,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.segment is None:
             rtype = residue_type(self.residue)
             if rtype == "rotamer-residue":
-                self.segment = Segment(
+                self.segment = _Segment(
                     self.structure.data,
                     selection=self.residue._selection,
                     parent=self.structure,
@@ -676,7 +672,9 @@ class QFitRotamericResidue(_BaseQFit):
     def directory_name(self):
         # This is a QFitRotamericResidue, so we're working on a residue.
         # Which residue are we working on?
-        resi_identifier = self.residue.shortcode
+        resi_identifier = f"{self.chain}_{self.resi}"
+        if self.icode:
+            resi_identifier += f"_{self.icode}"
 
         dname = os.path.join(super().directory_name, resi_identifier)
         return dname
