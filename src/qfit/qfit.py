@@ -14,7 +14,7 @@ from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver
-from .structure import Structure, _Segment
+from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
@@ -321,15 +321,10 @@ class _BaseQFit:
         This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
         These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
         """
-
-        def find_rmsd(coor_a, coor_b):
-            rmsd = np.sqrt(np.mean((coor_a - coor_b)**2))
-            return rmsd
-
         rmsd = 100  # Set an arbitrarily high rmsd
         for a, b in itertools.combinations(self._coor_set, 2):  # For every combination of the list
             if np.array_equal(a, b): continue  # If we get the same conformation, continue
-            rmsd_tmp = find_rmsd(a, b)  # Find the RMSD between each conformation
+            rmsd_tmp = calc_rmsd(a, b)  # Find the RMSD between each conformation
             if rmsd_tmp < rmsd:
                 rmsd = rmsd_tmp
                 remove_conf_1 = a
