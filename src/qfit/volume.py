@@ -4,6 +4,8 @@ from itertools import product
 from numbers import Real
 from struct import unpack as _unpack, pack as _pack
 from sys import byteorder as _BYTEORDER
+import logging
+import time
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -11,6 +13,9 @@ from scipy.ndimage import map_coordinates
 from .spacegroups import GetSpaceGroup, SpaceGroup, SymOpFromString
 from .unitcell import UnitCell
 from ._extensions import extend_to_p1
+
+
+logger = logging.getLogger(__name__)
 
 
 class GridParameters:
@@ -248,6 +253,7 @@ class XMap(_BaseVolume):
         """
         if not self.is_canonical_unit_cell():
             raise RuntimeError("XMap should contain full unit cell.")
+        logger.debug(f"Extracting map around {len(orth_coor)} atoms")
 
         # Convert atomic Cartesian coordinates to voxelgrid coordinates
         grid_coor = orth_coor @ self.unit_cell.orth_to_frac.T
@@ -263,6 +269,9 @@ class XMap(_BaseVolume):
         lb = np.floor(lb).astype(int)
         ru = np.ceil(ru).astype(int)
         shape = (ru - lb)[::-1]
+        logger.debug(f"From old map size (voxels): {self.shape}")
+        logger.debug(f"Extract between corners:    {lb[::-1]}, {ru[::-1]}")
+        logger.debug(f"New map size (voxels):      {shape}")
 
         # Make new GridParameters, make sure to update offset
         grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
