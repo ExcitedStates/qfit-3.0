@@ -139,83 +139,89 @@ class XMap(_BaseVolume):
         else:
             self.origin = np.asarray(origin)
 
-    @staticmethod
-    def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT"):
+    @classmethod
+    def fromfile(cls, fname, fmt=None, resolution=None, label="FWT,PHWT"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in (".ccp4", ".mrc", ".map"):
-            return XMap.from_mapfile(fname, fmt, resolution)
+            if resolution is None:
+                raise ValueError(
+                    f"{fname} is a CCP4/MRC/MAP file. Please provide a resolution (use the '-r'/'--resolution' flag)."
+                )
+            parser = parse_volume(fname, fmt=fmt)
+            a, b, c = parser.abc
+            alpha, beta, gamma = parser.angles
+            spacegroup = parser.spacegroup
+            if spacegroup == 0:
+                raise RuntimeError(
+                    f"File {fname} is 2D image or image stack. Please convert to a 3D map."
+                )
+            unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup)
+            offset = parser.offset
+            array = parser.density
+            voxelspacing = parser.voxelspacing
+            grid_parameters = GridParameters(voxelspacing, offset)
+            resolution = Resolution(high=resolution)
+            origin = parser.origin
+            xmap = cls(
+                array,
+                grid_parameters,
+                unit_cell=unit_cell,
+                resolution=resolution,
+                origin=origin,
+            )
         elif fmt == ".mtz":
-            return XMap.from_mtz(fname, resolution, label)
+            from .mtzfile import MTZFile
+            from .transformer import SFTransformer
+
+            mtz = MTZFile(fname)
+            hkl = np.asarray(list(zip(mtz["H"], mtz["K"], mtz["L"])), np.int32)
+            try:
+                crystal = mtz["HKL_base"]
+            except KeyError:
+                crystal = mtz.crystals[0]
+            uc_par = [
+                getattr(crystal, attr) for attr in "a b c alpha beta gamma".split()
+            ]
+            unit_cell = UnitCell(*uc_par)
+            space_group = GetSpaceGroup(mtz.ispg)
+            # symops = [SymOpFromString(string) for string in mtz.symops]
+            # space_group = SpaceGroup(
+            #    number=mtz.symi['ispg'],
+            #    num_sym_equiv=mtz.symi['nsym'],
+            #    num_primitive_sym_equiv=mtz.symi['nsymp'],
+            #    short_name=mtz.symi['spgname'],
+            #    point_group_name=mtz.symi['pgname'],
+            #    crystal_system=mtz.symi['symtyp'],
+            #    pdb_name=mtz.symi['spgname'],
+            #    symop_list=symops,
+            # )
+            unit_cell.space_group = space_group
+            f_column, phi_column = label.split(",")
+            try:
+                f = mtz[f_column]
+                phi = mtz[phi_column]
+            except KeyError:
+                raise KeyError("Could not find columns in MTZ file.")
+
+            t = SFTransformer(hkl, f, phi, unit_cell)
+            grid = t()
+            abc = [getattr(unit_cell, x) for x in "a b c".split()]
+            voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
+            grid_parameters = GridParameters(voxelspacing)
+            low = 1 / np.sqrt(mtz.resmin)
+            high = 1 / np.sqrt(mtz.resmax)
+            resolution = Resolution(high=high, low=low)
+            xmap = cls(
+                grid,
+                grid_parameters,
+                unit_cell=unit_cell,
+                resolution=resolution,
+                hkl=hkl,
+            )
         else:
             raise RuntimeError("File format not recognized.")
-
-    @staticmethod
-    def from_mapfile(fname, fmt=None, resolution=None):
-        if resolution is None:
-            raise ValueError(
-                f"{fname} is a CCP4/MRC/MAP file. Please provide a resolution (use the '-r'/'--resolution' flag)."
-            )
-        parser = parse_volume(fname, fmt=fmt)
-        a, b, c = parser.abc
-        alpha, beta, gamma = parser.angles
-        spacegroup = parser.spacegroup
-        if spacegroup == 0:
-            raise RuntimeError(
-                f"File {fname} is 2D image or image stack. Please convert to a 3D map."
-            )
-        unit_cell = UnitCell(a, b, c, alpha, beta, gamma, spacegroup)
-        offset = parser.offset
-        array = parser.density
-        voxelspacing = parser.voxelspacing
-        grid_parameters = GridParameters(voxelspacing, offset)
-        resolution = Resolution(high=resolution)
-        origin = parser.origin
-        return XMap(
-            array,
-            grid_parameters,
-            unit_cell=unit_cell,
-            resolution=resolution,
-            origin=origin,
-        )
-
-    @staticmethod
-    def from_mtz(fname, resolution=None, label="FWT,PHWT"):
-        from .mtzfile import MTZFile
-        from .transformer import SFTransformer
-
-        mtz = MTZFile(fname)
-        hkl = np.asarray(list(zip(mtz["H"], mtz["K"], mtz["L"])), np.int32)
-        unit_cell = UnitCell(*mtz.unit_cell)
-        space_group = GetSpaceGroup(mtz.ispg)
-        # symops = [SymOpFromString(string) for string in mtz.symops]
-        # space_group = SpaceGroup(
-        #    number=mtz.symi['ispg'],
-        #    num_sym_equiv=mtz.symi['nsym'],
-        #    num_primitive_sym_equiv=mtz.symi['nsymp'],
-        #    short_name=mtz.symi['spgname'],
-        #    point_group_name=mtz.symi['pgname'],
-        #    crystal_system=mtz.symi['symtyp'],
-        #    pdb_name=mtz.symi['spgname'],
-        #    symop_list=symops,
-        # )
-        unit_cell.space_group = space_group
-        f_column, phi_column = label.split(",")
-        try:
-            f = mtz[f_column]
-            phi = mtz[phi_column]
-        except KeyError:
-            raise KeyError("Could not find columns in MTZ file.")
-
-        t = SFTransformer(hkl, f, phi, unit_cell)
-        grid = t()
-        abc = [getattr(unit_cell, x) for x in "a b c".split()]
-        voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
-        grid_parameters = GridParameters(voxelspacing)
-        resolution = Resolution(high=mtz.resmax, low=mtz.resmin)
-        return XMap(
-            grid, grid_parameters, unit_cell=unit_cell, resolution=resolution, hkl=hkl
-        )
+        return xmap
 
     @classmethod
     def zeros_like(cls, xmap):
@@ -269,29 +275,49 @@ class XMap(_BaseVolume):
             self.offset, 0
         )
 
-    def extract(self, orth_coor, padding=3):
+    def extract(self, orth_coor, padding=3.0):
+        """Create a copy of the map around the atomic coordinates provided.
+
+        Args:
+            orth_coor (np.ndarray[(n_atoms, 3), dtype=np.float]):
+                a collection of Cartesian atomic coordinates
+            padding (float): amount of padding (in Angstrom) to add around the
+                returned electron density map
+        Returns:
+            XMap: the new map object around the coordinates
+        """
         if not self.is_canonical_unit_cell():
             raise RuntimeError("XMap should contain full unit cell.")
-        uc = self.unit_cell
-        grid_coor = orth_coor @ uc.orth_to_frac.T
+
+        # Convert atomic Cartesian coordinates to voxelgrid coordinates
+        grid_coor = orth_coor @ self.unit_cell.orth_to_frac.T
         grid_coor *= self.unit_cell_shape
         grid_coor -= self.offset
+
+        # How many voxels are we padding by?
         grid_padding = padding / self.voxelspacing
+
+        # What are the voxel-coords of the lower and upper extrema that we will extract?
         lb = grid_coor.min(axis=0) - grid_padding
         ru = grid_coor.max(axis=0) + grid_padding
         lb = np.floor(lb).astype(int)
         ru = np.ceil(ru).astype(int)
         shape = [h - l for h, l in zip(ru, lb)][::-1]
-        array = np.zeros(shape, np.float64)
+
+        # Make new GridParameters, make sure to update offset
         grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
         offset = grid_parameters.offset
+
+        # Fill new array
         kmax, jmax, imax = self.unit_cell_shape[::-1]
         ranges = [range(shape[i]) for i in range(3)]
+        array = np.zeros(shape, np.float64)
         for k, j, i in product(*ranges):
             x = (i + offset[0]) % imax
             y = (j + offset[1]) % jmax
             z = (k + offset[2]) % kmax
             array[k, j, i] = self.array[z, y, x]
+
         return XMap(
             array,
             grid_parameters=grid_parameters,
