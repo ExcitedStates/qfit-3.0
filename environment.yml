@@ -5,7 +5,7 @@ channels:
   
 dependencies:
   - libblas[build=*mkl]
-  - numpy>=1.20,<1.22
+  - numpy>=1.21.5,<1.22
   - scipy>=1.0
   - pandas>=1.2,<1.4
   - pyparsing>=2.2.0
