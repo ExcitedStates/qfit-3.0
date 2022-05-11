@@ -317,18 +317,24 @@ class XMap(_BaseVolume):
         grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
         offset = grid_parameters.offset
 
-        # Fill new array
-        imax, jmax, kmax = self.unit_cell_shape
-        ranges = [range(shape[i]) for i in range(3)]
-        array = np.zeros(shape, np.float64)
-        for k, j, i in product(*ranges):
-            x = (i + offset[0]) % imax
-            y = (j + offset[1]) % jmax
-            z = (k + offset[2]) % kmax
-            array[k, j, i] = self.array[z, y, x]
+        # Use index math to get appropriate region of map
+        #     - Create a tuple of axis-indexes
+        #     - Perform wrapping maths on the indexes
+        #     - Apply new index to the original map to get re-mapped map
+        # This is ~500--1000x faster than working element-by-element
+        # (BTR: I don't understand why we're indexing jki and not ijk)
+        ranges = [range(axis_len) for axis_len in shape]
+        ixgrid = np.ix_(*ranges)
+        ixgrid = tuple(
+            (dimension_index + offset) % wrap_to
+            for dimension_index, offset, wrap_to in zip(
+                ixgrid, offset[::-1], self.unit_cell_shape[::-1]
+            )
+        )
+        density_map = self.array[ixgrid]
 
         return XMap(
-            array,
+            density_map,
             grid_parameters=grid_parameters,
             unit_cell=self.unit_cell,
             resolution=self.resolution,
