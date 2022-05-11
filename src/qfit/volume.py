@@ -262,14 +262,14 @@ class XMap(_BaseVolume):
         ru = grid_coor.max(axis=0) + grid_padding
         lb = np.floor(lb).astype(int)
         ru = np.ceil(ru).astype(int)
-        shape = [h - l for h, l in zip(ru, lb)][::-1]
+        shape = (ru - lb)[::-1]
 
         # Make new GridParameters, make sure to update offset
         grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
         offset = grid_parameters.offset
 
         # Fill new array
-        kmax, jmax, imax = self.unit_cell_shape[::-1]
+        imax, jmax, kmax = self.unit_cell_shape
         ranges = [range(shape[i]) for i in range(3)]
         array = np.zeros(shape, np.float64)
         for k, j, i in product(*ranges):
