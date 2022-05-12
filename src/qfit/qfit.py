@@ -572,9 +572,7 @@ class QFitRotamericResidue(_BaseQFit):
     def directory_name(self):
         # This is a QFitRotamericResidue, so we're working on a residue.
         # Which residue are we working on?
-        resi_identifier = f"{self.chain}_{self.resi}"
-        if self.icode:
-            resi_identifier += f"_{self.icode}"
+        resi_identifier = self.residue.shortcode
 
         dname = os.path.join(super().directory_name, resi_identifier)
         return dname
