@@ -36,9 +36,9 @@ Once these are installed, you can:
                  cvxopt cplex
    ```
 
-1. Clone the qFit source, and install to your conda env
+1. Clone the latest release of the qFit source, and install to your conda env
    ```bash
-   git clone https://github.com/ExcitedStates/qfit-3.0.git
+   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
