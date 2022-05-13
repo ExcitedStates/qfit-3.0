@@ -104,10 +104,17 @@ class TestStructure(UnitBase):
         s5 = Structure.fromfile(self.TINY_CIF)
         assert s5.file_format == "cif"
         _check_structure(s5)
+        # recycle to mmCIF
+        cif_tmp_out = tempfile.NamedTemporaryFile(suffix=".cif").name
+        s5.tofile(cif_tmp_out + ".gz")
+        s6 = Structure.fromfile(cif_tmp_out + ".gz")
+        assert s6.file_format == "cif"
+        _check_structure(s6)
         # recycling to PDB should work here too
         s5.tofile(pdb_tmp_out + ".gz")
-        s6 = Structure.fromfile(pdb_tmp_out + ".gz")
-        _check_structure(s6)
+        s7 = Structure.fromfile(pdb_tmp_out + ".gz")
+        assert s7.file_format == "pdb"
+        _check_structure(s7)
 
     def test_structure_with_links(self):
         def _check_structure(s):
@@ -133,12 +140,15 @@ class TestStructure(UnitBase):
 
         PDB = op.join(self.DATA, "4ms6_tiny.pdb.gz")
         CIF = op.join(self.DATA, "4ms6_tiny.cif.gz")
+        pdb_tmp = tempfile.NamedTemporaryFile(suffix=".pdb.gz").name
+        cif_tmp = tempfile.NamedTemporaryFile(suffix=".cif.gz").name
         for fname, ftype in zip([PDB, CIF], ["pdb", "cif"]):
             s1 = Structure.fromfile(fname)
             assert s1.file_format == ftype
             _check_structure(s1)
-            pdb_tmp_out = tempfile.NamedTemporaryFile(suffix=".pdb.gz").name
-            s1.tofile(pdb_tmp_out)
-            s2 = Structure.fromfile(pdb_tmp_out)
-            assert s2.file_format == "pdb"
-            _check_structure(s2)
+            # recycle IO in both formats
+            for ftype2, tmp_out in zip(["pdb", "cif"], [pdb_tmp, cif_tmp]):
+                s1.tofile(tmp_out)
+                s2 = Structure.fromfile(tmp_out)
+                assert s2.file_format == ftype2
+                _check_structure(s2)

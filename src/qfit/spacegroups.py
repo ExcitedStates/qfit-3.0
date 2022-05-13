@@ -256,6 +256,10 @@ class SpaceGroup:
         """Iterates over all SymOps in the SpaceGroup."""
         return iter(self.symop_list)
 
+    def iter_primitive_symops(self):
+        """Iterate over symops required by the FFT module."""
+        return iter(self.symop_list[: self.num_primitive_sym_equiv])
+
     def check_group_name(self, name):
         """Checks if the given name is a name for this space group, returns
         True or False. The space group name can be in several forms:
@@ -283,6 +287,36 @@ class SpaceGroup:
         """
         for symop in self.symop_list:
             yield symop(vec)
+
+    @staticmethod
+    def from_symbol_cctbx(symbol):
+        def _to_symop(op):
+            n12 = op.as_double_array()
+            return SymOp(
+                np.array([n12[0:3], n12[3:6], n12[6:9]], np.float64),
+                np.array(n12[9:12], np.float64),
+            )
+
+        from cctbx.sgtbx import space_group_info
+
+        sg_info = space_group_info(symbol)
+        group = sg_info.group()
+        point_group_type = group.point_group_type()
+        if point_group_type[0] == "-":
+            point_group_type = point_group_type[1] + "bar" + point_group_type[2:]
+        num_sym_equiv = group.n_equivalent_positions()
+        num_primitive_sym_equiv = group.order_p()
+        symops = [_to_symop(op) for op in group.all_ops()]
+        return SpaceGroup(
+            number=sg_info.type().number(),
+            num_sym_equiv=num_sym_equiv,
+            num_primitive_sym_equiv=num_primitive_sym_equiv,
+            short_name="???",
+            point_group_name=f"PG{point_group_type}",
+            crystal_system=group.crystal_system().upper(),
+            pdb_name=str(sg_info),
+            symop_list=symops,
+        )
 
 
 ## spacegroup definitions

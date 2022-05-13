@@ -52,6 +52,15 @@ class UnitCell:
             self.gamma,
         )
 
+    def to_cctbx(self):
+        from cctbx.uctbx import unit_cell
+
+        return unit_cell((self.a, self.b, self.c, self.alpha, self.beta, self.gamma))
+
+    @staticmethod
+    def from_cctbx(uc):
+        return UnitCell(*(uc.parameters()))
+
     def copy(self):
         return UnitCell(
             self.a,

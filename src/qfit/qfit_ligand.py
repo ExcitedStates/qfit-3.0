@@ -28,7 +28,9 @@ def build_argparser():
         "containing reflections and phases. For MTZ files "
         "use the --label options to specify columns to read.",
     )
-    p.add_argument("structure", type=str, help="PDB-file containing structure.")
+    p.add_argument(
+        "structure", type=str, help="PDB or mmCIF file containing structure."
+    )
     p.add_argument(
         "-cif",
         "--cif_file",
@@ -433,11 +435,12 @@ def main():
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ""
+    pdb_ext = qfit_ligand.file_ext
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
         conformer.altloc = ""
-        fname = os.path.join(options.directory, f"conformer_{n}.pdb")
+        fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
         conformer.tofile(fname)
         conformer.altloc = altloc
         try:
@@ -445,11 +448,12 @@ def main():
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_{chainid}_{resi}.pdb"
+        options.directory, pdb_id + f"multiconformer_{chainid}_{resi}.{pdb_ext}"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_{chainid}_{resi}_{icode}.pdb"
+            options.directory,
+            pdb_id + f"multiconformer_{chainid}_{resi}_{icode}.{pdb_ext}",
         )
     try:
         multiconformer.tofile(fname)

@@ -7,7 +7,7 @@ import numpy as np
 
 from .elements import ELEMENTS
 from .math import dihedral_angle
-from .pdbfile import write_pdb
+from .pdbfile import write_pdb, write_mmcif
 from .selector import _Selector
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class _BaseStructure:
         self.link_data = None
         self.crystal_symmetry = None
         self.unit_cell = None
-        self.file_format = None
+        self.file_format = None  # "pdb"  # default is PDB
         for attr, array in data.items():
             hattr = "_" + attr
             setattr(self, hattr, array)
@@ -191,6 +191,8 @@ class _BaseStructure:
     def tofile(self, fname, cryst=None):
         if fname.endswith(".pdb") or fname.endswith(".pdb.gz"):
             return self.to_pdb_file(fname, cryst)
+        elif fname.endswith(".cif") or fname.endswith(".cif.gz"):
+            return self.to_mmcif_file(fname, cryst)
         else:
             raise ValueError("Don't know how to write format for '{}'!".format(fname))
 
@@ -198,6 +200,11 @@ class _BaseStructure:
         if cryst != None:
             self.crystal_symmetry = cryst
         return write_pdb(fname, self)
+
+    def to_mmcif_file(self, fname, cryst=None):
+        if cryst != None:
+            self.crystal_symmetry = cryst
+        return write_mmcif(fname, self)
 
     def translate(self, translation):
         """Translate atoms"""

@@ -169,6 +169,15 @@ class _BaseQFit:
         dname = self.options.directory
         return dname
 
+    @property
+    def file_ext(self):
+        # better to get this from the source than rely on it being propagated
+        # in the structure object
+        path_fields = self.options.structure.split(".")
+        if path_fields[-1] == "gz":
+            return ".".join(path_fields[-2:])
+        return path_fields[-1]
+
     def get_conformers(self):
         conformers = []
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
@@ -314,8 +323,6 @@ class _BaseQFit:
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
-                    # else:
-                    #     break
             else:
                 solver(cardinality=cardinality, threshold=threshold)
 
