@@ -97,7 +97,7 @@ def main():
                       break
                n_removed += len(set(altlocs_remove))
                altlocs_keep = set(residue.extract('q', args.occ_cutoff, '>').altloc)
-               residue_out = remove_conformer(residue, altlocs_remove, altlocs_keep)
+               residue_out = remove_redistribute_conformer(residue, altlocs_remove, altlocs_keep)
 
                try:
                   out_structure = out_structure.combine(residue_out)
