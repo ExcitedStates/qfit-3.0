@@ -335,7 +335,7 @@ class Structure(_BaseStructure):
         return Structure(
             data,
             link_data=self.link_data,
-            crystal_symmetry=self._crystal_symmetry,
+            crystal_symmetry=self.crystal_symmetry,
             unit_cell=self.unit_cell,
         )
 
