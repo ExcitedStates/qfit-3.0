@@ -53,10 +53,11 @@ def remove_redistribute_conformer(residue, remove, keep):
        
        if ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))) != 1.0: #make sure that rounding and distributing is still adding to 1
           additional_occ_redist = round(1.0 - ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))), 2)
-            
-       occ_sum = [] #get sum of occupancies
+       if abs(additional_occ_redist) > 0.01:
+          print('Additional occupancy redistribution is too large. Check input occupancies')
+          break
        add_occ = False
-       for n, alt in enumerate(np.unique(residue_out.altloc)):
+       for n, alt in enumerate(np.unique(residue_out.altloc)): #redistribute occupancies
            if np.all(residue_out.extract('altloc', alt, '==').q < 1.0): #ignoring backbone atoms with full occ
               if add_occ == False:
                  residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist + additional_occ_redist
@@ -95,12 +96,14 @@ def main():
             residue = structure.extract(f'chain {chain} and resi {res}')
             if np.any(residue.q < args.occ_cutoff): #if any atom occupancy falls below the cutoff value
                altlocs_remove = set(residue.extract('q', args.occ_cutoff, '<=').altloc)
+               
                #confirm all atoms have the same q in each conformer
                for alt in altlocs_remove:
                    all_same = np.all(residue.extract('altloc', alt, '==').q)
                    if all_same == False:
                       print(f'Not all atoms have the same occupancy in resi {res}, chain {chain}, altloc {alt}')
                       break
+                        
                n_removed += len(set(altlocs_remove))
                altlocs_keep = set(residue.extract('q', args.occ_cutoff, '>').altloc)
                residue_out = remove_redistribute_conformer(residue, altlocs_remove, altlocs_keep)
