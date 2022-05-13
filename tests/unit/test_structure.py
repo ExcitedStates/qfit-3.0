@@ -24,6 +24,7 @@ class TestStructure(UnitBase):
         assert pdb.coor["resn"][-1] == "PHE"
         assert pdb.coor["resi"][-1] == 113
         assert pdb.coor["chain"][-1] == "A"
+        assert pdb.coor["icode"][-1] == ""
         assert pdb.coor["altloc"][-1] == "B"
         assert pdb.coor["x"][-1] == 1.431
         assert pdb.coor["b"][-1] == 29.87
@@ -55,6 +56,7 @@ class TestStructure(UnitBase):
             assert s.data["resi"][-1] == 113
             assert s.data["chain"][-1] == "A"
             assert s.data["altloc"][-1] == "B"
+            assert s.data["icode"][-1] == ""
             assert s.data["b"][-1] == 29.87
             assert s.data["q"][-1] == 0.37
             assert s.data["e"][-1] == "H"
@@ -90,6 +92,8 @@ class TestStructure(UnitBase):
 
     def test_structure_with_links(self):
         def _check_structure(s):
+            assert s.data["icode"][0] == ""
+            assert s.data["altloc"][0] == ""
             assert len(s.link_data["record"]) == 20
             assert s.link_data["name1"][0] == "ZN"
             assert s.link_data["altloc1"][0] == ""
@@ -105,6 +109,7 @@ class TestStructure(UnitBase):
             assert s.link_data["resn1"][-1] == "YB"
             assert s.link_data["resn2"][-1] == "ACY"
             assert s.link_data["length"][-1] == 2.84
+            assert len([r for r in s.data["resn"] if r == "ZN"]) == 1
             assert len([r for r in s.data["record"] if r == "HETATM"]) == 552
 
         PDB = op.join(op.dirname(op.dirname(self.DATA)), "example", "4ms6.pdb")
