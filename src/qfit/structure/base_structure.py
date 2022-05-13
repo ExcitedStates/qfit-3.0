@@ -186,6 +186,12 @@ class _BaseStructure:
         return selection
 
     def tofile(self, fname, cryst=None):
+        if fname.endswith(".pdb") or fname.endswith(".pdb.gz"):
+            return self.to_pdb_file(fname, cryst)
+        else:
+            raise ValueError("Don't know how to write format for '{}'!".format(fname))
+
+    def to_pdb_file(self, fname, cryst=None):
         if cryst != None:
             self.crystal_symmetry = cryst
         write_pdb(fname, self)
