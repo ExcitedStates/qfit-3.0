@@ -23,8 +23,8 @@ class Structure(_BaseStructure):
 
     @staticmethod
     def fromfile(fname):
-        pdbfile = read_pdb(fname)
-        dd = pdbfile.coor
+        pdb_in = read_pdb(fname)
+        dd = pdb_in.coor
         data = {}
         for attr, array in dd.items():
             if attr in 'xyz':
@@ -33,7 +33,7 @@ class Structure(_BaseStructure):
         coor = np.asarray(list(zip(dd['x'], dd['y'], dd['z'])),
                           dtype=np.float64)
 
-        dl = pdbfile.link
+        dl = pdb_in.link
         link_data = {}
         for attr, array in dl.items():
             link_data[attr] = np.asarray(array)
@@ -41,36 +41,30 @@ class Structure(_BaseStructure):
         data['coor'] = coor
         # Add an active array, to check for collisions and density creation.
         data['active'] = np.ones(len(dd['x']), dtype=bool)
-        if pdbfile.anisou:
+        if pdb_in.anisou:
             natoms = len(data['record'])
             anisou = np.zeros((natoms, 6), float)
-            anisou_atomid = pdbfile.anisou['atomid']
+            anisou_atomid = pdb_in.anisou['atomid']
             n = 0
             us = ['u00', 'u11', 'u22', 'u01', 'u02', 'u12']
             nanisou = len(anisou_atomid)
-            for i, atomid in enumerate(pdbfile.coor['atomid']):
+            for i, atomid in enumerate(pdb_in.coor['atomid']):
                 if n < nanisou and atomid == anisou_atomid[n]:
-                    anisou[i] = [pdbfile.anisou[u][n] for u in ANISOU_FIELDS]
+                    anisou[i] = [pdb_in.anisou[u][n] for u in ANISOU_FIELDS]
                     n += 1
             for n, key in enumerate(ANISOU_FIELDS):
                 data[key] = anisou[:, n]
 
         unit_cell = None
-        if hasattr(pdbfile, "cryst1"):
-            c = pdbfile.cryst1
-            # FIXME Create correct SpaceGroup if not automatically found.
-            values = [c[x] for x in ['a', 'b', 'c', 'alpha', 'beta',
-                                     'gamma', 'spg']]
-            unit_cell = UnitCell(*values)
-        elif hasattr(pdbfile, "crystal_symmetry"):
-            spg = pdbfile.crystal_symmetry.space_group_info()
-            uc = pdbfile.crystal_symmetry.unit_cell()
+        if pdb_in.crystal_symmetry:
+            spg = pdb_in.crystal_symmetry.space_group_info()
+            uc = pdb_in.crystal_symmetry.unit_cell()
             values = list(uc.parameters()) + [spg.type().lookup_symbol()]
             unit_cell = UnitCell(*values)
 
         return Structure(data,
                          link_data=link_data,
-                         crystal_symmetry=pdbfile.crystal_symmetry,
+                         crystal_symmetry=pdb_in.crystal_symmetry,
                          unit_cell=unit_cell)
 
     @staticmethod
