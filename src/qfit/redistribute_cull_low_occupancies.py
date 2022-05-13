@@ -23,7 +23,43 @@ def parse_args():
 
     return args
 
+def remove_redistribute_conformer(residue, remove, keep):
+    """Redistributes occupancy from altconfs below cutoff to above cutoff.
 
+    This function iterates over residue.atom_groups (i.e. altconfs).
+    It should only be used when each of these atom_groups have uniform occupancy.
+    Otherwise, use `redistribute_occupancies_by_atom`.
+
+    Atoms below cutoff should be culled after this function is run.
+
+    Args:
+        residue: residue to perform occupancy
+            redistribution on
+        remove: altlocs that fall below cutoff value
+        keep: altlocs that are above cutoff value
+    """
+    total_occ_redist = np.sum(np.unique(residue.extract('altloc', remove).q))
+    residue_out = residue.extract('altloc', keep)
+    if len(set(residue_out.altloc)) == 1: #if only one altloc left, assign 1:
+       residue_out.q = 1.0
+    else:
+       naltlocs = len(np.unique(residue_out.extract('q', 1.0, '!=').altloc)) #number of altlocs left
+       occ_redist = round(total_occ_redist/naltlocs, 2)
+       add_occ_redist = 0
+       if ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))) != 1.0:
+          add_occ_redist = round(1.0 - ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))), 2)
+       occ_sum = [] #get sum of occupancies
+       add_occ = False
+       for alt in np.unique(residue_out.altloc):
+           if np.all(residue_out.extract('altloc', alt, '==').q < 1.0): #ignoring backbone atoms with full occ
+              if add_occ == False:
+                 residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist + add_occ_redist
+                 add_occ = True
+              else:
+                 residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist
+              occ_sum.append((residue_out.extract('altloc', alt, '==').q[0]))
+
+    return residue_out
 
 
 def main():
@@ -36,6 +72,7 @@ def main():
         output_file = args.structure[:-4] + "_norm.pdb"
 
     structure = Structure.fromfile(args.structure)
+    
     #seperate het versus atom (het allowed to have <1 occ)
     hetatm = structure.extract('record', 'HETATM', '==')
     structure = structure.extract('record', 'ATOM', '==')
@@ -43,74 +80,35 @@ def main():
     # Capture LINK records
     link_data = structure.link_data
 
-    # Which atoms fall below cutoff?
-    mask = structure.q < args.occ_cutoff
-    n_removed = np.sum(mask)
+    # Get list of all non-hetatom residue
+    n_removed = 0  #keep track of the residues we are removing
+    chains = set(structure.chain)
+    for chain in chains:
+        residues = set(structure.extract('chain', chain, '==').resi)
+        for res in residues:
+            residue = structure.extract(f'chain {chain} and resi {res}')
+            if np.any(residue.q < args.occ_cutoff): #if any atom occupancy falls below the cutoff value
+               altlocs_remove = set(residue.extract('q', args.occ_cutoff, '<=').altloc)
+               #confirm all atoms have the same q in each conformer
+               for alt in altlocs_remove:
+                   all_same = np.all(residue.extract('altloc', alt, '==').q)
+                   if all_same == False:
+                      print(f'Not all atoms have the same occupancy in resi {res}, chain {chain}, altloc {alt}')
+                      break
+               n_removed += len(set(altlocs_remove))
+               altlocs_keep = set(residue.extract('q', args.occ_cutoff, '>').altloc)
+               residue_out = remove_conformer(residue, altlocs_remove, altlocs_keep)
 
-    # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
-    for chain in structure:
-        for residue in chain:
-            if np.any(residue.q < args.occ_cutoff):
-                # How many occupancy-values can we find in each altconf?
-                occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
-                                                         if agroup.id[1] != ""]
-                redistribute_occupancies_by_atom(residue, args.occ_cutoff)
-
-    # Normalize occupancies and fix altloc labels:
-    to_remove = []
-    for chain in structure:
-        for residue in chain:
-            rotamer = ROTAMERS[residue.resn[0]]
-            altlocs = list(set(residue.altloc))
-            atoms = list(set(residue.e))
-            try:
-                altlocs.remove('')
-            except ValueError:
-                pass
-            naltlocs = len(altlocs)
-            if naltlocs < 2:
-                residue._q[residue._selection] = 1.0
-                residue._altloc[residue._selection] = ''
+               try:
+                  out_structure = out_structure.combine(residue_out)
+               except UnboundLocalError:
+                  out_structure = residue_out
             else:
-                h_altlocs = []
-                conf = residue.extract('altloc',altlocs)
-
-                #check to see if H are off in la la land by themselves, remove and reassign H-bonds
-                for a in altlocs:
-                    conf = residue.extract('altloc', a)
-                    if all(i == 'H' for i in set(conf.e)):
-                         h_altlocs.append(a)     
-                if len(h_altlocs) == 0:
-                    continue
-                elif len(h_altlocs) == 1:
-                    conf2 = residue.extract('altloc', h_altlocs[0])
-                    conf2 = conf2.extract('name', (rotamer['hydrogens']))
-                    residue._q[conf2._selection] == 1.0
-                    residue._altloc[conf2._selection] == ''
-                else:
-                    conf1 = residue.extract("altloc", h_altlocs[0])
-                    conf1 = conf1.extract("name",(rotamer['hydrogens']))
-                    conf1._q[conf1._selection] = 1.0
-                    conf1._altloc[conf1._selection] = ''
-                    for altloc2 in h_altlocs[1:]:
-                        conf2 = residue.extract("altloc",altloc2)
-                        conf2 = conf2.extract("e",('H'))
-                        [to_remove.append(x) for x in conf2._selection]
-                    conf2 = residue.extract(f'altloc {h_altlocs[0]}').extract('e', 'H', '==')
-                natoms = len(residue.extract('altloc',altlocs[-1]).name)
-                factor = natoms/np.sum(conf.q)
-                residue._q[conf._selection] *= factor
-
-
-
-    #remove trailing hydrogens
-    mask = structure.active
-    mask[to_remove] = False
-    data = {}
-    for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[mask]
-    structure = Structure(data).reorder()
-
+              try:
+                 out_structure = out_structure.combine(residue) #no altlocs removed
+              except UnboundLocalError:
+                 out_structure = residue
+    
     #add het atoms back in
     structure = structure.combine(hetatm)
     # Reattach LINK records
