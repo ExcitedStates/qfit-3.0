@@ -42,6 +42,7 @@ class _BaseStructure:
         self._kwargs = kwargs
         self.link_data = None
         self.crystal_symmetry = None
+        self.unit_cell = None
         for attr, array in data.items():
             hattr = "_" + attr
             setattr(self, hattr, array)
