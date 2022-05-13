@@ -66,13 +66,13 @@ def read_pdb(fname):
         "z": [xyz[2] for xyz in coordinates],
         "b": atoms.extract_b().as_numpy_array(),
         "q": atoms.extract_occ().as_numpy_array(),
-        "resn": [a.parent().resname for a in atoms],
+        "resn": [a.parent().resname.strip() for a in atoms],
         "resi": [a.parent().parent().resseq_as_int() for a in atoms],
-        "icode": [a.parent().parent().icode for a in atoms],
+        "icode": [a.parent().parent().icode.strip() for a in atoms],
         "e": [a.element.strip() for a in atoms],
         "charge": ["" for a in atoms],
-        "chain": [a.chain().id for a in atoms],
-        "altloc": [a.parent().altloc for a in atoms]
+        "chain": [a.chain().id.strip() for a in atoms],
+        "altloc": [a.parent().altloc.strip() for a in atoms]
     }
     anisou = defaultdict(list)
     for atom in atoms:

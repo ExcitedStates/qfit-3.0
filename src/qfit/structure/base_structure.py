@@ -174,7 +174,7 @@ class _BaseStructure:
     def to_pdb_file(self, fname, cryst=None):
         if cryst != None:
             self.crystal_symmetry = cryst
-        write_pdb(fname, self)
+        return write_pdb(fname, self)
 
     def translate(self, translation):
         """Translate atoms"""
