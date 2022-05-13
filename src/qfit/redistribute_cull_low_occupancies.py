@@ -5,6 +5,7 @@ import os
 from collections import namedtuple
 from . import Structure
 from .structure.rotamers import ROTAMERS
+from string import ascii_uppercase
 
 
 def parse_args():
@@ -40,24 +41,29 @@ def remove_redistribute_conformer(residue, remove, keep):
     """
     total_occ_redist = np.sum(np.unique(residue.extract('altloc', remove).q))
     residue_out = residue.extract('altloc', keep)
-    if len(set(residue_out.altloc)) == 1: #if only one altloc left, assign 1:
+    
+    if len(set(residue_out.altloc)) == 1: #if only one altloc left
        residue_out.q = 1.0
+       residue_out.altloc = '' #adjusting altloc label
+        
     else:
        naltlocs = len(np.unique(residue_out.extract('q', 1.0, '!=').altloc)) #number of altlocs left
-       occ_redist = round(total_occ_redist/naltlocs, 2)
+       occ_redist = round(total_occ_redist/naltlocs, 2) 
        add_occ_redist = 0
-       if ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))) != 1.0:
-          add_occ_redist = round(1.0 - ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))), 2)
+       
+       if ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))) != 1.0: #make sure that rounding and distributing is still adding to 1
+          additional_occ_redist = round(1.0 - ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))), 2)
+            
        occ_sum = [] #get sum of occupancies
        add_occ = False
-       for alt in np.unique(residue_out.altloc):
+       for n, alt in enumerate(np.unique(residue_out.altloc)):
            if np.all(residue_out.extract('altloc', alt, '==').q < 1.0): #ignoring backbone atoms with full occ
               if add_occ == False:
-                 residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist + add_occ_redist
+                 residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist + additional_occ_redist
                  add_occ = True
               else:
                  residue_out.extract('altloc', alt, '==').q = residue_out.extract('altloc', alt, '==').q + occ_redist
-              occ_sum.append((residue_out.extract('altloc', alt, '==').q[0]))
+              residue_out.altloc = ascii_uppercase[n]
 
     return residue_out
 
