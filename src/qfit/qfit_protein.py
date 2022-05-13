@@ -329,8 +329,8 @@ class QFitProtein:
         # This output is not a final qFit output, so it might confuse users.
         if self.options.debug:
             fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-            if self.structure.scale or self.structure.crystal_symmetry:
-                multiconformer_model.tofile(fname, self.structure.scale, self.structure.crystal_symmetry)
+            if self.structure.crystal_symmetry:
+                multiconformer_model.tofile(fname, self.structure.crystal_symmetry)
             else:
                 multiconformer_model.tofile(fname)
 
@@ -348,8 +348,8 @@ class QFitProtein:
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
                              self.pdb + "multiconformer_model2.pdb")
-        if self.structure.scale or self.structure.crystal_symmetry:
-            multiconformer.tofile(fname, self.structure.scale, self.structure.crystal_symmetry)
+        if self.structure.crystal_symmetry:
+            multiconformer.tofile(fname, self.structure.crystal_symmetry)
         else:
             multiconformer.tofile(fname)
         return multiconformer
