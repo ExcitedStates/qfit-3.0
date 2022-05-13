@@ -13,8 +13,8 @@ from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver
-from .structure import Structure, _Segment
+from .solvers import QPSolver, MIQPSolver, SolverError
+from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
@@ -299,8 +299,6 @@ class _BaseQFit:
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
-                    # else:
-                    #     break
             else:
                 solver(cardinality=cardinality, threshold=threshold)
 
@@ -310,6 +308,44 @@ class _BaseQFit:
         # logger.info(f"Residual under footprint: {residual:.4f}")
         # residual = 0
         return solver.obj_value
+
+    def _zero_out_most_similar_conformer(self):
+        """Zero-out the lowest occupancy, most similar conformer.
+
+        Find the most similar pair of conformers, based on backbone RMSD.
+        Of these, remove the conformer with the lowest occupancy.
+        This is done by setting its occupancy to 0.
+
+        This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
+        These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
+        """
+        n_confs = len(self._coor_set)
+
+        # Make a square matrix for pairwise RMSDs, where
+        #   - the lower triangle (and diagonal) are np.inf
+        #   - the upper triangle contains the pairwise RMSDs (k=1 to exclude diagonal)
+        pairwise_rmsd_matrix = np.zeros((n_confs,) * 2)
+        pairwise_rmsd_matrix[np.tril_indices(n_confs)] = np.inf
+        for i, j in zip(*np.triu_indices(n_confs, k=1)):
+            pairwise_rmsd_matrix[i, j] = calc_rmsd(self._coor_set[i], self._coor_set[j])
+
+        # Which coords have the lowest RMSD?
+        #   `idx_low_rmsd` will contain the coordinates of the lowest value in the pairwise matrix
+        #   a.k.a. the indices of the closest confs
+        idx_low_rmsd = np.array(np.unravel_index(np.argmin(pairwise_rmsd_matrix), pairwise_rmsd_matrix.shape))
+        low_rmsd = pairwise_rmsd_matrix[tuple(idx_low_rmsd)]
+        logger.debug(f"Lowest RMSD between conformers {idx_low_rmsd.tolist()}: {low_rmsd:.06f} Å")
+
+        # Of these, which has the lowest occupancy?
+        occs_low_rmsd = self._occupancies[idx_low_rmsd]
+        idx_to_zero, idx_to_keep = idx_low_rmsd[occs_low_rmsd.argsort()]
+
+        # Assign conformer we want to remove with an occupancy of 0
+        logger.debug(f"Zeroing occupancy of conf {idx_to_zero} (of {n_confs}): "
+                     f"occ={self._occupancies[idx_to_zero]:.06f} vs {self._occupancies[idx_to_keep]:.06f}")
+        if self.options.write_intermediate_conformers:  # Output all conformations before we remove them
+            self._write_intermediate_conformers(prefix="cplex_remove")
+        self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
@@ -1203,22 +1239,49 @@ class QFitSegment(_BaseQFit):
                 self._convert()
                 self._solve()
 
-                # Update conformers
-                fragments = np.array(fragments)
-                mask = self._occupancies >= 0.002
-                fragments = fragments[mask]
-                self._occupancies = self._occupancies[mask]
-                self._coor_set = [fragment.coor for fragment in fragments]
-                self._bs = [fragment.b for fragment in fragments]
+                # Run MIQP in a loop, removing the most similar conformer until a solution is found
+                while True:
+                    # Update conformers
+                    fragments = np.array(fragments)
+                    mask = self._occupancies >= 0.002
 
-                # MIQP score segment occupancy
-                self._convert()
-                self._solve(threshold=self.options.threshold,
-                            cardinality=self.options.cardinality,
-                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    # Drop conformers below cutoff
+                    _resi_list = list(fragments[0].residues)
+                    logger.debug(
+                        f"Removing {np.sum(np.invert(mask))} conformers from "
+                        f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                    )
+                    fragments = fragments[mask]
+                    self._occupancies = self._occupancies[mask]
+                    self._coor_set = [fragment.coor for fragment in fragments]
+                    self._bs = [fragment.b for fragment in fragments]
 
-                # Update conformers
+                    try:
+                        # MIQP score segment occupancy
+                        self._convert()
+                        self._solve(threshold=self.options.threshold,
+                                    cardinality=self.options.cardinality,
+                                    loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    except SolverError:
+                        # MIQP failed and we need to remove conformers that are close to each other
+                        logger.debug("MIQP failed, dropping a fragment-conformer")
+                        self._zero_out_most_similar_conformer()  # Remove conformer
+                        if self.options.write_intermediate_conformers:
+                            self._write_intermediate_conformers(prefix="cplex_kept")
+                        continue
+                    else:
+                        # No Exceptions here! Solvable!
+                        break
+
+                # Update conformers for the last time
                 mask = self._occupancies >= 0.002
+
+                # Drop conformers below cutoff
+                _resi_list = list(fragments[0].residues)
+                logger.debug(
+                    f"Removing {np.sum(np.invert(mask))} conformers from "
+                    f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                )
                 for fragment, occ in zip(fragments[mask],
                                          self._occupancies[mask]):
                     fragment.q = occ
