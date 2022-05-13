@@ -12,3 +12,4 @@ dependencies:
   - cvxopt
   - ibmdecisionoptimization::cplex
   - tqdm
+  - cctbx-base
