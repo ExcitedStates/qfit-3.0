@@ -324,7 +324,7 @@ class Structure(_BaseStructure):
             data[attr] = value[ordering]
         return Structure(data,
                          link_data=self.link_data,
-                         crystal_symmetry=self._crystal_symmetry,
+                         crystal_symmetry=self.crystal_symmetry,
                          unit_cell=self.unit_cell)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
