@@ -61,6 +61,23 @@ class _BaseResidue(_BaseStructure):
             string += ":{}".format(icode)
         return string
 
+    @property
+    def _identifier_tuple(self):
+        """Returns (chain, resi, icode) to identify this residue."""
+        chainid = self.chain[0]
+        resi, icode = self.id
+
+        return (chainid, resi, icode)
+
+    @property
+    def shortcode(self):
+        (chainid, resi, icode) = self._identifier_tuple
+        shortcode = f"{chainid}_{resi}"
+        if icode:
+            shortcode += f'_{icode}'
+
+        return shortcode
+
 
 class _Residue(_BaseResidue):
     pass

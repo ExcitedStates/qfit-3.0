@@ -871,3 +871,19 @@ class Segment(_BaseStructure):
         coor = np.dot(coor, R.T)
         coor += origin
         self._coor[selection] = coor
+
+
+def calc_rmsd(coor_a, coor_b):
+    """Determine root-mean-square distance between two structures.
+
+    Args:
+        coor_a (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure a.
+        coor_b (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure b.
+
+    Returns:
+        np.float:
+            Distance between two structures.
+    """
+    return np.sqrt(np.mean((coor_a - coor_b)**2))
