@@ -1311,7 +1311,7 @@ class QFitLigand(_BaseQFit):
         logger.info("Solving MIQP within run.")
         self._convert()
         self._solve(threshold=self.options.threshold,
-                    cardinality=self.options.cardinality)
+                    cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
@@ -1392,7 +1392,7 @@ class QFitLigand(_BaseQFit):
         # MIQP score conformer occupancy
         self._convert()
         self._solve(threshold=self.options.threshold,
-                    cardinality=self.options.cardinality)
+                    cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
@@ -1500,7 +1500,7 @@ class QFitLigand(_BaseQFit):
             # MIQP score conformer occupancy
             self._convert()
             self._solve(threshold=self.options.threshold,
-                        cardinality=self.options.cardinality)
+                        cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
