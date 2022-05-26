@@ -125,14 +125,14 @@ if CPLEX:
                     miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i, j])
                 miqp.objective.set_linear(i, self._lin_obj[i])
 
-            # Sum of weights is <= 1
+            # Sum of weights is == 1
             ind = range(self._nconformers)
             val = [1] * self._nconformers
             lin_expr = [cplex.SparsePair(ind=ind, val=val)]
             miqp.linear_constraints.add(
                 lin_expr=lin_expr,
                 rhs=[1],
-                senses=["L"],
+                senses=["E"],
             )
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
