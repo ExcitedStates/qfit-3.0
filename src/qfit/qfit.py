@@ -286,7 +286,7 @@ class _BaseQFit:
                     # else:
                     #     break
             else:
-                solver(cardinality=cardinality, threshold=threshold, ligand)
+                solver(cardinality=cardinality, threshold=threshold, ligand=ligand)
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
