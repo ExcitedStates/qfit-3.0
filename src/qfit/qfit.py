@@ -610,39 +610,39 @@ class QFitRotamericResidue(_BaseQFit):
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
-        else:
-            # Perform a final QP / MIQP step
-            self.residue.active = True
-            self.residue.update_clash_mask()
-            new_coor_set = []
-            new_bs = []
-            for coor, b in zip(self._coor_set, self._bs):
-                self.residue.coor = coor
-                self.residue.b = b
-                if self.options.external_clash:
-                    if not self._cd() and self.residue.clashes() == 0:
-                        new_coor_set.append(coor)
-                        new_bs.append(b)
-                elif self.residue.clashes() == 0:
+            
+        # Perform a final QP / MIQP step
+        self.residue.active = True
+        self.residue.update_clash_mask()
+        new_coor_set = []
+        new_bs = []
+        for coor, b in zip(self._coor_set, self._bs):
+            self.residue.coor = coor
+            self.residue.b = b
+            if self.options.external_clash:
+                if not self._cd() and self.residue.clashes() == 0:
+                   new_coor_set.append(coor)
+                   new_bs.append(b)
+            elif self.residue.clashes() == 0:
                     new_coor_set.append(coor)
                     new_bs.append(b)
             self._coor_set = new_coor_set
             self._bs = new_bs
 
-            # QP score conformer occupancy
-            self._convert()
-            self._solve()
-            self._update_conformers()
-            if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix="qp_solution")
+        # QP score conformer occupancy
+        self._convert()
+        self._solve()
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+             self._write_intermediate_conformers(prefix="qp_solution")
 
-            # MIQP score conformer occupancy
-            self._convert()
-            self._solve(threshold=self.options.threshold,
-                        cardinality=self.options.cardinality)
-            self._update_conformers()
-            if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix="miqp_solution")
+        # MIQP score conformer occupancy
+        self._convert()
+        self._solve(threshold=self.options.threshold,
+                      cardinality=self.options.cardinality)
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
