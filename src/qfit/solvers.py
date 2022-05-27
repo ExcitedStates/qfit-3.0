@@ -132,16 +132,16 @@ if CPLEX:
                 miqp.linear_constraints.add(
                     lin_expr=lin_expr,
                     rhs=[1],
-                    senses=["E"]
+                    senses=["E"],
                     
-             else: #this is a ligand and we are ok with a sum of occupancies being =< 1
+            else: #this is a ligand and we are ok with a sum of occupancies being =< 1
                 ind = range(self._nconformers)
                 val = [1] * self._nconformers
                 lin_expr = [cplex.SparsePair(ind=ind, val=val)]
                 miqp.linear_constraints.add(
                     lin_expr=lin_expr,
                     rhs=[1],
-                    senses=["L"]
+                    senses=["L"],
                 )
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
