@@ -124,7 +124,7 @@ if CPLEX:
                 for j in range(i, self._nconformers):
                     miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i, j])
                 miqp.objective.set_linear(i, self._lin_obj[i])
-
+            print(ligand)
             if (ligand is None): 
                 ind = range(self._nconformers)
                 val = [1] * self._nconformers
