@@ -132,7 +132,7 @@ if CPLEX:
                 miqp.linear_constraints.add(
                     lin_expr=lin_expr,
                     rhs=[1],
-                    senses=["E"],
+                    senses=["E"],)
                     
             else: 
                 ind = range(self._nconformers)
