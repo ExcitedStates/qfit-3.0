@@ -1,7 +1,7 @@
 """Automatically build a multiconformer residue."""
 
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
+from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
 import logging
 import os
 import sys
@@ -23,9 +23,9 @@ def build_argparser():
     p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
-                        "use the --label options to specify columns to read.")
+                        "use the --label options to specify columns to read.", type=str, action=ValidateMapFileArgument)
     p.add_argument("structure",
-                   help="PDB-file containing structure.")
+                   help="PDB-file containing structure.", type=str, action=ValidateStructureFileArgument)
     p.add_argument('selection', type=str,
                    help="Chain, residue id, and optionally insertion code for "
                         "residue in structure, e.g. A,105, or A,105:A.")
