@@ -1,7 +1,12 @@
 """Automatically build a multiconformer residue."""
 
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
+from .custom_argparsers import (
+    ToggleActionFlag,
+    CustomHelpFormatter,
+    ValidateMapFileArgument,
+    ValidateStructureFileArgument,
+)
 import logging
 import os
 import sys
@@ -28,8 +33,15 @@ def build_argparser():
         help="Density map in CCP4 or MRC format, or an MTZ file "
         "containing reflections and phases. For MTZ files "
         "use the --label options to specify columns to read.",
+        type=str,
+        action=ValidateMapFileArgument,
     )
-    p.add_argument("structure", help="PDB-file containing structure.")
+    p.add_argument(
+        "structure",
+        help="PDB-file containing structure.",
+        type=str,
+        action=ValidateStructureFileArgument,
+    )
     p.add_argument(
         "selection",
         type=str,
@@ -359,9 +371,7 @@ def main():
 
     # Skip over if everything is completed
     # try:
-    if os.path.isfile(args.directory + "/multiconformer_residue.pdb") or os.path.isfile(
-        args.directory + "/multiconformer_residue.cif"
-    ):
+    if os.path.isfile(args.directory + "/multiconformer_residue.pdb"):
         print("This residue has completed")
         exit()
     else:
@@ -470,7 +480,6 @@ def main():
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ""
-    pdb_ext = qfit.file_ext
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
@@ -484,19 +493,17 @@ def main():
         # if skip:
         #    continue
         conformer.altloc = ""
-        fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
+        fname = os.path.join(options.directory, f"conformer_{n}.pdb")
         conformer.tofile(fname)
         conformer.altloc = altloc
         try:
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(
-        options.directory, f"multiconformer_{chainid}_{resi}.{pdb_ext}"
-    )
+    fname = os.path.join(options.directory, f"multiconformer_{chainid}_{resi}.pdb")
     if icode:
         fname = os.path.join(
-            options.directory, f"multiconformer_{chainid}_{resi}_{icode}.{pdb_ext}"
+            options.directory, f"multiconformer_{chainid}_{resi}_{icode}.pdb"
         )
     multiconformer.tofile(fname)
 
