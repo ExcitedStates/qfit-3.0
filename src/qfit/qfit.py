@@ -268,7 +268,7 @@ class _BaseQFit:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in loop_range:
-                    solver(cardinality=None, threshold=threshold, ligand='ligand')
+                    solver(cardinality=None, threshold=threshold, ligand=ligand)
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
                     n = len(self._target)
