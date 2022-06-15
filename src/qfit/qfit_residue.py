@@ -1,7 +1,7 @@
 """Automatically build a multiconformer residue."""
 
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
+from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
 import logging
 import os
 import sys
