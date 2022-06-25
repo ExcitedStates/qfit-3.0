@@ -1,6 +1,7 @@
 import pytest
 import os
 import logging
+import tempfile
 import multiprocessing as mp
 
 from qfit.qfit_protein import (
@@ -29,11 +30,13 @@ def setup_module(module):
 
 
 class TestQFitProtein:
-    def mock_main(self):
+    def mock_main(self, file_ext, tmp_dir):
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                "example")
         # Prepare args
         args = [
-            "./example/3K0N.mtz",  # mapfile, using relative directory from tests/
-            "./example/3K0N.pdb",  # structurefile, using relative directory from tests/
+            os.path.join(data_dir, "3K0N.mtz"),
+            os.path.join(data_dir, f"3K0N.{file_ext}"),
             "-l", "2FOFCWT,PH2FOFCWT",
         ]
 
@@ -41,6 +44,7 @@ class TestQFitProtein:
         args.extend([
             "--backbone-amplitude", "0.10",  # default: 0.30
             "--rotamer-neighborhood", "30",  # default: 60
+            "-d", tmp_dir
         ])
 
         # Collect and act on arguments
@@ -71,11 +75,18 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue_parallel(self):
-        qfit = self.mock_main()
-
+    def _run_mock_qfit_residue_parallel(self, file_ext):
+        tmp_dir = tempfile.mkdtemp("test-qfit-protein")
+        print(f"TMP for {file_ext} is {tmp_dir}")
+        qfit = self.mock_main(file_ext, tmp_dir)
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
         assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113
+
+    def test_run_qfit_residue_parallel(self):
+        self._run_mock_qfit_residue_parallel("pdb")
+
+    def test_run_qfit_residue_parallel_mmcif(self):
+        self._run_mock_qfit_residue_parallel("cif.gz")

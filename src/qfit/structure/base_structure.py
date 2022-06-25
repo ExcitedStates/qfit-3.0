@@ -31,7 +31,7 @@ class _BaseStructure:
         self.link_data = None
         self.crystal_symmetry = None
         self.unit_cell = None
-        self.file_format = None
+        self.file_format = None #"pdb"  # default is PDB
         for attr, array in data.items():
             hattr = '_' + attr
             setattr(self, hattr, array)

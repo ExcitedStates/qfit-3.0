@@ -33,7 +33,7 @@ def build_argparser():
                         "For CCP4 files, use the -r to specify resolution.",
                    type=str, action=ValidateMapFileArgument)
     p.add_argument("structure",
-                   help="PDB-file containing structure.",
+                   help="PDB or mmCIF file containing structure.",
                    type=str, action=ValidateStructureFileArgument)
 
     # Map input options
@@ -175,6 +175,14 @@ class QFitProtein:
         multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
+    @property
+    def file_ext(self):
+        # we can't rely on this being propagated in self.structure....
+        path_fields = self.options.structure.split(".")
+        if path_fields[-1] == "gz":
+            return ".".join(path_fields[-2:])
+        return path_fields[-1]
+
     def get_map_around_substructure(self, substructure):
         """Make a subsection of the map near the substructure.
 
@@ -216,7 +224,7 @@ class QFitProtein:
             fname = os.path.join(
                 self.options.directory,
                 residue.shortcode,
-                'multiconformer_residue.pdb',
+                f'multiconformer_residue.{self.file_ext}',
             )
             if os.path.exists(fname):
                 logger.info(f"Residue {residue.shortcode}: {fname} already exists.")
@@ -340,7 +348,8 @@ class QFitProtein:
         # Write out multiconformer_model.pdb only if in debug mode.
         # This output is not a final qFit output, so it might confuse users.
         if self.options.debug:
-            fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
+            fname = os.path.join(self.options.directory,
+                                 f"multiconformer_model.{self.file_ext}")
             if self.structure.crystal_symmetry:
                 multiconformer_model.tofile(fname, self.structure.crystal_symmetry)
             else:
@@ -366,7 +375,7 @@ class QFitProtein:
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
-                             self.pdb + "multiconformer_model2.pdb")
+                             f"{self.pdb}multiconformer_model2.{self.file_ext}")
         if self.structure.crystal_symmetry:
             multiconformer.tofile(fname, self.structure.crystal_symmetry)
         else:

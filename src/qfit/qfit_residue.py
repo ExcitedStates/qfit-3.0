@@ -166,7 +166,8 @@ def main():
 
     #Skip over if everything is completed
     #try:
-    if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
+    if (os.path.isfile(args.directory + '/multiconformer_residue.pdb') or
+        os.path.isfile(args.directory + '/multiconformer_residue.cif')):
         print('This residue has completed')
         exit()
     else:
@@ -275,6 +276,7 @@ def main():
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
+    pdb_ext = qfit.file_ext
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
@@ -288,16 +290,16 @@ def main():
         #if skip:
         #    continue
         conformer.altloc = ''
-        fname = os.path.join(options.directory, f'conformer_{n}.pdb')
+        fname = os.path.join(options.directory, f'conformer_{n}.{pdb_ext}')
         conformer.tofile(fname)
         conformer.altloc = altloc
         try:
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
-    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
+    fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.{pdb_ext}')
     if icode:
-        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
+        fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.{pdb_ext}')
     multiconformer.tofile(fname)
 
     passed = time.time() - time0

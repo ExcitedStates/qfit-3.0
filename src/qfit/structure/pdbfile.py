@@ -207,9 +207,10 @@ def write_mmcif(fname, structure):
     hierarchy = pdb_in.construct_hierarchy()
     cif_block = hierarchy.as_cif_block(
         crystal_symmetry=structure.crystal_symmetry)
-    link_loop = _to_mmcif_link_records(structure)
-    if link_loop:
-        cif_block.add_loop(link_loop)
+    if structure.link_data:
+        link_loop = _to_mmcif_link_records(structure)
+        if link_loop:
+            cif_block.add_loop(link_loop)
     with smart_open.for_writing(fname, gzip_mode='wt') as f:
         cif_object = iotbx.cif.model.cif()
         cif_object["qfit"] = cif_block

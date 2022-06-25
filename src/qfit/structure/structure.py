@@ -326,7 +326,8 @@ class Structure(_BaseStructure):
         return Structure(data,
                          link_data=self.link_data,
                          crystal_symmetry=self.crystal_symmetry,
-                         unit_cell=self.unit_cell)
+                         unit_cell=self.unit_cell,
+                         file_format=self.file_format)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
