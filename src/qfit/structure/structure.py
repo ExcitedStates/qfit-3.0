@@ -2,7 +2,7 @@ import numpy as np
 import copy
 
 from .base_structure import _BaseStructure
-from .pdbfile import ANISOU_FIELDS, read_pdb
+from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
 from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
@@ -23,7 +23,7 @@ class Structure(_BaseStructure):
 
     @staticmethod
     def fromfile(fname):
-        pdb_in = read_pdb(fname)
+        pdb_in = read_pdb_or_mmcif(fname)
         dd = pdb_in.coor
         data = {}
         for attr, array in dd.items():
@@ -65,7 +65,8 @@ class Structure(_BaseStructure):
         return Structure(data,
                          link_data=link_data,
                          crystal_symmetry=pdb_in.crystal_symmetry,
-                         unit_cell=unit_cell)
+                         unit_cell=unit_cell,
+                         file_format=pdb_in.file_format)
 
     @staticmethod
     def fromstructurelike(structure_like):

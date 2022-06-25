@@ -16,6 +16,7 @@ class _BaseStructure:
 
     REQUIRED_ATTRIBUTES = ["record", "name", "b", "q", "coor", "resn", "resi",
                            "icode", "e", "charge", "chain", "altloc"]
+    OTHER_ATTRIBUTES = ["link_data", "crystal_symmetry", "unit_cell", "file_format"]
     _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
     _selector = _Selector()
     _COMPARISON_DICT = {'==': eq, '!=': eq, '>': gt, '>=': ge, '<=': le, '<': lt}
@@ -30,6 +31,7 @@ class _BaseStructure:
         self.link_data = None
         self.crystal_symmetry = None
         self.unit_cell = None
+        self.file_format = None
         for attr, array in data.items():
             hattr = '_' + attr
             setattr(self, hattr, array)
@@ -42,7 +44,7 @@ class _BaseStructure:
             setattr(self.__class__, attr, prop)
 
         for key, value in kwargs.items():
-            if key in ["link_data", "crystal_symmetry", "unit_cell"]:
+            if key in self.OTHER_ATTRIBUTES:
                 setattr(self, key, value)
 
         if selection is None:
