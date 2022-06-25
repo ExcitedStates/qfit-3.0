@@ -7,8 +7,11 @@ import os.path as op
 
 
 class UnitBase(unittest.TestCase):
-    DATA = op.join(op.dirname(op.dirname(__file__)), "data")
+    TESTS_DIR = op.dirname(op.dirname(__file__))
+    DATA = op.join(TESTS_DIR, "data")
     TINY_PDB = op.join(DATA, "phe113_fake_uc.pdb")
+    TINY_CIF = op.join(DATA, "phe113_fake_uc.cif.gz")
+    EXAMPLES = op.join(op.dirname(TESTS_DIR), "example")
 
     def make_tiny_fmodel_mtz(self):
         """

@@ -4,13 +4,15 @@ import itertools as itl
 from math import inf
 import logging
 
-import iotbx.pdb.hierarchy
+import numpy as np
+
+import iotbx.pdb
 from libtbx import group_args, smart_open
 
-__all__ = ["read_pdb", "write_pdb", "ANISOU_FIELDS"]
+__all__ = ["read_pdb", "write_pdb", "read_pdb_or_mmcif", "ANISOU_FIELDS"]
 logger = logging.getLogger(__name__)
 
-ANISOU_FIELDS = ["u00", "u11", "u22", "u01", "u02", "u12"]
+ANISOU_FIELDS = ("u00", "u11", "u22", "u01", "u02", "u12")
 
 
 def _extract_record_type(atoms):
@@ -33,27 +35,32 @@ def _extract_link_records(pdb_inp):
     return link
 
 
-def read_pdb(fname):
-    """
-    Parsed PDB file representation by section.
+def _extract_mmcif_links(mmcif_inp):
+    try:
+        _ = mmcif_inp.cif_block[LinkRecord.cif_fields[0]]
+    except KeyError:
+        return {}
+    link = {}
+    for field_name, cif_key, dtype in zip(
+        LinkRecord.fields, LinkRecord.cif_fields, LinkRecord.dtypes
+    ):
 
-    Attributes:
-        coor (dict[str, list): coordinate data
-        anisou (dict[str, list]): anisotropic displacement parameter data
-        link (dict[str, list]): link records
-        crystal_symmetry (cctbx.crystal.symmetry): CRYST1 (and implicitly SCALE)
-        resolution (Optional[float]): resolution of pdb file
-        unit_cell (Optional[UnitCell]): unit cell object
-        pdb_hierarchy (Optional[iotbx.pdb.hierarchy]): CCTBX PDB object
-    """
+        def _to_value(x):
+            if x == "?":
+                return ""
+            else:
+                return dtype(x)
 
-    """Read a pdb file using CCTBX and construct a PDBFile object."""
-    # this handles .gz extensions automatically
-    pdb_inp = iotbx.pdb.pdb_input(file_name=fname, source_info=None)
-    pdb_hierarchy = pdb_inp.construct_hierarchy()
+        raw_values = mmcif_inp.cif_block[cif_key]
+        link[field_name] = [_to_value(x) for x in raw_values]
+    return link
+
+
+def _from_iotbx_pdb_hierarchy(
+    pdb_hierarchy, crystal_symmetry, resolution, link, file_format="pdb"
+):
     if len(pdb_hierarchy.models()) > 1:
-        raise NotImplementedError("MODEL record is not implemented.")
-    crystal_symmetry = pdb_inp.crystal_symmetry()
+        raise NotImplementedError("Multi-model support is not implemented.")
     atoms = pdb_hierarchy.atoms()
     coordinates = atoms.extract_xyz()
     # FIXME this is just a bad idea, we should work with the IOTBX objects
@@ -79,18 +86,75 @@ def read_pdb(fname):
     for atom in atoms:
         if atom.uij != (-1, -1, -1, -1, -1, -1):
             anisou["atomid"].append(atom.serial)
-            for key, n_frac in zip(ANISOU_FIELDS, atom.uij):
-                anisou[key].append(int(n_frac * 10000))
-    # FIXME this will only work for PDB, not mmCIF
-    link = _extract_link_records(pdb_inp)
+            for key, uij_n_frac in zip(ANISOU_FIELDS, atom.uij):
+                uij_n_int = int(np.round(uij_n_frac * 10000))
+                anisou[key].append(uij_n_int)
     return group_args(
         coor=data,
         anisou=anisou,
         link=link,
-        resolution=pdb_inp.resolution(),
+        resolution=resolution,
         crystal_symmetry=crystal_symmetry,
         pdb_hierarchy=pdb_hierarchy,
+        file_format=file_format,
     )
+
+
+def read_pdb_or_mmcif(fname):
+    """
+    Parsed PDB or mmCIF file representation by section.
+
+    Attributes:
+        coor (dict[str, list): coordinate data
+        anisou (dict[str, list]): anisotropic displacement parameter data
+        link (dict[str, list]): link records
+        crystal_symmetry (cctbx.crystal.symmetry): CRYST1 (and implicitly SCALE)
+        resolution (Optional[float]): resolution of pdb file
+        unit_cell (Optional[UnitCell]): unit cell object
+        pdb_hierarchy (Optional[iotbx.pdb.hierarchy]): CCTBX PDB object
+    """
+
+    """Read a pdb file using CCTBX and construct a PDBFile object."""
+    iotbx_in = iotbx.pdb.pdb_input_from_any(
+        file_name=fname, source_info=None, raise_sorry_if_format_error=True
+    )
+    pdb_inp = iotbx_in.file_content()
+    pdb_hierarchy = pdb_inp.construct_hierarchy()
+    link = {}
+    if iotbx_in.file_format == "pdb":
+        link = _extract_link_records(pdb_inp)
+    else:
+        link = _extract_mmcif_links(pdb_inp)
+    return _from_iotbx_pdb_hierarchy(
+        pdb_hierarchy=pdb_hierarchy,
+        resolution=pdb_inp.resolution(),
+        crystal_symmetry=pdb_inp.crystal_symmetry(),
+        link=link,
+        file_format=iotbx_in.file_format,
+    )
+
+
+def read_pdb(fname):
+    return read_pdb_or_mmcif(fname)
+
+
+def _structure_to_iotbx_atoms(data):
+    for i_seq in range(len(data["record"])):
+        yield iotbx.pdb.make_atom_with_labels(
+            xyz=data["coor"][i_seq],
+            occ=data["q"][i_seq],
+            b=data["b"][i_seq],
+            hetero=data["record"][i_seq] == "HETATM",
+            serial=i_seq + 1,
+            name=data["name"][i_seq],
+            element=data["e"][i_seq],
+            charge=data["charge"][i_seq],
+            chain_id=data["chain"][i_seq],
+            resseq=str(data["resi"][i_seq]),
+            icode=data["icode"][i_seq],
+            altloc=data["altloc"][i_seq],
+            resname=data["resn"][i_seq],
+        )
 
 
 def write_pdb(fname, structure):
@@ -107,31 +171,17 @@ def write_pdb(fname, structure):
                 )
             )
         if structure.link_data:
-            _write_link_data(f, structure)
-        d = structure.data
-        for i_seq in range(len(d["record"])):
-            atom = iotbx.pdb.make_atom_with_labels(
-                xyz=d["coor"][i_seq],
-                occ=d["q"][i_seq],
-                b=d["b"][i_seq],
-                hetero=d["record"][i_seq] == "HETATM",
-                serial=i_seq + 1,
-                name=d["name"][i_seq],
-                element=d["e"][i_seq],
-                charge=d["charge"][i_seq],
-                chain_id=d["chain"][i_seq],
-                resseq=str(d["resi"][i_seq]),
-                icode=d["icode"][i_seq],
-                altloc=d["altloc"][i_seq],
-                resname=d["resn"][i_seq],
-            )
+            _write_pdb_link_data(f, structure)
+        for atom in _structure_to_iotbx_atoms(structure.data):
             f.write("{}\n".format(atom.format_atom_record_group()))
         f.write("END")
 
 
-def _write_link_data(f, structure):
+def _write_pdb_link_data(f, structure):
     for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
         record = dict(zip(LinkRecord.fields, record))
+        # this will be different if the input was mmCIF
+        record["record"] = "LINK"
         if not record["length"]:
             # If the LINK length is 0, then leave it blank.
             # This is a deviation from the PDB standard.
@@ -312,3 +362,24 @@ class LinkRecord(RecordParser):
         + "{:>6s} {:>6s} {:>5.2f}"
         + "\n"
     )
+    # for mmCIF we need to fetch arrays equivalent to each of the column-based
+    # fields in the PDB LINK records
+    # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v40.dic/Categories/struct_conn.html
+    cif_fields = [
+        "_struct_conn.id",  # not really
+        "_struct_conn.ptnr1_label_atom_id",
+        "_struct_conn.pdbx_ptnr1_label_alt_id",
+        "_struct_conn.ptnr1_auth_comp_id",
+        "_struct_conn.ptnr1_auth_asym_id",
+        "_struct_conn.ptnr1_auth_seq_id",
+        "_struct_conn.pdbx_ptnr1_PDB_ins_code",
+        "_struct_conn.ptnr2_label_atom_id",
+        "_struct_conn.pdbx_ptnr2_label_alt_id",
+        "_struct_conn.ptnr2_auth_comp_id",
+        "_struct_conn.ptnr2_auth_asym_id",
+        "_struct_conn.ptnr2_auth_seq_id",
+        "_struct_conn.pdbx_ptnr2_PDB_ins_code",
+        "_struct_conn.ptnr1_symmetry",
+        "_struct_conn.ptnr2_symmetry",
+        "_struct_conn.pdbx_dist_value",
+    ]

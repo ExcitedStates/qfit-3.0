@@ -6,6 +6,8 @@ import tempfile
 import unittest
 import os.path as op
 
+import numpy as np
+
 from qfit.structure import Structure
 from qfit.structure.pdbfile import read_pdb, write_pdb
 
@@ -13,8 +15,7 @@ from .base_test_case import UnitBase
 
 
 class TestStructure(UnitBase):
-    def test_read_pdb(self):
-        pdb = read_pdb(self.TINY_PDB)
+    def _validate_tiny_pdb(self, pdb):
         assert pdb.crystal_symmetry is not None
         assert pdb.resolution == 1.39
         assert len(pdb.coor["record"]) == 40
@@ -38,6 +39,16 @@ class TestStructure(UnitBase):
         assert pdb.anisou["u01"][0] == -88
         assert pdb.anisou["u02"][0] == 638
         assert pdb.anisou["u12"][0] == -737
+
+    def test_read_pdb(self):
+        pdb = read_pdb(self.TINY_PDB)
+        assert pdb.file_format == "pdb"
+        self._validate_tiny_pdb(pdb)
+
+    def test_read_mmcif(self):
+        pdb = read_pdb(self.TINY_CIF)
+        assert pdb.file_format == "cif"
+        self._validate_tiny_pdb(pdb)
 
     def test_structure_fromfile(self):
         def _check_structure(s):
@@ -89,12 +100,20 @@ class TestStructure(UnitBase):
         s3.tofile(pdb_tmp_out + ".gz")
         s4 = Structure.fromfile(pdb_tmp_out + ".gz")
         _check_structure(s4)
+        # mmCIF input
+        s5 = Structure.fromfile(self.TINY_CIF)
+        assert s5.file_format == "cif"
+        _check_structure(s5)
+        # recycling to PDB should work here too
+        s5.tofile(pdb_tmp_out + ".gz")
+        s6 = Structure.fromfile(pdb_tmp_out + ".gz")
+        _check_structure(s6)
 
     def test_structure_with_links(self):
         def _check_structure(s):
             assert s.data["icode"][0] == ""
             assert s.data["altloc"][0] == ""
-            assert len(s.link_data["record"]) == 20
+            assert len(s.link_data["record"]) == 5
             assert s.link_data["name1"][0] == "ZN"
             assert s.link_data["altloc1"][0] == ""
             assert s.link_data["resn1"][0] == "ZN"
@@ -105,17 +124,21 @@ class TestStructure(UnitBase):
             assert s.link_data["chain2"][0] == "A"
             assert s.link_data["resi2"][0] == 702
             assert s.link_data["resn2"][0] == "28T"
-            assert s.link_data["length"][0] == 1.84
-            assert s.link_data["resn1"][-1] == "YB"
-            assert s.link_data["resn2"][-1] == "ACY"
-            assert s.link_data["length"][-1] == 2.84
+            assert np.round(s.link_data["length"][0], decimals=2) == 1.84
+            assert s.link_data["resn1"][-1] == "HIS"
+            assert s.link_data["resn2"][-1] == "ZN"
+            assert np.round(s.link_data["length"][-1], decimals=2) == 2.09
             assert len([r for r in s.data["resn"] if r == "ZN"]) == 1
-            assert len([r for r in s.data["record"] if r == "HETATM"]) == 552
+            assert len([r for r in s.data["record"] if r == "HETATM"]) == 40
 
-        PDB = op.join(op.dirname(op.dirname(self.DATA)), "example", "4ms6.pdb")
-        s1 = Structure.fromfile(PDB)
-        _check_structure(s1)
-        pdb_tmp_out = tempfile.NamedTemporaryFile(suffix=".pdb.gz").name
-        s1.tofile(pdb_tmp_out)
-        s2 = Structure.fromfile(pdb_tmp_out)
-        _check_structure(s2)
+        PDB = op.join(self.DATA, "4ms6_tiny.pdb.gz")
+        CIF = op.join(self.DATA, "4ms6_tiny.cif.gz")
+        for fname, ftype in zip([PDB, CIF], ["pdb", "cif"]):
+            s1 = Structure.fromfile(fname)
+            assert s1.file_format == ftype
+            _check_structure(s1)
+            pdb_tmp_out = tempfile.NamedTemporaryFile(suffix=".pdb.gz").name
+            s1.tofile(pdb_tmp_out)
+            s2 = Structure.fromfile(pdb_tmp_out)
+            assert s2.file_format == "pdb"
+            _check_structure(s2)
