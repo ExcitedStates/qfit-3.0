@@ -35,12 +35,11 @@ class SFTransformer:
         fft_grid = np.zeros(shape, dtype=np.complex128)
 
         start_sf = self._f_phi_to_complex(self.f, self.phi)
-        symops = self.space_group.symop_list[:self.space_group.num_primitive_sym_equiv]
         two_pi = 2 * np.pi
         hsym = np.zeros_like(h)
         ksym = np.zeros_like(k)
         lsym = np.zeros_like(l)
-        for symop in symops:
+        for symop in self.space_group.iter_primitive_symops():
             for n, msym in enumerate((hsym, ksym, lsym)):
                 msym.fill(0)
                 rot = np.asarray(symop.R.T)[n]
@@ -84,12 +83,11 @@ class FFTTransformer:
         fft_mask = np.ones(self.xmap.shape, dtype=bool)
         fft_mask.fill(True)
         sg = self.xmap.unit_cell.space_group
-        symops = sg.symop_list[:sg.num_primitive_sym_equiv]
         hmax = 0
         hsym = np.zeros_like(h)
         ksym = np.zeros_like(k)
         lsym = np.zeros_like(l)
-        for symop in symops:
+        for symop in sg.iter_primitive_symops():
             for n, msym in enumerate((hsym, ksym, lsym)):
                 msym.fill(0)
                 rot = np.asarray(symop.R.T)[n]
