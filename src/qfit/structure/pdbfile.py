@@ -7,9 +7,10 @@ import logging
 import numpy as np
 
 import iotbx.pdb
+import iotbx.cif.model
 from libtbx import group_args, smart_open
 
-__all__ = ["read_pdb", "write_pdb", "read_pdb_or_mmcif", "ANISOU_FIELDS"]
+__all__ = ["read_pdb", "write_pdb", "read_pdb_or_mmcif", "write_mmcif", "ANISOU_FIELDS"]
 logger = logging.getLogger(__name__)
 
 ANISOU_FIELDS = ('u00', 'u11', 'u22', 'u01', 'u02', 'u12')
@@ -157,6 +158,7 @@ def write_pdb(fname, structure):
     """
     Write a structure to a PDB file using the iotbx.pdb API
     """
+    # FIXME this does not save resolution!
     with smart_open.for_writing(fname, gzip_mode='wt') as f:
         if structure.crystal_symmetry:
             f.write("{}\n".format(iotbx.pdb.format_cryst1_and_scale_records(
@@ -181,6 +183,37 @@ def _write_pdb_link_data(f, structure):
             f.write(fmtstr.format(*record.values()))
         else:
             f.write(LinkRecord.fmtstr.format(*record.values()))
+
+
+def _to_mmcif_link_records(structure):
+    if len(structure.link_data) > 0:
+        conn_loop = iotbx.cif.model.loop(header=LinkRecord.cif_fields)
+        for field_id, cif_key in zip(LinkRecord.fields, LinkRecord.cif_fields):
+            for x in structure.link_data[field_id]:
+                conn_loop[cif_key].append(str(x))
+        return conn_loop
+    return None
+
+
+def write_mmcif(fname, structure):
+    """
+    Write a structure to an mmCIF file using the iotbx APIs
+    """
+    # FIXME this is really gross, just a quick hack to make mmCIF writable
+    atoms = _structure_to_iotbx_atoms(structure.data)
+    atom_lines = [atom.format_atom_record_group() for atom in atoms]
+    pdb_in = iotbx.pdb.pdb_input(source_info="qfit_structure",
+                                 lines=atom_lines)
+    hierarchy = pdb_in.construct_hierarchy()
+    cif_block = hierarchy.as_cif_block(
+        crystal_symmetry=structure.crystal_symmetry)
+    link_loop = _to_mmcif_link_records(structure)
+    if link_loop:
+        cif_block.add_loop(link_loop)
+    with smart_open.for_writing(fname, gzip_mode='wt') as f:
+        cif_object = iotbx.cif.model.cif()
+        cif_object["qfit"] = cif_block
+        print(cif_object, file=f)
 
 
 class RecordParser(object):
