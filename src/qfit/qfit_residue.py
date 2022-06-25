@@ -166,7 +166,6 @@ def main():
 
     #Skip over if everything is completed
     #try:
-    print(args.directory)
     if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
         print('This residue has completed')
         exit()

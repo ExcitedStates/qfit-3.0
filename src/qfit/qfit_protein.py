@@ -12,6 +12,7 @@ import argparse
 from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
 import logging
 import traceback
+import itertools as itl
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
@@ -210,9 +211,27 @@ class QFitProtein:
                                       .extract('resn', 'HOH', '!=')
                                       .single_conformer_residues)
 
+        # Filter the residues: take only those not containing checkpoints.
+        def does_multiconformer_checkpoint_exist(residue):
+            fname = os.path.join(
+                self.options.directory,
+                residue.shortcode,
+                'multiconformer_residue.pdb',
+            )
+            if os.path.exists(fname):
+                logger.info(f"Residue {residue.shortcode}: {fname} already exists.")
+                return True
+            else:
+                return False
+
+        residues_to_sample = list(itl.filterfalse(
+            does_multiconformer_checkpoint_exist,
+            residues
+        ))
+
         # Print execution stats
-        logger.info(f"RESIDUES: {len(residues)}")
-        logger.info(f"NPROC: {self.options.nproc}")
+        logger.info(f"Residues to sample: {len(residues_to_sample)}")
+        logger.info(f"nproc: {self.options.nproc}")
 
         # Build a Manager, have it construct a Queue. This will conduct
         #   thread-safe and process-safe passing of LogRecords.
@@ -224,7 +243,7 @@ class QFitProtein:
         listener.start()
 
         # Initialise progress bar
-        progress = tqdm(total=len(residues),
+        progress = tqdm(total=len(residues_to_sample),
                         desc="Sampling residues",
                         unit="residue",
                         unit_scale=True,
@@ -254,7 +273,7 @@ class QFitProtein:
                                                   'logqueue': logqueue},
                                             callback=_cb,
                                             error_callback=_error_cb)
-                           for residue in residues]
+                           for residue in residues_to_sample]
 
                 # Make sure all jobs are finished
                 # #TODO If a task crashes or is OOM killed, then there is no result.
@@ -267,7 +286,7 @@ class QFitProtein:
 
         else:
             # Otherwise, run this in the MainProcess
-            for residue in residues:
+            for residue in residues_to_sample:
                 try:
                     result = QFitProtein._run_qfit_residue(
                         residue=residue,
@@ -290,13 +309,6 @@ class QFitProtein:
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
         for residue in residues:
-            # Create the residue identifier
-            chain = residue.chain[0]
-            resid, icode = residue.id
-            residue_directory = f"{chain}_{resid}"
-            if icode:
-                residue_directory += f"_{icode}"
-
             # Check the residue is a rotameric residue,
             # if not, we won't have a multiconformer_residue.pdb.
             # Make sure to append it to the hetatms object so it stays in the final output.
@@ -307,11 +319,11 @@ class QFitProtein:
             # Load the multiconformer_residue.pdb file
             fname = os.path.join(
                 self.options.directory,
-                residue_directory,
+                residue.shortcode,
                 'multiconformer_residue.pdb',
             )
             if not os.path.exists(fname):
-                logger.warn(f"[{residue_directory}] Couldn't find multiconformer_residue.pdb!"
+                logger.warn(f"[{residue.shortcode}] Couldn't find {fname}! "
                              "Will not be present in multiconformer_model.pdb!")
                 continue
             residue_multiconformer = Structure.fromfile(fname)
@@ -343,7 +355,14 @@ class QFitProtein:
             self.options.fragment_length = 3
         else:
             self.options.threshold = 0.2
+
+        # Extract map of multiconformer in P1, with 5 A padding
+        logger.debug("Extracting map...")
+        _then = time.process_time()
         self.xmap = self.xmap.extract(self.structure.coor, padding=5)
+        _now = time.process_time()
+        logger.debug(f"Map extraction took {(_now - _then):.03f} s.")
+
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         fname = os.path.join(self.options.directory,
@@ -401,12 +420,7 @@ class QFitProtein:
         )
 
         # Build the residue results directory
-        chainid = residue.chain[0]
-        resi, icode = residue.id
-        identifier = f"{chainid}_{resi}"
-        if icode:
-            identifier += f'_{icode}'
-        residue_directory = os.path.join(options.directory, identifier)
+        residue_directory = os.path.join(options.directory, residue.shortcode)
         try:
             os.makedirs(residue_directory)
         except OSError:
@@ -415,14 +429,16 @@ class QFitProtein:
         # Exit early if we have already run qfit for this residue
         fname = os.path.join(residue_directory, 'multiconformer_residue.pdb')
         if os.path.exists(fname):
-            logger.info(f"Residue {identifier}: {fname} already exists, using this checkpoint.")
+            logger.info(f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint.")
             return
 
         # Copy the structure
-        structure_new = structure
-        structure_resi = structure.extract(f'resi {resi} and chain {chainid}')
+        (chainid, resi, icode) = residue._identifier_tuple
+        resi_selstr = f"chain {chainid} and resi {resi}"
         if icode:
-            structure_resi = structure_resi.extract('icode', icode)
+            resi_selstr += f" and icode {icode}"
+        structure_new = structure
+        structure_resi = structure.extract(resi_selstr)
         chain = structure_resi[chainid]
         conformer = chain.conformers[0]
         residue = conformer[residue.id]
