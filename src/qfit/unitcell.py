@@ -46,6 +46,14 @@ class UnitCell:
         return "UnitCell(a=%f, b=%f, c=%f, alpha=%f, beta=%f, gamma=%f)" % (
             self.a, self.b, self.c, self.alpha, self.beta, self.gamma)
 
+    def to_cctbx(self):
+        from cctbx.uctbx import unit_cell
+        return unit_cell((self.a, self.b, self.c, self.alpha, self.beta, self.gamma))
+
+    @staticmethod
+    def from_cctbx(uc):
+        return UnitCell(*(uc.parameters()))
+
     def copy(self):
         return UnitCell(self.a, self.b, self.c, self.alpha, self.beta,
                         self.gamma, self.space_group.number)

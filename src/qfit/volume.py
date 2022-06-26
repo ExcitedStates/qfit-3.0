@@ -9,6 +9,10 @@ import time
 
 import numpy as np
 from scipy.ndimage import map_coordinates
+import iotbx.ccp4_map
+import iotbx.mrcfile
+from cctbx import sgtbx
+from scitbx.array_family import flex
 
 from .spacegroups import GetSpaceGroup, SpaceGroup, SymOpFromString
 from .unitcell import UnitCell
@@ -61,13 +65,30 @@ class _BaseVolume:
     def voxelspacing(self):
         return self.grid_parameters.voxelspacing
 
-    def tofile(self, fid, fmt=None):
+    def tofile(self, file_name, fmt=None):
         if fmt is None:
-            fmt = os.path.splitext(fid)[-1][1:]
+            fmt = os.path.splitext(file_name)[-1][1:]
         if fmt in ('ccp4', 'map', 'mrc'):
-            to_mrc(fid, self)
+            to_mrc(file_name, self)
         else:
-            raise ValueError("Format is not supported.")
+            raise ValueError(f"Format '{fmt}' is not supported.")
+
+    def write_map_file(self, file_name):
+        density_np = np.ascontiguousarray(np.swapaxes(self.array, 0, 2))
+        density = flex.double(density_np)
+        (ox, oy, oz) = (int(x) for x in self.grid_parameters.offset)
+        (nx, ny, nz) = density.accessor().focus()
+        grid = flex.grid((ox, oy, oz), (nx+ox, ny+oy, nz+oz))
+        density.reshape(grid)
+        if file_name.endswith(".ccp4"):
+            writer = iotbx.ccp4_map.write_ccp4_map
+        else:
+            writer = iotbx.mrcfile.write_ccp4_map
+        writer(file_name=file_name,
+               unit_cell=self.unit_cell.to_cctbx(),
+               space_group=sgtbx.space_group_info("P1").group(),
+               map_data=density,
+               labels=flex.std_string(["qfit"]))
 
 
 class EMMap(_BaseVolume):
@@ -166,6 +187,34 @@ class XMap(_BaseVolume):
         resolution = Resolution(high=resolution)
         origin = parser.origin
         return XMap(array,
+                    grid_parameters,
+                    unit_cell=unit_cell,
+                    resolution=resolution,
+                    origin=origin)
+
+    @staticmethod
+    def from_mapfile_cctbx(fname, resolution):
+        if resolution is None:
+            raise ValueError(f"{fname} is a CCP4/MRC/MAP file. Please provide a resolution (use the '-r'/'--resolution' flag).")
+        if fname.endswith(".ccp4"):
+            map_io = iotbx.ccp4_map.map_reader(fname)
+        else:
+            map_io = iotbx.mrcfile.map_reader(fname)
+        uc_params = map_io.unit_cell().parameters()
+        origin = (0, 0, 0) #map_io.nxstart_nystart_nzstart
+        unit_cell = UnitCell(*uc_params, map_io.space_group_number)
+        abc = uc_params[0:3]
+        shape = map_io.unit_cell_grid
+        # Reorder axis so that nx is fastest changing.
+        # NOTE CCTBX handles axis conventions internally, so we always run
+        # this swap here (without needing to check the map file header again)
+        density = np.swapaxes(map_io.data.as_numpy_array(), 0, 2)
+        cell_shape = tuple(reversed(shape))
+        voxelspacing = tuple(length / n for length, n in zip(abc, shape))
+        offset = map_io.data.accessor().origin()
+        grid_parameters = GridParameters(voxelspacing, offset)
+        resolution = Resolution(high=resolution)
+        return XMap(density,
                     grid_parameters,
                     unit_cell=unit_cell,
                     resolution=resolution,
@@ -469,10 +518,10 @@ class MRCParser(CCP4Parser):
         self.origin = origin
 
 
-def to_mrc(fid, volume, labels=[], fmt=None):
+def to_mrc(file_name, volume, labels=[], fmt=None):
 
     if fmt is None:
-        fmt = os.path.splitext(fid)[-1][1:]
+        fmt = os.path.splitext(file_name)[-1][1:]
 
     if fmt not in ('ccp4', 'mrc', 'map'):
         raise ValueError('Format is not recognized. Use ccp4, mrc, or map.')
@@ -527,7 +576,7 @@ def to_mrc(fid, volume, labels=[], fmt=None):
     mean_density = volume.array.mean()
     std_density = volume.array.std()
 
-    with open(fid, 'wb') as out:
+    with open(file_name, 'wb') as out:
         out.write(_pack('i', nx))
         out.write(_pack('i', ny))
         out.write(_pack('i', nz))
