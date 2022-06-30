@@ -144,7 +144,7 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
 #   since it introduces planarity restraints to the peptide bond.
 # We will also create a cif file for any ligands in the structure at this point.
 phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
-mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
+mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
