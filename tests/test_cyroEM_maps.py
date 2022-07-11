@@ -29,11 +29,16 @@ def setup_module(module):
 
 
 class TestQFitProtein:
-    def mock_main(self, structure, xmap, resolution):
+    def __init__(self, structure, xmap, resolution):
+        self.xmap = xmap
+        self.structure = structure
+        self.resolution = resolution
+        
+    def mock_main(self):
         # Prepare args
         args = [
-            xmap,  # mapfile, using relative directory from tests/
-            structure,  # structurefile, using relative directory from tests/
+            self.xmap,  # mapfile, using relative directory from tests/
+            self.structure,  # structurefile, using relative directory from tests/
             "-r", resolution,
         ]
 
