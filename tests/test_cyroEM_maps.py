@@ -29,12 +29,12 @@ def setup_module(module):
 
 
 class TestQFitProtein:
-    def mock_main(self):
+    def mock_main(self, structure, xmap, resolution):
         # Prepare args
         args = [
-            "./example/apoF_chainA.ccp4",  # mapfile, using relative directory from tests/
-            "./example/apoF_chainA.pdb",  # structurefile, using relative directory from tests/
-            "-r", "1.25",
+            xmap,  # mapfile, using relative directory from tests/
+            structure,  # structurefile, using relative directory from tests/
+            "-r", resolution,
         ]
 
         # Add options to reduce computational load
@@ -46,10 +46,6 @@ class TestQFitProtein:
         # Collect and act on arguments
         p = build_argparser()
         args = p.parse_args(args=args)
-        try:
-            os.mkdir(args.directory)
-        except OSError:
-            pass
 
         # Apply the arguments to options
         options = QFitProteinOptions()
@@ -78,4 +74,9 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 2  # Expect: one conformer per residue
+        return len(mconformer_list)   # Expect: one conformer per residue
+
+
+assert QFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22) == 2
+assert QFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22) == 2
+
