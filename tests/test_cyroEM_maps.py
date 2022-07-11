@@ -82,6 +82,10 @@ class TestQFitProtein:
         return len(mconformer_list)   # Expect: one conformer per residue
 
 
-assert TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22) == 2
-assert TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22) == 2
+residue_numbers = TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22)
+print(residue_numbers)
+assert residue_numbers == 2
+residue_numbers = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22)
+print(residue_numbers)
+assert residue_numbers == 2
 
