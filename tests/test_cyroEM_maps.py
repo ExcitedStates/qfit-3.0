@@ -29,12 +29,12 @@ def setup_module(module):
 
 
 class TestQFitProtein:
-    # def __init__(self, structure, xmap, resolution):
-    #    self.xmap = xmap
-    #    self.structure = structure
-    #    self.resolution = resolution
+    def __init__(self, structure, xmap, resolution):
+        self.xmap = xmap
+        self.structure = structure
+        self.resolution = resolution
 
-    def mock_main(self):
+    def mock_main(self, structure, xmap, resolution):
         # Prepare args
         args = [
             self.xmap,  # mapfile, using relative directory from tests/
@@ -78,10 +78,7 @@ class TestQFitProtein:
         return qfit
 
     def test_run_qfit_residue_parallel(self, structure, xmap, resolution):
-        self.xmap = xmap
-        self.structure = structure
-        self.resolution = resolution
-        qfit = self.mock_main()
+        qfit = self.mock_main(xmap, structure, resolution)
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
