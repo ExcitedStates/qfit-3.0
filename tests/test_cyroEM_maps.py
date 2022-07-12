@@ -70,16 +70,15 @@ class TestQFitProtein:
         qfit.structure = qfit.structure.reorder()
         assert len(list(qfit.structure.single_conformer_residues)) == 2
 
-        return qfit
+        return len(mconformer_list)
 
     def test_run_qfit_residue_parallel(self):
         qfit = self.mock_main()
-
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
-        mconformer_list = list(multiconformer.residues)
-        print(mconformer_list)  # If we fail, this gets printed.
-        return len(mconformer_list)   # Expect: one conformer per residue
+        #mconformer_list = list(multiconformer.residues)
+        #print(mconformer_list)  # If we fail, this gets printed.
+        #return len(mconformer_list)   # Expect: one conformer per residue
 
 
 residue_numbers = TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22)
