@@ -81,11 +81,11 @@ class TestQFitProtein:
         #return len(mconformer_list)   # Expect: one conformer per residue
         return multiconformer
 
-multiconfomer = TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22)
+multiconformer = TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', 1.22)
 print(len(list(multiconformer.residues)))
 assert len(list(multiconformer.residues)) == 2
         
-multiconforemr2 = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22)
+multiconformer2 = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22)
 print(len(list(multiconformer2.residues)))
 assert len(list(multiconformer2.residues)) == 2
 
