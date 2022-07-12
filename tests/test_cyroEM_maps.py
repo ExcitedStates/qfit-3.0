@@ -39,7 +39,7 @@ class TestQFitProtein:
         args = [
             self.xmap,  # mapfile, using relative directory from tests/
             self.structure,  # structurefile, using relative directory from tests/
-            "-r", resolution,
+            "-r", self.resolution,
         ]
 
         # Add options to reduce computational load
