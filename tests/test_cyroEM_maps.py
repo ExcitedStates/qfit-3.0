@@ -29,10 +29,10 @@ def setup_module(module):
 
 
 class TestQFitProtein:
-    def __init__(self, structure, xmap, resolution):
-        self.xmap = xmap
-        self.structure = structure
-        self.resolution = resolution
+    #def __init__(self, structure, xmap, resolution):
+    #    self.xmap = xmap
+    #    self.structure = structure
+    #    self.resolution = resolution
         
     def mock_main(self):
         # Prepare args
@@ -72,7 +72,10 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue_parallel(self):
+    def test_run_qfit_residue_parallel(self, structure, xmap, resolution):
+        self.xmap = xmap
+        self.structure = structure
+        self.resolution = resolution
         qfit = self.mock_main()
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
