@@ -50,6 +50,7 @@ class TestQFitProtein:
 
         # Collect and act on arguments
         p = build_argparser()
+        print(args)
         args = p.parse_args(args=args)
 
         # Apply the arguments to options
