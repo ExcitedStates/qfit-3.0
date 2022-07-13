@@ -72,8 +72,8 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue_parallel(self,structure, xmap, resolution):
-        qfit = self.mock_main(xmap, structure, resolution)
+    def test_run_qfit_residue_parallel(self):
+        qfit = self.mock_main()
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
