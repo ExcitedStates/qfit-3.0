@@ -85,9 +85,10 @@ class TestQFitProtein:
 multiconformer = TestQFitProtein('./example/apoF_chainA.pdb', './example/apoF_chainA.ccp4', '1.22')
 m = multiconformer.test_run_qfit_residue_parallel()
 print(len(list(m.residues)))
-assert len(list(m.residues)) == 2
+assert len(list(m.residues)) == 9
         
-#multiconformer2 = TestQFitProtein.test_run_qfit_residue_parallel('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22)
-#print(len(list(multiconformer2.residues)))
-#assert len(list(multiconformer2.residues)) == 2
+multiconformer2 = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', '1.22')
+m2 = multiconformer2.test_run_qfit_residue_parallel()
+print(len(list(m2.residues)))
+assert len(list(m2.residues)) == 9
 
