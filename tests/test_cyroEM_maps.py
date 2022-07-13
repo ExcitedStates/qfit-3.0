@@ -34,7 +34,7 @@ class TestQFitProtein:
         self.structure = structure
         self.resolution = resolution
 
-    def mock_main(self, structure, xmap, resolution):
+    def mock_main(self):
         # Prepare args
         args = [
             self.xmap,  # mapfile, using relative directory from tests/
@@ -77,8 +77,8 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue_parallel(self, structure, xmap, resolution):
-        qfit = self.mock_main(xmap, structure, resolution)
+    def test_run_qfit_residue_parallel(self):
+        qfit = self.mock_main()
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
@@ -87,14 +87,13 @@ class TestQFitProtein:
         return multiconformer
 
 
-multiconformer = TestQFitProtein.test_run_qfit_residue_parallel(
+multiconformer = TestQFitProtein(
     "./example/apoF_chainA.pdb", "./example/apoF_chainA.ccp4", 1.22
 )
-print(len(list(multiconformer.residues)))
-assert len(list(multiconformer.residues)) == 2
+m = multiconformer.test_run_qfit_residue_parallel()
+print(len(list(m.residues)))
+assert len(list(m.residues)) == 2
 
-multiconformer2 = TestQFitProtein.test_run_qfit_residue_parallel(
-    "./example/7a4m_modified_box.pdb", "./example/7a4m_modified_box.xplor", 1.22
-)
-print(len(list(multiconformer2.residues)))
-assert len(list(multiconformer2.residues)) == 2
+# multiconformer2 = TestQFitProtein.test_run_qfit_residue_parallel('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', 1.22)
+# print(len(list(multiconformer2.residues)))
+# assert len(list(multiconformer2.residues)) == 2
