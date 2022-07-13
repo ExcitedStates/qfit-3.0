@@ -34,7 +34,7 @@ class TestQFitProtein:
         self.structure = structure
         self.resolution = resolution
         
-    def mock_main(self, structure, xmap, resolution):
+    def mock_main(self):
         # Prepare args
         args = [
             self.xmap,  # mapfile, using relative directory from tests/
