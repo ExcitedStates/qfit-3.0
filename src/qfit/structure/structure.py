@@ -3,7 +3,7 @@ import copy
 
 from .base_structure import _BaseStructure
 from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
-from .ligand import _Ligand
+from .ligand import Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
@@ -721,9 +721,7 @@ class _Conformer(_BaseStructure):
     def ligands(self):
         if not self._residues:
             self.build_residues()
-        _ligands = [
-            l for l in self._residues if isinstance(l, _Ligand) and l.natoms > 3
-        ]
+        _ligands = [l for l in self._residues if isinstance(l, Ligand) and l.natoms > 3]
         return _ligands
 
     @property
@@ -765,7 +763,7 @@ class _Conformer(_BaseStructure):
             elif rtype == "residue":
                 C = _Residue
             elif rtype == "ligand":
-                C = _Ligand
+                C = Ligand
             else:
                 continue
             residue = C(

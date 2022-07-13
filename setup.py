@@ -30,6 +30,7 @@ def main():
         "pandas>=1.2,<1.4",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
+        "molmass",
     ]
 
     setup(

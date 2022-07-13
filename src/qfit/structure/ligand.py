@@ -8,7 +8,7 @@ from .mmCIF import mmCIFDictionary
 from .math import aa_to_rotmat
 
 
-class _Ligand(_BaseStructure):
+class Ligand(_BaseStructure):
 
     """Ligand class automatically generates a topology on the structure."""
 
@@ -424,7 +424,7 @@ class BondOrder(object):
             self._bondorder(n, depth)
 
 
-class Covalent_Ligand(_BaseStructure):
+class CovalentLigand(_BaseStructure):
 
     """Covalent Ligand class"""
 

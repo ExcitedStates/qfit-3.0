@@ -9,7 +9,7 @@ import sys
 import time
 import numpy as np
 from string import ascii_uppercase
-from . import MapScaler, Structure, XMap, _Ligand
+from . import MapScaler, Structure, XMap, Ligand
 from .qfit import QFitLigand, QFitOptions
 from .logtools import setup_logging, log_run_info
 
@@ -346,14 +346,14 @@ def prepare_qfit_ligand(options):
     altloc = structure_ligand.altloc[-1]
 
     if options.cif_file:  # TO DO: STEPHANIE
-        ligand = _Ligand(
+        ligand = Ligand(
             structure_ligand.data,
             structure_ligand._selection,
             link_data=structure_ligand.link_data,
             cif_file=args.cif_file,
         )
     else:
-        ligand = _Ligand(
+        ligand = Ligand(
             structure_ligand.data,
             structure_ligand._selection,
             link_data=structure_ligand.link_data,
