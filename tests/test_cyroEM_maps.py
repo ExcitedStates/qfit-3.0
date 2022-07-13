@@ -87,8 +87,8 @@ m = multiconformer.test_run_qfit_residue_parallel()
 print(len(list(m.residues)))
 assert len(list(m.residues)) == 9
         
-multiconformer2 = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', '1.22')
-m2 = multiconformer2.test_run_qfit_residue_parallel()
-print(len(list(m2.residues)))
-assert len(list(m2.residues)) == 9
+#multiconformer2 = TestQFitProtein('./example/7a4m_modified_box.pdb', './example/7a4m_modified_box.xplor', '1.22')
+#m2 = multiconformer2.test_run_qfit_residue_parallel()
+#print(len(list(m2.residues)))
+#assert len(list(m2.residues)) == 9
 
