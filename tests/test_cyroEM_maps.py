@@ -4,7 +4,7 @@ import logging
 import multiprocessing as mp
 
 from qfit.qfit_protein import (
-    QFitProteinOptions,
+    QFitOptions,
     build_argparser,
     prepare_qfit_protein,
 )
