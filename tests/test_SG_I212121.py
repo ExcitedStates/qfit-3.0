@@ -34,7 +34,7 @@ class TestQFitProtein:
         args = [
             "./example/2apb.mtz",  # mapfile, using relative directory from tests/
             "./example/2APB.pdb",  # structurefile, using relative directory from tests/
-            "-l", "2FOFCWT,PH2FOFCWT",
+            "-l", "FP,SIGFP",
         ]
 
         # Add options to reduce computational load
