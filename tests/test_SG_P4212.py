@@ -78,4 +78,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        print len(mconformer_list)   # Expect: 2 residues ie 60 is Lys and 61 is Ser
+        print(len(mconformer_list))   # Expect: 2 residues ie 60 is Lys and 61 is Ser
