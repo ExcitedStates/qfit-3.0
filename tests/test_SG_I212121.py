@@ -35,7 +35,7 @@ class TestQFitProtein:
             "./example/2apb.mtz",  # mapfile, using relative directory from tests/
             "./example/2APB.pdb",  # structurefile, using relative directory from tests/
             "-l",
-            "2FOFCWT,PH2FOFCWT",
+            "FP,SIGFP",
         ]
 
         # Add options to reduce computational load
