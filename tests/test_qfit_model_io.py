@@ -2,7 +2,7 @@ import pytest
 import os
 import logging
 import multiprocessing as mp
-
+import numpy as np
 from qfit.qfit_protein import (
     QFitOptions,
     build_argparser,
@@ -205,13 +205,6 @@ class TestQFitProtein:
 
         return qfit
 
-    def test_run_qfit_residue_parallel(self):
+    def test_run_qfit_model_io(self):
         qfit = self.mock_main()
 
-        # Run qfit object
-        multiconformer = qfit._run_qfit_residue_parallel()
-        mconformer_list = list(multiconformer.residues)
-        print(mconformer_list)  # If we fail, this gets printed.
-
-        #Following statement needs to be modified
-        assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113
