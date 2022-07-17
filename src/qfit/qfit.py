@@ -13,8 +13,8 @@ from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver
-from .structure import Structure, _Segment
+from .solvers import QPSolver, MIQPSolver, SolverError
+from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
 from .transformer import Transformer
@@ -28,7 +28,7 @@ from .structure.rotamers import ROTAMERS
 logger = logging.getLogger(__name__)
 
 
-class _BaseQFitOptions:
+class QFitOptions:
     def __init__(self):
         # General options
         self.directory = '.'
@@ -73,17 +73,7 @@ class _BaseQFitOptions:
         self.bic_threshold = True
         self.seg_bic_threshold = True
 
-    def apply_command_args(self, args):
-        for key, value in vars(args).items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        return self
-
-
-class QFitRotamericResidueOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
+        ### From QFitRotamericResidueOptions, QFitCovalentLigandOptions
         # Backbone sampling
         self.sample_backbone = True
         self.neighbor_residues_required = 3
@@ -98,7 +88,7 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60
+        self.rotamer_neighborhood = 60  # Was 80 in QFitCovalentLigandOptions
         self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
@@ -109,6 +99,27 @@ class QFitRotamericResidueOptions(_BaseQFitOptions):
         # influence QP / MIQP. Provide a list of atom names, e.g. ['N', 'CA']
         # TODO not implemented
         self.exclude_atoms = None
+
+        ### From QFitLigandOptions
+        # Ligand sampling
+        self.local_search = True
+        self.sample_ligand = True  # From QFitCovalentLigandOptions
+        self.sample_ligand_stepsize = 10  # Was 8 in QFitCovalentLigandOptions
+        self.selection = None
+        self.cif_file = None
+
+        ### From QFitSegmentOptions
+        self.fragment_length = None
+
+        ### From QFitProteinOptions
+        self.nproc = 1
+        self.pdb = None
+
+    def apply_command_args(self, args):
+        for key, value in vars(args).items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
 
 
 class _BaseQFit:
@@ -152,6 +163,11 @@ class _BaseQFit:
         self._xmap_model2.set_space_group("P1")
         self._voxel_volume = self.xmap.unit_cell.calc_volume()
         self._voxel_volume /= self.xmap.array.size
+    
+    @property
+    def directory_name(self):
+        dname = self.options.directory
+        return dname
 
     def get_conformers(self):
         conformers = []
@@ -283,8 +299,6 @@ class _BaseQFit:
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
-                    # else:
-                    #     break
             else:
                 solver(cardinality=cardinality, threshold=threshold)
 
@@ -294,6 +308,44 @@ class _BaseQFit:
         # logger.info(f"Residual under footprint: {residual:.4f}")
         # residual = 0
         return solver.obj_value
+
+    def _zero_out_most_similar_conformer(self):
+        """Zero-out the lowest occupancy, most similar conformer.
+
+        Find the most similar pair of conformers, based on backbone RMSD.
+        Of these, remove the conformer with the lowest occupancy.
+        This is done by setting its occupancy to 0.
+
+        This aims to reduce the 'non-convex objective' errors we encounter during qFit-segment MIQP.
+        These errors are likely due to a degenerate conformers, causing a non-invertible matrix.
+        """
+        n_confs = len(self._coor_set)
+
+        # Make a square matrix for pairwise RMSDs, where
+        #   - the lower triangle (and diagonal) are np.inf
+        #   - the upper triangle contains the pairwise RMSDs (k=1 to exclude diagonal)
+        pairwise_rmsd_matrix = np.zeros((n_confs,) * 2)
+        pairwise_rmsd_matrix[np.tril_indices(n_confs)] = np.inf
+        for i, j in zip(*np.triu_indices(n_confs, k=1)):
+            pairwise_rmsd_matrix[i, j] = calc_rmsd(self._coor_set[i], self._coor_set[j])
+
+        # Which coords have the lowest RMSD?
+        #   `idx_low_rmsd` will contain the coordinates of the lowest value in the pairwise matrix
+        #   a.k.a. the indices of the closest confs
+        idx_low_rmsd = np.array(np.unravel_index(np.argmin(pairwise_rmsd_matrix), pairwise_rmsd_matrix.shape))
+        low_rmsd = pairwise_rmsd_matrix[tuple(idx_low_rmsd)]
+        logger.debug(f"Lowest RMSD between conformers {idx_low_rmsd.tolist()}: {low_rmsd:.06f} Å")
+
+        # Of these, which has the lowest occupancy?
+        occs_low_rmsd = self._occupancies[idx_low_rmsd]
+        idx_to_zero, idx_to_keep = idx_low_rmsd[occs_low_rmsd.argsort()]
+
+        # Assign conformer we want to remove with an occupancy of 0
+        logger.debug(f"Zeroing occupancy of conf {idx_to_zero} (of {n_confs}): "
+                     f"occ={self._occupancies[idx_to_zero]:.06f} vs {self._occupancies[idx_to_keep]:.06f}")
+        if self.options.write_intermediate_conformers:  # Output all conformations before we remove them
+            self._write_intermediate_conformers(prefix="cplex_remove")
+        self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
         """Removes conformers with occupancy lower than cutoff.
@@ -319,7 +371,7 @@ class _BaseQFit:
     def _write_intermediate_conformers(self, prefix="_conformer"):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            fname = os.path.join(self.options.directory, f"{prefix}_{n}.pdb")
+            fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
 
             data = {}
             for attr in self.conformer.data:
@@ -339,7 +391,7 @@ class _BaseQFit:
         #    self.conformer.q = q
         #    self.conformer.coor = coor
         #    self._transformer.mask(self._rmask)
-        # fname = os.path.join(self.options.directory, f'mask.{ext}')
+        # fname = os.path.join(self.directory_name, f'mask.{ext}')
         # self._transformer.xmap.tofile(fname)
         # mask = self._transformer.xmap.array > 0
         # self._transformer.reset(full=True)
@@ -349,23 +401,23 @@ class _BaseQFit:
             self.conformer.coor = coor
             self.conformer.b = b
             self._transformer.density()
-        fname = os.path.join(self.options.directory, f'model.{ext}')
+        fname = os.path.join(self.directory_name, f'model.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.xmap.array -= self.xmap.array
-        fname = os.path.join(self.options.directory, f'diff.{ext}')
+        fname = os.path.join(self.directory_name, f'diff.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.reset(full=True)
         # self._transformer.xmap.array *= -1
-        # fname = os.path.join(self.options.directory, f'diff_negative.{ext}')
+        # fname = os.path.join(self.directory_name, f'diff_negative.{ext}')
         # self._transformer.xmap.tofile(fname)
 
         # self._transformer.reset(full=True)
         # self._transformer.xmap.array[mask] = values
-        # fname = os.path.join(self.options.directory, f'model_masked.{ext}')
+        # fname = os.path.join(self.directory_name, f'model_masked.{ext}')
         # self._transformer.xmap.tofile(fname)
         # values = self.xmap.array[mask]
         # self._transformer.xmap.array[mask] -= values
-        # fname = os.path.join(self.options.directory, f'diff_masked.{ext}')
+        # fname = os.path.join(self.directory_name, f'diff_masked.{ext}')
         # self._transformer.xmap.tofile(fname)
 
 
@@ -513,7 +565,7 @@ class QFitRotamericResidue(_BaseQFit):
             if self.options.debug:
                 # This should be output with debugging, and shouldn't
                 #   require the write_intermediate_conformers option.
-                fname = os.path.join(self.options.directory, "rebuilt_residue.pdb")
+                fname = os.path.join(self.directory_name, "rebuilt_residue.pdb")
                 self.residue.tofile(fname)
 
         # If including hydrogens, report if any H are missing
@@ -551,6 +603,15 @@ class QFitRotamericResidue(_BaseQFit):
         if options.subtract:
             self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
+
+    @property
+    def directory_name(self):
+        # This is a QFitRotamericResidue, so we're working on a residue.
+        # Which residue are we working on?
+        resi_identifier = self.residue.shortcode
+
+        dname = os.path.join(super().directory_name, resi_identifier)
+        return dname
 
     def _setup_clash_detector(self):
         residue = self.residue
@@ -685,7 +746,7 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
             logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
-            logger.warning(f"[{self.identifier}] Got AttributeError for directions at Cβ.")
+            logger.info(f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using x,y,z vectors.")
             # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             directions = np.identity(3)
 
@@ -967,10 +1028,12 @@ class QFitRotamericResidue(_BaseQFit):
             iteration += 1
 
     def tofile(self):
+        # Save the individual conformers
         conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
-            fname = os.path.join(self.options.directory, f'conformer_{n}.pdb')
+            fname = os.path.join(self.directory_name, f'conformer_{n}.pdb')
             conformer.tofile(fname)
+
         # Make a multiconformer residue
         nconformers = len(conformers)
         if nconformers < 1:
@@ -985,17 +1048,12 @@ class QFitRotamericResidue(_BaseQFit):
             for altloc, conformer in zip(ascii_uppercase[1:], conformers[1:]):
                 conformer.altloc = altloc
                 mc_residue = mc_residue.combine(conformer)
-
         mc_residue = mc_residue.reorder()
-        fname = os.path.join(self.options.directory,
-                             f"multiconformer_residue.pdb")
+
+        # Save the multiconformer residue
+        logger.info(f"[{self.identifier}] Saving multiconformer_residue.pdb")
+        fname = os.path.join(self.directory_name, f"multiconformer_residue.pdb")
         mc_residue.tofile(fname)
-
-
-class QFitSegmentOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-        self.fragment_length = None
 
 
 class QFitSegment(_BaseQFit):
@@ -1181,22 +1239,49 @@ class QFitSegment(_BaseQFit):
                 self._convert()
                 self._solve()
 
-                # Update conformers
-                fragments = np.array(fragments)
-                mask = self._occupancies >= 0.002
-                fragments = fragments[mask]
-                self._occupancies = self._occupancies[mask]
-                self._coor_set = [fragment.coor for fragment in fragments]
-                self._bs = [fragment.b for fragment in fragments]
+                # Run MIQP in a loop, removing the most similar conformer until a solution is found
+                while True:
+                    # Update conformers
+                    fragments = np.array(fragments)
+                    mask = self._occupancies >= 0.002
 
-                # MIQP score segment occupancy
-                self._convert()
-                self._solve(threshold=self.options.threshold,
-                            cardinality=self.options.cardinality,
-                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    # Drop conformers below cutoff
+                    _resi_list = list(fragments[0].residues)
+                    logger.debug(
+                        f"Removing {np.sum(np.invert(mask))} conformers from "
+                        f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                    )
+                    fragments = fragments[mask]
+                    self._occupancies = self._occupancies[mask]
+                    self._coor_set = [fragment.coor for fragment in fragments]
+                    self._bs = [fragment.b for fragment in fragments]
 
-                # Update conformers
+                    try:
+                        # MIQP score segment occupancy
+                        self._convert()
+                        self._solve(threshold=self.options.threshold,
+                                    cardinality=self.options.cardinality,
+                                    loop_range=[0.34, 0.25, 0.2, 0.16, 0.14])
+                    except SolverError:
+                        # MIQP failed and we need to remove conformers that are close to each other
+                        logger.debug("MIQP failed, dropping a fragment-conformer")
+                        self._zero_out_most_similar_conformer()  # Remove conformer
+                        if self.options.write_intermediate_conformers:
+                            self._write_intermediate_conformers(prefix="cplex_kept")
+                        continue
+                    else:
+                        # No Exceptions here! Solvable!
+                        break
+
+                # Update conformers for the last time
                 mask = self._occupancies >= 0.002
+
+                # Drop conformers below cutoff
+                _resi_list = list(fragments[0].residues)
+                logger.debug(
+                    f"Removing {np.sum(np.invert(mask))} conformers from "
+                    f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
+                )
                 for fragment, occ in zip(fragments[mask],
                                          self._occupancies[mask]):
                     fragment.q = occ
@@ -1215,18 +1300,6 @@ class QFitSegment(_BaseQFit):
                     path.append(residue_altloc)
                     # coor.append(fragment.coor[i])
             logger.info(f"Path {k+1}:\t{path}\t{fragment.q[-1]}")
-
-
-class QFitLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
-        self.dofs_per_iteration = 2
-        self.remove_conformers_below_cutoff = False
-        self.local_search = True
-        self.sample_ligand_stepsize = 10
-        self.selection = None
-        self.cif_file = None
 
 
 class QFitLigand(_BaseQFit):
@@ -1515,32 +1588,6 @@ class QFitLigand(_BaseQFit):
             else:
                 starting_bond_index += self.options.dofs_per_iteration
             iteration += 1
-
-
-class QFitCovalentLigandOptions(_BaseQFitOptions):
-    def __init__(self):
-        super().__init__()
-
-        # Backbone sampling
-        self.sample_backbone = True
-        self.neighbor_residues_required = 3
-        self.sample_backbone_amplitude = 0.30
-        self.sample_backbone_step = 0.1
-        self.sample_backbone_sigma = 0.125
-
-        # N-CA-CB angle sampling
-        self.sample_angle = True
-        self.sample_angle_range = 7.5
-        self.sample_angle_step = 3.75
-
-        # Rotamer sampling
-        self.sample_rotamers = True
-        self.rotamer_neighborhood = 80
-        self.remove_conformers_below_cutoff = False
-
-        # Ligand sampling
-        self.sample_ligand = True
-        self.sample_ligand_stepsize = 8
 
 
 class QFitCovalentLigand(_BaseQFit):

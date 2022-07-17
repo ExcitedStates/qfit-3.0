@@ -31,19 +31,38 @@ Once these are installed, you can:
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl numpy
+   conda install -c anaconda mkl numpy=1.20
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
 
-1. Clone the qFit source, and install to your conda env
+1. Clone the latest release of the qFit source, and install to your conda env
    ```bash
-   git clone https://github.com/ExcitedStates/qfit-3.0.git
+   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
+
+### M1 Macs
+
+Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
+We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
+
+As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
+macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
+
+Instead of the first step in the above Installation section, use this:
+
+1. Create a new conda env & activate it
+   ```bash
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.8"
+   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
+   conda activate qfit
+   ```
+
+then follow the rest of the instructions.
 
 ### Advanced
 
@@ -116,7 +135,7 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_xray.sh /path/to/3K0N.mtz multiconformer_model2.pdb`
 
 Bear in mind that this final step currently depends on an existing installation
-of the Phenix software suite. 
+of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
 ### 2. Modelling alternate conformers for a residue of interest
@@ -145,7 +164,7 @@ Using the example 3K0N:
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
 
-`qfit_protein /path/to/apoF_chainA.ccp4 /path/to/apoF_chainA.pdb -r 1.22 -z electron`
+`qfit_protein /path/to/apoF_chainA.ccp4 /path/to/apoF_chainA.pdb -r 1.22`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh /path/to/apoF_chainA.ccp4 apoF_chainA.pdb multiconformer_model2.pdb`

@@ -1,4 +1,5 @@
 #!/bin/bash
+# This script works with Phenix version 1.20.
 
 qfit_usage() {
   echo >&2 "Usage:";
@@ -38,6 +39,7 @@ if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
 fi
 pdb_name="${mapfile%.mtz}"
 
+
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 mtzmetadata=`phenix.mtz.dump "${pdb_name}.mtz"`
 resrange=`grep "Resolution range:" <<< "${mtzmetadata}"`
@@ -55,10 +57,10 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes="FP FOBS F-obs I IOBS I-obs"
+obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)")
 
 # Get amplitude fields
-ampfields=`grep -E "amplitude|intensity" <<< "${mtzmetadata}"`
+ampfields=`grep -E "amplitude|intensity|F\(\+\)|I\(\+\)" <<< "${mtzmetadata}"`
 ampfields=`echo "${ampfields}" | awk '{$1=$1};1' | cut -d " " -f 1`
 
 # Clear xray_data_labels variable
@@ -67,7 +69,7 @@ xray_data_labels=""
 # Is amplitude an Fo?
 for field in ${ampfields}; do
   # Check field in obstypes
-  if grep -F -q -w $field <<< "${obstypes}"; then
+  if [[ " ${obstypes[*]} " =~ " ${field} " ]]; then
     # Check SIGFo is in the mtz too!
     if grep -F -q -w "SIG$field" <<< "${mtzmetadata}"; then
       xray_data_labels="${field},SIG${field}";
@@ -77,10 +79,12 @@ for field in ${ampfields}; do
 done
 if [ -z "${xray_data_labels}" ]; then
   echo >&2 "Could not determine Fo field name with corresponding SIGFo in .mtz.";
-  echo >&2 "Was not among ${obstypes}. Please check .mtz file\!";
+  echo >&2 "Was not among "${obstypes[*]}". Please check .mtz file\!";
   exit 1;
 else
   echo "data labels: ${xray_data_labels}"
+  # Start writing refinement parameters into a parameter file
+  echo "refinement.input.xray_data.labels=$xray_data_labels" > ${pdb_name}_refine.params
 fi
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
@@ -90,17 +94,25 @@ for field in ${rfreetypes}; do
   if grep -F -q -w $field <<< "${mtzmetadata}"; then
     gen_Rfree=False;
     echo "Rfree column: ${field}";
+    echo "refinement.input.xray_data.r_free_flags.label=${field}" >> ${pdb_name}_refine.params
     break
   fi
 done
+echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_name}_refine.params
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
+
+#__________________________________NORMALIZE OCCUPANCIES________________________________________
+redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
+mv -v "${multiconf}.fixed_norm.pdb" "${multiconf}.fixed"
+
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
+
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
@@ -108,71 +120,55 @@ phenix.ready_set hydrogens=false \
 if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
   cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
 fi
+if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
+fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.refine "${multiconf}.f_modified.updated.pdb" \
-                "${pdb_name}.mtz" \
-                "${multiconf}.f_modified.ligands.cif" \
-                strategy="*individual_sites" \
-                output.prefix="${pdb_name}" \
-                output.serial=2 \
-                main.number_of_macro_cycles=5 \
-                main.nqh_flips=False \
-                refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
-                refinement.input.xray_data.labels=$xray_data_labels \
-                write_maps=false --overwrite
-else
-  phenix.refine "${multiconf}.f_modified.updated.pdb" \
-                "${pdb_name}.mtz" \
-                strategy="*individual_sites" \
-                output.prefix="${pdb_name}" \
-                output.serial=2 \
-                main.number_of_macro_cycles=5 \
-                main.nqh_flips=False \
-                refinement.input.xray_data.r_free_flags.generate=$gen_Rfree \
-                refinement.input.xray_data.labels=$xray_data_labels \
-                write_maps=false --overwrite
-fi
+# Write refinement parameters into parameters file
+echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
+echo "refinement.output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
+echo "refinement.output.serial=2"                    >> ${pdb_name}_refine.params
+echo "refinement.main.number_of_macro_cycles=5"      >> ${pdb_name}_refine.params
+echo "refinement.main.nqh_flips=False"               >> ${pdb_name}_refine.params
+echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.params
+
+phenix.refine  "${multiconf}.f_modified.updated.pdb" \
+               "${pdb_name}.mtz" \
+               "${pdb_name}_refine.params" \
+               --overwrite
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
-# Here we add H with phenix.reduce. Addition of H to the backbone is important
+# Here we add H with phenix.ready_set. Addition of H to the backbone is important
 #   since it introduces planarity restraints to the peptide bond.
-# This helps to prevent backbone conformers from being merged during
-#   subsequent rounds of refinement.
-cp "${pdb_name}_002.pdb" "${pdb_name}_002.000.pdb"
-# We reduce (for NQH flips) at the start of each loop in the following section
-#   so this is commented out:
-# phenix.reduce -build -allalt "${pdb_name}_002.000.pdb" > "${pdb_name}_002.pdb"
+# We will also create a cif file for any ligands in the structure at this point.
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
+mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
+# Write refinement parameters into parameters file
+echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
+echo "refinement.output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
+echo "refinement.output.serial=3"                                                >> ${pdb_name}_occ_refine.params
+echo "refinement.main.number_of_macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.main.nqh_flips=True"                                            >> ${pdb_name}_occ_refine.params
+echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
+echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
+
+if [ -f "${pdb_name}_002.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_occ_refine.params
+fi
 zeroes=50
 i=1
+too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
-  molprobity.reduce -build -allalt "${pdb_name}_002.$(printf '%03d' $((i-1))).pdb" > "${pdb_name}_002.pdb";
-  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-    phenix.refine "${pdb_name}_002.pdb" \
-                  "${pdb_name}_002.mtz" \
-                  "${multiconf}.f_modified.ligands.cif" \
-                  "$adp" \
-                  strategy="*individual_sites *individual_adp *occupancies" \
-                  output.prefix="${pdb_name}" \
-                  output.serial=3 \
-                  main.nqh_flips=False \
-                  main.number_of_macro_cycles=5 \
-                  write_maps=false --overwrite
-  else
-    phenix.refine "${pdb_name}_002.pdb" \
-                  "${pdb_name}_002.mtz" \
-                  "$adp" \
-                  strategy="*individual_sites *individual_adp *occupancies" \
-                  output.prefix="${pdb_name}" \
-                  output.serial=3 \
-                  main.nqh_flips=False \
-                  main.number_of_macro_cycles=5 \
-                  write_maps=false --overwrite
-  fi
+  echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
+  phenix.refine "${pdb_name}_002.pdb" \
+                "${pdb_name}_002.mtz" \
+                "${pdb_name}_occ_refine.params" \
+                --overwrite
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
@@ -183,41 +179,47 @@ while [ $zeroes -gt 1 ]; do
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
   fi
 
-  # Backup maps and logs
-  cp -v "${pdb_name}_002.pdb" "${pdb_name}_002.$(printf '%03d' $i).pdb";
-  cp -v "${pdb_name}_003.mtz" "${pdb_name}_002.$(printf '%03d' $i).mtz";
-  cp -v "${pdb_name}_003.log" "${pdb_name}_002.$(printf '%03d' $i).log";
+  if [ $i -ge 50 ]; then
+    too_many_loops_flag=true
+    echo "[WARNING] qfit_final_refine_xray.sh:: Aborting refinement loop after ${i} rounds.";
+    break;
+  fi
 
   ((i++));
 done
 
 #__________________________________FINAL REFINEMENT__________________________________
-mv "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
-molprobity.reduce -build -allalt "${pdb_name}_004.pdb" > "${pdb_name}_004_flipNQH.pdb"
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
-                "${pdb_name}_002.mtz" \
-                "${multiconf}.f_modified.ligands.cif" \
-                "$adp" \
-                output.prefix="${pdb_name}" \
-                output.serial=5 \
-                strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
-                main.number_of_macro_cycles=5 \
-                write_maps=false --overwrite
-else
-  phenix.refine "${pdb_name}_004_flipNQH.pdb" \
-                "${pdb_name}_002.mtz" \
-                "$adp" \
-                output.prefix="${pdb_name}" \
-                output.serial=5 \
-                strategy="*individual_sites *individual_adp *occupancies" \
-                main.nqh_flips=False \
-                main.number_of_macro_cycles=5 \
-                write_maps=false --overwrite
+cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
+
+# Write refinement parameters into parameters file
+echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
+echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
+echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
+echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
+echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
+echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
+echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
+echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
+
+if [ -f "${pdb_name}_002.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
+phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine.params" --overwrite 
+
+
 #__________________________________NAME FINAL FILES__________________________________
-cp "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
-cp "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
-cp "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
+cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
+cp -v "${pdb_name}_005.log" "${pdb_name}_qFit.log"
+
+#__________________________COMMENTARY FOR USER_______________________________________
+echo ""
+echo "[qfit_final_refine_xray] Refinement is complete."
+echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
+echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+
+if [ "${too_many_loops_flag}" = true ]; then
+  echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
+  echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
+fi

@@ -1,7 +1,7 @@
 """Automatically build a multiconformer residue."""
 
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
+from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
 import logging
 import os
 import sys
@@ -10,7 +10,8 @@ import numpy as np
 from string import ascii_uppercase
 from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
-from . import QFitRotamericResidue, QFitRotamericResidueOptions
+from .qfit import QFitOptions
+from . import QFitRotamericResidue
 from .structure import residue_type
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,9 @@ def build_argparser():
     p.add_argument("map", type=str,
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
-                        "use the --label options to specify columns to read.")
+                        "use the --label options to specify columns to read.", type=str, action=ValidateMapFileArgument)
     p.add_argument("structure",
-                   help="PDB-file containing structure.")
+                   help="PDB-file containing structure.", type=str, action=ValidateStructureFileArgument)
     p.add_argument('selection', type=str,
                    help="Chain, residue id, and optionally insertion code for "
                         "residue in structure, e.g. A,105, or A,105:A.")
@@ -156,7 +157,7 @@ def main():
     time0 = time.time()
 
     # Apply the arguments to options
-    options = QFitRotamericResidueOptions()
+    options = QFitOptions()
     options.apply_command_args(args)
 
     # Setup logger
@@ -165,7 +166,6 @@ def main():
 
     #Skip over if everything is completed
     #try:
-    print(args.directory)
     if os.path.isfile(args.directory + '/multiconformer_residue.pdb'):
         print('This residue has completed')
         exit()
