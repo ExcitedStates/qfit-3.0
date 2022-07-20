@@ -165,7 +165,7 @@ def write_pdb(fname, structure):
                 structure.crystal_symmetry)))
         if structure.link_data:
             _write_pdb_link_data(f, structure)
-        for atom in _structure_to_iotbx_atoms(structure.data):
+        for atom in _structure_to_iotbx_atoms(structure.get_selected_data()):
             f.write("{}\n".format(atom.format_atom_record_group()))
         f.write("END")
 

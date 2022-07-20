@@ -147,3 +147,15 @@ class TestStructure(UnitBase):
                 s2 = Structure.fromfile(tmp_out)
                 assert s2.file_format == ftype2
                 _check_structure(s2)
+
+    # XXX see also tests/test_qfit_model_io.py
+    def test_structure_extract_io_recycling(self):
+        PDB = op.join(self.DATA, "4ms6_tiny.pdb.gz")
+        pdb_tmp = tempfile.NamedTemporaryFile(suffix=".pdb.gz").name
+        s1 = Structure.fromfile(PDB)
+        assert len(list(s1.single_conformer_residues)) == 5
+        s2 = s1.extract("resi", (295,299), "==")
+        assert len(list(s2.single_conformer_residues)) == 2
+        s2.tofile(pdb_tmp)
+        s3 = Structure.fromfile(pdb_tmp)
+        assert len(list(s3.single_conformer_residues)) == 2
