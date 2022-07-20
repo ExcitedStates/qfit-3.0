@@ -144,7 +144,7 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
 #   since it introduces planarity restraints to the peptide bond.
 # We will also create a cif file for any ligands in the structure at this point.
 phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
-mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
+mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
@@ -155,6 +155,7 @@ echo "refinement.main.number_of_macro_cycles=5"                                 
 echo "refinement.main.nqh_flips=True"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
+echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_occ_refine.params
@@ -198,6 +199,7 @@ echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.par
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
 echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
+echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
