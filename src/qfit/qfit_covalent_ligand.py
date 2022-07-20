@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 
-from . import MapScaler, Structure, XMap, Covalent_Ligand
+from . import MapScaler, Structure, XMap, CovalentLigand
 from . import QFitCovalentLigand, QFitOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -179,14 +179,14 @@ def main():
             structure_ligand = structure_ligand.extract(sel_str)
 
     if args.cif_file:
-        covalent_ligand = Covalent_Ligand(structure_ligand.data,
-                                          structure_ligand._selection,
-                                          link_data=structure_ligand.link_data,
-                                          cif_file=args.cif_file)
+        covalent_ligand = CovalentLigand(structure_ligand.data,
+                                         structure_ligand._selection,
+                                         link_data=structure_ligand.link_data,
+                                         cif_file=args.cif_file)
     else:
-        covalent_ligand = Covalent_Ligand(structure_ligand.data,
-                                          structure_ligand._selection,
-                                          link_data=structure_ligand.link_data)
+        covalent_ligand = CovalentLigand(structure_ligand.data,
+                                         structure_ligand._selection,
+                                         link_data=structure_ligand.link_data)
     if covalent_ligand.natoms == 0:
         raise RuntimeError("No atoms were selected for the ligand. Check the "
                            "selection input.")
