@@ -4,8 +4,8 @@ from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
 
 import numpy as np
+from molmass.elements import ELEMENTS
 
-from .elements import ELEMENTS
 from .math import dihedral_angle
 from .pdbfile import write_pdb, write_mmcif
 from .selector import _Selector
