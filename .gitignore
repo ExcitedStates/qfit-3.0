@@ -108,3 +108,4 @@ ENV/
 *.pdb
 *.ccp4
 validation_metrics.txt
+tmp
