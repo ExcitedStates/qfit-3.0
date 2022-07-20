@@ -95,6 +95,12 @@ class _BaseStructure:
         out = np.asarray(values, dtype=np.float64)[ind]
         return out
 
+    def get_selected_data(self):
+        if self._selection is None:
+            return self.data
+        else:
+            return {k: v[self._selection] for k, v in self.data.items()}
+
     @property
     def covalent_radius(self):
         return self._get_property("covrad")

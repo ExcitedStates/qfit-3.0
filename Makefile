@@ -4,6 +4,11 @@ install:
 test-unit:
 	py.test tests/unit/test_*.py
 
+test-int:
+	py.test tests/test_*.py
+
+test: test-unit test-int
+
 pylint:
 	pylint --errors-only src/qfit/
 
