@@ -105,7 +105,5 @@ ENV/
 # macOS Finder
 .DS_Store
 
-*.pdb
-*.ccp4
 validation_metrics.txt
 tmp
