@@ -35,8 +35,9 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         os.chdir(cwd)
 
     def _create_fmodel(self,
-                       pdb_file_name=PDB_MULTI,
-                       high_resolution=D_MIN):
+                       pdb_file_name,
+                       high_resolution=D_MIN,
+                       output_file="fmodel.mtz"):
         from mmtbx.command_line import fmodel
         from libtbx.utils import null_out
         fmodel_args = [
@@ -45,9 +46,10 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
             f"high_resolution={high_resolution}",
             "r_free_flags_fraction=0.1",
             "output.label=FWT",
-            "output.file_name=fmodel.mtz"
+            f"output.file_name={output_file}"
         ]
         fmodel.run(args=fmodel_args, log=null_out())
+        return output_file
 
     def _get_rotamer(self, residue):
         if len(residue.rotamers) == 0:
@@ -91,7 +93,7 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         # Phe5 should have two rotamers, but this may occasionally appear as
         # three due to the ring flips, and we can't depend on which orientation
         # the ring ends up in
-        assert (-177, 80) in rotamers_out[5]
+        assert (-177, 80) in rotamers_out[5]  # this doesn't flip???
         assert (-65, -85) in rotamers_out[5] or (-65, 85) in rotamers_out[5]
         # Asn are also awkward because of flips
         assert len(rotamers_out[3]) >= 2
@@ -99,11 +101,24 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         # these are all of the alt confs present in the fmodel structure
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
-        # TODO map correlation
+
+    def _validate_new_fmodel(self):
+        from iotbx.file_reader import any_file
+        from scitbx.array_family import flex
+        mtz_new = "fmodel_out.mtz"
+        self._create_fmodel("multiconformer_model2.pdb", output_file=mtz_new)
+        fmodel_1 = any_file("fmodel.mtz")
+        fmodel_2 = any_file("fmodel_out.mtz")
+        array1 = fmodel_1.file_object.as_miller_arrays()[0].data()
+        array2 = fmodel_2.file_object.as_miller_arrays()[0].data()
+        lc = flex.linear_correlation(flex.abs(array1), flex.abs(array2))
+        # correlation of the single-conf fmodel is 0.922
+        assert lc.coefficient() >= 0.95
 
     def test_cli_7mer_peptide_p21(self):
         self._run_qfit_cli(self.PDB_MULTI, self.PDB_SINGLE)
         self._validate_7mer_confs(self.PDB_MULTI)
+        self._validate_new_fmodel()
 
     def test_cli_7mer_peptide_p1(self):
         from cctbx.crystal import symmetry
@@ -118,3 +133,4 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         s2.tofile("single_p1.pdb")
         self._run_qfit_cli("multi_p1.pdb", "single_p1.pdb")
         self._validate_7mer_confs("multi_p1.pdb")
+        self._validate_new_fmodel()
