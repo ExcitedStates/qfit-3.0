@@ -78,6 +78,19 @@ class _BaseResidue(_BaseStructure):
 
         return shortcode
 
+    def reinitialize_object(self):
+        """
+        Return a fresh object of the same class with the same data array,
+        after unpickling in a multiprocessing call.
+        """
+        return self.__class__(
+            self.data,
+            resi=self.id[0],
+            icode=self.id[1],
+            type=self.type,
+            selection=self._selection,
+            parent=self.parent)
+
 
 class _Residue(_BaseResidue):
     pass
