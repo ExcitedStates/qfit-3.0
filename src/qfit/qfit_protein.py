@@ -579,10 +579,7 @@ class QFitProtein:
             fname = os.path.join(
                 self.options.directory, f"multiconformer_model.{self.file_ext}"
             )
-            if self.structure.crystal_symmetry:
-                multiconformer_model.tofile(fname, self.structure.crystal_symmetry)
-            else:
-                multiconformer_model.tofile(fname)
+            multiconformer_model.tofile(fname, self.structure.crystal_symmetry)
 
         return multiconformer_model
 
@@ -606,10 +603,7 @@ class QFitProtein:
         fname = os.path.join(
             self.options.directory, f"{self.pdb}multiconformer_model2.{self.file_ext}"
         )
-        if self.structure.crystal_symmetry:
-            multiconformer.tofile(fname, self.structure.crystal_symmetry)
-        else:
-            multiconformer.tofile(fname)
+        multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
     @staticmethod
@@ -625,47 +619,14 @@ class QFitProtein:
         # Set up logger hierarchy in this subprocess
         poolworker_setup_logging(logqueue)
 
-        # This function is run in a subprocess, so `structure` and `residue` have
-        #     been 'copied' (pickled+unpickled) as best as possible.
-
-        # However, `structure`/`residue` objects pickled and passed to subprocesses do
-        #     not contain attributes decorated by @_structure_properties.
-        #     This decorator attaches 'getter' and 'setter' _local_ functions to the attrs
-        #     (defined within, and local to the _structure_properties function).
-        #     Local functions are **unpickleable**, and as a result, so are these attrs.
-        # This includes:
-        #     (record, atomid, name, altloc, resn, chain, resi, icode,
-        #      q, b, e, charge, coor, active, u00, u11, u22, u01, u02, u12)
-        # Similarly, these objects are also missing attributes wrapped by @property:
-        #     (covalent_radius, vdw_radius)
-        # Finally, the _selector object is only partially pickleable,
-        #     as it contains a few methods that are defined by a local lambda inside
-        #     pyparsing._trim_arity().
-
-        # Since all these attributes are attached by __init__ of the
-        #     qfit.structure.base_structure._BaseStructure class,
-        #     here, we call __init__ again, to make sure these objects are
-        #     correctly initialised in a subprocess.
-        structure.__init__(
-            structure.data,
-            selection=structure._selection,
-            parent=structure.parent,
-        )
-        residue.__init__(
-            residue.data,
-            resi=residue.id[0],
-            icode=residue.id[1],
-            type=residue.type,
-            selection=residue._selection,
-            parent=residue.parent,
-        )
+        # reinitialize the Python objects after unpickling, workaround for
+        # how properties are set internally
+        structure = structure.reinitialize_object()
+        residue = residue.reinitialize_object()
 
         # Build the residue results directory
         residue_directory = os.path.join(options.directory, residue.shortcode)
-        try:
-            os.makedirs(residue_directory)
-        except OSError:
-            pass
+        os.makedirs(residue_directory, exist_ok=True)
 
         # Exit early if we have already run qfit for this residue
         fname = os.path.join(residue_directory, "multiconformer_residue.pdb")
@@ -770,10 +731,7 @@ def main():
     p = build_argparser()
     args = p.parse_args(args=None)
 
-    try:
-        os.mkdir(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     # Apply the arguments to options
     options = QFitOptions()

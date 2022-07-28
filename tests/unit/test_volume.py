@@ -21,6 +21,7 @@ class TestVolumeXmapIO(UnitBase):
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
             assert xmap.array.size == 28160
+            assert tuple(xmap.unit_cell_shape) == (22, 32, 40)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
             assert xmap.array.shape == (40, 32, 22)
             # assert list(xmap.array[0:5]) == ""
@@ -30,6 +31,7 @@ class TestVolumeXmapIO(UnitBase):
 
         MTZ = self.make_tiny_fmodel_mtz()
         xmap1 = XMap.fromfile(MTZ, label="FWT,PHIFWT")
+        # print([str(x) for x in xmap1.unit_cell.space_group.symop_list])
         _validate_map(xmap1)
         # XXX d_max is ignored when we read back the map file later
         assert xmap1.resolution.low == pytest.approx(9.3704, abs=0.001)
@@ -37,7 +39,56 @@ class TestVolumeXmapIO(UnitBase):
         # I/O recycling
         map_tmp = tempfile.NamedTemporaryFile(suffix=".ccp4").name
         xmap1.tofile(map_tmp)
-        xmap2 = XMap.from_mapfile_cctbx(map_tmp, resolution=d_min)
+        xmap2 = XMap.fromfile(map_tmp, resolution=d_min)
+        _validate_map(xmap2)
+        # extract region
+        def _validate_extract_map(xmap):
+            assert xmap.resolution.high == pytest.approx(d_min, abs=0.001)
+            assert (
+                str(xmap.unit_cell)
+                == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+            assert tuple(xmap.unit_cell_shape) == (22, 32, 40)
+            assert xmap.array.size == 24024
+            assert xmap.array.shape == (33, 28, 26)
+            assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
+            assert tuple(xmap.offset) == (-6, 10, 5)
+            assert xmap.array[0][0][0] == pytest.approx(1.6798, abs=0.00001)
+
+        coor = [[1.0, 7.0, 5.0], [4.0, 11.0, 11.0]]
+        xmap3 = xmap1.extract(coor)
+        _validate_extract_map(xmap3)
+        xmap3.write_map_file(map_tmp)
+        xmap4 = XMap.from_mapfile(map_tmp, resolution=d_min)
+        _validate_extract_map(xmap4)
+        # canonical unit cell
+        assert xmap1.is_canonical_unit_cell()
+        xmap8 = xmap1.canonical_unit_cell()
+        _validate_map(xmap8)
+
+    def test_xmap_from_mtz_large(self):
+        d_min = 1.39089
+
+        def _validate_map(xmap):
+            assert xmap.resolution.high == pytest.approx(d_min, abs=0.001)
+            assert (
+                str(xmap.unit_cell)
+                == "UnitCell(a=43.096001, b=52.591999, c=89.249001, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+            assert xmap.unit_cell.space_group.number == 19
+            assert xmap.array.size == 4580856
+            assert xmap.array.shape == (252, 149, 122)
+            assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
+            assert tuple(xmap.offset) == (0, 0, 0)
+            assert xmap.array[0][0][0] == pytest.approx(0.12935, abs=0.00001)
+            assert xmap.array[20][20][20] == pytest.approx(-0.0732, abs=0.00001)
+            assert xmap.array[-1][-1][-1] == pytest.approx(-0.33892, abs=0.00001)
+
+        mtz_file = op.join(self.EXAMPLES, "3K0N.mtz")
+        xmap1 = XMap.fromfile(mtz_file, label="2FOFCWT,PH2FOFCWT")
+        _validate_map(xmap1)
+        assert xmap1.is_canonical_unit_cell()
+        xmap2 = xmap1.canonical_unit_cell()
         _validate_map(xmap2)
 
     def test_ccp4_map_io_with_offset(self):
@@ -49,6 +100,7 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 48)
             assert xmap.array.size == 117992
             assert tuple(xmap.origin) == (0, 0, 0)
             assert xmap.array.shape == (56, 49, 43)
@@ -73,22 +125,15 @@ class TestVolumeXmapIO(UnitBase):
         map_out = op.join(tmp_dir, "tiny_1.ccp4")
         xmap = XMap.fromfile(map_out, resolution=d_min)
         _validate_map(xmap)
-        xmap = XMap.from_mapfile_cctbx(map_out, resolution=d_min)
-        _validate_map(xmap)
         # recycling
         map_tmp = tempfile.NamedTemporaryFile(suffix=".ccp4").name
         xmap.tofile(map_tmp)
         xmap2 = XMap.fromfile(map_tmp, resolution=d_min)
         _validate_map(xmap2)
-        # new CCTBX wrapper
-        map_tmp2 = tempfile.NamedTemporaryFile(suffix=".ccp4").name
-        xmap2.write_map_file(map_tmp2)
-        xmap3 = XMap.fromfile(map_tmp2, resolution=d_min)
-        _validate_map(xmap3)
         # mrc input
         map_tmp3 = tempfile.NamedTemporaryFile(suffix=".mrc").name
-        xmap3.write_map_file(map_tmp3)
-        xmap4 = XMap.from_mapfile_cctbx(map_tmp3, resolution=d_min)
+        xmap.write_map_file(map_tmp3)
+        xmap4 = XMap.from_mapfile(map_tmp3, resolution=d_min)
         _validate_map(xmap4)
 
     def test_read_write_ccp4_map(self):
@@ -126,3 +171,21 @@ class TestVolumeXmapIO(UnitBase):
         xmap3.write_map_file(map_tmp3)
         xmap4 = XMap.fromfile(map_tmp3, resolution=d_min)
         _validate_map(xmap4)
+        # extract region
+        coor = [[0, 7, 5], [4, 11, 11]]
+
+        def _validate_extract_map(xmap):
+            assert xmap.resolution.high == d_min
+            assert xmap.array.shape == (37, 31, 30)
+            assert (
+                str(xmap.unit_cell)
+                == "UnitCell(a=43.096001, b=52.591999, c=89.249001, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+            assert xmap.array[0][0][0] == pytest.approx(-1.4275, abs=0.0001)
+            assert tuple(xmap.offset) == (-9, 12, 6)
+
+        xmap5 = xmap1.extract(coor)
+        _validate_extract_map(xmap5)
+        xmap5.write_map_file(map_tmp)
+        xmap6 = XMap.from_mapfile(map_tmp, resolution=d_min)
+        _validate_extract_map(xmap6)

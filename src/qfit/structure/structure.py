@@ -171,7 +171,7 @@ class Structure(_BaseStructure):
             array2 = getattr(structure, attr)
             combined = np.concatenate((array1, array2))
             data[attr] = combined
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
@@ -197,7 +197,7 @@ class Structure(_BaseStructure):
                 array1[mask2] = 1.0
             data[attr] = array1[~mask]
 
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def get_backbone(self):
         """Return the backbone atoms of a given residue"""
@@ -208,7 +208,7 @@ class Structure(_BaseStructure):
         for attr in self.data:
             array1 = getattr(self, attr)
             data[attr] = array1[~mask]
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def set_backbone_occ(self):
         """Set the "backbone" occupancy to 0 and the occupancy of
@@ -232,7 +232,7 @@ class Structure(_BaseStructure):
                 array1[mask] = 0.0
                 array1[mask2] = 1.0
             data[attr] = array1
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def register(self, attr, array):
         """Register array attribute"""
@@ -360,7 +360,7 @@ class Structure(_BaseStructure):
                 array1[mask] = array1[mask] + array1[mask2]
             data[attr] = array1[~mask2]
 
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
@@ -513,7 +513,22 @@ class Structure(_BaseStructure):
             data[attr] = array1[mask]
 
         # Return the new object:
-        return Structure(data)
+        return Structure(data, crystal_symmetry=self.crystal_symmetry)
+
+    def reinitialize_object(self):
+        """
+        Return a fresh object of the same class with the same data array,
+        after unpickling in a multiprocessing call.
+        """
+        symm = self.crystal_symmetry
+        if self.parent is not None:
+            symm = self.parent.crystal_symmetry
+        return Structure(
+            self.data,
+            selection=self._selection,
+            parent=self.parent,
+            crystal_symmetry=symm,
+        )
 
 
 class _Chain(_BaseStructure):

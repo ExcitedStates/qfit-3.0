@@ -29,7 +29,18 @@ def setup_module(module):
         cleanup_on_sigterm()
 
 
-class TestQFitProtein:
+class TemporaryDirectoryRunner:
+    @pytest.fixture(autouse=True)
+    def run_before_and_after_tests(self):
+        tmp_dir = tempfile.mkdtemp("qfit_protein")
+        print(f"TMP={tmp_dir}")
+        cwd = os.getcwd()
+        os.chdir(tmp_dir)
+        yield
+        os.chdir(cwd)
+
+
+class TestQFitProtein(TemporaryDirectoryRunner):
     def mock_main(self, file_ext, tmp_dir):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "example")
         # Prepare args
@@ -49,6 +60,8 @@ class TestQFitProtein:
                 "30",  # default: 60
                 "-d",
                 tmp_dir,
+                "--random-seed",
+                "7",
             ]
         )
 
@@ -88,7 +101,10 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113
+        mconformer_resn = [r.resn[0] for r in mconformer_list]
+        assert mconformer_resn.count("PHE") == 2
+        assert mconformer_resn.count("SER") >= 2
+        # assert len(mconformer_list) > 5  # Expect: 3*Ser99, 2*Phe113
 
     def test_run_qfit_residue_parallel(self):
         self._run_mock_qfit_residue_parallel("pdb")

@@ -249,7 +249,7 @@ class UnitCell:
                     yield self.calc_orth_symop(symop_t)
 
     def set_space_group(self, space_group):
-        self.space_group = spacegroups.GetSpaceGroup(space_group)
+        self.space_group = spacegroups.getSpaceGroup(space_group)
 
 
 def strRT(R, T):
