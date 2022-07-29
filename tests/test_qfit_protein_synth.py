@@ -1,8 +1,9 @@
 """
 Relatively fast integration tests of qfit_protein using synthetic data for
-a variety of small peptide with several alternate conformers.  VERY unstable
-without setting a pre-determined random seed for qfit_protein; future work
-should investigate the sensitivity.
+a variety of small peptide with several alternate conformers.  Some of these
+tests (especially the ones with Phe residues) are extremely unstable without
+setting a pre-determined random seed for qfit_protein; future work should
+investigate the sensitivity.
 """
 
 from collections import defaultdict
@@ -13,6 +14,11 @@ import os.path as op
 import os
 
 import pytest
+from mmtbx.command_line import fmodel
+from iotbx.file_reader import any_file
+from cctbx.crystal import symmetry
+from scitbx.array_family import flex
+from libtbx.utils import null_out
 
 from qfit.structure import Structure
 
@@ -43,8 +49,6 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
                        pdb_file_name,
                        high_resolution,
                        output_file="fmodel.mtz"):
-        from mmtbx.command_line import fmodel
-        from libtbx.utils import null_out
         fmodel_args = [
             pdb_file_name,
             f"high_resolution={high_resolution}",
@@ -101,8 +105,6 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
     def _validate_new_fmodel(self,
                              high_resolution,
                              expected_correlation=0.99):
-        from iotbx.file_reader import any_file
-        from scitbx.array_family import flex
         mtz_new = "fmodel_out.mtz"
         self._create_fmodel("multiconformer_model2.pdb",
                             output_file=mtz_new,
@@ -120,7 +122,6 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
                           unit_cell,
                           pdb_multi,
                           pdb_single):
-        from cctbx.crystal import symmetry
         new_symm = symmetry(
             space_group_symbol=space_group_symbol,
             unit_cell=unit_cell)
@@ -142,8 +143,9 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         rotamers_in = self._get_model_rotamers(pdb_multi, chi_radius)
         rotamers_out = self._get_model_rotamers("multiconformer_model2.pdb",
                                                 chi_radius)
-        assert rotamers_in[2] == rotamers_out[2]
-        return rotamers_out[2]
+        for resi in rotamers_in.keys():
+            assert rotamers_in[resi] == rotamers_out[resi]
+        return rotamers_out
 
     def _run_3mer_and_validate_identical_rotamers(self,
                                                   peptide_name,
@@ -174,7 +176,7 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         rotamers = self._run_and_validate_identical_rotamers(pdb_multi, pdb_single, d_min=1.2)
         # this should not find a third distinct conformation (although it may
         # have overlapped conformations of the same rotamer)
-        assert len(rotamers) == 2
+        assert len(rotamers[2]) == 2
 
     def test_qfit_protein_3mer_trp_3conf_p21(self):
         """
@@ -184,7 +186,7 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         pdb_multi = self._get_file_path("AWA_3conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
         rotamers = self._run_and_validate_identical_rotamers(pdb_multi, pdb_single, d_min=1.0)
-        assert len(rotamers) == 3
+        assert len(rotamers[2]) == 3
         s = Structure.fromfile("multiconformer_model2.pdb")
         trp_confs = [r for r in s.residues if r.resn[0] == "TRP"]
         # at 1.0A we should have exactly 3 conformers
@@ -269,3 +271,78 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         # these are all of the alt confs present in the fmodel structure
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
+
+    def _iterate_symmetry_mate_models(self, pdb_single_start):
+        d_min = 1.2
+        pdb_in = any_file(pdb_single_start)
+        pdbh = pdb_in.file_object.construct_hierarchy()
+        xrs = pdb_in.file_object.xray_structure_simple()
+        sites_frac = xrs.sites_frac()
+        for i_op, rt_mx in enumerate(xrs.space_group().smx()):
+            os.mkdir(f"op{i_op}")
+            os.chdir(f"op{i_op}")
+            new_sites = flex.vec3_double([rt_mx * xyz for xyz in sites_frac])
+            xrs.set_sites_frac(new_sites)
+            pdbh.atoms().set_xyz(xrs.sites_cart())
+            pdb_single_new = f"single_op{i_op}.pdb"
+            pdbh.write_pdb_file(pdb_single_new, crystal_symmetry=xrs)
+            yield op.abspath(pdb_single_new)
+
+    def test_qfit_protein_3mer_lys_p6322_all_sites(self):
+        """
+        Iterate over all symmetry operators in the P6(3)22 space group and
+        confirm that qFit builds three distinct rotamers starting from
+        the symmetry mate coordinates
+        """
+        d_min = 1.2
+        pdb_multi = self._get_file_path("AKA_p6322_3conf.pdb")
+        pdb_single_start = self._get_file_path("AKA_p6322_single.pdb")
+        cwd = os.getcwd()
+        for i_op, pdb_single in enumerate(self._iterate_symmetry_mate_models(pdb_single_start)):
+            print(f"running with model {op.basename(pdb_single)}")
+            os.mkdir(f"op{i_op}")
+            os.chdir(f"op{i_op}")
+            try:
+                rotamers = self._run_and_validate_identical_rotamers(
+                    pdb_multi, pdb_single, d_min=d_min, chi_radius=15)
+                assert len(rotamers[2]) == 3
+            finally:
+                os.chdir(cwd)
+
+    def test_qfit_protein_3mer_arg_sensitivity(self):
+        """
+        Build a low-occupancy Arg conformer.
+        """
+        d_min = 1.2
+        occ_B = 0.28
+        (pdb_multi_start, pdb_single) = self._get_start_models("ARA")
+        pdb_in = any_file(pdb_multi_start)
+        symm = pdb_in.file_object.crystal_symmetry()
+        pdbh = pdb_in.file_object.construct_hierarchy()
+        cache = pdbh.atom_selection_cache()
+        atoms = pdbh.atoms()
+        occ = atoms.extract_occ()
+        sele1 = cache.selection("altloc A")
+        sele2 = cache.selection("altloc B")
+        occ.set_selected(sele1, 1 - occ_B)
+        occ.set_selected(sele2, occ_B)
+        atoms.set_occ(occ)
+        pdb_multi_new = "ARA_low_occ.pdb"
+        pdbh.write_pdb_file(pdb_multi_new, crystal_symmetry=symm)
+        self._run_and_validate_identical_rotamers(pdb_multi_new,
+            pdb_single, d_min)
+
+    def test_qfit_protein_3mer_multiconformer(self):
+        """
+        Build a 3-mer peptide with three continuous conformations and one or
+        two alternate rotamers for each residue
+        """
+        d_min = 1.2
+        (pdb_multi, pdb_single) = self._get_start_models("SKH")
+        rotamers = self._run_and_validate_identical_rotamers(
+            pdb_multi, pdb_single, d_min=d_min, chi_radius=15)
+        # TODO this test should also evaluate the occupancies, which are not
+        # constrained between residues
+        assert len(rotamers[1]) == 2
+        assert len(rotamers[2]) == 3
+        assert len(rotamers[3]) == 2
