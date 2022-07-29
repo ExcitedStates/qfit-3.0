@@ -169,11 +169,11 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """
-        Build a Trp residue with two rotamers
+        Build a Trp residue with two rotamers at medium resolution
         """
         pdb_multi = self._get_file_path("AWA_2conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
-        rotamers = self._run_and_validate_identical_rotamers(pdb_multi, pdb_single, d_min=1.2)
+        rotamers = self._run_and_validate_identical_rotamers(pdb_multi, pdb_single, d_min=2.0, chi_radius=15)
         # this should not find a third distinct conformation (although it may
         # have overlapped conformations of the same rotamer)
         assert len(rotamers[2]) == 2
@@ -314,7 +314,7 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         Build a low-occupancy Arg conformer.
         """
         d_min = 1.2
-        occ_B = 0.28
+        occ_B = 0.3
         (pdb_multi_start, pdb_single) = self._get_start_models("ARA")
         pdb_in = any_file(pdb_multi_start)
         symm = pdb_in.file_object.crystal_symmetry()
