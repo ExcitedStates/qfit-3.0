@@ -5,7 +5,7 @@ test-unit:
 	py.test tests/unit/test_*.py
 
 test-int:
-	py.test tests/test_*.py
+	py.test --verbose -n 4 tests/test_*.py
 
 test: test-unit test-int
 
