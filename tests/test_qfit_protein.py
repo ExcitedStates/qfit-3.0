@@ -33,7 +33,7 @@ class TestQFitProtein:
         # Prepare args
         args = [
             "./example/3K0N.mtz",  # mapfile, using relative directory from tests/
-            "./example/3K0N.pdb",  # structurefile, using relative directory from tests/
+            "./example/3K0N_refine.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
         ]
 
