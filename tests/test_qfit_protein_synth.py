@@ -22,21 +22,14 @@ from libtbx.utils import null_out
 
 from qfit.structure import Structure
 
+from .test_qfit_protein import TemporaryDirectoryRunner
 
-class TestQfitProteinSyntheticData(unittest.TestCase):
+
+class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
     DATA = op.join(op.dirname(__file__), "data")
     # the default is specifically chosen to make the 7-mer test pass
     RANDOM_SEED = int(os.environ.get("QFIT_RANDOM_SEED", 7))
     CHI_RADIUS = 10
-
-    @pytest.fixture(autouse=True)
-    def run_before_and_after_tests(self):
-        tmp_dir = tempfile.mkdtemp("qfit_protein")
-        print(f"TMP={tmp_dir}")
-        cwd = os.getcwd()
-        os.chdir(tmp_dir)
-        yield
-        os.chdir(cwd)
 
     def _get_file_path(self, base_name):
         return op.join(self.DATA, base_name)
@@ -106,9 +99,10 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
 
     def _validate_new_fmodel(self,
                              high_resolution,
-                             expected_correlation=0.99):
+                             expected_correlation=0.99,
+                             model_name="multiconformer_model2.pdb"):
         mtz_new = "fmodel_out.mtz"
-        self._create_fmodel("multiconformer_model2.pdb",
+        self._create_fmodel(model_name,
                             output_file=mtz_new,
                             high_resolution=high_resolution)
         fmodel_1 = any_file("fmodel.mtz")
@@ -135,18 +129,19 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         s2.tofile("single_newsymm.pdb")
         return ("multi_newsymm.pdb", "single_newsymm.pdb")
 
-    def _run_and_validate_identical_rotamers(self,
-                                             pdb_multi,
-                                             pdb_single,
-                                             d_min,
-                                             chi_radius=CHI_RADIUS,
-                                             expected_correlation=0.99):
+    def _run_and_validate_identical_rotamers(
+            self,
+            pdb_multi,
+            pdb_single,
+            d_min,
+            chi_radius=CHI_RADIUS,
+            expected_correlation=0.99,
+            model_name="multiconformer_model2.pdb"):
         self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_new_fmodel(high_resolution=d_min,
                                   expected_correlation=expected_correlation)
         rotamers_in = self._get_model_rotamers(pdb_multi, chi_radius)
-        rotamers_out = self._get_model_rotamers("multiconformer_model2.pdb",
-                                                chi_radius)
+        rotamers_out = self._get_model_rotamers(model_name, chi_radius)
         for resi in rotamers_in.keys():
             assert rotamers_in[resi] == rotamers_out[resi]
         return rotamers_out
@@ -203,10 +198,11 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
         # FIXME with the minimized model we get 4 confs, at any resolution
         #assert len(trp_confs) == 3
 
-    def _validate_phe_3mer_confs(self, pdb_file_multi):
+    def _validate_phe_3mer_confs(self,
+                                 pdb_file_multi,
+                                 new_model_name="multiconformer_model2.pdb"):
         rotamers_in = self._get_model_rotamers(pdb_file_multi)
-        rotamers_out = self._get_model_rotamers("multiconformer_model2.pdb",
-                                                chi_radius=15)
+        rotamers_out = self._get_model_rotamers(new_model_name, chi_radius=15)
         # Phe2 should have two rotamers, but this may occasionally appear as
         # three due to the ring flips, and we can't depend on which orientation
         # the ring ends up in
@@ -224,6 +220,22 @@ class TestQfitProteinSyntheticData(unittest.TestCase):
                            high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi)
         self._validate_new_fmodel(high_resolution=d_min)
+
+    def test_qfit_protein_3mer_phe_p21_mmcif(self):
+        """
+        Build a Phe residue with two conformers using mmCIF input
+        """
+        d_min = 1.5
+        (pdb_multi, pdb_single) = self._get_start_models("AFA")
+        cif_single = "single_conf.cif"
+        s = Structure.fromfile(pdb_single)
+        s.tofile(cif_single)
+        self._run_qfit_cli(pdb_multi,
+                           cif_single,
+                           high_resolution=d_min)
+        self._validate_phe_3mer_confs(pdb_multi, "multiconformer_model.cif")
+        self._validate_new_fmodel(high_resolution=d_min,
+                                  model_name="multiconformer_model.cif")
 
     def test_qfit_protein_3mer_phe_p1(self):
         """

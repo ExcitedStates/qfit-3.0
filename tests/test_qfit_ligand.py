@@ -11,16 +11,19 @@ from qfit.logtools import (
     log_run_info,
 )
 
+from .test_qfit_protein import TemporaryDirectoryRunner
 
 logger = logging.getLogger(__name__)
 
 
-class TestQFitLigand:
+class TestQFitLigand(TemporaryDirectoryRunner):
     def mock_main(self):
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                "example")
         # Prepare args
         args = [
-            "./example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
-            "./example/4ms6.pdb",  # structurefile, using relative directory from tests/
+            os.path.join(data_dir, "composite_omit_map.mtz"),
+            os.path.join(data_dir, "4ms6.pdb"),
             "-l", "2FOFCWT,PH2FOFCWT",
             "A, 702",  # selection
         ]

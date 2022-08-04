@@ -29,7 +29,19 @@ def setup_module(module):
         cleanup_on_sigterm()
 
 
-class TestQFitProtein:
+class TemporaryDirectoryRunner:
+
+    @pytest.fixture(autouse=True)
+    def run_before_and_after_tests(self):
+        tmp_dir = tempfile.mkdtemp("qfit_protein")
+        print(f"TMP={tmp_dir}")
+        cwd = os.getcwd()
+        os.chdir(tmp_dir)
+        yield
+        os.chdir(cwd)
+
+
+class TestQFitProtein(TemporaryDirectoryRunner):
     def mock_main(self, file_ext, tmp_dir):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                 "example")
