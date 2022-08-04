@@ -29,6 +29,7 @@ class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
     DATA = op.join(op.dirname(__file__), "data")
     # the default is specifically chosen to make the 7-mer test pass
     RANDOM_SEED = int(os.environ.get("QFIT_RANDOM_SEED", 7))
+    # allowed difference from rotameric chi*
     CHI_RADIUS = 10
 
     def _get_file_path(self, base_name):
@@ -146,25 +147,29 @@ class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
             assert rotamers_in[resi] == rotamers_out[resi]
         return rotamers_out
 
-    def _run_3mer_and_validate_identical_rotamers(self,
+    def _run_kmer_and_validate_identical_rotamers(self,
                                                   peptide_name,
                                                   d_min,
                                                   chi_radius=CHI_RADIUS):
         (pdb_multi, pdb_single) = self._get_start_models(peptide_name)
         return self._run_and_validate_identical_rotamers(pdb_multi, pdb_single, d_min, chi_radius)
 
+    def test_qfit_protein_ser_p1(self):
+        """A single two-conformer Ser residue in a P1 cell"""
+        self._run_kmer_and_validate_identical_rotamers("Ser", d_min=1.5, chi_radius=5)
+
     def test_qfit_protein_3mer_arg_p21(self):
         """Build an Arg residue with two conformers"""
-        self._run_3mer_and_validate_identical_rotamers("ARA", d_min=1.0, chi_radius=8)
+        self._run_kmer_and_validate_identical_rotamers("ARA", d_min=1.0, chi_radius=8)
 
     def test_qfit_protein_3mer_lys_p21(self):
         """Build a Lys residue with three rotameric conformations"""
-        rotamers = self._run_3mer_and_validate_identical_rotamers("AKA", d_min=1.2, chi_radius=15)
+        rotamers = self._run_kmer_and_validate_identical_rotamers("AKA", d_min=1.2, chi_radius=15)
         assert len(rotamers) == 3  # just to be certain
 
     def test_qfit_protein_3mer_ser_p21(self):
         """Build a Ser residue with two rotamers at moderate resolution"""
-        self._run_3mer_and_validate_identical_rotamers("ASA", 1.7, chi_radius=15)
+        self._run_kmer_and_validate_identical_rotamers("ASA", 1.7, chi_radius=15)
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """
