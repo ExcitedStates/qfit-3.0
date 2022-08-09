@@ -240,7 +240,7 @@ Using the example 4L2L:
 `qfit_ligand /path/to/4l2l_omit_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4l2l.pdb A,702`
 
 We then recommend re-refining the output of qFit ligand along with the protein using: 
-`qfit_final_refine_xray.sh 4l2l_qFit_ligand.pdb /path/to/4L2L.mtz`
+`qfit_final_refine_xray.sh /path/to/4l2l_input.mtz 4l2l_qFit_ligand.pdb`
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number).
