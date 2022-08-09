@@ -101,14 +101,18 @@ class SpaceGroup:
             yield symop(vec)
 
     @staticmethod
-    def from_symbol_cctbx(symbol):
+    def from_symbol(symbol):
+        from cctbx.sgtbx import space_group_info
+        sg_info = space_group_info(symbol)
+        return SpaceGroup.from_cctbx(sg_info)
+
+    @staticmethod
+    def from_cctbx(space_group_info):
         def _to_symop(op):
             n12 = op.as_double_array()
             return SymOp(np.array([n12[0:3], n12[3:6], n12[6:9]], np.float64),
                          np.array(n12[9:12], np.float64))
-        from cctbx.sgtbx import space_group_info
-        sg_info = space_group_info(symbol)
-        group = sg_info.group()
+        group = space_group_info.group()
         point_group_type = group.point_group_type()
         if point_group_type[0] == "-":
             point_group_type = point_group_type[1] + "bar" + point_group_type[2:]
@@ -116,13 +120,13 @@ class SpaceGroup:
         num_primitive_sym_equiv = group.order_p()
         symops = [_to_symop(op) for op in group.all_ops()]
         return SpaceGroup(
-            number=sg_info.type().number(),
+            number=space_group_info.type().number(),
             num_sym_equiv=num_sym_equiv,
             num_primitive_sym_equiv=num_primitive_sym_equiv,
-            short_name=str(sg_info).replace(" ", ""),
+            short_name=str(space_group_info).replace(" ", ""),
             point_group_name=f"PG{point_group_type}",
             crystal_system=group.crystal_system().upper(),
-            pdb_name=str(sg_info),
+            pdb_name=str(space_group_info),
             symop_list=symops)
 
     def as_cctbx_group(self):
@@ -135,7 +139,7 @@ def getSpaceGroup(name):
     is not found, return the P1 space group as default.
     """
     try:
-        return SpaceGroup.from_symbol_cctbx(name)
+        return SpaceGroup.from_symbol(name)
     except RuntimeError as e:
         raise Sorry(f"{e}")
 

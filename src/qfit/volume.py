@@ -9,12 +9,13 @@ import time
 
 import numpy as np
 from scipy.ndimage import map_coordinates
+from iotbx.reflection_file_reader import any_reflection_file
 import iotbx.ccp4_map
 import iotbx.mrcfile
 from cctbx import sgtbx
 from scitbx.array_family import flex
 
-from .spacegroups import getSpaceGroup
+from .spacegroups import SpaceGroup
 from .unitcell import UnitCell
 from ._extensions import extend_to_p1
 
@@ -76,7 +77,7 @@ class _BaseVolume:
         else:
             raise ValueError(f"Format '{fmt}' is not supported.")
 
-    def as_cctbx_data(self):
+    def as_cctbx_map(self):
         """
         Convert the density to a CCTBX map-like flex array.
         """
@@ -89,7 +90,7 @@ class _BaseVolume:
         return density
 
     def write_map_file(self, file_name):
-        density = self.as_cctbx_data()
+        density = self.as_cctbx_map()
         if file_name.endswith(".ccp4"):
             writer = iotbx.ccp4_map.write_ccp4_map
         else:
@@ -212,28 +213,27 @@ class XMap(_BaseVolume):
 
     @staticmethod
     def from_mtz(fname, resolution=None, label="FWT,PHWT"):
-        from .mtzfile import MTZFile
         from .transformer import SFTransformer
-        mtz = MTZFile(fname)
-        hkl = np.asarray(list(zip(mtz['H'], mtz['K'], mtz['L'])), np.int32)
-        unit_cell = UnitCell(*mtz.unit_cell)
-        space_group = getSpaceGroup(mtz.ispg)
+        mtz_in = any_reflection_file(fname)
+        miller_arrays = {a.info().label_string():a for a in mtz_in.as_miller_arrays()}
+        map_coeffs = miller_arrays.get(label, None)
+        if not map_coeffs:
+            raise KeyError(f"Could not find columns '{label}' in MTZ file.")
+        hkl = np.asarray(list(map_coeffs.indices()), np.int32)
+        unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
+        space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        f_column, phi_column = label.split(',')
-        try:
-            f = mtz[f_column]
-            phi = mtz[phi_column]
-        except KeyError:
-            raise KeyError("Could not find columns in MTZ file.")
-
-        t = SFTransformer(hkl, f, phi, unit_cell)
-        grid = t()
+        f = map_coeffs.amplitudes().data().as_numpy_array().copy()
+        phi = map_coeffs.phases().data().as_numpy_array().copy() * 180 / np.pi
+        fft = SFTransformer(hkl, f, phi, unit_cell)
+        grid = fft()
         abc = [getattr(unit_cell, x) for x in 'a b c'.split()]
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")
         grid_parameters = GridParameters(voxelspacing)
-        resolution = Resolution(high=mtz.resmax, low=mtz.resmin)
-        logger.debug(f"MTZ Resolution: {mtz.resmax}")
+        resolution = Resolution(high=map_coeffs.d_min(),
+                                low=map_coeffs.d_max_min()[0])
+        logger.debug(f"MTZ Resolution: {map_coeffs.d_min()}")
         logger.debug(f"Map size: {grid.size}")
         logger.debug(f"Map Grid: {grid_parameters}")
         return XMap(grid,
