@@ -1516,7 +1516,6 @@ class QFitLigand(_BaseQFit):
                 starting_bond_index += self.options.dofs_per_iteration
             iteration += 1
 
-
 class QFitCovalentLigandOptions(_BaseQFitOptions):
     def __init__(self):
         super().__init__()
