@@ -231,9 +231,9 @@ should be used:
 
 `qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
 
-Using the example 4L2L:
+Using the example 4MS6:
 
-`qfit_ligand /path/to/ligand_composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4l2l.pdb A,702`
+`qfit_ligand /path/to/ligand_composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4ms6.pdb A,702`
 
 We then recommend re-refining the output of qFit ligand along with the protein using: 
 `qfit_final_refine_xray.sh 4l2l_qFit_ligand.pdb /path/to/4L2L.mtz`
