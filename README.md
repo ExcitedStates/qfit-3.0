@@ -1,4 +1,4 @@
-# qFit 3.2.1
+# qFit 3.2.2
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 
@@ -101,7 +101,7 @@ An example test case (3K0N) can be found in the *example* directory. Additionall
 To model alternate conformers for all residues in a protein of interest using qFit,
 the following command should be used:
 
-`qfit_protein [MAP_FILE] -l [LABELS] [PDB_FILE]`
+`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE]`
 
 This command will produce a multiconformer model that spans the entirety of the
 input target protein. You will encounter two output files of interest in the
@@ -128,7 +128,7 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
@@ -140,11 +140,11 @@ of the Phenix software suite. This script is currently written to work with vers
 
 ### 2. Modelling alternate conformers for a residue of interest
 
-`qfit_residue [MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
+`qfit_residue [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113`
+`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113`
 
 This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
@@ -157,10 +157,6 @@ this type of map, it is also necessary to provide the resolution of the data,
 which can be achieved by using the flag *-r*.
 
 `qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
-
-Using the example 3K0N:
-
-`qfit_residue /path/to/3K0N.ccp4 /path/to/3K0N.pdb -r 1.39`
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
 
@@ -190,7 +186,7 @@ the cost of precision:
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
@@ -201,7 +197,7 @@ For a full list of options, run:
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 
 ### 6.  Parallelization:
@@ -211,7 +207,7 @@ can be adjusted using the *-p* flag.
 
 Using the example 3K0N, spawning 30 parallel processes:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N.pdb -p 30`
+`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb -p 30`
 
 
 ### 7. Revisiting the consistent protein segment output by qfit_protein
@@ -233,11 +229,11 @@ can re-process the initial model with less stringent parameters using the *qfit_
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
-`qfit_ligand [MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
+`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
 
 Using the example 4L2L:
 
-`qfit_ligand /path/to/4l2l.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4l2l.pdb A,702`
+`qfit_ligand /path/to/ligand_composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/4l2l.pdb A,702`
 
 We then recommend re-refining the output of qFit ligand along with the protein using: 
 `qfit_final_refine_xray.sh 4l2l_qFit_ligand.pdb /path/to/4L2L.mtz`
