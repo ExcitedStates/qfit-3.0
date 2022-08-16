@@ -269,7 +269,7 @@ class _BaseQFit:
         return bs_copy
 
     def _solve(self, cardinality=None, threshold=None,
-               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
+               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2], ligand=None):
         # Create and run QP or MIQP solver
         do_qp = cardinality is threshold is None
         if do_qp:
@@ -284,7 +284,7 @@ class _BaseQFit:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in loop_range:
-                    solver(cardinality=None, threshold=threshold)
+                    solver(cardinality=None, threshold=threshold, ligand=ligand)
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
                     n = len(self._target)
@@ -300,7 +300,7 @@ class _BaseQFit:
                     if BIC < self.BIC:
                         self.BIC = BIC
             else:
-                solver(cardinality=cardinality, threshold=threshold)
+                solver(cardinality=cardinality, threshold=threshold, ligand=ligand)
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
@@ -671,39 +671,39 @@ class QFitRotamericResidue(_BaseQFit):
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
-        else:
-            # Perform a final QP / MIQP step
-            self.residue.active = True
-            self.residue.update_clash_mask()
-            new_coor_set = []
-            new_bs = []
-            for coor, b in zip(self._coor_set, self._bs):
-                self.residue.coor = coor
-                self.residue.b = b
-                if self.options.external_clash:
-                    if not self._cd() and self.residue.clashes() == 0:
-                        new_coor_set.append(coor)
-                        new_bs.append(b)
-                elif self.residue.clashes() == 0:
+            
+        # Perform a final QP / MIQP step
+        self.residue.active = True
+        self.residue.update_clash_mask()
+        new_coor_set = []
+        new_bs = []
+        for coor, b in zip(self._coor_set, self._bs):
+            self.residue.coor = coor
+            self.residue.b = b
+            if self.options.external_clash:
+                if not self._cd() and self.residue.clashes() == 0:
+                   new_coor_set.append(coor)
+                   new_bs.append(b)
+            elif self.residue.clashes() == 0:
                     new_coor_set.append(coor)
                     new_bs.append(b)
             self._coor_set = new_coor_set
             self._bs = new_bs
 
-            # QP score conformer occupancy
-            self._convert()
-            self._solve()
-            self._update_conformers()
-            if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix="qp_solution")
+        # QP score conformer occupancy
+        self._convert()
+        self._solve()
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+             self._write_intermediate_conformers(prefix="qp_solution")
 
-            # MIQP score conformer occupancy
-            self._convert()
-            self._solve(threshold=self.options.threshold,
-                        cardinality=self.options.cardinality)
-            self._update_conformers()
-            if self.options.write_intermediate_conformers:
-                self._write_intermediate_conformers(prefix="miqp_solution")
+        # MIQP score conformer occupancy
+        self._convert()
+        self._solve(threshold=self.options.threshold,
+                      cardinality=self.options.cardinality)
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
@@ -1384,7 +1384,7 @@ class QFitLigand(_BaseQFit):
         logger.info("Solving MIQP within run.")
         self._convert()
         self._solve(threshold=self.options.threshold,
-                    cardinality=self.options.cardinality)
+                    cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
@@ -1465,7 +1465,7 @@ class QFitLigand(_BaseQFit):
         # MIQP score conformer occupancy
         self._convert()
         self._solve(threshold=self.options.threshold,
-                    cardinality=self.options.cardinality)
+                    cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
@@ -1573,7 +1573,7 @@ class QFitLigand(_BaseQFit):
             # MIQP score conformer occupancy
             self._convert()
             self._solve(threshold=self.options.threshold,
-                        cardinality=self.options.cardinality)
+                        cardinality=self.options.cardinality, ligand='ligand') #specifying this is ligand to allow for less than one occupancy
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(prefix=f"_sample_ligand_iter{iteration}_miqp")
@@ -1588,7 +1588,6 @@ class QFitLigand(_BaseQFit):
             else:
                 starting_bond_index += self.options.dofs_per_iteration
             iteration += 1
-
 
 class QFitCovalentLigand(_BaseQFit):
     def __init__(self, covalent_ligand, receptor, xmap, options):
