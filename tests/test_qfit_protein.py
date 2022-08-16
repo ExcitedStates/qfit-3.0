@@ -78,4 +78,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113
+        assert len(mconformer_list) == 8  # Expect: 4*Ser99, 4*Phe113
