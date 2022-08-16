@@ -186,33 +186,23 @@ def main():
     # Get list of all non-hetatom residue
     n_removed = 0  #keep track of the residues we are removing
     chains = set(structure.chain)
+    # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
     for chain in chains:
-        residues = set(structure.extract('chain', chain, '==').resi)
-        for res in residues:
-            residue = structure.extract(f'chain {chain} and resi {res}')
-            if np.any(residue.q < args.occ_cutoff): #if any atom occupancy falls below the cutoff value
-               altlocs_remove = set(residue.extract('q', args.occ_cutoff, '<=').altloc)
-               
-               #confirm all atoms have the same q in each conformer
-               for alt in altlocs_remove:
-                   all_same = np.all(residue.extract('altloc', alt, '==').q)
-                   if all_same == False:
-                      print(f'Not all atoms have the same occupancy in resi {res}, chain {chain}, altloc {alt}')
-                      break
-                        
-               n_removed += len(set(altlocs_remove))
-               altlocs_keep = set(residue.extract('q', args.occ_cutoff, '>').altloc)
-               residue_out = remove_redistribute_conformer(residue, altlocs_remove, altlocs_keep)
-
-               try:
-                  out_structure = out_structure.combine(residue_out)
-               except UnboundLocalError:
-                  out_structure = residue_out
-            else:
-              try:
-                 out_structure = out_structure.combine(residue) #no altlocs removed
-              except UnboundLocalError:
-                 out_structure = residue
+        for residue in chain:
+            print(residue)
+            if np.any(residue.q < args.occ_cutoff):
+                print(residue.q)
+                # How many occupancy-values can we find in each altconf?
+                occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
+                                                         if agroup.id[1] != ""]
+                redistribute_occupancies_by_residue(residue, args.occ_cutoff)
+    
+    
+    # Create structure without low occupancy confs (culling)
+    data = {}
+    for attr in structure.data:
+        data[attr] = getattr(structure, attr).copy()[~mask]
+    structure = Structure(data).reorder()
     
     #add het atoms back in
     structure = structure.combine(hetatm)
