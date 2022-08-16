@@ -120,6 +120,49 @@ def redistribute_occupancies_by_atom(residue, cutoff):
             # Describe occupancy redistribution results
             print(f"  ==> {[(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]}")
 
+def redistribute_occupancies_by_residue(residue, cutoff):
+    """Redistributes occupancy from altconfs below cutoff to above cutoff.
+
+    This function iterates over residue.atom_groups (i.e. altconfs).
+    It should only be used when each of these atom_groups have uniform occupancy.
+    Otherwise, use `redistribute_occupancies_by_atom`.
+
+    Atoms below cutoff should be culled after this function is run.
+
+    Args:
+        residue (qfit.structure._ResidueGroup): residue to perform occupancy
+            redistribution on
+        cutoff (float): occupancy threshold
+    """
+    altconfs = dict((agroup.id[1], agroup) for agroup in residue.atom_groups
+                                           if agroup.id[1] != "")
+
+    # Which confs are either side of the cutoff?
+    confs_low = [alt for (alt, altconf) in altconfs.items()
+                     if altconf.q[-1] < cutoff]
+    confs_high = [alt for alt in altconfs.keys()
+                      if alt not in confs_low]
+
+    # Describe occupancy redistribution intentions
+    print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
+    print(f"  {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_low]} "
+          f"→ {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}")
+   
+    # Redistribute occupancy
+    if len(confs_high) == 1:
+        altconfs[confs_high[0]].q = 1.0
+        altconfs[confs_high[0]].altloc = ""
+    else:
+        sum_q_high = sum(altconfs[target].q[-1] for target in confs_high)
+        for target in confs_high:
+            q_high = altconfs[target].q[-1]
+            for source in confs_low:
+                q_low = altconfs[source].q[-1]
+                altconfs[target].q += q_low * q_high / sum_q_high
+
+    # Describe occupancy redistribution results
+    print(f"  ==> {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}")
+
 
 
 def main():
