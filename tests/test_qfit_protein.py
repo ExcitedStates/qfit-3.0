@@ -4,7 +4,7 @@ import logging
 import multiprocessing as mp
 
 from qfit.qfit_protein import (
-    QFitProteinOptions,
+    QFitOptions,
     build_argparser,
     prepare_qfit_protein,
 )
@@ -33,7 +33,7 @@ class TestQFitProtein:
         # Prepare args
         args = [
             "./example/3K0N.mtz",  # mapfile, using relative directory from tests/
-            "./example/3K0N.pdb",  # structurefile, using relative directory from tests/
+            "./example/3K0N_refine.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
         ]
 
@@ -52,7 +52,7 @@ class TestQFitProtein:
             pass
 
         # Apply the arguments to options
-        options = QFitProteinOptions()
+        options = QFitOptions()
         options.apply_command_args(args)
         options.debug = True  # For debugging in tests
 
@@ -77,6 +77,5 @@ class TestQFitProtein:
         # Run qfit object
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
-        print('here')
         print(mconformer_list)  # If we fail, this gets printed.
         assert len(mconformer_list) == 8  # Expect: 4*Ser99, 4*Phe113

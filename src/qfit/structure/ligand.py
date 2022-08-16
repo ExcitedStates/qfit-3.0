@@ -39,6 +39,15 @@ class _Ligand(_BaseStructure):
         string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
         return string
 
+    @property
+    def shortcode(self):
+        resi, icode = self.id
+        shortcode = f"{resi}"
+        if icode:
+            shortcode += f'_{icode}'
+
+        return shortcode
+
     def _get_connectivity(self):
         """Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
@@ -446,6 +455,23 @@ class Covalent_Ligand(_BaseStructure):
         string = (f'Covalent Ligand: {self.resn[0]}.'
                   f' Number of atoms: {self.natoms}.')
         return string
+
+    @property
+    def _identifier_tuple(self):
+        """Returns (chain, resi, icode) to identify this covalent ligand."""
+        chainid = self.chain[0]
+        resi, icode = self.id
+
+        return (chainid, resi, icode)
+
+    @property
+    def shortcode(self):
+        (chainid, resi, icode) = self._identifier_tuple
+        shortcode = f"{chainid}_{resi}"
+        if icode:
+            shortcode += f'_{icode}'
+
+        return shortcode
 
     def _get_connectivity_from_cif(self, cif_file):
         """Determine connectivity matrix of ligand and associated distance

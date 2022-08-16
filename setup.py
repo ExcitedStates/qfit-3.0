@@ -44,7 +44,6 @@ def main():
                   'qfit_residue = qfit.qfit_residue:main',
                   'qfit_ligand  = qfit.qfit_ligand:main',
                   'qfit_covalent_ligand = qfit.qfit_covalent_ligand:main',
-                  'qfit_segment = qfit.qfit_segment:main',
                   'qfit_prep_map = qfit.qfit_prep_map:main',
                   'qfit_density = qfit.qfit_density:main',
                   'qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main',
@@ -54,7 +53,6 @@ def main():
                   'side_chain_remover = qfit.side_chain_remover:main',
                   'redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main',
                   'fix_restraints = qfit.fix_restraints:main',
-                  'qfit_ppiDesign = qfit.qfit_ppiDesign:main',
                   'add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main',
                   'remove_duplicates = qfit.remove_duplicates:main'
               ]},
@@ -69,12 +67,15 @@ def main():
               'scripts/post/get_metrics.py',
               'scripts/post/b_factor.py',
               'scripts/post/subset_structure_AH.py',
-              'scripts/post/alpha_rmsd.py',
+              'scripts/post/alpha_carbon_rmsd.py',
               'scripts/post/reorder_pdb.py',
               'scripts/post/relabel_chain.py',
               'scripts/post/water_stats.py',
               'scripts/post/water_clash.py',
               'scripts/post/lig_occ.py',
+              'scripts/post/calc_OP.py',
+              'scripts/post/make_methyl_df.py',
+              'scripts/post/get_seq.py'
           ],
     )
 

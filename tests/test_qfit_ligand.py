@@ -2,7 +2,7 @@ import os
 import logging
 
 from qfit.qfit_ligand import (
-    QFitLigandOptions,
+    QFitOptions,
     prepare_qfit_ligand,
     build_argparser,
 )
@@ -19,7 +19,7 @@ class TestQFitLigand:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
+            "./example/ligand_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
             "./example/4ms6.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
             "A, 702",  # selection
@@ -36,7 +36,7 @@ class TestQFitLigand:
             pass
 
         # Apply the arguments to options
-        options = QFitLigandOptions()
+        options = QFitOptions()
         options.apply_command_args(args)
         options.debug = True  # For debugging in tests
 

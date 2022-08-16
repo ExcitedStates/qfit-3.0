@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """Calculate RMSF by residue and altloc.
 
 Iterate through altlocs of each residue,
@@ -8,11 +7,10 @@ reporting mean heavy-atom RMSD from all other altlocs of the residue.
 
 from __future__ import annotations
 
+import os
 import argparse
 import itertools as itl
-import os
 from typing import Generator, Sequence, TypeVar
-
 from qfit import Structure
 
 T = TypeVar('T')

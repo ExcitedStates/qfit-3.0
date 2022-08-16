@@ -4,6 +4,8 @@ from itertools import product
 from numbers import Real
 from struct import unpack as _unpack, pack as _pack
 from sys import byteorder as _BYTEORDER
+import logging
+import time
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -11,6 +13,9 @@ from scipy.ndimage import map_coordinates
 from .spacegroups import GetSpaceGroup, SpaceGroup, SymOpFromString
 from .unitcell import UnitCell
 from ._extensions import extend_to_p1
+
+
+logger = logging.getLogger(__name__)
 
 
 class GridParameters:
@@ -137,6 +142,8 @@ class XMap(_BaseVolume):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in ('.ccp4', '.mrc', '.map'):
+            if resolution is None:
+                raise ValueError(f"{fname} is a CCP4/MRC/MAP file. Please provide a resolution (use the '-r'/'--resolution' flag).")
             parser = parse_volume(fname, fmt=fmt)
             a, b, c = parser.abc
             alpha, beta, gamma = parser.angles
@@ -233,30 +240,58 @@ class XMap(_BaseVolume):
     def is_canonical_unit_cell(self):
         return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and np.allclose(self.offset, 0))
 
-    def extract(self, orth_coor, padding=3):
+    def extract(self, orth_coor, padding=3.):
+        """Create a copy of the map around the atomic coordinates provided.
+
+        Args:
+            orth_coor (np.ndarray[(n_atoms, 3), dtype=np.float]):
+                a collection of Cartesian atomic coordinates
+            padding (float): amount of padding (in Angstrom) to add around the
+                returned electron density map
+        Returns:
+            XMap: the new map object around the coordinates
+        """
         if not self.is_canonical_unit_cell():
             raise RuntimeError("XMap should contain full unit cell.")
-        uc = self.unit_cell
-        grid_coor = orth_coor @ uc.orth_to_frac.T
+        logger.debug(f"Extracting map around {len(orth_coor)} atoms")
+
+        # Convert atomic Cartesian coordinates to voxelgrid coordinates
+        grid_coor = orth_coor @ self.unit_cell.orth_to_frac.T
         grid_coor *= self.unit_cell_shape
         grid_coor -= self.offset
+
+        # How many voxels are we padding by?
         grid_padding = padding / self.voxelspacing
+
+        # What are the voxel-coords of the lower and upper extrema that we will extract?
         lb = grid_coor.min(axis=0) - grid_padding
         ru = grid_coor.max(axis=0) + grid_padding
         lb = np.floor(lb).astype(int)
         ru = np.ceil(ru).astype(int)
-        shape = [h - l for h, l in zip(ru, lb)][::-1]
-        array = np.zeros(shape, np.float64)
+        shape = (ru - lb)[::-1]
+        logger.debug(f"From old map size (voxels): {self.shape}")
+        logger.debug(f"Extract between corners:    {lb[::-1]}, {ru[::-1]}")
+        logger.debug(f"New map size (voxels):      {shape}")
+
+        # Make new GridParameters, make sure to update offset
         grid_parameters = GridParameters(self.voxelspacing, self.offset + lb)
         offset = grid_parameters.offset
-        kmax, jmax, imax = self.unit_cell_shape[::-1]
-        ranges = [range(shape[i]) for i in range(3)]
-        for k, j, i in product(*ranges):
-            x = (i + offset[0]) % imax
-            y = (j + offset[1]) % jmax
-            z = (k + offset[2]) % kmax
-            array[k, j, i] = self.array[z, y, x]
-        return XMap(array, grid_parameters=grid_parameters,
+
+        # Use index math to get appropriate region of map
+        #     - Create a tuple of axis-indexes
+        #     - Perform wrapping maths on the indexes
+        #     - Apply new index to the original map to get re-mapped map
+        # This is ~500--1000x faster than working element-by-element
+        # (BTR: I don't understand why we're indexing jki and not ijk)
+        ranges = [range(axis_len) for axis_len in shape]
+        ixgrid = np.ix_(*ranges)
+        ixgrid = tuple(
+            (dimension_index + offset) % wrap_to
+            for dimension_index, offset, wrap_to in zip(ixgrid, offset[::-1], self.unit_cell_shape[::-1])
+        )
+        density_map = self.array[ixgrid]
+
+        return XMap(density_map, grid_parameters=grid_parameters,
                     unit_cell=self.unit_cell, resolution=self.resolution,
                     hkl=self.hkl, origin=self.origin)
 
