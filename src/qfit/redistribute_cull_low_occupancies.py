@@ -182,16 +182,17 @@ def main():
 
     # Capture LINK records
     link_data = structure.link_data
+    
+    # Which atoms fall below cutoff?
+    mask = structure.q < args.occ_cutoff
+    n_removed = np.sum(mask)
 
     # Get list of all non-hetatom residue
     n_removed = 0  #keep track of the residues we are removing
-    chains = set(structure.chain)
     # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
-    for chain in chains:
+    for chain in structure:
         for residue in chain:
-            print(residue)
             if np.any(residue.q < args.occ_cutoff):
-                print(residue.q)
                 # How many occupancy-values can we find in each altconf?
                 occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
                                                          if agroup.id[1] != ""]
