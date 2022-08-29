@@ -55,7 +55,7 @@ def remove_redistribute_conformer(residue, remove, keep):
           additional_occ_redist = round(1.0 - ((occ_redist*naltlocs) + np.sum(np.unique(residue_out.extract('q', 1.0, '!=').q))), 2)
        if abs(additional_occ_redist) > 0.01:
           print('Additional occupancy redistribution is too large. Check input occupancies')
-          break
+          return
        add_occ = False
        for n, alt in enumerate(np.unique(residue_out.altloc)): #redistribute occupancies
            if np.all(residue_out.extract('altloc', alt, '==').q < 1.0): #ignoring backbone atoms with full occ
@@ -182,16 +182,17 @@ def main():
 
     # Capture LINK records
     link_data = structure.link_data
+    
+    # Which atoms fall below cutoff?
+    mask = structure.q < args.occ_cutoff
+    n_removed = np.sum(mask)
 
     # Get list of all non-hetatom residue
     n_removed = 0  #keep track of the residues we are removing
-    chains = set(structure.chain)
     # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
-    for chain in chains:
+    for chain in structure:
         for residue in chain:
-            print(residue)
             if np.any(residue.q < args.occ_cutoff):
-                print(residue.q)
                 # How many occupancy-values can we find in each altconf?
                 occs_per_alt = [np.unique(agroup.q).size for agroup in residue.atom_groups
                                                          if agroup.id[1] != ""]
