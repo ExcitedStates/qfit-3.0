@@ -10,8 +10,8 @@ import time
 from argparse import ArgumentParser
 
 import numpy as np
-from qfit import Structure
-from qfit.qfit import QFitRotamericResidueOptions
+from qfit.structure import Structure
+from qfit.qfit import QFitOptions
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
