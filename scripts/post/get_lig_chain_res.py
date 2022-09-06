@@ -9,7 +9,7 @@ Can be fed into qfit ligand.
 import argparse
 
 import numpy as np
-from qfit import Structure
+from qfit.qfit import Structure
 
 
 def parse_args():
