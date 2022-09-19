@@ -27,11 +27,17 @@ From Daniel:
 3pyy- abl kinase
 1exr- cam
 1osa- cam
-1gwe- catalyse
+1gwe- catalase (high res, carefuly curated and can be used as a positive control for qfit runs)
 1jbe- chey
 cypa- 3k0m
 cypa- 3kon
 cypa- 3k0o
+dhfr- can be used to study any ligand protein interactions
+gb3- small proteins, quick to run
+hiv-protease (1kzk)- peptide flips at the active site, good test case
+ptp1b- should be replaced with step structures because of backbone movements that can be captured by qfit
+spa_n_c_dom- alt conf in the helix but too big for qfit to handle. qfit could mabe pickup the sidechain stuff?
+ubiquitin- mostly rigid, some flexibility, can be used as a test case to see how qfit does
 
 PDBs to include (PDBs of interest based on criteria but HAVE been vetted through qFit/manual review)
   -include PDB along with how it should be run in qFit protein 
