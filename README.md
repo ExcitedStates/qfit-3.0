@@ -132,7 +132,7 @@ Using the example 3K0N:
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_xray.sh /path/to/3K0N.mtz multiconformer_model2.pdb`
+`qfit_final_refine_xray.sh /path/to/3K0N-sf.mtz multiconformer_model2.pdb`
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
