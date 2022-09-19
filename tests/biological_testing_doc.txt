@@ -16,6 +16,11 @@ Please add your PDBs below with a description of what categories about it meets.
 
 Potential PDBs (PDBs of interest based on criteria but HAVE NOT been vetted through qFit/manual review)
 
+7A4M: CyroEM Apoferritin, 1.22 resolution
+5CH3: X-ray, 1.71 resolution (matching old qFit structure: 5IVD) (Correy)
+43PQ: X-ray, room temp, 1.35 resolution (Keedy)
+7KQ0, 7KQP, 7KR0: Macrodomain apo or with ADP ribose, 0.9-1.2 resolution, different crystal forms
+
 PDBs to include (PDBs of interest based on criteria but HAVE been vetted through qFit/manual review)
   -include PDB along with how it should be run in qFit protein 
 
