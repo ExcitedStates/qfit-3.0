@@ -21,6 +21,18 @@ Potential PDBs (PDBs of interest based on criteria but HAVE NOT been vetted thro
 43PQ: X-ray, room temp, 1.35 resolution (Keedy)
 7KQ0, 7KQP, 7KR0: Macrodomain apo or with ADP ribose, 0.9-1.2 resolution, different crystal forms
 
+From Daniel:
+
+3k5v- abl kinase
+3pyy- abl kinase
+1exr- cam
+1osa- cam
+1gwe- catalyse
+1jbe- chey
+cypa- 3k0m
+cypa- 3kon
+cypa- 3k0o
+
 PDBs to include (PDBs of interest based on criteria but HAVE been vetted through qFit/manual review)
   -include PDB along with how it should be run in qFit protein 
 
