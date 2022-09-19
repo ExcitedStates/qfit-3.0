@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from qfit.qfit import QFitRotamericResidue, QFitRotamericResidueOptions
-from qfit.qfit_protein import QFitProteinOptions, QFitProtein
+from qfit.qfit import QFitOptions
+from qfit.qfit_protein import QFitProtein
 import os
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ def build_argparser():
     return p
 
 
-class RMSF_options(QFitRotamericResidueOptions):
+class RMSF_options(QFitOptions):
     def __init__(self):
         super().__init__()
         self.pdb = None

@@ -20,7 +20,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 def build_argparser():
     p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
                                 description=__doc__)
-    p.add_argument("map", type=str,
+    p.add_argument("map",
                    help="Density map in CCP4 or MRC format, or an MTZ file "
                         "containing reflections and phases. For MTZ files "
                         "use the --label options to specify columns to read.", type=str, action=ValidateMapFileArgument)

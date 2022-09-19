@@ -102,7 +102,7 @@ if CPLEX:
 
             self.initialized = True
 
-        def __call__(self, cardinality=None, exact=False, threshold=None):
+        def __call__(self, cardinality=None, exact=False, threshold=None, ligand=None):
             if not self.initialized:
                 self.initialize()
 
@@ -125,16 +125,24 @@ if CPLEX:
                 for j in range(i, self._nconformers):
                     miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i, j])
                 miqp.objective.set_linear(i, self._lin_obj[i])
-
-            # Sum of weights is <= 1
-            ind = range(self._nconformers)
-            val = [1] * self._nconformers
-            lin_expr = [cplex.SparsePair(ind=ind, val=val)]
-            miqp.linear_constraints.add(
-                lin_expr=lin_expr,
-                rhs=[1],
-                senses=["L"],
-            )
+            if (ligand is None): 
+                ind = range(self._nconformers)
+                val = [1] * self._nconformers
+                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
+                miqp.linear_constraints.add(
+                    lin_expr=lin_expr,
+                    rhs=[1],
+                    senses=["E"],)
+                    
+            else: 
+                ind = range(self._nconformers)
+                val = [1] * self._nconformers
+                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
+                miqp.linear_constraints.add(
+                    lin_expr=lin_expr,
+                    rhs=[1],
+                    senses=["L"],
+                ) #this is a ligand and we are ok with a sum of occupancies being =< 1 # Sum of weights is == 1
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
             # a regular QP.

@@ -19,7 +19,7 @@ class TestQFitLigand:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
+            "./example/ligand_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
             "./example/4ms6.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
             "A, 702",  # selection
