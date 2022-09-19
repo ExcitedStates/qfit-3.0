@@ -128,7 +128,7 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb`
+`qfit_protein /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
@@ -144,7 +144,7 @@ of the Phenix software suite. This script is currently written to work with vers
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113`
+`qfit_residue /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113`
 
 This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
@@ -186,7 +186,7 @@ the cost of precision:
 
 Using the example 3K0N:
 
-`qfit_residue /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_residue /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
@@ -197,7 +197,7 @@ For a full list of options, run:
 
 Using the example 3K0N:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 
 ### 6.  Parallelization:
@@ -207,7 +207,7 @@ can be adjusted using the *-p* flag.
 
 Using the example 3K0N, spawning 30 parallel processes:
 
-`qfit_protein /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb -p 30`
+`qfit_protein /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/3K0N_refine.pdb -p 30`
 
 
 ### 7. Revisiting the consistent protein segment output by qfit_protein
@@ -221,7 +221,7 @@ In the meantime, if you notice that your conformer of interest is present in
 *multiconformer_model.pdb*, but was subsequently removed by *qfit_protein*, you
 can re-process the initial model with less stringent parameters using the *qfit_segment* program:
 
-`qfit_segment /path/to/3K0N.mtz -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb --no-segment-threshold-selection -f 3`
+`qfit_segment /path/to/3K0N_map.mtz -l 2FOFCWT,PH2FOFCWT /path/to/multiconformer_model.pdb --no-segment-threshold-selection -f 3`
 
 
 ### 8. Modeling alternate conformers of a ligand
