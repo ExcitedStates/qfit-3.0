@@ -269,7 +269,7 @@ class _BaseQFit:
         return bs_copy
 
     def _solve(self, cardinality=None, threshold=None,
-               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2], ligand=None):
+               loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2]):
         # Create and run QP or MIQP solver
         do_qp = cardinality is threshold is None
         if do_qp:
@@ -284,7 +284,7 @@ class _BaseQFit:
             if self.options.bic_threshold:
                 self.BIC = np.inf
                 for threshold in loop_range:
-                    solver(cardinality=None, threshold=threshold, ligand=ligand)
+                    solver(cardinality=None, threshold=threshold)
                     rss = solver.obj_value * self._voxel_volume
                     confs = np.sum(solver.weights >= 0.002)
                     n = len(self._target)
@@ -300,7 +300,7 @@ class _BaseQFit:
                     if BIC < self.BIC:
                         self.BIC = BIC
             else:
-                solver(cardinality=cardinality, threshold=threshold, ligand=ligand)
+                solver(cardinality=cardinality, threshold=threshold)
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
