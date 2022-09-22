@@ -1191,6 +1191,7 @@ class QFitSegment(_BaseQFit):
                     f"{multiconformers.average_conformers():.2f}")
         multiconformers = multiconformers.reorder()
         multiconformers = multiconformers.remove_identical_conformers(self.options.rmsd_cutoff)
+        multiconformers.normalize_occupancy() #ensure that sum(occupancy) of residues is equal to one.
         logger.info(f"Average number of conformers after removal of identical conformers: "
                     f"{multiconformers.average_conformers():.2f}")
 
