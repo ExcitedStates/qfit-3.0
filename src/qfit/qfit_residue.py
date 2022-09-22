@@ -271,22 +271,12 @@ def main():
     xmap.tofile(scaled_fname)
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
-    # qfit.write_maps()
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
-        #skip = False
-        #for conf in conformers[:n]:
-        #    print("Checking RMSD")
-        #    if conformer.rmsd(conf) < 0.2:
-        #        skip = True
-        #        print("Skipping")
-        #        break
-        #if skip:
-        #    continue
         conformer.altloc = ''
         fname = os.path.join(options.directory, f'conformer_{n}.pdb')
         conformer.tofile(fname)
