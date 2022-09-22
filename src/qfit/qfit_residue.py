@@ -271,7 +271,7 @@ def main():
     xmap.tofile(scaled_fname)
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
-    qfit.write_maps()
+    # qfit.write_maps()
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ''
