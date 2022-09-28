@@ -32,21 +32,16 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/basic_qfit_protein_test/3k0n_map.mtz",  # mapfile, using relative directory from tests/
+            "./example/basic_qfit_protein_test/3kon_map.mtz",  # mapfile, using relative directory from tests/
             "./example/basic_qfit_protein_test/3k0n_refine.pdb",  # structurefile, using relative directory from tests/
-            "-l",
-            "2FOFCWT,PH2FOFCWT",
+            "-l", "2FOFCWT,PH2FOFCWT",
         ]
 
         # Add options to reduce computational load
-        args.extend(
-            [
-                "--backbone-amplitude",
-                "0.10",  # default: 0.30
-                "--rotamer-neighborhood",
-                "30",  # default: 60
-            ]
-        )
+        args.extend([
+            "--backbone-amplitude", "0.10",  # default: 0.30
+            "--rotamer-neighborhood", "30",  # default: 60
+        ])
 
         # Collect and act on arguments
         p = build_argparser()

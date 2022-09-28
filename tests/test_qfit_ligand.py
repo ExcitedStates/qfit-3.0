@@ -21,8 +21,7 @@ class TestQFitLigand:
         args = [
             "./example/qfit_ligand_test/4ms6_composite_map.mtz",  # mapfile, using relative directory from tests/
             "./example/qfit_ligand_test/4ms6.pdb",  # structurefile, using relative directory from tests/
-            "-l",
-            "2FOFCWT,PH2FOFCWT",
+            "-l", "2FOFCWT,PH2FOFCWT",
             "A, 702",  # selection
         ]
 

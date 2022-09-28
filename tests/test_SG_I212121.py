@@ -34,19 +34,14 @@ class TestQFitProtein:
         args = [
             "./example/space_group_test/2apb_map.mtz",  # mapfile, using relative directory from tests/
             "./example/space_group_test/2apb.pdb",  # structurefile, using relative directory from tests/
-            "-l",
-            "FP,SIGFP",
+            "-l", "FP,SIGFP",
         ]
 
         # Add options to reduce computational load
-        args.extend(
-            [
-                "--backbone-amplitude",
-                "0.10",  # default: 0.30
-                "--rotamer-neighborhood",
-                "30",  # default: 60
-            ]
-        )
+        args.extend([
+            "--backbone-amplitude", "0.10",  # default: 0.30
+            "--rotamer-neighborhood", "30",  # default: 60
+        ])
 
         # Collect and act on arguments
         p = build_argparser()
@@ -83,4 +78,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        print(len(mconformer_list))  # Expect: 2 residues ie 60 is Ile and 61 is Pro
+        print(len(mconformer_list))   # Expect: 2 residues ie 60 is Ile and 61 is Pro
