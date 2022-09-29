@@ -37,5 +37,5 @@ jobs:
         shell: bash -l -o pipefail {0}
         run: |
           pip install .
-          conda install pytest
+          conda install pytest hypothesis[numpy]
           pytest

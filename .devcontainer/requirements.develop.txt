@@ -6,6 +6,7 @@ ipython
 
 # tests
 codecov
+hypothesis[numpy]
 pytest
 pytest-cov
 pytest-mock
