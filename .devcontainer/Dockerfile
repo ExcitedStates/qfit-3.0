@@ -3,7 +3,9 @@
 FROM --platform=linux/amd64 mcr.microsoft.com/devcontainers/miniconda:latest
 
 # Update conda
-RUN conda update --yes -n base -c defaults conda
+RUN conda update --yes -n base conda \
+    && conda install --yes -n base conda-libmamba-solver \
+    && conda config --set experimental_solver libmamba
 
 # Copy environment.yml (if found) to a temp location so we update the environment. Also
 # copy "noop.txt" so the COPY instruction does not fail if no environment.yml exists.
