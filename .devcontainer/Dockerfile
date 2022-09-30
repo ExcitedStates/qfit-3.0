@@ -19,6 +19,9 @@ RUN \
     apt install -y --no-install-recommends gcc libc6-dev
 
 # Install conda hooks for vscode user
-RUN sudo -H -u vscode bash -c '/opt/conda/bin/conda init bash'
+#   note: 'conda init bash' has Python interpreter problems with bytes vs str, and I can't work out why
+#         I'm bypassing this by shoving the startup script in the .bashrc
+# RUN sudo -H -u vscode bash -c '/opt/conda/bin/conda init bash'
+RUN sudo -H -u vscode bash -c 'echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc'
 
 ENTRYPOINT ["/bin/bash"]
