@@ -1,6 +1,6 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.166.1/containers/python-3-miniconda/.devcontainer/base.Dockerfile
+# See here for image contents: https://github.com/devcontainers/images/blob/main/src/miniconda/.devcontainer/Dockerfile
 
-FROM mcr.microsoft.com/vscode/devcontainers/miniconda:latest
+FROM --platform=linux/amd64 mcr.microsoft.com/devcontainers/miniconda:latest
 
 # Update conda
 RUN conda update --yes -n base -c defaults conda
