@@ -14,14 +14,18 @@ from .structure.rotamers import ROTAMERS
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("structure", type=str,
-                   help="PDB-file containing structure.")
+    p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     # Output options
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
-                   metavar="<dir>", help="Directory to store results.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
+    p.add_argument(
+        "-d",
+        "--directory",
+        type=os.path.abspath,
+        default=".",
+        metavar="<dir>",
+        help="Directory to store results.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
     args = p.parse_args()
 
     return args
@@ -48,7 +52,7 @@ def find_unique_atoms(structure):
     # Identify duplicated atoms by comparing selected properties.
     for attr in ("resi", "resn", "altloc", "icode", "chain", "name"):
         attrvec = structure.data[attr]
-        ident_prop = (attrvec[:, np.newaxis] == attrvec[np.newaxis, :])
+        ident_prop = attrvec[:, np.newaxis] == attrvec[np.newaxis, :]
         identical_ij &= ident_prop
 
     # We only care about the upper triangle
@@ -59,8 +63,10 @@ def find_unique_atoms(structure):
     identical_i = np.any(identical_ij, axis=0)
 
     # Name atoms which are not unique
-    print(f"Atoms {tuple(*np.nonzero(identical_i))} had earlier, identical atoms.\n"
-          f"They are being removed.")
+    print(
+        f"Atoms {tuple(*np.nonzero(identical_i))} had earlier, identical atoms.\n"
+        f"They are being removed."
+    )
 
     # We are not concerned if amino acids have duplicate atoms
     is_amino_acid = np.frompyfunc(ROTAMERS.__contains__, 1, 1)

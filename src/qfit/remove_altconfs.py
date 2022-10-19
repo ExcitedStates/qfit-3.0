@@ -12,14 +12,18 @@ from .structure import residue_type
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("structure", type=str,
-                   help="PDB-file containing structure.")
+    p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     # Output options
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
-                   metavar="<dir>", help="Directory to store results.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
+    p.add_argument(
+        "-d",
+        "--directory",
+        type=os.path.abspath,
+        default=".",
+        metavar="<dir>",
+        help="Directory to store results.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
     args = p.parse_args()
 
     return args
@@ -40,7 +44,7 @@ def main():
             chainid = residue.chain[0]
             if len(altlocs) > 1:
                 try:
-                    altlocs.remove('')
+                    altlocs.remove("")
                 except ValueError:
                     pass
                 for altloc in altlocs[1:]:
@@ -48,5 +52,5 @@ def main():
                     sel_str = f"not ({sel_str})"
                     structure = structure.extract(sel_str)
     structure.q = 1.0
-    structure.altloc = ''
+    structure.altloc = ""
     structure.tofile(f"{args.structure[:-4]}.single.pdb")

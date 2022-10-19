@@ -12,16 +12,19 @@ from .structure.rotamers import ROTAMERS
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("structure", type=str,
-                   help="PDB-file containing structure.")
-    p.add_argument("model", type=str,
-                   help="PDB-file containing the model to be fixed.")
+    p.add_argument("structure", type=str, help="PDB-file containing structure.")
+    p.add_argument("model", type=str, help="PDB-file containing the model to be fixed.")
 
     # Output options
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
-                   metavar="<dir>", help="Directory to store results.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
+    p.add_argument(
+        "-d",
+        "--directory",
+        type=os.path.abspath,
+        default=".",
+        metavar="<dir>",
+        help="Directory to store results.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
     args = p.parse_args()
 
     return args
@@ -35,7 +38,7 @@ def main():
         pass
 
     structure = Structure.fromfile(args.structure).reorder()
-    structure = structure.extract("record","ATOM","==")
+    structure = structure.extract("record", "ATOM", "==")
     model = Structure.fromfile(args.model).reorder()
     for chain in structure:
         for residue in chain:

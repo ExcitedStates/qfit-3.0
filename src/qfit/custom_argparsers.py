@@ -14,19 +14,20 @@ class ToggleActionFlag(argparse.Action):
         super().__init__(option_strings, dest, **kwargs)
 
         if len(option_strings) != 1:
-            raise argparse.ArgumentError(self,
-                                         f"An argument of type {self.__class__.__name__} "
-                                         f"can only have one opt-string.")
+            raise argparse.ArgumentError(
+                self,
+                f"An argument of type {self.__class__.__name__} "
+                f"can only have one opt-string.",
+            )
 
-        option_string = option_strings[0].lstrip('-')
-        self.option_strings = ['--' + option_string,
-                               '--no-' + option_string]
-        self.dest = (option_string.replace('-', '_') if dest is None else dest)
+        option_string = option_strings[0].lstrip("-")
+        self.option_strings = ["--" + option_string, "--no-" + option_string]
+        self.dest = option_string.replace("-", "_") if dest is None else dest
         self.nargs = 0
         self.const = None
 
     def __call__(self, parser, namespace, values, option_string=None):
-        if option_string.startswith('--no-'):
+        if option_string.startswith("--no-"):
             setattr(namespace, self.dest, False)
         else:
             setattr(namespace, self.dest, True)
@@ -45,24 +46,33 @@ class ToggleActionFlagFormatter(argparse.HelpFormatter):
 
     def _format_action_invocation(self, action):
         if isinstance(action, ToggleActionFlag):
-            return ', '.join(
-                [action.option_strings[0][:2] + '[no-]' + action.option_strings[0][2:]]
+            return ", ".join(
+                [action.option_strings[0][:2] + "[no-]" + action.option_strings[0][2:]]
                 + action.option_strings[2:]
             )
         else:
             return super()._format_action_invocation(action)
 
 
-class CustomHelpFormatter(argparse.RawDescriptionHelpFormatter,
-                          argparse.ArgumentDefaultsHelpFormatter,
-                          ToggleActionFlagFormatter):
+class CustomHelpFormatter(
+    argparse.RawDescriptionHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
+    ToggleActionFlagFormatter,
+):
     pass
 
 
 class ValidateMapFileArgument(argparse.Action):
     """Checks that a valid map file was provided."""
 
-    extension_choices = set((".ccp4", ".mtz", ".mrc", ".map",))
+    extension_choices = set(
+        (
+            ".ccp4",
+            ".mtz",
+            ".mrc",
+            ".map",
+        )
+    )
 
     def __call__(self, parser, namespace, value, option_string=None):
         fname = Path(value)
