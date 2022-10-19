@@ -46,13 +46,6 @@ def main():
             for coor in tmp_h_atom.coor:
                tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
                tmp_dist = np.median(tot_dist)
-            if dist == None:
-                 dist = tmp_dist
-                 rename_chain = chain_a
-            else:
-                 if dist > tmp_dist:
-                tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
-                tmp_dist = np.median(tot_dist)
             if dist is None:
                 dist = tmp_dist
                 rename_chain = chain_a
