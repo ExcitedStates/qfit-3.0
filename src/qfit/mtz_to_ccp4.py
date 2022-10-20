@@ -23,4 +23,4 @@ def main():
     print("Operations:")
     for symop in space_group.symop_list:
         print(symop)
-    xmap.tofile('map.ccp4')
+    xmap.tofile("map.ccp4")

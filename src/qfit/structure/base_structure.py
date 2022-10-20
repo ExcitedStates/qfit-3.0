@@ -12,13 +12,26 @@ from .selector import _Selector
 
 logger = logging.getLogger(__name__)
 
+
 class _BaseStructure:
 
-    REQUIRED_ATTRIBUTES = ["record", "name", "b", "q", "coor", "resn", "resi",
-                           "icode", "e", "charge", "chain", "altloc"]
+    REQUIRED_ATTRIBUTES = [
+        "record",
+        "name",
+        "b",
+        "q",
+        "coor",
+        "resn",
+        "resi",
+        "icode",
+        "e",
+        "charge",
+        "chain",
+        "altloc",
+    ]
     _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
     _selector = _Selector()
-    _COMPARISON_DICT = {'==': eq, '!=': eq, '>': gt, '>=': ge, '<=': le, '<': lt}
+    _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
 
@@ -31,13 +44,13 @@ class _BaseStructure:
         self.scale = None
         self.cryst_info = None
         for attr, array in data.items():
-            hattr = '_' + attr
+            hattr = "_" + attr
             setattr(self, hattr, array)
             prop = self._structure_property(hattr)
             setattr(self.__class__, attr, prop)
         self._x, self._y, self._z = self._coor.T
-        for attr in 'xyz':
-            hattr = '_' + attr
+        for attr in "xyz":
+            hattr = "_" + attr
             prop = self._structure_property(hattr)
             setattr(self.__class__, attr, prop)
 
@@ -76,19 +89,21 @@ class _BaseStructure:
             try:
                 value = getattr(ELEMENTS[e.capitalize()], ptype)
             except KeyError:
-                logger.warning("Unknown element {:s}. Using Carbon parameter instead.".format(e))
-                value = getattr(ELEMENTS['C'], ptype)
+                logger.warning(
+                    "Unknown element {:s}. Using Carbon parameter instead.".format(e)
+                )
+                value = getattr(ELEMENTS["C"], ptype)
             values.append(value)
         out = np.asarray(values, dtype=np.float64)[ind]
         return out
 
     @property
     def covalent_radius(self):
-        return self._get_property('covrad')
+        return self._get_property("covrad")
 
     @property
     def vdw_radius(self):
-        return self._get_property('vdwrad')
+        return self._get_property("vdwrad")
 
     def copy(self):
         data = {}
@@ -104,7 +119,9 @@ class _BaseStructure:
             selection = args[0]
         else:
             selection = self.select(*args)
-        return self.__class__(self.data, selection=selection, parent=self, **self._kwargs)
+        return self.__class__(
+            self.data, selection=selection, parent=self, **self._kwargs
+        )
 
     def rotate(self, R):
         """Rotate structure"""
@@ -122,24 +139,28 @@ class _BaseStructure:
             idx_ce1 = structure.name.tolist().index("CE1")
             idx_ce2 = structure.name.tolist().index("CE2")
             coor3 = np.copy(coor2)
-            coor3[idx_cd1],coor3[idx_cd2] = coor2[idx_cd2],coor2[idx_cd1]
-            coor3[idx_ce1],coor3[idx_ce2] = coor2[idx_ce2],coor2[idx_ce1]
+            coor3[idx_cd1], coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
+            coor3[idx_ce1], coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]
             diff = (coor1 - coor2).ravel()
             diff2 = (coor1 - coor3).ravel()
-            return min(np.sqrt(3 * np.inner(diff, diff) / diff.size),
-                       np.sqrt(3 * np.inner(diff2, diff2) / diff2.size))
+            return min(
+                np.sqrt(3 * np.inner(diff, diff) / diff.size),
+                np.sqrt(3 * np.inner(diff2, diff2) / diff2.size),
+            )
         if "PHE" in self.resn:
             idx_cd1 = structure.name.tolist().index("CD1")
             idx_cd2 = structure.name.tolist().index("CD2")
             idx_ce1 = structure.name.tolist().index("CE1")
             idx_ce2 = structure.name.tolist().index("CE2")
             coor3 = np.copy(coor2)
-            coor3[idx_cd1],coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
-            coor3[idx_ce1],coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]
+            coor3[idx_cd1], coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
+            coor3[idx_ce1], coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]
             diff = (coor1 - coor2).ravel()
             diff2 = (coor1 - coor3).ravel()
-            return min(np.sqrt(3 * np.inner(diff, diff) / diff.size),
-                       np.sqrt(3 * np.inner(diff2, diff2) / diff2.size))
+            return min(
+                np.sqrt(3 * np.inner(diff, diff) / diff.size),
+                np.sqrt(3 * np.inner(diff2, diff2) / diff2.size),
+            )
         else:
             diff = (coor1 - coor2).ravel()
             return np.sqrt(3 * np.inner(diff, diff) / diff.size)
@@ -161,7 +182,7 @@ class _BaseStructure:
         for value in values:
             mask2 = comparison(data, value)
             np.logical_or(mask, mask2, out=mask)
-        if comparison_str == '!=':
+        if comparison_str == "!=":
             np.logical_not(mask, out=mask)
         if self._selection is None:
             selection = np.flatnonzero(mask)
