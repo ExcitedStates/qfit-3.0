@@ -400,10 +400,6 @@ class _BaseQFit:
         self._coor_set = list(itertools.compress(self._coor_set, filterarray))
         self._bs = list(itertools.compress(self._bs, filterarray))
 
-        #JHB debugging code---------------
-        #the culling between the assert statement and this code does not appear to be the source of the bug
-        #---------------------------------
-
         logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
 
     def _write_intermediate_conformers(self, prefix="_conformer"):
