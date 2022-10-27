@@ -402,10 +402,6 @@ class _BaseQFit:
 
         #JHB debugging code---------------
         #the culling between the assert statement and this code does not appear to be the source of the bug
-        #print("lengths after culling:")
-        #print(f"occupancies: {len(self._occupancies)}")
-        #print(f"coordinates: {len(self._coor_set)}")
-        #print(f"b-factors: {len(self._bs)}")
         #---------------------------------
 
         logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
