@@ -31,6 +31,11 @@ from .structure.rotamers import ROTAMERS
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
+#JHB debugging code----------
+
+print("This code has been modified by JHB for debugging purposes")
+
+#----------------------------
 
 def build_argparser():
     p = argparse.ArgumentParser(
