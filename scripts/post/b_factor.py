@@ -46,7 +46,7 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     B_factor, median = get_bfactor(structure, args.pdb, args.ca, args.sc)
     B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)   
-    print(median)
+    print(median) #for analysis scripts to give to OP script
     return median
                   
                             
