@@ -384,13 +384,6 @@ class _BaseQFit:
 
         # Check that all arrays match dimensions.
         
-        #JHB debugging code---------------
-        print("lengths before culling:")
-        print(f"occupancies: {len(self._occupancies)}")
-        print(f"coordinates: {len(self._coor_set)}")
-        print(f"b-factors: {len(self._bs)}")
-        #---------------------------------
-        
         assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
 
         # Filter all arrays & lists based on self._occupancies
@@ -454,7 +447,7 @@ class _BaseQFit:
         # fname = os.path.join(self.directory_name, f'diff_masked.{ext}')
         # self._transformer.xmap.tofile(fname)
 
-#JHB debugging------------------
+#JHB debugging method-----------
 def debug_length_assertion_error_jhb(a, change_type="default"):
     print(f"lengths {change_type}:")
     print(f"occupancies: {len(a._occupancies)}")
@@ -999,43 +992,22 @@ class QFitRotamericResidue(_BaseQFit):
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
-        
-
-        debug_length_assertion_error_jhb(self, change_type="_sample_sidechain() init")
-
-        #JHB debugging site-------------------
-        
-        #JHB debugging code---------------
-        #print("lengths before appending:")
-        #print(f"occupancies: {len(self._occupancies)}")
-        #print(f"coordinates: {len(self._coor_set)}")
-        #print(f"b-factors: {len(self._bs)}")
-        #---------------------------------
 
         new_bs = []
         for b in self._bs:
             new_bs.append(self._randomize_bs(b, ["N", "CA", "C", "O", "CB", "H", "HA"]))
         self._bs = new_bs
-        
-        #JHB debugging code---------------
-        #print("lengths after appending:")
-        #print(f"occupancies: {len(self._occupancies)}")
-        #print(f"coordinates: {len(self._coor_set)}")
-        #print(f"b-factors: {len(self._bs)}")
-        #---------------------------------
-
-        #-------------------------------------
-        
-        debug_length_assertion_error_jhb(self, change_type="after first bs-only change")
-
 
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
+
             iter_coor_set = []
+            # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             iter_b_set = []
+
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1141,10 +1113,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-                debug_length_assertion_error_jhb(self, change_type="inside main sampling loop")
-    
-            debug_length_assertion_error_jhb(self, change_type="after main sampling loop")
-
             if len(self._coor_set) > 15000:
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
@@ -1170,8 +1138,6 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"_sample_sidechain_iter{iteration}"
                 )
 
-            debug_length_assertion_error_jhb(self, change_type="after post-loop debugging/logging statements")
-
             # QP score conformer occupancy
             self._convert()
             self._solve()
@@ -1180,8 +1146,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"_sample_sidechain_iter{iteration}_qp"
                 )
-
-            debug_length_assertion_error_jhb(self, change_type="after first '_update_conformers()' call")
 
             # MIQP score conformer occupancy
             self._convert()
@@ -1193,8 +1157,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"_sample_sidechain_iter{iteration}_miqp"
                 )
-
-            debug_length_assertion_error_jhb(self, change_type="after second '_update_conformers()' call")
 
             # Check if we are done
             if chi_index == self.residue.nchi:
