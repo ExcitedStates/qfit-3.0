@@ -13,7 +13,7 @@ import itertools as itl
 from typing import Generator, Sequence, TypeVar
 from qfit import Structure
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def _build_argparser():
@@ -21,14 +21,18 @@ def _build_argparser():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("structure", type=str,
-                   help="PDB-file containing structure.")
+    p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     # Output options
-    p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
-                   metavar="<dir>", help="Directory to store results.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose.")
+    p.add_argument(
+        "-d",
+        "--directory",
+        type=os.path.abspath,
+        default=".",
+        metavar="<dir>",
+        help="Directory to store results.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
 
     return p
 
@@ -47,7 +51,7 @@ def pivot_and_remainder(seq: Sequence[T]) -> Generator[tuple[T, list[T]], None, 
     (2, [])
     """
     for i in range(len(seq)):
-        yield seq[i], list(itl.chain(seq[:i], seq[i+1:]))
+        yield seq[i], list(itl.chain(seq[:i], seq[i + 1 :]))
 
 
 def get_metrics(structure: Structure) -> None:
@@ -56,14 +60,18 @@ def get_metrics(structure: Structure) -> None:
     Iterate through altlocs of each residue,
     reporting mean heavy-atom RMSD from all other altlocs of the residue."""
 
-     # Print a column header
+    # Print a column header
     print("resi", "chain", "residue_altloc_rmsd", "n_altlocs")
 
     for residue in (
-        structure.extract('record', "ATOM")     # Don't analyse metals/ligands
-                 .extract('resn', "HOH", "!=")  # Don't analyse waters
-                 .extract('name', "H", "!=")    # Sometimes backbone N-H atoms are present in some altlocs, not all. Avoid analysing them.
-                 .extract('e', "H", "!=")       # Sometimes His protonation states differ between altlocs. Avoid analysing all H.
+        structure.extract("record", "ATOM")  # Don't analyse metals/ligands
+        .extract("resn", "HOH", "!=")  # Don't analyse waters
+        .extract(
+            "name", "H", "!="
+        )  # Sometimes backbone N-H atoms are present in some altlocs, not all. Avoid analysing them.
+        .extract(
+            "e", "H", "!="
+        )  # Sometimes His protonation states differ between altlocs. Avoid analysing all H.
     ).residue_groups:
         altlocs = sorted(list(set(residue.altloc)))
         resi = residue.resi[0]
@@ -71,28 +79,28 @@ def get_metrics(structure: Structure) -> None:
 
         # Guard: if there's only 1 altloc at this residue...
         if len(altlocs) == 1:
-            print(resi, chainid, 0., len(altlocs))
+            print(resi, chainid, 0.0, len(altlocs))
             continue
 
         try:
-            altlocs.remove('')  # Remove the 'common backbone' from analysis, if present
+            altlocs.remove("")  # Remove the 'common backbone' from analysis, if present
         except ValueError:
             pass
 
         for altloc1, remaining_altlocs in pivot_and_remainder(altlocs):
-            conf1 = residue.extract('altloc', altloc1)
-            tot_rmsd: float = 0.
+            conf1 = residue.extract("altloc", altloc1)
+            tot_rmsd: float = 0.0
             numlocs: int = 0
 
             for altloc2 in remaining_altlocs:
-                conf2 = residue.extract('altloc', altloc2)
+                conf2 = residue.extract("altloc", altloc2)
                 tot_rmsd += conf1.rmsd(conf2)
                 numlocs += 1
 
             try:
                 avg_rmsd: float = tot_rmsd / numlocs
             except ZeroDivisionError:
-                avg_rmsd = 0.
+                avg_rmsd = 0.0
 
             print(resi, chainid, round(avg_rmsd, 2), len(altlocs))
 
@@ -112,5 +120,5 @@ def _main():
     get_metrics(Structure.fromfile(cmdline_args.structure).reorder())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _main()

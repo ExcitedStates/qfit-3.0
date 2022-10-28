@@ -8,6 +8,7 @@ import unittest
 from qfit.structure import Structure
 from qfit.structure.pdbfile import read_pdb
 
+
 class TestStructure(unittest.TestCase):
     PDB = """\
 REMARK   2 RESOLUTION.    1.39 ANGSTROMS.                                       
@@ -134,7 +135,11 @@ ATOM   2137  HZ BPHE A 113       1.431  13.433   4.957  0.37 29.87           H
             assert s.data["b"][-1] == 29.87
             assert s.data["q"][-1] == 0.37
             assert s.data["e"][-1] == "H"
-            assert str(s.unit_cell) == "UnitCell(a=43.096000, b=52.592000, c=89.249000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            assert (
+                str(s.unit_cell)
+                == "UnitCell(a=43.096000, b=52.592000, c=89.249000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+
         pdb_tmp = self._make_tmp_pdb()
         s1 = Structure.fromfile(pdb_tmp)
         _check_structure(s1)

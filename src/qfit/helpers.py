@@ -14,6 +14,7 @@ def mkdir_p(path):
 
 class DJoiner(object):
     """Join filenames with a set directory."""
+
     def __init__(self, directory):
         self.directory = directory
 
