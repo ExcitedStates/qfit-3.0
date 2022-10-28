@@ -20,7 +20,7 @@ def parse_args():
     args = p.parse_args()
     return args
 
- def main():
+def main():
     args = parse_args()
     output_holo_file = os.path.join(args.holo_str[:-4]+"_renamed.pdb")
     holo = Structure.fromfile(args.holo_str)
@@ -43,15 +43,8 @@ def parse_args():
                  rename_chain = chain_a
             else:
                  if dist > tmp_dist:
-                tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
-                tmp_dist = np.median(tot_dist)
-            if dist is None:
-                dist = tmp_dist
-                rename_chain = chain_a
-            else:
-                if dist > tmp_dist:
-                    dist = tmp_dist
-                    rename_chain = chain_a
+                   dist = tmp_dist
+                   rename_chain = chain_a
         output = holo_copy.extract("chain", chain_h, '==')
         output.chain = rename_chain
         output_holo = output_holo.combine(output)
