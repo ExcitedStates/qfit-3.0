@@ -75,4 +75,12 @@ OUTPUT: A text file named PDB_name_ligand_name.txt with the ligand name inside
 
 `find_altlocs_near_ligand.py pdb.pdb pdb_name` 
 
+### 6. Find Chain & Residue number of ligand
+This script is for an automated way to get the residue ID and chain ID of a ligand of interest to be fed into qFit Ligand
+
+INPUT: PDB structure, ligand name
+OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and chain of the ligand
+
+`get_lig_chain_res.py pdb.pdb pdb_name` 
+
 
