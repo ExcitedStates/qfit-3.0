@@ -338,7 +338,7 @@ class Structure(_BaseStructure):
                    residue.q = 1.0
                 else:
                    #determine if backbone atoms have any altlocs, if not, we do not need to consider them
-                   new_occ = np.empty()
+                   new_occ = []
                    if "" in altlocs and len(altlocs) > 1:
                        new_occ += list(self.extract(f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc ''").q)
                        altlocs.remove("")
@@ -349,9 +349,9 @@ class Structure(_BaseStructure):
                        alt_sum += np.unique(conformers[i].q)[0]
                    if alt_sum != 1: #we need to normalize
                       for i in range(0,len(altlocs)):
-                          new_occ.append(conformers[i].q/alt_sum)
-                          new_occ = normalize_to_precision(new_occ, 2) #deal with imprecision
-                      residue.q = new_occ
+                          new_occ += list(conformers[i].q/alt_sum)
+                          new_occ = normalize_to_precision(np.array(new_occ), 2) #deal with imprecision
+                      residue.q = list(new_occ)
                            
 
     
