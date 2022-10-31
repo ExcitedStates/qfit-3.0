@@ -28,5 +28,13 @@ Usage:
 `make_methyl_df.py ${PDB}_qFit.pdb`
 `calc_OP.py ${PDB}_qFit.dat ${PDB}_qFit.pdb ${PDB}_qFit.out -r ${res} -b ${b_fac}`
 
+Other scripts
+`res=$(python get_res.py ${PDB}.pdb ${PDB})`
+`b_fac=$(b_factor.py ${PDB}_qFit.pdb --pdb=${PDB})`
+
+`qfit_RMSF.py ${PDB}_qFit.pdb --pdb=${PDB}`
+
+`find_largest_lig ${PDB}_qFit.pdb ${PDB}`
+
 
 
