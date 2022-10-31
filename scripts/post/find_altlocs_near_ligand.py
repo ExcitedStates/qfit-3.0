@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 
-"""Automatically build a multiconformer residue"""
+'''
+10/31/2022: Not frequently used anymore
+The purpose of this script is to identify residues with more than one conformer within 5 angstroms any (non-crystallographic) ligands in the PDB
+
+
+INPUT: PDB structure, name of PDB structure
+OUTPUT: CSV file with the residues within 5A of ligand with the number of single and multi conf structures
+
+example:
+find_altlocs_near_ligand.py pdb.pdb pdb_name 
+'''
 
 import argparse
 import os
