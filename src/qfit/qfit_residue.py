@@ -264,11 +264,7 @@ def main():
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
-    ext = '.ccp4'
-    if not np.allclose(xmap.origin, 0):
-        ext = '.mrc'
-    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
-    xmap.tofile(scaled_fname)
+    
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
     conformers = qfit.get_conformers()
