@@ -6,7 +6,7 @@ from .ligand import _Ligandfn
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
-from .utils.normalize_to_precision import normalize_to_precision
+from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
 class Structure(_BaseStructure):
@@ -338,7 +338,7 @@ class Structure(_BaseStructure):
                    residue.q = 1.0
                 else:
                    #determine if backbone atoms have any altlocs, if not, we do not need to consider them
-                   new_occ = []
+                   new_occ = np.empty()
                    if "" in altlocs and len(altlocs) > 1:
                        new_occ += list(self.extract(f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc ''").q)
                        altlocs.remove("")
@@ -349,7 +349,7 @@ class Structure(_BaseStructure):
                        alt_sum += np.unique(conformers[i].q)[0]
                    if alt_sum != 1: #we need to normalize
                       for i in range(0,len(altlocs)):
-                          new_occ += list(conformers[i].q/alt_sum)
+                          new_occ.append(conformers[i].q/alt_sum)
                           new_occ = normalize_to_precision(new_occ, 2) #deal with imprecision
                       residue.q = new_occ
                            
