@@ -58,4 +58,13 @@ Alpha Carbon B-factor:
 Heavy Atom B-factor:
 `b_factor.py pdb.pdb pdb_name --sidechain`
 
+### 4. Find Multiconformer Residues around Ligands
+The purpose of this script is to identify residues with more than one conformer within 5 angstroms any (non-crystallographic) ligands in the PDB
+10/31/2022: This script is infrequently used
+
+INPUT: PDB structure, name of PDB structure
+OUTPUT: CSV file with the residues within 5A of ligand with the number of single and multi conf structures
+
+`find_altlocs_near_ligand.py pdb.pdb pdb_name` 
+
 
