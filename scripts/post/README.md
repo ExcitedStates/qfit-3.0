@@ -45,4 +45,17 @@ OUTPUT: CSV file with distance between the alpha carbon atom of every residue be
 
 `alpha_carbon_rmsd.py pdb1.pdb pdb2.pdb pdb1_name pdb2_name` 
 
+### 3. B-Factors
+The purpose of this script is to calculate the B-factor for every residue across the structure. You can choose to calculate the alpha carbon or side chain (all heavy atoms). This script also returns the average B-factor for alpha carbon which is used in the calc_OP.py script.
+
+INPUT: PDB structure, name of PDB structure, sidechain or CA
+OUTPUT: CSV file the b-factor for each residue in the structure, average b-factor for entire structure
+
+
+Alpha Carbon B-factor:
+`b_factor.py pdb.pdb pdb_name --ca`
+
+Heavy Atom B-factor:
+`b_factor.py pdb.pdb pdb_name --sidechain`
+
 
