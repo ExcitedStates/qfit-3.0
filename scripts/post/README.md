@@ -67,4 +67,12 @@ OUTPUT: CSV file with the residues within 5A of ligand with the number of single
 
 `find_altlocs_near_ligand.py pdb.pdb pdb_name` 
 
+### 5. Find largest ligand
+The purpose of this script is to identify the largest (non-crystallographic) ligand in the PDB. 
+
+INPUT: PDB structure, name of PDB structure
+OUTPUT: A text file named PDB_name_ligand_name.txt with the ligand name inside
+
+`find_altlocs_near_ligand.py pdb.pdb pdb_name` 
+
 
