@@ -12,7 +12,6 @@ b_factor.py pdb.pdb pdb_name --ca
 
 Heavy Atom B-factor:
 b_factor.py pdb.pdb pdb_name --sidechain
-
 '''
 
 import numpy as np
