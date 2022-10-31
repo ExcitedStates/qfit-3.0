@@ -36,5 +36,14 @@ Other scripts
 
 `find_largest_lig ${PDB}_qFit.pdb ${PDB}`
 
+### 2. Alpha Carbon RMSD
+The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures. This script is also dependent on
+the two structures having the same numbered residues and chain ids. 
+
+INPUT: 2 PDB structures, names of PDB structures
+OUTPUT: CSV file with distance between the alpha carbon atom of every residue between the two input structures
+
+example:
+alpha_carbon_rmsd.py pdb1.pdb pdb2.pdb pdb1_name pdb2_name 
 
 
