@@ -2,10 +2,11 @@ import numpy as np
 import copy
 
 from .base_structure import _BaseStructure, PDBFile
-from .ligand import _Ligand
+from .ligand import _Ligandfn
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
+from .utils.normalize_to_precision import normalize_to_precision
 
 
 class Structure(_BaseStructure):
@@ -349,6 +350,7 @@ class Structure(_BaseStructure):
                    if alt_sum != 1: #we need to normalize
                       for i in range(0,len(altlocs)):
                           new_occ += list(conformers[i].q/alt_sum)
+                          new_occ = normalize_to_precision(new_occ, 2) #deal with imprecision
                       residue.q = new_occ
                            
 
