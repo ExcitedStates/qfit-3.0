@@ -2,11 +2,16 @@
 """Calculate RMSF by residue and altloc.
 
 Iterate through altlocs of each residue,
-reporting mean heavy-atom RMSD from all other altlocs of the residue.
+reporting mean heavy-atom RMSD from alt A to all other altlocs of the residue.
+
+INPUT: PDB structure, ligand name
+OUTPUT: print "resi", "chain", "residue_altloc_rmsd", "n_altlocs"
+
+example:
+get_metrics.py pdb.pdb
 """
 
 from __future__ import annotations
-
 import os
 import argparse
 import itertools as itl
