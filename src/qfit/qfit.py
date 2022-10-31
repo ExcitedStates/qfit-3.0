@@ -1446,12 +1446,6 @@ class QFitLigand(_BaseQFit):
     def _sample_internal_dofs(self):
         opt = self.options
         sampling_range = np.deg2rad(np.arange(0, 360, self.options.sample_ligand_stepsize))
-
-        # bond_order = self.ligand.rotation_order(self._cluster[0])
-        # bond_list = self.ligand.convert_rotation_tree_to_list(bond_order)
-        # nbonds = len(bond_list)
-        # if nbonds == 0:
-        #     return
         bond_order = BondOrder(self.ligand, self._cluster[0])
         bonds = bond_order.order
         depths = bond_order.depth
