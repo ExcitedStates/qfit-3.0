@@ -8,7 +8,6 @@ OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and
 
 example:
 get_lig_chain_res.py pdb.pdb pdb_name 
-
 '''
 
 import argparse
