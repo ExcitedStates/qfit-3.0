@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 '''
 This script will take in a PDB and return a single letter code for every rotamer residue in the PDB. 
+
+INPUT: PDB file and name of PDB
+OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
+
+example:
+pdb.pdb --pdb pdb_name
 '''
 
-import sys
-import os
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
@@ -25,7 +29,6 @@ d = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
 def get_seq(structure, pdb):
     struct = Structure.fromfile(structure).reorder() 
     select = struct.extract('record', 'ATOM', '==')
-    select = select.extract('e', 'H', '!=')
     seq = []
     for c in select.chain[0]:
         for r in np.unique(select.extract('chain', c, '==').resi):
