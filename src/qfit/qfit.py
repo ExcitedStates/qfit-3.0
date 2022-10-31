@@ -634,7 +634,6 @@ class QFitRotamericResidue(_BaseQFit):
         self._cd = ClashDetector(residue, receptor,
                                  exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
-        # receptor.tofile('clash_receptor.pdb')
 
     def run(self):
         if self.options.sample_backbone:
