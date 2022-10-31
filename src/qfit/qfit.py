@@ -381,18 +381,6 @@ class _BaseQFit:
         fname = os.path.join(self.directory_name, f'diff.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.reset(full=True)
-        # self._transformer.xmap.array *= -1
-        # fname = os.path.join(self.directory_name, f'diff_negative.{ext}')
-        # self._transformer.xmap.tofile(fname)
-
-        # self._transformer.reset(full=True)
-        # self._transformer.xmap.array[mask] = values
-        # fname = os.path.join(self.directory_name, f'model_masked.{ext}')
-        # self._transformer.xmap.tofile(fname)
-        # values = self.xmap.array[mask]
-        # self._transformer.xmap.array[mask] -= values
-        # fname = os.path.join(self.directory_name, f'diff_masked.{ext}')
-        # self._transformer.xmap.tofile(fname)
 
 
 class QFitRotamericResidue(_BaseQFit):
