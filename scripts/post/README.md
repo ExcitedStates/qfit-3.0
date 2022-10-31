@@ -84,3 +84,13 @@ OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and
 `get_lig_chain_res.py pdb.pdb pdb_name` 
 
 
+### 7. Get Sequence
+This script will take in a PDB and return a single letter code for every rotamer residue in the PDB. 
+
+INPUT: PDB file and name of PDB
+OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
+
+`get_seq.py pdb.pdb --pdb pdb_name`
+
+
+
