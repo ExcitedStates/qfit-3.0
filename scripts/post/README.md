@@ -18,3 +18,15 @@ X-ray crystallography:
 Cryo-EM: 
 `qfit_final_refine_cryoem.sh /path/to/ccp4_file.ccp4 original_pdb.pdb multiconformer_model2.pdb`
 
+
+## Analysis Scripts
+
+### 1. Calculating Order Parameters
+
+
+Usage: 
+`make_methyl_df.py ${PDB}_qFit.pdb`
+`calc_OP.py ${PDB}_qFit.dat ${PDB}_qFit.pdb ${PDB}_qFit.out -r ${res} -b ${b_fac}`
+
+
+
