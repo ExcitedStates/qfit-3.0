@@ -13,9 +13,6 @@ def normalize_to_precision(arr: np.ndarray, decimal_places: int) -> np.ndarray:
     if arr.size == 1:
         return np.array([1.0])
 
-    # Using full floating points, normalize the array
-    normalized_arr = arr / arr.sum()
-
     # Round the array
     rounded_arr = np.round(normalized_arr, decimal_places)
 
