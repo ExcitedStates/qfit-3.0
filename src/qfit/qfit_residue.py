@@ -264,11 +264,6 @@ def main():
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=args.scale_rmask*radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
-    ext = '.ccp4'
-    if not np.allclose(xmap.origin, 0):
-        ext = '.mrc'
-    scaled_fname = os.path.join(args.directory, f'scaled{ext}')
-    xmap.tofile(scaled_fname)
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
     conformers = qfit.get_conformers()
@@ -285,6 +280,7 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
+    multiconformer.normalize_occupancy() #normalize the occupancy of each conformation
     fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}.pdb')
     if icode:
         fname = os.path.join(options.directory, f'multiconformer_{chainid}_{resi}_{icode}.pdb')
