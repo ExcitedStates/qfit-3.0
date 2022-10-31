@@ -370,16 +370,6 @@ class _BaseQFit:
         else:
             ext = 'mrc'
 
-        # Create maps
-        # for q, coor in zip(self._occupancies, self._coor_set):
-        #    self.conformer.q = q
-        #    self.conformer.coor = coor
-        #    self._transformer.mask(self._rmask)
-        # fname = os.path.join(self.directory_name, f'mask.{ext}')
-        # self._transformer.xmap.tofile(fname)
-        # mask = self._transformer.xmap.array > 0
-        # self._transformer.reset(full=True)
-
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             self.conformer.q = q
             self.conformer.coor = coor
