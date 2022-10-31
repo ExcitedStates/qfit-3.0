@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 '''
-The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures.
+The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures. This script is also dependent on
+the two structures having the same numbered residues and chain ids. 
+
+INPUT: 2 PDB structures, names of PDB structures
+OUTPUT: CSV file with distance between the alpha carbon atom of every residue between the two input structures
+
+example:
+alpha_carbon_rmsd.py pdb1.pdb pdb2.pdb pdb1_name pdb2_name 
+
+
 '''
 
 import os
@@ -18,9 +27,6 @@ def parse_args():
                    help="PDB-file containing structure.") 
     p.add_argument("pdb_name1", type=str, help="name of first PDB.")
     p.add_argument("pdb_name2", type=str, help="name of second PDB.")
-    p.add_argument("-dist", type=float, default='5.0',
-                  metavar="<float>", help="angstrom distance from ligand")
-    p.add_argument("-lig", type=str, help="ligand name")
     args = p.parse_args()
     return args
 
