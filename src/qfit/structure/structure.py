@@ -6,6 +6,7 @@ from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
+from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
 class Structure(_BaseStructure):
@@ -323,6 +324,38 @@ class Structure(_BaseStructure):
             data[attr] = value[ordering]
         return Structure(data, link_data=self.link_data, scale=self.scale, cryst_info=self.cryst_info)
 
+    def normalize_occupancy(self):
+        """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all. 
+         The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX), 
+         and scale each alt conf occupancy for the residue to sum to one.
+         To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ). 
+        """
+
+        for chain in self:
+            for residue in chain:
+                altlocs = list(set(residue.altloc))
+                if len(altlocs) == 1: #confirm occupancy = 1
+                   residue.q = 1.0
+                else:
+                   #determine if backbone atoms have any altlocs, if not, we do not need to consider them
+                   new_occ = []
+                   if "" in altlocs and len(altlocs) > 1:
+                       new_occ += list(self.extract(f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc ''").q)
+                       altlocs.remove("")
+                   sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                   conformers = [self.extract(sel_str + x) for x in altlocs]
+                   alt_sum = 0
+                   for i in range(0, len(conformers)):
+                       alt_sum += np.unique(conformers[i].q)[0]
+                   if alt_sum != 1: #we need to normalize
+                      for i in range(0,len(altlocs)):
+                          new_occ += list(conformers[i].q/alt_sum)
+                          new_occ = normalize_to_precision(np.array(new_occ), 2) #deal with imprecision
+                      residue.q = list(new_occ)
+                           
+
+    
+    
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
         mask = ((self.data['resi'] == resi)
