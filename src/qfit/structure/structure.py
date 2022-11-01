@@ -2,7 +2,7 @@ import numpy as np
 import copy
 
 from .base_structure import _BaseStructure, PDBFile
-from .ligand import _Ligandfn
+from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
