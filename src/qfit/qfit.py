@@ -233,22 +233,6 @@ class _BaseQFit:
         logger.debug("Density")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
-        # target_sum = self._target.sum()
-        # Create an initial density to calculate the total integral density of
-        # the model. This way we can derive an approximation of the solvent
-        # level.
-        # self.conformer.coor = self._coor_set[0]
-        # self._transformer.density()
-        # model_sum = self._transformer.xmap.array.sum()
-        # residual_sum = target_sum - model_sum
-        # solvent_level = residual_sum / nvalues
-        # scaling_factor = model_sum / target_sum
-        # self._target *= scaling_factor
-        # logger.debug("Solvent level advice:", solvent_level)
-        # logger.debug("Scaling factor:", scaling_factor)
-        # logger.debug("Target sum:", target_sum)
-        # logger.debug("Model sum:", model_sum)
-        # self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
@@ -386,16 +370,6 @@ class _BaseQFit:
         else:
             ext = 'mrc'
 
-        # Create maps
-        # for q, coor in zip(self._occupancies, self._coor_set):
-        #    self.conformer.q = q
-        #    self.conformer.coor = coor
-        #    self._transformer.mask(self._rmask)
-        # fname = os.path.join(self.directory_name, f'mask.{ext}')
-        # self._transformer.xmap.tofile(fname)
-        # mask = self._transformer.xmap.array > 0
-        # self._transformer.reset(full=True)
-
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             self.conformer.q = q
             self.conformer.coor = coor
@@ -407,18 +381,6 @@ class _BaseQFit:
         fname = os.path.join(self.directory_name, f'diff.{ext}')
         self._transformer.xmap.tofile(fname)
         self._transformer.reset(full=True)
-        # self._transformer.xmap.array *= -1
-        # fname = os.path.join(self.directory_name, f'diff_negative.{ext}')
-        # self._transformer.xmap.tofile(fname)
-
-        # self._transformer.reset(full=True)
-        # self._transformer.xmap.array[mask] = values
-        # fname = os.path.join(self.directory_name, f'model_masked.{ext}')
-        # self._transformer.xmap.tofile(fname)
-        # values = self.xmap.array[mask]
-        # self._transformer.xmap.array[mask] -= values
-        # fname = os.path.join(self.directory_name, f'diff_masked.{ext}')
-        # self._transformer.xmap.tofile(fname)
 
 
 class QFitRotamericResidue(_BaseQFit):
@@ -660,7 +622,6 @@ class QFitRotamericResidue(_BaseQFit):
         self._cd = ClashDetector(residue, receptor,
                                  exclude=exclude,
                                  scaling_factor=self.options.clash_scaling_factor)
-        # receptor.tofile('clash_receptor.pdb')
 
     def run(self):
         if self.options.sample_backbone:
@@ -1474,12 +1435,6 @@ class QFitLigand(_BaseQFit):
     def _sample_internal_dofs(self):
         opt = self.options
         sampling_range = np.deg2rad(np.arange(0, 360, self.options.sample_ligand_stepsize))
-
-        # bond_order = self.ligand.rotation_order(self._cluster[0])
-        # bond_list = self.ligand.convert_rotation_tree_to_list(bond_order)
-        # nbonds = len(bond_list)
-        # if nbonds == 0:
-        #     return
         bond_order = BondOrder(self.ligand, self._cluster[0])
         bonds = bond_order.order
         depths = bond_order.depth

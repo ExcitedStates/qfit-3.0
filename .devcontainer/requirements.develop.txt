@@ -15,7 +15,7 @@ pytest-mock
 autopep8
 black
 flake8
-flake8-type-annotations
+flake8-annotations
 mypy
 pycodestyle
 pydocstyle
