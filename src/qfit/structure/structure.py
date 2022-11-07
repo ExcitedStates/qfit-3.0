@@ -350,7 +350,7 @@ class Structure(_BaseStructure):
                    if alt_sum != 1: #we need to normalize
                       for i in range(0,len(altlocs)):
                           new_occ += list(conformers[i].q/alt_sum)
-                          new_occ = normalize_to_precision(np.array(new_occ), 2) #deal with imprecision
+                      new_occ = normalize_to_precision(np.array(new_occ), 2) #deal with imprecision
                       residue.q = list(new_occ)
                            
 
