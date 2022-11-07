@@ -20,7 +20,7 @@ def parse_args():
     args = p.parse_args()
     return args
 
- def main():
+def main():
     args = parse_args()
     output_holo_file = os.path.join(args.holo_str[:-4]+"_renamed.pdb")
     holo = Structure.fromfile(args.holo_str)
