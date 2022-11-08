@@ -113,24 +113,13 @@ the following command should be used:
 `qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE]`
 
 This command will produce a multiconformer model that spans the entirety of the
-input target protein. You will encounter two output files of interest in the
-directory where this command was run: *multiconformer_model.pdb* and
-*multiconformer_model2.pdb*.
+input target protein. The final model, with consistent labeling of multiple conformers
+is output into *multiconformer_model2.pdb*. This file should then
+be used as input to the post-qFit refinement script provided in *./scripts*.
 
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
-
-The *multiconformer_model.pdb* contains the output of running the qfit_residue
-routine for every protein residue. This file may contain up to five alternate
-conformers per residue. However, some of these conformers may be spurious as
-alternate conformers of neighboring residues are not consistent with regards to
-each other.
-
-After calculating the conformers described in *multiconformer_model.pdb*,
-qfit_protein identifies consistent protein segments, where some of the spurious,
-overlapping conformers, are discarded. The final model, with the consistent
-multiconformer model is *multiconformer_model2.pdb*. This file should then
-be used as input to the refinement script provided in *./scripts*.   
+ 
 
 By default, qFit expects the labels FWT,PHWT to be present in the input map.
 Different labels can be set accordingly using the flag *-l*.
