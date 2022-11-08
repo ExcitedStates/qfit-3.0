@@ -95,14 +95,14 @@ Before creating a commit, you will have to perform two actions:
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please refer below for a basic usage example. More specialized and advanced use case examples
-are shown in *TUTORIAL.md* in the *example* directory.
+are shown in [TUTORIAL](example/TUTORIAL.md) in the [example](example/) directory.
 
 To remove single-conformer model bias, qFit should be used with a composite omit
 map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
-An example test case (3K0N) can be found in the *example/qfit_protein_example* directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
+An example test case (3K0N) can be found in the [example/qfit_protein_example](example/qfit_protein_example/) directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
 
 
 ### Recommended settings
@@ -132,13 +132,13 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_xray.sh example/qfit_protein_example/3k0n_structure_factors.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
-(A pre-generated multiconformer_model2.pdb file is available in the qfit_protein_example folder)
+(A pre-generated multiconformer_model2.pdb file is available in the [qfit_protein_example](example/qfit_protein_example/) folder)
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
-More advanced features of qFit (modeling single residue, ligand or cryo-EM structure, parallelization) are explained in a tutorial file in example folder.
+More advanced features of qFit (modeling single residue, ligand or cryo-EM structure, parallelization) are explained in [TUTORIAL](example/TUTORIAL.md).
 
 
 ## License
