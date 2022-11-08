@@ -115,7 +115,7 @@ the following command should be used:
 This command will produce a multiconformer model that spans the entirety of the
 input target protein. The final model, with consistent labeling of multiple conformers
 is output into *multiconformer_model2.pdb*. This file should then
-be used as input to the post-qFit refinement script provided in *./scripts*.
+be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder.
 
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
