@@ -1,6 +1,12 @@
 #!/usr/bin/env python
+'''
+This script will take in a PDB and return a single letter code for every amino acid residue in the PDB. 
+INPUT: PDB file, name of PDB, name of ligand
+OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy information
 
-'''Extract ligand occupancy from a PDB.'''
+example:
+lig_occ.py pdb.pdb --pdb {pdb name} -l {ligand name}
+'''
 
 from argparse import ArgumentParser
 
