@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+'''
+This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
+INPUT: PDB file
+OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for each amino acid. 
+
+example:
+qFit_RMSF.py pdb.pdb --pdb {pdb name} 
+'''
+
 
 from qfit.qfit import QFitOptions
 from qfit.qfit_protein import QFitProtein
@@ -13,6 +22,7 @@ def build_argparser():
     p = ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str,
                    help="PDB-file containing structure.")
+    p.add_argument("pdb", type=str, help="name of PDB")
 
     # Output options
     p.add_argument("-d", "--directory", type=os.path.abspath, default='.',
@@ -79,7 +89,7 @@ class RMSF():
 
         rmsf = pd.DataFrame(rmsf_data, columns=['resseq', 'AA', 'Chain', 'RMSF'])
         rmsf['PDB_name'] = self.options.pdb
-        rmsf.to_csv(self.options.dir + self.pdb + 'qfit_RMSF.csv')
+        rmsf.to_csv(self.options.dir + self.pdb + '_qfit_RMSF.csv')
 
 
 def main():
