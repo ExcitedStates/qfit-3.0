@@ -20,18 +20,26 @@ Cryo-EM:
 
 
 ## Analysis Scripts
+These analysis scripts should be used on outputs after refinement. Many can be done using other populate structrual programs, but we have amended many of them here to work with multiconformer models. 
 
 ### 1. Calculating Order Parameters
-
+You will first need to run ascript is to produce the intermediate file to calculate crystallographic order parameters. 
+INPUT: PDB structure, pdb name
+OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
 
 Usage: 
 `make_methyl_df.py ${PDB}_qFit.pdb`
-`calc_OP.py ${PDB}_qFit.dat ${PDB}_qFit.pdb ${PDB}_qFit.out -r ${res} -b ${b_fac}`
 
-Other scripts
-`res=$(python get_res.py ${PDB}.pdb ${PDB})`
-`b_fac=$(b_factor.py ${PDB}_qFit.pdb --pdb=${PDB})`
+You then can use the intermeidate file to calculate the order parameters. Please note you will need the resolution and average alpha-carbon b-factor for normalization (see scripts below). 
 
+INPUT: Intermdiate file (obtained about), PDB structure, output_file name, resolution, average alpha-carbon b-factor
+OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
+
+Usage: 
+`calc_OP.py ${PDB}.dat ${PDB}_qFit.pdb ${PDB}_qFit_order_parm.out -r ${res} -b ${b_fac}`
+
+If using these scripts, please cite: 
+Fenwick, R. B., van den Bedem, H., Fraser, J. S., & Wright, P. E. (2014). Integrated description of protein dynamics from room-temperature X-ray crystallography and NMR. Proceedings of the National Academy of Sciences, 111(4), E445-E454.
 
 ### 2. Alpha Carbon RMSD
 The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures. This script is also dependent on
