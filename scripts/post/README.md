@@ -106,9 +106,16 @@ OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy informat
 example:
 `lig_occ.py pdb.pdb --pdb {pdb_name} -l {ligand name}`
 
+## 9. Get Root Mean Squared Flucuations (RMSF) for each residue 
+
+This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
+INPUT: PDB file, PDB name
+OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for each amino acid. 
+
+example:
+`qfit_RMSF.py {PDB}_qFit.pdb --pdb={PDB}`
 
 
 
-`qfit_RMSF.py ${PDB}_qFit.pdb --pdb=${PDB}`
 
 `find_largest_lig ${PDB}_qFit.pdb ${PDB}`
