@@ -32,9 +32,6 @@ Other scripts
 `res=$(python get_res.py ${PDB}.pdb ${PDB})`
 `b_fac=$(b_factor.py ${PDB}_qFit.pdb --pdb=${PDB})`
 
-`qfit_RMSF.py ${PDB}_qFit.pdb --pdb=${PDB}`
-
-`find_largest_lig ${PDB}_qFit.pdb ${PDB}`
 
 ### 2. Alpha Carbon RMSD
 The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures. This script is also dependent on
@@ -85,12 +82,25 @@ OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and
 
 
 ### 7. Get Sequence
-This script will take in a PDB and return a single letter code for every rotamer residue in the PDB. 
+This script will take in a PDB and return a single letter code for every amino acid residue in the PDB. 
 
 INPUT: PDB file and name of PDB
 OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 
-`get_seq.py pdb.pdb --pdb pdb_name`
+`get_seq.py pdb.pdb --pdb {pdb_name}`
+
+### 8. Get Ligand Occupancy 
+This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
+
+INPUT: PDB file, name of PDB, name of ligand
+OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy information
+
+example:
+`lig_occ.py pdb.pdb --pdb {pdb_name} -l {ligand name}`
 
 
 
+
+`qfit_RMSF.py ${PDB}_qFit.pdb --pdb=${PDB}`
+
+`find_largest_lig ${PDB}_qFit.pdb ${PDB}`
