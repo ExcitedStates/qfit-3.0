@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 '''
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
-INPUT: PDB file
+INPUT: PDB file, name of pdb
 OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for each amino acid. 
 
 example:
