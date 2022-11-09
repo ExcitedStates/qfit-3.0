@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-This script will take in a PDB and return a single letter code for every amino acid residue in the PDB. 
+This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
 INPUT: PDB file, name of PDB, name of ligand
 OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy information
 
