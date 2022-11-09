@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
 INPUT: Intermdiate file (obtained about), PDB structure, output_file name, resolution, average alpha-carbon b-factor
 OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
