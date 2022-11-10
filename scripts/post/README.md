@@ -24,7 +24,8 @@ These analysis scripts should be used on outputs after refinement. Many can be d
 
 ### 1. Calculating Order Parameters
 You will first need to run ascript is to produce the intermediate file to calculate crystallographic order parameters. 
-INPUT: PDB structure, pdb name <br />
+INPUT: PDB structure, pdb name
+
 OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
 
 Usage: 
@@ -33,6 +34,7 @@ Usage:
 You then can use the intermeidate file to calculate the order parameters. Please note you will need the resolution and average alpha-carbon b-factor for normalization (see scripts below). 
 
 INPUT: Intermdiate file (obtained about), PDB structure, output_file name, resolution, average alpha-carbon b-factor
+
 OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
 
 Usage: 
