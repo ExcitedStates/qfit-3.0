@@ -79,7 +79,7 @@ def main():
                 close_res.loc[n, 'res_id'] = residue_id
                 close_res.loc[n, 'chain'] = chain
                 n += 1
-            close_res.to_csv(dir + pdb_name + '_' +ligand_name + '_closeres.csv', index=False)
+            close_res.to_csv(str(dir) + pdb_name + '_' +ligand_name + '_closeres.csv', index=False)
 
             for key in neighbors.keys():
                 residue_id,chain = key.split()
@@ -104,7 +104,7 @@ def main():
             alt_loc.loc[m, 'Total_Residues_Near_Ligand'] = near_total
             m += 1
 
-    alt_loc.to_csv(dir + pdb_name + '_Alt_Loc.csv', index=False)
+    alt_loc.to_csv(str(dir) + pdb_name + '_Alt_Loc.csv', index=False)
     print(pdb_name, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total)
 
 
