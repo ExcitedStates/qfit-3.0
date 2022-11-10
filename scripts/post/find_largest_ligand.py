@@ -49,7 +49,7 @@ def main():
                         lig_name = ligand_name
 
     if lig_name:
-        with open('args.pdb' + '_ligand_name.txt', 'w') as file:
+        with open(args.pdb + '_ligand_name.txt', 'w') as file:
             file.write(lig_name)
 
 
