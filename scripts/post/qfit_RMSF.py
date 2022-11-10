@@ -5,7 +5,7 @@ INPUT: PDB file, name of pdb
 OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for each amino acid. 
 
 example:
-qFit_RMSF.py pdb.pdb --pdb {pdb name} 
+qFit_RMSF.py pdb.pdb pdb_name
 '''
 
 
@@ -89,7 +89,7 @@ class RMSF():
 
         rmsf = pd.DataFrame(rmsf_data, columns=['resseq', 'AA', 'Chain', 'RMSF'])
         rmsf['PDB_name'] = self.options.pdb
-        rmsf.to_csv(self.options.dir + self.pdb + '_qfit_RMSF.csv')
+        rmsf.to_csv(str(self.options.d) + self.pdb + '_qfit_RMSF.csv')
 
 
 def main():
