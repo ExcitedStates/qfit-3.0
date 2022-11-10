@@ -125,6 +125,17 @@ OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for eac
 example:
 `qfit_RMSF.py {PDB}_qFit.pdb --pdb={PDB}`
 
+## 10. Relabel chains of matching PDB
+
+This script will rename chains in one PDB (holo) one based how close via RMSD is on corresponding PDB (apo).
+
+INPUT: 2 PDB, 2 PDB names
+
+OUTPUT: PDB with renamed chain(s) 
+
+example:
+`relabel_chain.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name}`
+
 
 
 
