@@ -1,11 +1,19 @@
 #!/usr/bin/env python
+
+'''
+This script will rename chains in one PDB (holo) one based how close via RMSD is on corresponding PDB (apo).
+INPUT: 2 PDB, 2 PDB names
+OUTPUT: PDB with renamed chain(s) 
+example:
+relabel_chain.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name}
+'''
+
+
 import numpy as np
 import argparse
 import os
 from string import ascii_uppercase
 from qfit.structure import Structure
-
-"""Renaming Chains in holo based on corresponding apo"""
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -20,7 +28,7 @@ def parse_args():
     args = p.parse_args()
     return args
 
- def main():
+def main():
     args = parse_args()
     output_holo_file = os.path.join(args.holo_str[:-4]+"_renamed.pdb")
     holo = Structure.fromfile(args.holo_str)

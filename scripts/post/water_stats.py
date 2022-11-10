@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
 '''
-This script will take in a PDB structure and output multiple csv files describing the closest protein residue and distance away from water molecules
+This script will take in a PDB structure and output multiple csv files describing the closest protein residue and distance away from water molecules.
+
+INPUT: PDB file
+OUTPUT: Multiple CSV file with output of residues that are close to water molecules
+example: 
+water_stats.py pdb.pdb --dist {distance between protein and water} --pdb {pdb name}
 '''
 
 from argparse import ArgumentParser

@@ -1,8 +1,19 @@
 #!/usr/bin/env python
+'''
+The purpose of this script is to calculate the B-factor for every residue across the structure. You can choose to calculate the alpha carbon or side chain (all heavy atoms)
+This script also returns the average B-factor for alpha carbon which is used in the calc_OP.py script.
 
+INPUT: PDB structure, name of PDB structure, sidechain or CA
+OUTPUT: CSV file the b-factor for each residue in the structure, average b-factor for entire structure
 
-import sys
-import os
+example:
+Alpha Carbon B-factor:
+b_factor.py pdb.pdb --pdb pdb_name --ca
+
+Heavy Atom B-factor:
+b_factor.py pdb.pdb --pdb pdb_name --sidechain
+'''
+
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
@@ -46,7 +57,7 @@ def main():
     structure = Structure.fromfile(args.structure).reorder()
     B_factor, median = get_bfactor(structure, args.pdb, args.ca, args.sc)
     B_factor.to_csv(args.pdb + '_B_factors.csv', index=False)   
-    print(median)
+    print(median) #for analysis scripts to give to OP script
     return median
                   
                             
