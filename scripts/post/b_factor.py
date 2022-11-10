@@ -8,10 +8,10 @@ OUTPUT: CSV file the b-factor for each residue in the structure, average b-facto
 
 example:
 Alpha Carbon B-factor:
-b_factor.py pdb.pdb pdb_name --ca
+b_factor.py pdb.pdb --pdb pdb_name --ca
 
 Heavy Atom B-factor:
-b_factor.py pdb.pdb pdb_name --sidechain
+b_factor.py pdb.pdb --pdb pdb_name --sidechain
 '''
 
 import numpy as np
