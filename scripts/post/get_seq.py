@@ -6,7 +6,7 @@ INPUT: PDB file and name of PDB
 OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 
 example:
-pdb.pdb --pdb pdb_name
+get_seq.py pdb.pdb --pdb pdb_name
 '''
 
 import numpy as np
