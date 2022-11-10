@@ -24,7 +24,7 @@ These analysis scripts should be used on outputs after refinement. Many can be d
 
 ### 1. Calculating Order Parameters
 You will first need to run ascript is to produce the intermediate file to calculate crystallographic order parameters. 
-INPUT: PDB structure, pdb name /n
+INPUT: PDB structure, pdb name <br />
 OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
 
 Usage: 
