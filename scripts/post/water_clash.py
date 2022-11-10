@@ -4,9 +4,9 @@
 This will take in two PDBs, one containing water molecules, one containing only protein or protein/hetatoms.
 It will then determine how many clashes occur between the two and adjust accordingly.
 
-INPUT: 2 PDB (one with water molecules, one without), 2 PDB names, 
-OUTPUT:
-example: CSV file with output of residues that clash with water molecules.
+INPUT: 2 PDB (one with water molecules, one without), 2 PDB names 
+OUTPUT: CSV file with output of residues that clash with water molecules.
+example: 
 water_clash.py pdb_with_no_water.pdb pdb_with_water.pdb --nowater_name {pdb name} --water_name {pdb name}
 
 '''
