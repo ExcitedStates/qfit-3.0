@@ -7,7 +7,7 @@ INPUT: PDB structure, ligand name
 OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and chain of the ligand
 
 example:
-get_lig_chain_res.py pdb.pdb pdb_name 
+get_lig_chain_res.py pdb.pdb lig_name 
 '''
 
 import argparse
