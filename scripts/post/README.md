@@ -147,5 +147,24 @@ example:
 `subset_structure_AH.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name} -ls {ligand name}`
 
 
+## 12. Water scripts
 
-`find_largest_lig ${PDB}_qFit.pdb ${PDB}`
+water_clash.py: This will take in two PDBs, one containing water molecules, one containing only protein or protein/hetatoms.
+It will then determine how many clashes occur between the two and adjust accordingly.
+
+INPUT: 2 PDB (one with water molecules, one without), 2 PDB names
+
+OUTPUT: CSV file with output of residues that clash with water molecules.
+
+example: 
+`water_clash.py pdb_with_no_water.pdb pdb_with_water.pdb --nowater_name {pdb name} --water_name {pdb name}`
+
+water_stats: This script will take in a PDB structure and output multiple csv files describing the closest protein residue and distance away from water molecules.
+
+INPUT: PDB file
+
+OUTPUT: Multiple CSV file with output of residues that are close to water molecules
+
+example: 
+`water_stats.py pdb.pdb --dist {distance between protein and water} --pdb {pdb name}`
+
