@@ -8,7 +8,6 @@ from ._extensions import dilate_points, mask_points, correlation_gradients
 
 
 class SFTransformer:
-
     def __init__(self, hkl, f, phi, unit_cell):
         self.hkl = hkl
         self.f = f
@@ -30,12 +29,12 @@ class SFTransformer:
         naive_shape = naive_shape[::-1].astype(int)
         shape = naive_shape
         # TODO make grid of unit cell a multiple of small primes
-        #efficient_multiples = [2, 3, 5, 7, 11, 13]
-        #shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
+        # efficient_multiples = [2, 3, 5, 7, 11, 13]
+        # shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
         fft_grid = np.zeros(shape, dtype=np.complex128)
 
         start_sf = self._f_phi_to_complex(self.f, self.phi)
-        symops = self.space_group.symop_list[:self.space_group.num_primitive_sym_equiv]
+        symops = self.space_group.symop_list[: self.space_group.num_primitive_sym_equiv]
         two_pi = 2 * np.pi
         hsym = np.zeros_like(h)
         ksym = np.zeros_like(k)
@@ -55,17 +54,15 @@ class SFTransformer:
                 sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
             fft_grid[lsym, ksym, hsym] = sf
             fft_grid[-lsym, -ksym, -hsym] = sf.conj()
-        #grid = np.fft.ifftn(fft_grid)
+        # grid = np.fft.ifftn(fft_grid)
         nx = shape[-1]
-        grid = np.fft.irfftn(fft_grid[:, :, :nx // 2 + 1])
+        grid = np.fft.irfftn(fft_grid[:, :, : nx // 2 + 1])
         grid -= grid.mean()
         grid /= grid.std()
         return grid
 
     def _f_phi_to_complex(self, f, phi):
-        sf = np.nan_to_num((
-            f * np.exp(-1j * np.deg2rad(phi))
-                           ).astype(np.complex64))
+        sf = np.nan_to_num((f * np.exp(-1j * np.deg2rad(phi))).astype(np.complex64))
         return sf
 
 
@@ -73,7 +70,7 @@ class FFTTransformer:
 
     """Transform a structure in a map via FFT"""
 
-    def __init__(self, structure, xmap, hkl=None, scattering='xray', b_add=None):
+    def __init__(self, structure, xmap, hkl=None, scattering="xray", b_add=None):
         self.structure = structure
         self.xmap = xmap
         if hkl is None:
@@ -84,7 +81,7 @@ class FFTTransformer:
         fft_mask = np.ones(self.xmap.shape, dtype=bool)
         fft_mask.fill(True)
         sg = self.xmap.unit_cell.space_group
-        symops = sg.symop_list[:sg.num_primitive_sym_equiv]
+        symops = sg.symop_list[: sg.num_primitive_sym_equiv]
         hmax = 0
         hsym = np.zeros_like(h)
         ksym = np.zeros_like(k)
@@ -101,15 +98,16 @@ class FFTTransformer:
         # Keep the density on absolute level
         fft_mask[0, 0, 0] = False
         hmax = fft_mask.shape[-1] // 2 + 1
-        #self._fft_mask = fft_mask
+        # self._fft_mask = fft_mask
         self._fft_mask = fft_mask[:, :, :hmax].copy()
         self.hkl = hkl
         self.scattering = scattering
         if self.b_add is not None:
             b_original = self.structure.b
             self.structure.b += self.b_add
-        self._transformer = Transformer(self.structure, self.xmap,
-                                        simple=True, scattering=self.scattering)
+        self._transformer = Transformer(
+            self.structure, self.xmap, simple=True, scattering=self.scattering
+        )
         self._transformer.initialize()
         if b_add is not None:
             self.structure.b = b_original
@@ -138,8 +136,17 @@ class Transformer:
 
     """Transform a structure to a density."""
 
-    def __init__(self, structure, xmap, smin=None, smax=None, rmax=3.0,
-                 rstep=0.01, simple=False, scattering='xray'):
+    def __init__(
+        self,
+        structure,
+        xmap,
+        smin=None,
+        smax=None,
+        rmax=3.0,
+        rstep=0.01,
+        simple=False,
+        scattering="xray",
+    ):
         self.structure = structure
         self.xmap = xmap
         self.smin = smin
@@ -147,12 +154,14 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
-        if scattering == 'xray':
+        if scattering == "xray":
             self._asf = ATOM_STRUCTURE_FACTORS
-        elif scattering == 'electron':
+        elif scattering == "electron":
             self._asf = ELECTRON_SCATTERING_FACTORS
         else:
-            raise ValueError("Scattering source not supported. Choose 'xray' or 'electron'")
+            raise ValueError(
+                "Scattering source not supported. Choose 'xray' or 'electron'"
+            )
         self._initialized = False
 
         if not simple and smax is None and self.xmap.resolution.high is not None:
@@ -186,14 +195,21 @@ class Transformer:
         if rmax is None:
             rmax = self.rmax
         lmax = np.asarray(
-                [rmax / vs for vs in self.xmap.voxelspacing],
-                dtype=np.float64)
+            [rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
+        )
         active = self.structure.active
         for symop in self.xmap.unit_cell.space_group.symop_list:
             np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
             self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
-            mask_points(self._grid_coor_rot, active, lmax, rmax,
-                        self.grid_to_cartesian, value, self.xmap.array)
+            mask_points(
+                self._grid_coor_rot,
+                active,
+                lmax,
+                rmax,
+                self.grid_to_cartesian,
+                value,
+                self.xmap.array,
+            )
 
     def reset(self, rmax=None, full=False):
         if full:
@@ -205,7 +221,9 @@ class Transformer:
         self.radial_densities = []
         for n in range(self.structure.natoms):
             if self.simple:
-                rdens = self.simple_radial_density(self.structure.e[n], self.structure.b[n])[1]
+                rdens = self.simple_radial_density(
+                    self.structure.e[n], self.structure.b[n]
+                )[1]
             else:
                 rdens = self.radial_density(self.structure.e[n], self.structure.b[n])[1]
             self.radial_densities.append(rdens)
@@ -217,9 +235,10 @@ class Transformer:
                 for n, (e, b) in enumerate(zip(self.structure.e, self.structure.b)):
                     self.radial_derivatives[n] = self.simple_radial_derivative(e, b)[1]
             else:
-                #self.radial_derivatives[n] = self.radial_derivative(e, b)[1]
-                self.radial_derivatives = np.gradient(self.radial_densities,
-                                                      self.rstep, edge_order=2, axis=1)
+                # self.radial_derivatives[n] = self.radial_derivative(e, b)[1]
+                self.radial_derivatives = np.gradient(
+                    self.radial_densities, self.rstep, edge_order=2, axis=1
+                )
 
         self._initialized = True
 
@@ -230,21 +249,29 @@ class Transformer:
 
         self._coor_to_grid_coor()
         lmax = np.asarray(
-                [self.rmax / vs for vs in self.xmap.voxelspacing],
-                dtype=np.float64)
+            [self.rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
+        )
         active = self.structure.active
         q = self.structure.q
         for symop in self.xmap.unit_cell.space_group.symop_list:
             np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
             self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
-            dilate_points(self._grid_coor_rot, active, q, lmax,
-                          self.radial_densities, self.rstep, self.rmax,
-                          self.grid_to_cartesian, self.xmap.array)
+            dilate_points(
+                self._grid_coor_rot,
+                active,
+                q,
+                lmax,
+                self.radial_densities,
+                self.rstep,
+                self.rmax,
+                self.grid_to_cartesian,
+                self.xmap.array,
+            )
 
     def simple_radial_density(self, element, bfactor):
         """Calculate electron density as a function of radius."""
 
-        #assert bfactor > 0, "B-factor should be bigger than 0"
+        # assert bfactor > 0, "B-factor should be bigger than 0"
 
         try:
             asf = self._asf[element.capitalize()]
@@ -289,15 +316,24 @@ class Transformer:
 
         self._coor_to_grid_coor()
         lmax = np.asarray(
-                [self.rmax / vs for vs in self.xmap.voxelspacing],
-                dtype=np.float64)
+            [self.rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
+        )
         gradients = np.zeros(self.structure.coor)
 
         active = self.structure.active
         q = self.structure.q
         correlation_gradients(
-            self._grid_coor, active, q, lmax, self.radial_derivatives, self.rstep,
-            self.rmax, self.grid_to_cartesian, target.array, gradients)
+            self._grid_coor,
+            active,
+            q,
+            lmax,
+            self.radial_derivatives,
+            self.rstep,
+            self.rmax,
+            self.grid_to_cartesian,
+            target.array,
+            gradients,
+        )
         return gradients
 
     def radial_density(self, element, bfactor):
@@ -308,10 +344,11 @@ class Transformer:
             asf = self._asf[element.capitalize()]
             args = (x, asf, bfactor)
             # Use a fixed number of quadrature points, 50 is more than enough
-            #integrand, err = quadrature(self._scattering_integrand, self.smin,
+            # integrand, err = quadrature(self._scattering_integrand, self.smin,
             #                            self.smax, args=args)#, tol=1e-5, miniter=13, maxiter=15)
-            integrand, err = fixed_quad(self._scattering_integrand, self.smin,
-                                        self.smax, args=args, n=50)
+            integrand, err = fixed_quad(
+                self._scattering_integrand, self.smin, self.smax, args=args, n=50
+            )
             density[n] = integrand
         return r, density
 
@@ -321,8 +358,9 @@ class Transformer:
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
             args = (x, asf, bfactor)
-            integrand, err = quadrature(self._scattering_integrand_derivative, self.smin,
-                                        self.smax, args=args)
+            integrand, err = quadrature(
+                self._scattering_integrand_derivative, self.smin, self.smax, args=args
+            )
             derivative[n] = integrand
         return r, derivative
 
@@ -330,12 +368,14 @@ class Transformer:
     def _scattering_integrand(s, r, asf, bfactor):
         """Integral function to be approximated to obtain radial density."""
         s2 = s * s
-        f = (asf[0][0] * np.exp(-asf[1][0] * s2) +
-             asf[0][1] * np.exp(-asf[1][1] * s2) +
-             asf[0][2] * np.exp(-asf[1][2] * s2) +
-             asf[0][3] * np.exp(-asf[1][3] * s2) +
-             asf[0][4] * np.exp(-asf[1][4] * s2) +
-             asf[0][5])
+        f = (
+            asf[0][0] * np.exp(-asf[1][0] * s2)
+            + asf[0][1] * np.exp(-asf[1][1] * s2)
+            + asf[0][2] * np.exp(-asf[1][2] * s2)
+            + asf[0][3] * np.exp(-asf[1][3] * s2)
+            + asf[0][4] * np.exp(-asf[1][4] * s2)
+            + asf[0][5]
+        )
         w = 8 * f * np.exp(-bfactor * s2) * s
         a = 4 * np.pi * s
         if r > 1e-4:
@@ -349,7 +389,7 @@ class Transformer:
         s2 = s * s
         f = asf[0][5]
         for a, b in zip(asf[0], asf[1]):
-            #f += asf[0][i] * np.exp(-asf[1][i] * s2)
+            # f += asf[0][i] * np.exp(-asf[1][i] * s2)
             f += a * np.exp(-b * s2)
         a = 4 * np.pi * s
         w = 8 * f * np.exp(-bfactor * s2) * s

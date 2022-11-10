@@ -33,9 +33,7 @@ def Rz(theta):
     """
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
-    return np.array([[cos_theta, -sin_theta, 0],
-                     [sin_theta,  cos_theta, 0],
-                     [        0,          0, 1]])
+    return np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
 
 
 def Ry(theta):
@@ -49,9 +47,7 @@ def Ry(theta):
     """
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
-    return np.array([[ cos_theta, 0, sin_theta],
-                     [         0, 1,         0],
-                     [-sin_theta, 0, cos_theta]])
+    return np.array([[cos_theta, 0, sin_theta], [0, 1, 0], [-sin_theta, 0, cos_theta]])
 
 
 def Rv(vector, theta):
@@ -65,10 +61,12 @@ def Rv(vector, theta):
          np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
     """
     (x, y, z) = vector / np.linalg.norm(vector)
-    K = np.array([[ 0, -z,  y],
-                  [ z,  0, -x],
-                  [-y,  x,  0]])
-    rot = np.cos(theta) * np.identity(3) + np.sin(theta) * K + (1 - np.cos(theta)) * np.outer(vector, vector)
+    K = np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
+    rot = (
+        np.cos(theta) * np.identity(3)
+        + np.sin(theta) * K
+        + (1 - np.cos(theta)) * np.outer(vector, vector)
+    )
     return rot
 
 
@@ -83,9 +81,7 @@ def aa_to_rotmat(axis, angle):
          np.ndarray[float]: A 3x3 rotation matrix for rotation about axis.
     """
     kx, ky, kz = axis
-    K = np.array([[  0, -kz,  ky],
-                  [ kz,   0, -kx],
-                  [-ky,  kx,   0]])
+    K = np.array([[0, -kz, ky], [kz, 0, -kx], [-ky, kx, 0]])
     K2 = K @ K
     R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
     return R

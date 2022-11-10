@@ -6,8 +6,11 @@
 ## DESCRIPTION: CIF Parser for CIF 1.1 format
 
 from .mmCIF import mmCIFSyntaxError
+
+
 class CIFSyntaxError(mmCIFSyntaxError):
     pass
+
 
 #
 # Lexical type constants
@@ -33,6 +36,7 @@ class CIFFile:
 
     def load_file(self, f):
         import types
+
         if isinstance(f, (str,)):
             name = f
             f = open(f)
@@ -78,19 +82,18 @@ class DataBlock:
             elif token.type is L_SAVE:
                 self.get_save_frame(token, lexer, filename)
             else:
-                raise CIFSyntaxError(token.line, "unexpected %s(%s)" %
-                                                    (token.type, token.value))
+                raise CIFSyntaxError(
+                    token.line, "unexpected %s(%s)" % (token.type, token.value)
+                )
             token = lexer.next_token()
 
     def get_tag(self, token, lexer, filename):
-        if '.' in token.value:
-            raise CIFSyntaxError(token.line, "'.' appears in tag name %s" %
-                                                token.value)
+        if "." in token.value:
+            raise CIFSyntaxError(token.line, "'.' appears in tag name %s" % token.value)
         name = token.value.lower()
         t = lexer.next_token()
         if t.type is not L_VALUE:
-            raise CIFSyntaxError(token.line, "missing value for tag %s" %
-                                                token.value)
+            raise CIFSyntaxError(token.line, "missing value for tag %s" % token.value)
         self.tags[name] = t.value
 
     def get_table(self, token, lexer, filename):
@@ -101,8 +104,7 @@ class DataBlock:
 
 
 class Table:
-    """CIF data table.
-    """
+    """CIF data table."""
 
     def __init__(self, lexer, filename):
         self.columns = []
@@ -120,8 +122,9 @@ class Table:
             row = []
             for i in range(numColumns):
                 if token.type is not L_VALUE:
-                    raise CIFSyntaxError(token.line, "expected value and got %s"
-                                                    % token.type)
+                    raise CIFSyntaxError(
+                        token.line, "expected value and got %s" % token.type
+                    )
                 row.append(token.value)
                 token = lexer.next_token()
             self.rows.append(row)
@@ -140,8 +143,7 @@ class Table:
 # Lexical analyzer classes
 #
 class Lexer:
-    """Lexical analyzer for reading a CIF 1.1 file.
-    """
+    """Lexical analyzer for reading a CIF 1.1 file."""
 
     def __init__(self, f, filename):
         self.f = f
@@ -160,6 +162,7 @@ class Lexer:
             return t
 
         from string import whitespace, digits
+
         while True:
             #
             # Skip over whitespaces
@@ -173,12 +176,12 @@ class Lexer:
             #
             # Check for comments
             #
-            if c == '#':
+            if c == "#":
                 while True:
                     c = self.next_char()
                     if not c:
                         return self.token(L_EOF, None)
-                    if c == '\n':
+                    if c == "\n":
                         break
                 # Start over with the next line
                 continue
@@ -192,11 +195,10 @@ class Lexer:
                 while True:
                     c = self.next_char()
                     if not c:
-                        raise CIFSyntaxError(self.line,
-                                "<eof> in quoted string")
+                        raise CIFSyntaxError(self.line, "<eof> in quoted string")
                     if atEnd:
                         if c in whitespace:
-                            return self.token(L_VALUE, ''.join(chars))
+                            return self.token(L_VALUE, "".join(chars))
                         else:
                             chars.append(endQuote)
                             if c != endQuote:
@@ -211,24 +213,23 @@ class Lexer:
             #
             # Check for (illegal) bracket string
             #
-            if c == '[':
-                raise CIFSyntaxError(self.line,
-                        "bracket strings not permitted in CIF")
+            if c == "[":
+                raise CIFSyntaxError(self.line, "bracket strings not permitted in CIF")
             #
             # Check for text field
             #
-            if c == ';' and self.prev_char == '\n':
+            if c == ";" and self.prev_char == "\n":
                 chars = []
                 atStart = False
                 while True:
                     c = self.next_char()
                     if not c:
                         raise CIFSyntaxError(self.line, "<eof> in text field")
-                    if c == ';' and atStart:
-                        return self.token(L_VALUE, ''.join(chars))
+                    if c == ";" and atStart:
+                        return self.token(L_VALUE, "".join(chars))
                     if atStart:
-                        chars.append('\n')
-                    if c == '\n':
+                        chars.append("\n")
+                    if c == "\n":
                         atStart = True
                     else:
                         chars.append(c)
@@ -236,34 +237,34 @@ class Lexer:
             #
             # Check for tags
             #
-            if c == '_':
+            if c == "_":
                 chars = []
                 while True:
                     c = self.next_char()
                     if not c:
                         raise CIFSyntaxError(self.line, "<eof> in tag")
                     if c in whitespace:
-                        return self.token(L_TAG, ''.join(chars))
+                        return self.token(L_TAG, "".join(chars))
                     chars.append(c)
             #
             # Check for simple values
             #
-            if c == '?':
+            if c == "?":
                 return self.token(L_VALUE, c)
-            if c == '.':
+            if c == ".":
                 if self.peek_char() in whitespace:
                     return self.token(L_VALUE, c)
             #
             # Get a value with no embedded whitespace
             #
-            chars = [ c ]
+            chars = [c]
             while True:
                 c = self.next_char()
                 if not c or c in whitespace:
                     break
                 chars.append(c)
 
-            data = ''.join(chars)
+            data = "".join(chars)
             lc = data.lower()
 
             if lc.startswith("data_"):
@@ -280,7 +281,7 @@ class Lexer:
                 return self.token(L_VALUE, data)
 
     def next_char(self):
-        if self.prev_char == '\n':
+        if self.prev_char == "\n":
             self.line += 1
         self.prev_char = self.cur_char
         if self.peeked_char is None:
@@ -299,7 +300,7 @@ class Lexer:
         return Token(type, value, self.line)
 
     def push_back(self, token):
-        assert(self.pushed_token is None)
+        assert self.pushed_token is None
         self.pushed_token = token
 
     def msg(self, s):
@@ -307,8 +308,8 @@ class Lexer:
 
 
 class Token:
-    """Lexical token with type, value and line number.
-    """
+    """Lexical token with type, value and line number."""
+
     def __init__(self, type, value, line):
         self.type = type
         self.value = value
@@ -321,10 +322,11 @@ class Token:
 def formatMessage(filename, line, msg):
     return "%s(%d): %s" % (filename, line, msg)
 
-def makeNumber(s):
-    print("%s\n" % s) ## DEBUG
 
-    paren = s.find('(')         # ) for balance in vim
+def makeNumber(s):
+    print("%s\n" % s)  ## DEBUG
+
+    paren = s.find("(")  # ) for balance in vim
     if paren != -1:
         s = s[:paren]
     try:
@@ -335,8 +337,8 @@ def makeNumber(s):
 
 ### <TESTING>
 if __name__ == "__main__":
-    """Module tests.
-    """
+    """Module tests."""
+
     def lexer_test(test_file):
         f = open(test_file)
         lexer = Lexer(f, test_file)
@@ -344,8 +346,11 @@ if __name__ == "__main__":
             token = lexer.next_token()
             if token.type is L_EOF:
                 break
-            print(formatMessage(test_file, token.line,
-                "%s: %s" % (token.type, token.value)))
+            print(
+                formatMessage(
+                    test_file, token.line, "%s: %s" % (token.type, token.value)
+                )
+            )
 
         f.close()
 
@@ -354,11 +359,11 @@ if __name__ == "__main__":
         cif.load_file(test_file)
         print("%d data blocks" % len(cif.data_blocks))
         import pprint
+
         for db in cif.data_blocks:
-            print("%s: %d tags, %d tables" % (db.name,
-                len(db.tags), len(db.tables)))
+            print("%s: %d tags, %d tables" % (db.name, len(db.tags), len(db.tables)))
             pprint.pprint(db.tags)
 
-    #lexer_test("ccd.cif")
+    # lexer_test("ccd.cif")
     parser_test("ccd.cif")
 ### </TESTING>

@@ -1,6 +1,7 @@
 # qFit 3.2.2
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 qFit is a collection of programs for modeling multi-conformer protein structures.
 
@@ -80,6 +81,14 @@ Once dependencies are installed, you can clone the qFit source, and install to y
 
 (Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
+
+## Contributing
+
+qFit uses [Black](https://github.com/psf/black) to format its code and provides a git hook to verify that code is properly formatted before allowing you to commit.
+
+Before creating a commit, you will have to perform two actions:
+1. Install Black, either through a package manager or by running `python3 -m pip install --user black`
+2. Run `git config core.hooksPath .githooks/` to use the provided pre-commit hook
 
 ## Usage examples
 
