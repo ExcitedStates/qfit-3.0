@@ -24,6 +24,7 @@ These analysis scripts should be used on outputs after refinement. Many can be d
 
 ### 1. Calculating Order Parameters
 You will first need to run ascript is to produce the intermediate file to calculate crystallographic order parameters. 
+
 INPUT: PDB structure, pdb name
 
 OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
@@ -48,6 +49,7 @@ The purpose of this script is to calculate the distance between each alpha carbo
 the two structures having the same numbered residues and chain ids. 
 
 INPUT: 2 PDB structures, names of PDB structures
+
 OUTPUT: CSV file with distance between the alpha carbon atom of every residue between the two input structures
 
 `alpha_carbon_rmsd.py pdb1.pdb pdb2.pdb pdb1_name pdb2_name` 
@@ -56,8 +58,8 @@ OUTPUT: CSV file with distance between the alpha carbon atom of every residue be
 The purpose of this script is to calculate the B-factor for every residue across the structure. You can choose to calculate the alpha carbon or side chain (all heavy atoms). This script also returns the average B-factor for alpha carbon which is used in the calc_OP.py script.
 
 INPUT: PDB structure, name of PDB structure, sidechain or CA
-OUTPUT: CSV file the b-factor for each residue in the structure, average b-factor for entire structure
 
+OUTPUT: CSV file the b-factor for each residue in the structure, average b-factor for entire structure
 
 Alpha Carbon B-factor:
 `b_factor.py pdb.pdb pdb_name --ca`
@@ -66,10 +68,10 @@ Heavy Atom B-factor:
 `b_factor.py pdb.pdb pdb_name --sidechain`
 
 ### 4. Find Multiconformer Residues around Ligands
-The purpose of this script is to identify residues with more than one conformer within 5 angstroms any (non-crystallographic) ligands in the PDB
-10/31/2022: This script is infrequently used
+The purpose of this script is to identify residues with more than one conformer within 5 angstroms any (non-crystallographic) ligands in the PDB. This script is infrequently used.
 
 INPUT: PDB structure, name of PDB structure
+
 OUTPUT: CSV file with the residues within 5A of ligand with the number of single and multi conf structures
 
 `find_altlocs_near_ligand.py pdb.pdb pdb_name` 
@@ -78,6 +80,7 @@ OUTPUT: CSV file with the residues within 5A of ligand with the number of single
 The purpose of this script is to identify the largest (non-crystallographic) ligand in the PDB. 
 
 INPUT: PDB structure, name of PDB structure
+
 OUTPUT: A text file named PDB_name_ligand_name.txt with the ligand name inside
 
 `find_altlocs_near_ligand.py pdb.pdb pdb_name` 
@@ -86,6 +89,7 @@ OUTPUT: A text file named PDB_name_ligand_name.txt with the ligand name inside
 This script is for an automated way to get the residue ID and chain ID of a ligand of interest to be fed into qFit Ligand
 
 INPUT: PDB structure, ligand name
+
 OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and chain of the ligand
 
 `get_lig_chain_res.py pdb.pdb pdb_name` 
@@ -95,6 +99,7 @@ OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and
 This script will take in a PDB and return a single letter code for every amino acid residue in the PDB. 
 
 INPUT: PDB file and name of PDB
+
 OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 
 `get_seq.py pdb.pdb --pdb {pdb_name}`
@@ -103,6 +108,7 @@ OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
 
 INPUT: PDB file, name of PDB, name of ligand
+
 OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy information
 
 example:
@@ -111,7 +117,9 @@ example:
 ## 9. Get Root Mean Squared Flucuations (RMSF) for each residue 
 
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
+
 INPUT: PDB file, PDB name
+
 OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for each amino acid. 
 
 example:
