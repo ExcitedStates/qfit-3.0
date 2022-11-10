@@ -9,11 +9,21 @@ import os
 import sys
 import time
 import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter, ValidateMapFileArgument, ValidateStructureFileArgument
+from .custom_argparsers import (
+    ToggleActionFlag,
+    CustomHelpFormatter,
+    ValidateMapFileArgument,
+    ValidateStructureFileArgument,
+)
 import logging
 import traceback
 import itertools as itl
-from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
+from .logtools import (
+    setup_logging,
+    log_run_info,
+    poolworker_setup_logging,
+    QueueListener,
+)
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
 
@@ -23,138 +33,343 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 
 def build_argparser():
-    p = argparse.ArgumentParser(formatter_class=CustomHelpFormatter,
-                                description=__doc__)
+    p = argparse.ArgumentParser(
+        formatter_class=CustomHelpFormatter, description=__doc__
+    )
 
-    p.add_argument("map",
-                   help="Density map in CCP4 or MRC format, or an MTZ file "
-                        "containing reflections and phases. For MTZ files "
-                        "use the --label options to specify columns to read. "
-                        "For CCP4 files, use the -r to specify resolution.",
-                   type=str, action=ValidateMapFileArgument)
-    p.add_argument("structure",
-                   help="PDB-file containing structure.",
-                   type=str, action=ValidateStructureFileArgument)
+    p.add_argument(
+        "map",
+        help="Density map in CCP4 or MRC format, or an MTZ file "
+        "containing reflections and phases. For MTZ files "
+        "use the --label options to specify columns to read. "
+        "For CCP4 files, use the -r to specify resolution.",
+        type=str,
+        action=ValidateMapFileArgument,
+    )
+    p.add_argument(
+        "structure",
+        help="PDB-file containing structure.",
+        type=str,
+        action=ValidateStructureFileArgument,
+    )
 
     # Map input options
-    p.add_argument("-l", "--label", default="FWT,PHWT",
-                   metavar="<F,PHI>",
-                   help="MTZ column labels to build density")
-    p.add_argument('-r', "--resolution", default=None,
-                   metavar="<float>", type=float,
-                   help="Map resolution (Å) (only use when providing CCP4 map files)")
-    p.add_argument("-m", "--resolution-min", default=None,
-                   metavar="<float>", type=float,
-                   help="Lower resolution bound (Å) (only use when providing CCP4 map files)")
-    p.add_argument("-z", "--scattering", choices=["xray", "electron"], default="xray",
-                   help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]")
-    p.add_argument("-rb", "--randomize-b", action="store_true", dest="randomize_b",
-                   help="Randomize B-factors of generated conformers")
-    p.add_argument('-o', '--omit', action="store_true",
-                   help="Treat map file as an OMIT map in map scaling routines")
+    p.add_argument(
+        "-l",
+        "--label",
+        default="FWT,PHWT",
+        metavar="<F,PHI>",
+        help="MTZ column labels to build density",
+    )
+    p.add_argument(
+        "-r",
+        "--resolution",
+        default=None,
+        metavar="<float>",
+        type=float,
+        help="Map resolution (Å) (only use when providing CCP4 map files)",
+    )
+    p.add_argument(
+        "-m",
+        "--resolution-min",
+        default=None,
+        metavar="<float>",
+        type=float,
+        help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
+    )
+    p.add_argument(
+        "-z",
+        "--scattering",
+        choices=["xray", "electron"],
+        default="xray",
+        help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
+    )
+    p.add_argument(
+        "-rb",
+        "--randomize-b",
+        action="store_true",
+        dest="randomize_b",
+        help="Randomize B-factors of generated conformers",
+    )
+    p.add_argument(
+        "-o",
+        "--omit",
+        action="store_true",
+        help="Treat map file as an OMIT map in map scaling routines",
+    )
 
     # Map prep options
-    p.add_argument("--scale", action=ToggleActionFlag, dest="scale", default=True,
-                   help="Scale density")
-    p.add_argument("-sv", "--scale-rmask", dest="scale_rmask", default=1.0,
-                   metavar="<float>", type=float,
-                   help="Scaling factor for soft-clash mask radius")
-    p.add_argument("-dc", "--density-cutoff", default=0.3,
-                   metavar="<float>", type=float,
-                   help="Density values below this value are set to <density-cutoff-value>")
-    p.add_argument("-dv", "--density-cutoff-value", default=-1,
-                   metavar="<float>", type=float,
-                   help="Density values below <density-cutoff> are set to this value")
-    p.add_argument("--subtract", action=ToggleActionFlag, dest="subtract", default=True,
-                   help="Subtract Fcalc of neighboring residues when running qFit")
-    p.add_argument("-pad", "--padding", default=8.0,
-                   metavar="<float>", type=float,
-                   help="Padding size for map creation")
-    p.add_argument("--waters-clash", action=ToggleActionFlag, dest="waters_clash", default=True,
-                   help="Consider waters for soft clash detection")
+    p.add_argument(
+        "--scale",
+        action=ToggleActionFlag,
+        dest="scale",
+        default=True,
+        help="Scale density",
+    )
+    p.add_argument(
+        "-sv",
+        "--scale-rmask",
+        dest="scale_rmask",
+        default=1.0,
+        metavar="<float>",
+        type=float,
+        help="Scaling factor for soft-clash mask radius",
+    )
+    p.add_argument(
+        "-dc",
+        "--density-cutoff",
+        default=0.3,
+        metavar="<float>",
+        type=float,
+        help="Density values below this value are set to <density-cutoff-value>",
+    )
+    p.add_argument(
+        "-dv",
+        "--density-cutoff-value",
+        default=-1,
+        metavar="<float>",
+        type=float,
+        help="Density values below <density-cutoff> are set to this value",
+    )
+    p.add_argument(
+        "--subtract",
+        action=ToggleActionFlag,
+        dest="subtract",
+        default=True,
+        help="Subtract Fcalc of neighboring residues when running qFit",
+    )
+    p.add_argument(
+        "-pad",
+        "--padding",
+        default=8.0,
+        metavar="<float>",
+        type=float,
+        help="Padding size for map creation",
+    )
+    p.add_argument(
+        "--waters-clash",
+        action=ToggleActionFlag,
+        dest="waters_clash",
+        default=True,
+        help="Consider waters for soft clash detection",
+    )
 
     # Sampling options
-    p.add_argument("--backbone", action=ToggleActionFlag, dest="sample_backbone", default=True,
-                   help="Sample backbone using inverse kinematics")
-    p.add_argument('-bbs', "--backbone-step", default=0.1, dest="sample_backbone_step",
-                   metavar="<float>", type=float,
-                   help="Stepsize for the amplitude of backbone sampling (Å)")
-    p.add_argument('-bba', "--backbone-amplitude", default=0.3, dest="sample_backbone_amplitude",
-                   metavar="<float>", type=float,
-                   help="Maximum backbone amplitude (Å)")
-    p.add_argument('-bbv', "--backbone-sigma", default=0.125, dest="sample_backbone_sigma",
-                   metavar="<float>", type=float,
-                   help="Backbone random-sampling displacement (Å)")
-    p.add_argument("--sample-angle", action=ToggleActionFlag, dest="sample_angle", default=True,
-                   help="Sample CA-CB-CG angle for aromatic F/H/W/Y residues")
-    p.add_argument('-sas', "--sample-angle-step", default=3.75, dest="sample_angle_step",
-                   metavar="<float>", type=float,
-                   help="CA-CB-CG bond angle sampling step in degrees")
-    p.add_argument('-sar', "--sample-angle-range", default=7.5, dest="sample_angle_range",
-                   metavar="<float>", type=float,
-                   help="CA-CB-CG bond angle sampling range in degrees [-x,x]")
-    p.add_argument("--sample-rotamers", action=ToggleActionFlag, dest="sample_rotamers", default=True,
-                   help="Sample sidechain rotamers")
-    p.add_argument("-b", "--dofs-per-iteration", default=2,
-                   metavar="<int>", type=int,
-                   help="Number of internal degrees that are sampled/built per iteration")
-    p.add_argument("-s", "--dihedral-stepsize", default=10,
-                   metavar="<float>", type=float,
-                   help="Stepsize for dihedral angle sampling in degrees")
-    p.add_argument("-rn", "--rotamer-neighborhood", default=60,
-                   metavar="<float>", type=float,
-                   help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]")
-    p.add_argument("--remove-conformers-below-cutoff", action="store_true",
-                   dest="remove_conformers_below_cutoff",
-                   help=("Remove conformers during sampling that have atoms "
-                         "with no density support, i.e. atoms are positioned "
-                         "at density values below <density-cutoff>"))
-    p.add_argument('-cf', "--clash-scaling-factor", default=0.75,
-                   metavar="<float>", type=float,
-                   help="Set clash scaling factor")
-    p.add_argument('-ec', "--external-clash", action="store_true", dest="external_clash",
-                   help="Enable external clash detection during sampling")
-    p.add_argument("-bs", "--bulk-solvent-level", default=0.3,
-                   metavar="<float>", type=float,
-                   help="Bulk solvent level in absolute values")
-    p.add_argument("-c", "--cardinality", default=5,
-                   metavar="<int>", type=int,
-                   help="Cardinality constraint used during MIQP")
-    p.add_argument("-t", "--threshold", default=0.2,
-                   metavar="<float>", type=float,
-                   help="Threshold constraint used during MIQP")
-    p.add_argument("-hy", "--hydro", action="store_true", dest="hydro",
-                   help="Include hydrogens during calculations")
-    p.add_argument('-rmsd', "--rmsd-cutoff", default=0.01,
-                   metavar="<float>", type=float,
-                   help="RMSD cutoff for removal of identical conformers")
-    p.add_argument("--threshold-selection", dest="bic_threshold", action=ToggleActionFlag, default=True,
-                   help="Use BIC to select the most parsimonious MIQP threshold")
-    p.add_argument("-p", "--nproc", type=int, default=1, metavar="<int>",
-                   help="Number of processors to use")
+    p.add_argument(
+        "--backbone",
+        action=ToggleActionFlag,
+        dest="sample_backbone",
+        default=True,
+        help="Sample backbone using inverse kinematics",
+    )
+    p.add_argument(
+        "-bbs",
+        "--backbone-step",
+        default=0.1,
+        dest="sample_backbone_step",
+        metavar="<float>",
+        type=float,
+        help="Stepsize for the amplitude of backbone sampling (Å)",
+    )
+    p.add_argument(
+        "-bba",
+        "--backbone-amplitude",
+        default=0.3,
+        dest="sample_backbone_amplitude",
+        metavar="<float>",
+        type=float,
+        help="Maximum backbone amplitude (Å)",
+    )
+    p.add_argument(
+        "-bbv",
+        "--backbone-sigma",
+        default=0.125,
+        dest="sample_backbone_sigma",
+        metavar="<float>",
+        type=float,
+        help="Backbone random-sampling displacement (Å)",
+    )
+    p.add_argument(
+        "--sample-angle",
+        action=ToggleActionFlag,
+        dest="sample_angle",
+        default=True,
+        help="Sample CA-CB-CG angle for aromatic F/H/W/Y residues",
+    )
+    p.add_argument(
+        "-sas",
+        "--sample-angle-step",
+        default=3.75,
+        dest="sample_angle_step",
+        metavar="<float>",
+        type=float,
+        help="CA-CB-CG bond angle sampling step in degrees",
+    )
+    p.add_argument(
+        "-sar",
+        "--sample-angle-range",
+        default=7.5,
+        dest="sample_angle_range",
+        metavar="<float>",
+        type=float,
+        help="CA-CB-CG bond angle sampling range in degrees [-x,x]",
+    )
+    p.add_argument(
+        "--sample-rotamers",
+        action=ToggleActionFlag,
+        dest="sample_rotamers",
+        default=True,
+        help="Sample sidechain rotamers",
+    )
+    p.add_argument(
+        "-b",
+        "--dofs-per-iteration",
+        default=2,
+        metavar="<int>",
+        type=int,
+        help="Number of internal degrees that are sampled/built per iteration",
+    )
+    p.add_argument(
+        "-s",
+        "--dihedral-stepsize",
+        default=10,
+        metavar="<float>",
+        type=float,
+        help="Stepsize for dihedral angle sampling in degrees",
+    )
+    p.add_argument(
+        "-rn",
+        "--rotamer-neighborhood",
+        default=60,
+        metavar="<float>",
+        type=float,
+        help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]",
+    )
+    p.add_argument(
+        "--remove-conformers-below-cutoff",
+        action="store_true",
+        dest="remove_conformers_below_cutoff",
+        help=(
+            "Remove conformers during sampling that have atoms "
+            "with no density support, i.e. atoms are positioned "
+            "at density values below <density-cutoff>"
+        ),
+    )
+    p.add_argument(
+        "-cf",
+        "--clash-scaling-factor",
+        default=0.75,
+        metavar="<float>",
+        type=float,
+        help="Set clash scaling factor",
+    )
+    p.add_argument(
+        "-ec",
+        "--external-clash",
+        action="store_true",
+        dest="external_clash",
+        help="Enable external clash detection during sampling",
+    )
+    p.add_argument(
+        "-bs",
+        "--bulk-solvent-level",
+        default=0.3,
+        metavar="<float>",
+        type=float,
+        help="Bulk solvent level in absolute values",
+    )
+    p.add_argument(
+        "-c",
+        "--cardinality",
+        default=5,
+        metavar="<int>",
+        type=int,
+        help="Cardinality constraint used during MIQP",
+    )
+    p.add_argument(
+        "-t",
+        "--threshold",
+        default=0.2,
+        metavar="<float>",
+        type=float,
+        help="Threshold constraint used during MIQP",
+    )
+    p.add_argument(
+        "-hy",
+        "--hydro",
+        action="store_true",
+        dest="hydro",
+        help="Include hydrogens during calculations",
+    )
+    p.add_argument(
+        "-rmsd",
+        "--rmsd-cutoff",
+        default=0.01,
+        metavar="<float>",
+        type=float,
+        help="RMSD cutoff for removal of identical conformers",
+    )
+    p.add_argument(
+        "--threshold-selection",
+        dest="bic_threshold",
+        action=ToggleActionFlag,
+        default=True,
+        help="Use BIC to select the most parsimonious MIQP threshold",
+    )
+    p.add_argument(
+        "-p",
+        "--nproc",
+        type=int,
+        default=1,
+        metavar="<int>",
+        help="Number of processors to use",
+    )
 
     # qFit Segment options
-    p.add_argument("-f", "--fragment-length", default=4, dest="fragment_length",
-                   metavar="<int>", type=int,
-                   help="Fragment length used during qfit_segment")
-    p.add_argument("--segment-threshold-selection", action=ToggleActionFlag, dest="seg_bic_threshold", default=True,
-                   help="Use BIC to select the most parsimonious MIQP threshold (segment)")
+    p.add_argument(
+        "-f",
+        "--fragment-length",
+        default=4,
+        dest="fragment_length",
+        metavar="<int>",
+        type=int,
+        help="Fragment length used during qfit_segment",
+    )
+    p.add_argument(
+        "--segment-threshold-selection",
+        action=ToggleActionFlag,
+        dest="seg_bic_threshold",
+        default=True,
+        help="Use BIC to select the most parsimonious MIQP threshold (segment)",
+    )
 
     # Global options
-    p.add_argument("--random-seed", dest="random_seed",
-                   metavar="<int>", type=int,
-                   help="Seed value for PRNG")
+    p.add_argument(
+        "--random-seed",
+        dest="random_seed",
+        metavar="<int>",
+        type=int,
+        help="Seed value for PRNG",
+    )
 
     # Output options
-    p.add_argument("-d", "--directory", default='.',
-                   metavar="<dir>", type=os.path.abspath,
-                   help="Directory to store results")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Be verbose")
-    p.add_argument("--debug", action="store_true",
-                   help="Log as much information as possible")
-    p.add_argument("--write-intermediate-conformers", action="store_true",
-                   help="Write intermediate structures to file (useful with debugging)")
+    p.add_argument(
+        "-d",
+        "--directory",
+        default=".",
+        metavar="<dir>",
+        type=os.path.abspath,
+        help="Directory to store results",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
+    p.add_argument(
+        "--debug", action="store_true", help="Log as much information as possible"
+    )
+    p.add_argument(
+        "--write-intermediate-conformers",
+        action="store_true",
+        help="Write intermediate structures to file (useful with debugging)",
+    )
     p.add_argument("--pdb", help="Name of the input PDB")
 
     return p
@@ -168,9 +383,9 @@ class QFitProtein:
 
     def run(self):
         if self.options.pdb is not None:
-            self.pdb = self.options.pdb + '_'
+            self.pdb = self.options.pdb + "_"
         else:
-            self.pdb = ''
+            self.pdb = ""
         multiconformer = self._run_qfit_residue_parallel()
         multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
@@ -198,25 +413,27 @@ class QFitProtein:
             ctx = mp.get_context(method="spawn")
 
         # Extract non-protein atoms
-        hetatms = self.structure.extract('record', 'HETATM', '==')
-        waters = self.structure.extract('record', 'ATOM', '==')
-        waters = waters.extract('resn', 'HOH', '==')
+        hetatms = self.structure.extract("record", "HETATM", "==")
+        waters = self.structure.extract("record", "ATOM", "==")
+        waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
         #    And then as we re-combine HETATMs back into the multiconformer_model.
-        residues = list(self.structure.extract('record', 'HETATM', '!=')
-                                      .extract('resn', 'HOH', '!=')
-                                      .single_conformer_residues)
+        residues = list(
+            self.structure.extract("record", "HETATM", "!=")
+            .extract("resn", "HOH", "!=")
+            .single_conformer_residues
+        )
 
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
             fname = os.path.join(
                 self.options.directory,
                 residue.shortcode,
-                'multiconformer_residue.pdb',
+                "multiconformer_residue.pdb",
             )
             if os.path.exists(fname):
                 logger.info(f"Residue {residue.shortcode}: {fname} already exists.")
@@ -224,10 +441,9 @@ class QFitProtein:
             else:
                 return False
 
-        residues_to_sample = list(itl.filterfalse(
-            does_multiconformer_checkpoint_exist,
-            residues
-        ))
+        residues_to_sample = list(
+            itl.filterfalse(does_multiconformer_checkpoint_exist, residues)
+        )
 
         # Print execution stats
         logger.info(f"Residues to sample: {len(residues_to_sample)}")
@@ -243,12 +459,14 @@ class QFitProtein:
         listener.start()
 
         # Initialise progress bar
-        progress = tqdm(total=len(residues_to_sample),
-                        desc="Sampling residues",
-                        unit="residue",
-                        unit_scale=True,
-                        leave=True,
-                        miniters=1)
+        progress = tqdm(
+            total=len(residues_to_sample),
+            desc="Sampling residues",
+            unit="residue",
+            unit_scale=True,
+            leave=True,
+            miniters=1,
+        )
 
         # Define callbacks and error callbacks to be attached to Jobs
         def _cb(result):
@@ -257,7 +475,7 @@ class QFitProtein:
             progress.update()
 
         def _error_cb(e):
-            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
             logger.critical(tb)
             progress.update()
 
@@ -265,15 +483,21 @@ class QFitProtein:
         if self.options.nproc > 1:
             # If multiprocessing, launch a Pool and run Jobs
             with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
-                futures = [pool.apply_async(QFitProtein._run_qfit_residue,
-                                            kwds={'residue': residue,
-                                                  'structure': self.structure,
-                                                  'xmap': self.get_map_around_substructure(residue),
-                                                  'options': self.options,
-                                                  'logqueue': logqueue},
-                                            callback=_cb,
-                                            error_callback=_error_cb)
-                           for residue in residues_to_sample]
+                futures = [
+                    pool.apply_async(
+                        QFitProtein._run_qfit_residue,
+                        kwds={
+                            "residue": residue,
+                            "structure": self.structure,
+                            "xmap": self.get_map_around_substructure(residue),
+                            "options": self.options,
+                            "logqueue": logqueue,
+                        },
+                        callback=_cb,
+                        error_callback=_error_cb,
+                    )
+                    for residue in residues_to_sample
+                ]
 
                 # Make sure all jobs are finished
                 # #TODO If a task crashes or is OOM killed, then there is no result.
@@ -320,11 +544,13 @@ class QFitProtein:
             fname = os.path.join(
                 self.options.directory,
                 residue.shortcode,
-                'multiconformer_residue.pdb',
+                "multiconformer_residue.pdb",
             )
             if not os.path.exists(fname):
-                logger.warn(f"[{residue.shortcode}] Couldn't find {fname}! "
-                             "Will not be present in multiconformer_model.pdb!")
+                logger.warn(
+                    f"[{residue.shortcode}] Couldn't find {fname}! "
+                    "Will not be present in multiconformer_model.pdb!"
+                )
                 continue
             residue_multiconformer = Structure.fromfile(fname)
 
@@ -332,7 +558,9 @@ class QFitProtein:
             if multiconformer_model is None:
                 multiconformer_model = residue_multiconformer
             else:
-                multiconformer_model = multiconformer_model.combine(residue_multiconformer)
+                multiconformer_model = multiconformer_model.combine(
+                    residue_multiconformer
+                )
 
         # Reattach the hetatms to the multiconformer_model
         multiconformer_model = multiconformer_model.combine(hetatms)
@@ -342,7 +570,9 @@ class QFitProtein:
         if self.options.debug:
             fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
             if self.structure.scale or self.structure.cryst_info:
-                multiconformer_model.tofile(fname, self.structure.scale, self.structure.cryst_info)
+                multiconformer_model.tofile(
+                    fname, self.structure.scale, self.structure.cryst_info
+                )
             else:
                 multiconformer_model.tofile(fname)
 
@@ -365,10 +595,13 @@ class QFitProtein:
 
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
-        fname = os.path.join(self.options.directory,
-                             self.pdb + "multiconformer_model2.pdb")
+        fname = os.path.join(
+            self.options.directory, self.pdb + "multiconformer_model2.pdb"
+        )
         if self.structure.scale or self.structure.cryst_info:
-            multiconformer.tofile(fname, self.structure.scale, self.structure.cryst_info)
+            multiconformer.tofile(
+                fname, self.structure.scale, self.structure.cryst_info
+            )
         else:
             multiconformer.tofile(fname)
         return multiconformer
@@ -378,8 +611,10 @@ class QFitProtein:
         """Run qfit on a single residue to determine density-supported conformers."""
 
         # Don't run qfit if we have a ligand or water
-        if residue.type != 'rotamer-residue':
-            raise RuntimeError(f"Residue {residue.id}: is not a rotamer-residue. Aborting qfit_residue sampling.")
+        if residue.type != "rotamer-residue":
+            raise RuntimeError(
+                f"Residue {residue.id}: is not a rotamer-residue. Aborting qfit_residue sampling."
+            )
 
         # Set up logger hierarchy in this subprocess
         poolworker_setup_logging(logqueue)
@@ -427,9 +662,11 @@ class QFitProtein:
             pass
 
         # Exit early if we have already run qfit for this residue
-        fname = os.path.join(residue_directory, 'multiconformer_residue.pdb')
+        fname = os.path.join(residue_directory, "multiconformer_residue.pdb")
         if os.path.exists(fname):
-            logger.info(f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint.")
+            logger.info(
+                f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
+            )
             return
 
         # Copy the structure
@@ -445,7 +682,7 @@ class QFitProtein:
         altlocs = sorted(list(set(residue.altloc)))
         if len(altlocs) > 1:
             try:
-                altlocs.remove('')
+                altlocs.remove("")
             except ValueError:
                 pass
             for altloc in altlocs[1:]:
@@ -454,17 +691,20 @@ class QFitProtein:
                 structure_new = structure_new.extract(sel_str)
 
         # Exception handling in case qFit-residue fails:
-        qfit = QFitRotamericResidue(residue, structure_new,
-                                    xmap, options)
+        qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
         try:
             qfit.run()
         except RuntimeError as e:
-            tb = ''.join(traceback.format_exception(e.__class__, e, e.__traceback__))
-            logger.warning(f"[{qfit.identifier}] "
-                           f"Unable to produce an alternate conformer. "
-                           f"Using deposited conformer A for this residue.")
-            logger.info(f"[{qfit.identifier}] This is a result of the following exception:\n"
-                        f"{tb})")
+            tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
+            logger.warning(
+                f"[{qfit.identifier}] "
+                f"Unable to produce an alternate conformer. "
+                f"Using deposited conformer A for this residue."
+            )
+            logger.info(
+                f"[{qfit.identifier}] This is a result of the following exception:\n"
+                f"{tb})"
+            )
             qfit.conformer = residue.copy()
             qfit._occupancies = [residue.q]
             qfit._coor_set = [residue.coor]
@@ -492,7 +732,7 @@ def prepare_qfit_protein(options):
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure).reorder()
     if not options.hydro:
-        structure = structure.extract('e', 'H', '!=')
+        structure = structure.extract("e", "H", "!=")
 
     # Load map and prepare it
     xmap = XMap.fromfile(
@@ -511,7 +751,7 @@ def prepare_qfit_protein(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(structure, radius=options.scale_rmask*radius)
+        scaler.scale(structure, radius=options.scale_rmask * radius)
 
     return QFitProtein(structure, xmap, options)
 

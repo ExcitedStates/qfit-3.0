@@ -40,42 +40,42 @@ class PDBFile:
         cls.cryst_info = []  # store header info
         cls.resolution = None
 
-        if fname.endswith('.gz'):
+        if fname.endswith(".gz"):
             fopen = gzip.open
-            mode = 'rt'
+            mode = "rt"
         else:
             fopen = open
-            mode = 'r'
+            mode = "r"
 
         with fopen(fname, mode) as f:
             for line in f:
-                if line.startswith(('ATOM', 'HETATM')):
+                if line.startswith(("ATOM", "HETATM")):
                     values = CoorRecord.parse_line(line)
                     for field in CoorRecord.fields:
                         cls.coor[field].append(values[field])
-                elif line.startswith('ANISOU'):
+                elif line.startswith("ANISOU"):
                     values = AnisouRecord.parse_line(line)
                     for field in AnisouRecord.fields:
                         cls.anisou[field].append(values[field])
-                elif line.startswith('MODEL'):
+                elif line.startswith("MODEL"):
                     raise NotImplementedError("MODEL record is not implemented.")
-                elif line.startswith('REMARK   2 RESOLUTION'):
+                elif line.startswith("REMARK   2 RESOLUTION"):
                     try:
                         values = Remark2DiffractionRecord.parse_line(line)
-                        cls.resolution = values['resolution']
+                        cls.resolution = values["resolution"]
                     except:
                         logger.error("PDBFile.read: could not parse RESOLUTION data.")
-                elif line.startswith('LINK '):
+                elif line.startswith("LINK "):
                     try:
                         values = LinkRecord.parse_line(line)
                         for field in LinkRecord.fields:
                             cls.link[field].append(values[field])
                     except:
                         logger.error("PDBFile.read: could not parse LINK data.")
-                elif line.startswith('CRYST1'):
+                elif line.startswith("CRYST1"):
                     cls.cryst1 = Cryst1Record.parse_line(line)
                     cls.cryst_info.append(line)
-                elif line.startswith('SCALE'):
+                elif line.startswith("SCALE"):
                     cls.scale.append(line)
 
         return cls
@@ -93,21 +93,21 @@ class PDBFile:
             structure (qfit.structure.Structure): a structure object to convert
                 to PDB.
         """
-        with open(fname, 'w') as f:
+        with open(fname, "w") as f:
             if structure.cryst_info:
                 for item in structure.cryst_info:
                     f.write("%s" % item)
             if structure.scale:
                 for item in structure.scale:
-                    f.write("%s" % item) 
+                    f.write("%s" % item)
             if structure.link_data:
                 for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
                     record = dict(zip(LinkRecord.fields, record))
-                    if not record['length']:
+                    if not record["length"]:
                         # If the LINK length is 0, then leave it blank.
                         # This is a deviation from the PDB standard.
-                        record['length'] = ''
-                        fmtstr = LinkRecord.fmtstr.replace('{:>5.2f}', '{:5s}')
+                        record["length"] = ""
+                        fmtstr = LinkRecord.fmtstr.replace("{:>5.2f}", "{:5s}")
                         f.write(fmtstr.format(*record.values()))
                     else:
                         f.write(LinkRecord.fmtstr.format(*record.values()))
@@ -116,11 +116,13 @@ class PDBFile:
             atomid = 1
             for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
                 record = dict(zip(CoorRecord.fields, record))
-                record['atomid'] = atomid  # Overwrite atomid for consistency within this file.
+                record[
+                    "atomid"
+                ] = atomid  # Overwrite atomid for consistency within this file.
                 # If the element name is a single letter,
                 # PDB specification says the atom name should start one column in.
-                if len(record['e']) == 1 and not len(record['name']) == 4:
-                    record['name'] = " " + record['name']
+                if len(record["e"]) == 1 and not len(record["name"]) == 4:
+                    record["name"] = " " + record["name"]
 
                 # Write file
                 try:
@@ -157,8 +159,10 @@ class RecordParser(object):
             try:
                 values[field] = dtype(line[slice(*column)].strip())
             except ValueError:
-                logger.error(f"RecordParser.parse_line: could not parse "
-                             f"{field} ({line[slice(*column)]}) as {dtype}")
+                logger.error(
+                    f"RecordParser.parse_line: could not parse "
+                    f"{field} ({line[slice(*column)]}) as {dtype}"
+                )
                 values[field] = dtype()
         return values
 
@@ -182,8 +186,10 @@ class RecordParser(object):
 
         # Build list of fields
         field_lengths = map(lambda colpair: colpair[1] - colpair[0], cls.columns)
-        formatted_values = map(lambda args: cls._fixed_length_format(*args),
-                               zip(values, cls.fmttrs, field_lengths, cls.dtypes))
+        formatted_values = map(
+            lambda args: cls._fixed_length_format(*args),
+            zip(values, cls.fmttrs, field_lengths, cls.dtypes),
+        )
 
         # Intersperse formatted values with spaces
         line = itl.zip_longest(formatted_values, spaces, fillvalue="")
@@ -214,8 +220,10 @@ class RecordParser(object):
                 replacement_field = formatter.format(inf)
             elif dtype is int:
                 replacement_field = formatter.format(0)
-            logger.warning(f"{field} exceeds field width {maxlen} chars. "
-                           f"Using {replacement_field}.")
+            logger.warning(
+                f"{field} exceeds field width {maxlen} chars. "
+                f"Using {replacement_field}."
+            )
             return replacement_field
         else:
             return field
@@ -223,113 +231,278 @@ class RecordParser(object):
 
 class ModelRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#MODEL
-    fields  = ("record", "modelid")
-    columns = [(0, 6),   (10, 14)]
-    dtypes  = (str,      int)
-    fmtstr  = '{:<6s}' + ' ' * 4 + '{:>4d}' + '\n'
+    fields = ("record", "modelid")
+    columns = [(0, 6), (10, 14)]
+    dtypes = (str, int)
+    fmtstr = "{:<6s}" + " " * 4 + "{:>4d}" + "\n"
 
 
 class LinkRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect6.html#LINK
-    fields  = ("record",
-               "name1",  "altloc1", "resn1",  "chain1", "resi1",  "icode1",
-               "name2",  "altloc2", "resn2",  "chain2", "resi2",  "icode2",
-               "sym1",   "sym2",    "length")
-    columns = ((0, 6),
-               (12, 16), (16, 17),  (17, 20), (21, 22), (22, 26), (26, 27),
-               (42, 46), (46, 47),  (47, 50), (51, 52), (52, 56), (56, 57),
-               (59, 65), (66, 72),  (73, 78))
-    dtypes  = (str,
-               str,      str,       str,      str,      int,      str,
-               str,      str,       str,      str,      int,      str,
-               str,      str,       float)
-    fmtstr  = ('{:<6s}' + ' ' * 6
-               + ' ' + '{:<3s}{:1s}{:>3s}' + ' ' + '{:1s}{:>4d}{:1s}' + ' ' * 15
-               + ' ' + '{:<3s}{:1s}{:>3s}' + ' ' + '{:1s}{:>4d}{:1s}' + ' ' * 2
-               + '{:>6s} {:>6s} {:>5.2f}' + '\n')
+    fields = (
+        "record",
+        "name1",
+        "altloc1",
+        "resn1",
+        "chain1",
+        "resi1",
+        "icode1",
+        "name2",
+        "altloc2",
+        "resn2",
+        "chain2",
+        "resi2",
+        "icode2",
+        "sym1",
+        "sym2",
+        "length",
+    )
+    columns = (
+        (0, 6),
+        (12, 16),
+        (16, 17),
+        (17, 20),
+        (21, 22),
+        (22, 26),
+        (26, 27),
+        (42, 46),
+        (46, 47),
+        (47, 50),
+        (51, 52),
+        (52, 56),
+        (56, 57),
+        (59, 65),
+        (66, 72),
+        (73, 78),
+    )
+    dtypes = (
+        str,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        str,
+        str,
+        float,
+    )
+    fmtstr = (
+        "{:<6s}"
+        + " " * 6
+        + " "
+        + "{:<3s}{:1s}{:>3s}"
+        + " "
+        + "{:1s}{:>4d}{:1s}"
+        + " " * 15
+        + " "
+        + "{:<3s}{:1s}{:>3s}"
+        + " "
+        + "{:1s}{:>4d}{:1s}"
+        + " " * 2
+        + "{:>6s} {:>6s} {:>5.2f}"
+        + "\n"
+    )
 
 
 class CoorRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ATOM
-    fields  = ("record",
-               "atomid", "name",   "altloc", "resn",   "chain",  "resi",   "icode",
-               "x",      "y",      "z",      "q",      "b",
-               "e",      "charge")
-    columns = ((0, 6),
-               (6, 11),  (12, 16), (16, 17), (17, 20), (21, 22), (22, 26), (26, 27),
-               (30, 38), (38, 46), (46, 54), (54, 60), (60, 66),
-               (76, 78), (78, 80))
-    dtypes  = (str,
-               int,      str,      str,      str,      str,      int,      str,
-               float,    float,    float,    float,    float,
-               str,      str)
-    fmtstr  = ('{:<6s}'
-               + '{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}' + ' ' * 3
-               + '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}' + ' ' * 10
-               + '{:>2s}{:>2s}' + '\n')
-    fmttrs  = ('{:<6s}',
-               '{:>5d}', '{:<4s}', '{:1s}', '{:>3s}', '{:1s}', '{:>4d}', '{:1s}',
-               '{:8.3f}', '{:8.3f}', '{:8.3f}', '{:6.2f}', '{:6.2f}',
-               '{:>2s}', '{:>2s}')
+    fields = (
+        "record",
+        "atomid",
+        "name",
+        "altloc",
+        "resn",
+        "chain",
+        "resi",
+        "icode",
+        "x",
+        "y",
+        "z",
+        "q",
+        "b",
+        "e",
+        "charge",
+    )
+    columns = (
+        (0, 6),
+        (6, 11),
+        (12, 16),
+        (16, 17),
+        (17, 20),
+        (21, 22),
+        (22, 26),
+        (26, 27),
+        (30, 38),
+        (38, 46),
+        (46, 54),
+        (54, 60),
+        (60, 66),
+        (76, 78),
+        (78, 80),
+    )
+    dtypes = (
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        float,
+        float,
+        float,
+        float,
+        float,
+        str,
+        str,
+    )
+    fmtstr = (
+        "{:<6s}"
+        + "{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}"
+        + " " * 3
+        + "{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}"
+        + " " * 10
+        + "{:>2s}{:>2s}"
+        + "\n"
+    )
+    fmttrs = (
+        "{:<6s}",
+        "{:>5d}",
+        "{:<4s}",
+        "{:1s}",
+        "{:>3s}",
+        "{:1s}",
+        "{:>4d}",
+        "{:1s}",
+        "{:8.3f}",
+        "{:8.3f}",
+        "{:8.3f}",
+        "{:6.2f}",
+        "{:6.2f}",
+        "{:>2s}",
+        "{:>2s}",
+    )
 
 
 class AnisouRecord(RecordParser):
     # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ANISOU
-    fields  = ("record",
-               "atomid", "atomname", "altloc", "resn",   "chain",  "resi",   "icode",
-               "u00",    "u11",      "u22",    "u01",    "u02",    "u12",
-               "e",      "charge")
-    columns = ((0, 6),
-               (6, 11),  (12, 16),   (16, 17), (17, 20), (21, 22), (22, 26), (26, 27),
-               (28, 35), (35, 42),   (42, 49), (49, 56), (56, 63), (63, 70),
-               (76, 78), (78, 80))
-    dtypes  = (str,
-               int,      str,        str,      str,      str,      int,      str,
-               float,    float,      float,    float,    float,    float,
-               str,      str)
-    fmtstr  = ('{:<6s}'
-               + '{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}' + ' '
-               + '{:>7d}' * 6 + ' ' * 6
-               + '{:>2s}{:>2s}' + '\n')
+    fields = (
+        "record",
+        "atomid",
+        "atomname",
+        "altloc",
+        "resn",
+        "chain",
+        "resi",
+        "icode",
+        "u00",
+        "u11",
+        "u22",
+        "u01",
+        "u02",
+        "u12",
+        "e",
+        "charge",
+    )
+    columns = (
+        (0, 6),
+        (6, 11),
+        (12, 16),
+        (16, 17),
+        (17, 20),
+        (21, 22),
+        (22, 26),
+        (26, 27),
+        (28, 35),
+        (35, 42),
+        (42, 49),
+        (49, 56),
+        (56, 63),
+        (63, 70),
+        (76, 78),
+        (78, 80),
+    )
+    dtypes = (
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+        str,
+        str,
+    )
+    fmtstr = (
+        "{:<6s}"
+        + "{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}"
+        + " "
+        + "{:>7d}" * 6
+        + " " * 6
+        + "{:>2s}{:>2s}"
+        + "\n"
+    )
 
 
 class ExpdtaRecord(RecordParser):
-    fields  = ("record", "cont",  "technique")
-    columns = ((0, 6),   (8, 10), (10, 79))
-    dtypes  = (str,      str,     str)
+    fields = ("record", "cont", "technique")
+    columns = ((0, 6), (8, 10), (10, 79))
+    dtypes = (str, str, str)
 
 
 class RemarkRecord(RecordParser):
-    fields  = ("record", "remarkid", "text")
-    columns = ((0, 6),   (7, 10),    (11, 79))
-    dtypes  = (str,      int,        str)
+    fields = ("record", "remarkid", "text")
+    columns = ((0, 6), (7, 10), (11, 79))
+    dtypes = (str, int, str)
 
 
 class Remark2DiffractionRecord(RecordParser):
     # For diffraction experiments
-    fields  = ("record", "remarkid", "RESOLUTION", "resolution", "ANGSTROM")
-    columns = ((0, 6),   (9, 10),    (11, 22),     (23, 30),     (31, 41))
-    dtypes  = (str,      str,        str,          float,        str)
+    fields = ("record", "remarkid", "RESOLUTION", "resolution", "ANGSTROM")
+    columns = ((0, 6), (9, 10), (11, 22), (23, 30), (31, 41))
+    dtypes = (str, str, str, float, str)
 
 
 class Remark2NonDiffractionRecord(RecordParser):
     # For diffraction experiments
-    fields  = ("record", "remarkid", "NOTAPPLICABLE")
-    columns = ((0, 6),   (9, 10),    (11, 38))
-    dtypes  = (str,      str,        str)
+    fields = ("record", "remarkid", "NOTAPPLICABLE")
+    columns = ((0, 6), (9, 10), (11, 38))
+    dtypes = (str, str, str)
 
 
 class Cryst1Record(RecordParser):
-    fields  = ("record",
-               "a",     "b",      "c",      "alpha",  "beta",   "gamma",  "spg")
-    columns = ((0, 6),
-               (6, 15), (15, 24), (24, 33), (33, 40), (40, 47), (47, 54), (55, 66), (66, 70))
-    dtypes  = (str,
-               float,   float,    float,    float,    float,    float,    str,      int)
+    fields = ("record", "a", "b", "c", "alpha", "beta", "gamma", "spg")
+    columns = (
+        (0, 6),
+        (6, 15),
+        (15, 24),
+        (24, 33),
+        (33, 40),
+        (40, 47),
+        (47, 54),
+        (55, 66),
+        (66, 70),
+    )
+    dtypes = (str, float, float, float, float, float, float, str, int)
 
 
 class EndRecord(RecordParser):
-    fields  = ("record",)
+    fields = ("record",)
     columns = ((0, 6),)
-    dtypes  = (str,)
-    fmtstr  = 'END   ' + ' ' * 74 + '\n'
+    dtypes = (str,)
+    fmtstr = "END   " + " " * 74 + "\n"

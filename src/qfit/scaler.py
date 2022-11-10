@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class MapScaler:
-
-    def __init__(self, xmap, scattering='xray'):
+    def __init__(self, xmap, scattering="xray"):
         self.xmap = xmap
         self.scattering = scattering
         self._model_map = xmap.zeros_like(xmap)
@@ -18,11 +17,16 @@ class MapScaler:
         if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
             transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, scattering=self.scattering)
+                structure, self._model_map, hkl=hkl, scattering=self.scattering
+            )
         else:
             transformer = Transformer(
-                structure, self._model_map, simple=True,
-                rmax=3, scattering=self.scattering)
+                structure,
+                self._model_map,
+                simple=True,
+                rmax=3,
+                scattering=self.scattering,
+            )
         logger.info("Subtracting density.")
         transformer.density()
         self.xmap.array -= self._model_map.array
@@ -30,11 +34,17 @@ class MapScaler:
     def scale(self, structure, radius=1):
         if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
-            transformer = FFTTransformer(structure, self._model_map,
-                                         hkl=hkl, scattering=self.scattering)
+            transformer = FFTTransformer(
+                structure, self._model_map, hkl=hkl, scattering=self.scattering
+            )
         else:
-            transformer = Transformer(structure, self._model_map, simple=True,
-                                      rmax=3, scattering=self.scattering)
+            transformer = Transformer(
+                structure,
+                self._model_map,
+                simple=True,
+                rmax=3,
+                scattering=self.scattering,
+            )
 
         # Get all map coordinates of interest:
         transformer.mask(radius)
