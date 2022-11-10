@@ -136,6 +136,15 @@ OUTPUT: PDB with renamed chain(s)
 example:
 `relabel_chain.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name}`
 
+## 11. Subset structures based on proximity to ligand
+This script will take in 2 pdbs and a ligand or geometric point in the PDB and the PDB names and output a list of overlapping ligands and a list of close residues (determined by -distance).
+
+INPUT: 2 PDB, 2 PDB names, ligand (optional: distance)
+
+OUTPUT: Text file with list of close residue, text file with list of overlapping ligands 
+
+example:
+`subset_structure_AH.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name} -ls {ligand name}`
 
 
 
