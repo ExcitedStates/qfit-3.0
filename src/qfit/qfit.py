@@ -1332,7 +1332,10 @@ class QFitSegment(_BaseQFit):
                         fragment = fragment.combine(element.set_backbone_occ())
                     combine = True
                     for fragment2 in fragments:
-                        if calc_rmsd(fragment.coor, fragment2.coor) < 0.1:
+                        if (
+                            calc_rmsd(fragment.coor, fragment2.coor)
+                            < self.options.rmsd_cutoff
+                        ):
                             combine = False
                             break
                     if combine:
