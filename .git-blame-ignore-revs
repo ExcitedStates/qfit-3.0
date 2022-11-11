@@ -1,0 +1,10 @@
+# This file contains a list of revisions that the qFit maintainers
+# consider unimportant for git blame purposes because they are pure
+# refactoring changes and unlikely to be the cause of bugs. Configure
+# git to use this file by configuring the 'blame.ignoreRevsFile'
+# setting. For example:
+#
+#   $ git config --local blame.ignoreRevsFile .git-blame-ignore-revs
+#
+
+73c42b66021929d326a89edf885f2c1e03814f9c # initial blackification

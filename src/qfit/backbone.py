@@ -49,7 +49,7 @@ def compute_jacobian5d(bb_coor):
     faa = bb_coor[-2]
     fh_fa = fh + fa
     ndofs = nresidues * 2
-    #jacobian = np.zeros((ndofs, 5), dtype=np.float64)
+    # jacobian = np.zeros((ndofs, 5), dtype=np.float64)
     jacobian = np.zeros((5, ndofs), dtype=np.float64).T
     norm = np.linalg.norm
     # N -> CA rotations
@@ -122,7 +122,7 @@ class AtomMoveFunctional:
         self.segment = segment
         self.residue_index = residue_index
         residue = self.segment[residue_index]
-        self._atom_index = residue.select('name', atom_name)[0]
+        self._atom_index = residue.select("name", atom_name)[0]
         self.endpoint = endpoint
 
     def target(self):
@@ -160,9 +160,9 @@ class AtomMoveFunctional:
             # position. The backbone torsion gradients will be zero.
             if n > self.residue_index:
                 continue
-            N = residue.extract('name', 'N')
-            CA = residue.extract('name', 'CA')
-            C = residue.extract('name', 'C')
+            N = residue.extract("name", "N")
+            CA = residue.extract("name", "CA")
+            C = residue.extract("name", "C")
             origin = N.coor[0]
             phi_axis = CA.coor[0] - origin
             phi_axis /= np.linalg.norm(phi_axis)
@@ -182,31 +182,37 @@ class AtomMoveFunctional:
 
 
 class NullSpaceOptimizer:
-
     def __init__(self, segment):
 
         self.segment = segment
         self.ndofs = len(segment) * 2
         self.rotator = BackboneRotator(segment)
-        self._bb_selection = np.sort(self.segment.select('name', ('N', 'CA', 'C')))
+        self._bb_selection = np.sort(self.segment.select("name", ("N", "CA", "C")))
         self._starting_coor = self.segment.coor
 
     def optimize(self, atom_name, endpoint):
         residue_index = int(len(self.segment) / 2.0)
-        self._functional = AtomMoveFunctional(self.segment, residue_index, atom_name, endpoint)
+        self._functional = AtomMoveFunctional(
+            self.segment, residue_index, atom_name, endpoint
+        )
 
         torsions = np.zeros(self.ndofs, float)
 
         options = {}
         minimize = sp.optimize.minimize
-        result = minimize(self.target_and_gradient, torsions,
-                          method='L-BFGS-B', jac=True, options=options)
+        result = minimize(
+            self.target_and_gradient,
+            torsions,
+            method="L-BFGS-B",
+            jac=True,
+            options=options,
+        )
         return result
 
     def target_and_gradient(self, torsions):
 
         self.rotator(torsions)
-        #target, gradient = self._functional.target_and_gradients_phi_psi()
+        # target, gradient = self._functional.target_and_gradients_phi_psi()
         target = self._functional.target()
 
         tmp = torsions.copy()

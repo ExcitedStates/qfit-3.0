@@ -19,7 +19,7 @@ else:
 
 
 # Only these classes should be "public"
-__all__ = ['QPSolver', 'MIQPSolver', 'SolverError']
+__all__ = ["QPSolver", "MIQPSolver", "SolverError"]
 
 
 # Define the required functions for (MI)QP solver objects
@@ -38,10 +38,10 @@ class _Base_QPSolver(object):
 # If we can load the CPLEX solver set,
 # provide class definitions for a QP and MIQP solver.
 if CPLEX:
-    cvxopt.solvers.options['show_progress'] = False
-    cvxopt.solvers.options['abstol'] = 1e-8
-    cvxopt.solvers.options['reltol'] = 1e-7
-    cvxopt.solvers.options['feastol'] = 1e-8
+    cvxopt.solvers.options["show_progress"] = False
+    cvxopt.solvers.options["abstol"] = 1e-8
+    cvxopt.solvers.options["reltol"] = 1e-7
+    cvxopt.solvers.options["feastol"] = 1e-8
 
     class CPLEX_QPSolver(_Base_QPSolver):
         """Quadratic Programming solver based on CPLEX."""
@@ -57,9 +57,11 @@ if CPLEX:
 
         def initialize(self):
             # Set up the matrices and restraints
-            logger.debug(f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})")
-            self._quad_obj = cvxopt.matrix(np.inner(self._models, self._models), tc='d')
-            self._lin_obj = cvxopt.matrix(-np.inner(self._models, self._target), tc='d')
+            logger.debug(
+                f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})"
+            )
+            self._quad_obj = cvxopt.matrix(np.inner(self._models, self._models), tc="d")
+            self._lin_obj = cvxopt.matrix(-np.inner(self._models, self._target), tc="d")
 
             # lower-equal constraints.
             # Each weight falls in the closed interval [0..1] and its sum is <= 1.
@@ -67,12 +69,13 @@ if CPLEX:
             # Make a sparse matrix to represent this information.
             self._le_constraints = cvxopt.spmatrix(
                 self._nconformers * [-1.0] + 2 * self._nconformers * [1.0],
-                list(range(2 * self._nconformers)) + self._nconformers * [2 * self._nconformers],
+                list(range(2 * self._nconformers))
+                + self._nconformers * [2 * self._nconformers],
                 3 * list(range(self._nconformers)),
             )
             self._le_bounds = cvxopt.matrix(
-                self._nconformers * [0.0] + (self._nconformers + 1) * [1.0],
-                tc='d')
+                self._nconformers * [0.0] + (self._nconformers + 1) * [1.0], tc="d"
+            )
             self.initialized = True
 
         def __call__(self):
@@ -80,11 +83,12 @@ if CPLEX:
                 self.initialize()
 
             self._solution = cvxopt.solvers.qp(
-                self._quad_obj, self._lin_obj,
-                self._le_constraints, self._le_bounds
+                self._quad_obj, self._lin_obj, self._le_constraints, self._le_bounds
             )
-            self.obj_value = 2 * self._solution['primal objective'] + np.inner(self._target, self._target)
-            self.weights = np.asarray(self._solution['x']).ravel()
+            self.obj_value = 2 * self._solution["primal objective"] + np.inner(
+                self._target, self._target
+            )
+            self.weights = np.asarray(self._solution["x"]).ravel()
 
     class CPLEX_MIQPSolver(_Base_QPSolver):
         """Mixed-Integer Quadratic Programming solver based on CPLEX."""
@@ -117,24 +121,27 @@ if CPLEX:
                 miqp.parameters.threads.set(self.threads)
 
             # Setup QP part of the MIQP
-            variable_names = [f'w{n}' for n in range(self._nconformers)]
+            variable_names = [f"w{n}" for n in range(self._nconformers)]
             upper_bounds = self._nconformers * [1.0]
 
             miqp.variables.add(names=variable_names, ub=upper_bounds)
             for i in range(self._nconformers):
                 for j in range(i, self._nconformers):
-                    miqp.objective.set_quadratic_coefficients(i, j, self._quad_obj[i, j])
+                    miqp.objective.set_quadratic_coefficients(
+                        i, j, self._quad_obj[i, j]
+                    )
                 miqp.objective.set_linear(i, self._lin_obj[i])
-            if (ligand is None): 
+            if ligand is None:
                 ind = range(self._nconformers)
                 val = [1] * self._nconformers
                 lin_expr = [cplex.SparsePair(ind=ind, val=val)]
                 miqp.linear_constraints.add(
                     lin_expr=lin_expr,
                     rhs=[1],
-                    senses=["E"],)
-                    
-            else: 
+                    senses=["E"],
+                )
+
+            else:
                 ind = range(self._nconformers)
                 val = [1] * self._nconformers
                 lin_expr = [cplex.SparsePair(ind=ind, val=val)]
@@ -142,12 +149,12 @@ if CPLEX:
                     lin_expr=lin_expr,
                     rhs=[1],
                     senses=["L"],
-                ) #this is a ligand and we are ok with a sum of occupancies being =< 1 # Sum of weights is == 1
+                )  # this is a ligand and we are ok with a sum of occupancies being =< 1 # Sum of weights is == 1
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
             # a regular QP.
             if cardinality not in (None, 0) or threshold not in (None, 0):
-                integer_names = [f'z{n}' for n in range(self._nconformers)]
+                integer_names = [f"z{n}" for n in range(self._nconformers)]
                 variable_types = self._nconformers * miqp.variables.type.binary
                 miqp.variables.add(names=integer_names, types=variable_types)
 
@@ -163,7 +170,9 @@ if CPLEX:
                     # Set the threshold constraint
                     if threshold not in (None, 0):
                         miqp.linear_constraints.add(
-                            lin_expr=[cplex.SparsePair(ind=[z, w], val=[threshold, -1])],
+                            lin_expr=[
+                                cplex.SparsePair(ind=[z, w], val=[threshold, -1])
+                            ],
                             rhs=[0],
                             senses=["L"],
                         )
@@ -173,7 +182,12 @@ if CPLEX:
                     if exact:
                         senses = "E"
                         cardinality = min(cardinality, self._nconformers)
-                    lin_expr = [[list(range(self._nconformers, 2 * self._nconformers)), self._nconformers * [1]]]
+                    lin_expr = [
+                        [
+                            list(range(self._nconformers, 2 * self._nconformers)),
+                            self._nconformers * [1],
+                        ]
+                    ]
                     miqp.linear_constraints.add(
                         lin_expr=lin_expr,
                         rhs=[cardinality],
@@ -181,22 +195,24 @@ if CPLEX:
                     )
             miqp.solve()
 
-            self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(self._target, self._target)
-            self.weights = np.asarray(miqp.solution.get_values()[:self._nconformers])
+            self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(
+                self._target, self._target
+            )
+            self.weights = np.asarray(miqp.solution.get_values()[: self._nconformers])
             miqp.end()
             q = self._lin_obj.reshape(-1, 1)
             P = self._quad_obj
             w = self.weights.reshape(-1, 1)
 
-            #print("CPLEX MIQP")
-            #print('P:', P)
-            #print('q:', q)
-            #print('w:', w)
+            # print("CPLEX MIQP")
+            # print('P:', P)
+            # print('q:', q)
+            # print('w:', w)
 
-            #obj = 0.5 * w.T @ P @ w + q.T @ w
-            #print("calculated myself OBJ:", obj)
-            #print('from solver OBJ:', self.obj_value)
-            #print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
+            # obj = 0.5 * w.T @ P @ w + q.T @ w
+            # print("calculated myself OBJ:", obj)
+            # print('from solver OBJ:', self.obj_value)
+            # print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
 
 
 # Create a "pseudo-class" to abstract the choice of solver.
@@ -212,16 +228,22 @@ class QPSolver(object):
             if CPLEX:
                 return CPLEX_QPSolver(*args, **kwargs)
             else:
-                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install cvxopt & CPLEX.")
+                raise ImportError(
+                    "qFit could not load modules for Quadratic Programming solver.\n"
+                    "Please install cvxopt & CPLEX."
+                )
         else:
             if CPLEX:
-                print("WARNING: A different solver was requested, but only CPLEX solvers found.\n"
-                      "         Using CPLEX solver as fallback.")
+                print(
+                    "WARNING: A different solver was requested, but only CPLEX solvers found.\n"
+                    "         Using CPLEX solver as fallback."
+                )
                 return CPLEX_QPSolver(*args, **kwargs)
             else:
-                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install cvxopt & CPLEX.")
+                raise ImportError(
+                    "qFit could not load modules for Quadratic Programming solver.\n"
+                    "Please install cvxopt & CPLEX."
+                )
 
     def __init__(self, *args, **kwargs):
         # This pseudo-class does not generate class instances.
@@ -243,16 +265,22 @@ class MIQPSolver(object):
             if CPLEX:
                 return CPLEX_MIQPSolver(*args, **kwargs)
             else:
-                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install cvxopt & CPLEX.")
+                raise ImportError(
+                    "qFit could not load modules for Quadratic Programming solver.\n"
+                    "Please install cvxopt & CPLEX."
+                )
         else:
             if CPLEX:
-                print("WARNING: A different solver was requested, but only CPLEX solvers found.\n"
-                      "         Using CPLEX solver as fallback.")
+                print(
+                    "WARNING: A different solver was requested, but only CPLEX solvers found.\n"
+                    "         Using CPLEX solver as fallback."
+                )
                 return CPLEX_MIQPSolver(*args, **kwargs)
             else:
-                raise ImportError("qFit could not load modules for Quadratic Programming solver.\n"
-                                  "Please install cvxopt & CPLEX.")
+                raise ImportError(
+                    "qFit could not load modules for Quadratic Programming solver.\n"
+                    "Please install cvxopt & CPLEX."
+                )
 
     def __init__(self, *args, **kwargs):
         # This pseudo-class does not generate class instances.

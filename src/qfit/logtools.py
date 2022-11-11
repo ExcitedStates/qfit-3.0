@@ -29,8 +29,9 @@ def setup_logging(options, filename="qfit.log"):
         console_log_level = logging.WARNING
 
     # Create formatter
-    log_formatter = logging.Formatter('%(asctime)s [%(levelname)-8s] '
-                                      '%(processName)-10s %(name)s : %(message)s')
+    log_formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)-8s] " "%(processName)-10s %(name)s : %(message)s"
+    )
 
     # Create & attach console loghandler
     console_loghandler = logging.StreamHandler(stream=sys.stdout)
@@ -40,7 +41,7 @@ def setup_logging(options, filename="qfit.log"):
 
     # Create & attach file loghandler
     logging_fname = os.path.join(options.directory, filename)
-    file_loghandler = logging.FileHandler(filename=logging_fname, mode='a')
+    file_loghandler = logging.FileHandler(filename=logging_fname, mode="a")
     file_loghandler.setLevel(file_log_level)
     file_loghandler.setFormatter(log_formatter)
     MODULELOGGER.addHandler(file_loghandler)
@@ -91,7 +92,7 @@ def poolworker_setup_logging(logqueue):
         logqueue (multiprocessing.Queue): A queue to log messages to.
     """
     # Only if we are in a PoolWorker
-    if mp.current_process().name != 'MainProcess':
+    if mp.current_process().name != "MainProcess":
         # Get the RootLogger of this Process
         process_ROOTLOGGER = logging.getLogger()
         process_ROOTLOGGER.level = logging.NOTSET
@@ -116,6 +117,7 @@ class QueueListener(threading.Thread):
             Contains log messages from other Processes which are to be
             'handled' here in MainProcess.
     """
+
     def __init__(self, queue, **kwargs):
         super().__init__(**kwargs)
         self._queue = queue
