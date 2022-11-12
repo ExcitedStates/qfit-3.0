@@ -81,6 +81,9 @@ class QFitOptions:
         self.sample_backbone_step = 0.1
         self.sample_backbone_sigma = 0.125
 
+        #Sample B-factors 
+        self.sample_bfactors = True
+        
         # N-CA-CB angle sampling
         self.sample_angle = True
         self.sample_angle_range = 7.5
