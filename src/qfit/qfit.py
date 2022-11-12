@@ -256,14 +256,6 @@ class _BaseQFit:
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
-    def _randomize_bs(self, bs, atoms):
-        bs_copy = copy.deepcopy(bs)
-        if self.options.randomize_b:
-            mask = np.in1d(self.conformer.name, atoms)
-            add = 0.2 * self.prng.random(bs_copy[mask].shape[0]) - 0.1
-            bs_copy[mask] += np.multiply(bs[mask], add)
-        return bs_copy
-
     def _solve(
         self,
         cardinality=None,
