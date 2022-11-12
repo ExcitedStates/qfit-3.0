@@ -953,7 +953,7 @@ class QFitRotamericResidue(_BaseQFit):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
-            iter_b_set = []
+            iter_b_set = [] # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
