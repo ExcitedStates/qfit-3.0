@@ -1334,7 +1334,7 @@ class QFitSegment(_BaseQFit):
                     for fragment2 in fragments:
                         if (
                             calc_rmsd(fragment.coor, fragment2.coor)
-                            < self.options.rmsd_cutoff
+                            < 0.05
                         ):
                             combine = False
                             break
