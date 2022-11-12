@@ -1335,9 +1335,9 @@ class QFitSegment(_BaseQFit):
                         fragment = fragment.combine(element.set_backbone_occ())
                     combine = True
                     for fragment2 in fragments:
-                        diff = (fragment.coor - fragment2.coor).ravel()
-                        if np.sqrt(3 * np.inner(diff, diff) / diff.size) < np.min(
-                            [0.005 * diff.size, 0.3]
+                        if (
+                            calc_rmsd(fragment.coor, fragment2.coor)
+                            < 0.05
                         ):
                             combine = False
                             break
