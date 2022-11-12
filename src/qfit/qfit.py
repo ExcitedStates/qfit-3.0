@@ -300,6 +300,21 @@ class _BaseQFit:
         # residual = 0
         return solver.obj_value
 
+    
+        def sample_b(self):
+        """
+        This funciton will take in coor set and b-factors for all conformers selected after QP (to help save time) 
+        and multiple each atom's b-factor by it multiplication factor.  
+        """
+        new_coor = []
+        new_bfactor =[]
+        multiplication_factors = [1.0, 1.2, 1.3, 1.5, 0.9, 0.7, 0.5] 
+        for coor, b, multi in zip(self._coor_set, self._bs, multiplication_factors):
+                new_coor.append(coor)
+                new_bfactor.append(b * multi)
+        self._coor_set = new_coor
+        self._bs = new_bfactor
+
     def _zero_out_most_similar_conformer(self):
         """Zero-out the lowest occupancy, most similar conformer.
 
