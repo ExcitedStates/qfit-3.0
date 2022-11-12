@@ -1504,9 +1504,7 @@ class QFitLigand(_BaseQFit):
         self._convert()
         self._solve(
             threshold=self.options.threshold,
-            cardinality=self.options.cardinality,
-            ligand="ligand",
-        )  # specifying this is ligand to allow for less than one occupancy
+            cardinality=self.options.cardinality)
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
