@@ -32,8 +32,8 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/qfit_io_test/1fnt_phases.mtz",  # mapfile, using relative directory from tests/
-            "./example/qfit_io_test/1fnt.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_io_test/1fnt_phases.mtz",  # mapfile, using relative directory from tests/
+            "./tests/qfit_io_test/1fnt.pdb",  # structurefile, using relative directory from tests/
             "-l", "FWT,PHWT",
         ]
 
@@ -74,8 +74,8 @@ class TestQFitProtein:
 
         #Read the written file again and check
         args = [
-            "./example/qfit_io_test/1fnt_phases.mtz",  
-            "./example/qfit_io_test/j_neg_residues.pdb",  
+            "./tests/qfit_io_test/1fnt_phases.mtz",  
+            "./tests/qfit_io_test/j_neg_residues.pdb",  
             "-l", "FWT,PHWT",
         ]
 
@@ -103,8 +103,8 @@ class TestQFitProtein:
 
         #Test 2: Check if 4 digit residues are read correctly
         args = [
-            "./example/qfit_io_test/4e3y_phases.mtz",  # mapfile, using relative directory from tests/
-            "./example/qfit_io_test/4e3y.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_io_test/4e3y_phases.mtz",  # mapfile, using relative directory from tests/
+            "./tests/qfit_io_test/4e3y.pdb",  # structurefile, using relative directory from tests/
             "-l", "FWT,PHWT",
         ]
 
@@ -137,8 +137,8 @@ class TestQFitProtein:
         # Test 3: Read PDB file with HETATM record appearing in between ATOM records
 
         args = [
-            "./example/qfit_io_test/5orl_phases.mtz",  # mapfile, using relative directory from tests/
-            "./example/qfit_io_test/5orl.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_io_test/5orl_phases.mtz",  # mapfile, using relative directory from tests/
+            "./tests/qfit_io_test/5orl.pdb",  # structurefile, using relative directory from tests/
             "-l", "FWT,PHWT",
         ]
 
@@ -170,8 +170,8 @@ class TestQFitProtein:
         #Test 4: Read mmCIF file and map file of cryoEM structure. To be uncommented after cctbx integration is complete
         '''
         args = [
-            "./example/qfit_io_test/7o9m.map",  # mapfile, using relative directory from tests/
-            "./example/qfit_io_test/7o9m.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_io_test/7o9m.map",  # mapfile, using relative directory from tests/
+            "./tests/qfit_io_test/7o9m.pdb",  # structurefile, using relative directory from tests/
             #"-l", "FWT,PHWT",
         ]
 
