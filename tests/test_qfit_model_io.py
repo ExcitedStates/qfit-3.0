@@ -70,7 +70,7 @@ class TestQFitProtein:
         qfit.structure = qfit.structure.extract('resi',(-7,-5,-3,-2),"==")
         assert(len(list(qfit.structure.single_conformer_residues))) == 4
         #output the extracted residues to file
-        qfit.structure.tofile("./example/qfit_io_test/j_neg_residues.pdb")
+        qfit.structure.tofile("./tests/qfit_io_test/j_neg_residues.pdb")
 
         #Read the written file again and check
         args = [
