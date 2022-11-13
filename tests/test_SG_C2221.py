@@ -32,21 +32,16 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/1dmm.mtz",  # mapfile, using relative directory from tests/
-            "./example/1DMM.pdb",  # structurefile, using relative directory from tests/
-            "-l",
-            "FP,SIGFP",
+            "./tests/space_group_test/1dmm_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/space_group_test/1dmm.pdb",  # structurefile, using relative directory from tests/
+            "-l", "FP,SIGFP",
         ]
 
         # Add options to reduce computational load
-        args.extend(
-            [
-                "--backbone-amplitude",
-                "0.10",  # default: 0.30
-                "--rotamer-neighborhood",
-                "30",  # default: 60
-            ]
-        )
+        args.extend([
+            "--backbone-amplitude", "0.10",  # default: 0.30
+            "--rotamer-neighborhood", "30",  # default: 60
+        ])
 
         # Collect and act on arguments
         p = build_argparser()
@@ -83,4 +78,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        print(len(mconformer_list))  # Expect: 2 residues ie 60 is Gly and 61 is Leu
+        print(len(mconformer_list))   # Expect: 2 residues ie 60 is Gly and 61 is Leu
