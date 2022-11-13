@@ -19,10 +19,10 @@ class TestQFitLigand:
     def mock_main(self):
         # Prepare args
         args = [
-            "./tests/qfit_ligand_test/4ms6_composite_map.mtz",  # mapfile, using relative directory from tests/
-            "./tests/qfit_ligand_test/4ms6.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_ligand_test/5AGK_composite_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/qfit_ligand_test/5AGK.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
-            "A, 702",  # selection
+            "B, 801",  # selection
         ]
 
         # TODO: Add options to reduce computational load
@@ -46,8 +46,8 @@ class TestQFitLigand:
 
         # Build a QFitLigand job
         qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
-
-        assert qfit_ligand.ligand.natoms == 19
+        print(qfit_ligand.ligand.natoms)
+        assert qfit_ligand.ligand.natoms == 15
 
         return qfit_ligand
 
@@ -55,9 +55,7 @@ class TestQFitLigand:
         qfit_ligand = self.mock_main()
 
         # Run qfit object
-        # NOTE: Currently, running this qfit_ligand job takes 20-something
-        #       minutes on the GitHub Actions runner. This needs to be cut down.
 
-        # output = qfit_ligand.run() # TODO: Determine if you can just run part of this
-        # conformers = qfit_ligand.get_conformers()
-        # assert len(conformers) == 3  # TODO: fix when qfit_ligand working
+        output = qfit_ligand.run()
+        conformers = qfit_ligand.get_conformers()
+        assert len(conformers) == 2  
