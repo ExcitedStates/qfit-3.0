@@ -35,7 +35,6 @@ class QFitOptions:
         self.verbose = False
         self.debug = False
         self.write_intermediate_conformers = False
-        self.random_seed = None
         self.label = None
         self.map = None
         self.structure = None
@@ -130,7 +129,7 @@ class _BaseQFit:
         self.xmap = xmap
         self.options = options
         self.BIC = np.inf
-        self.prng = np.random.default_rng(self.options.random_seed)
+        self.prng = np.random.default_rng(0)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
         self._bs = [self.conformer.b]
