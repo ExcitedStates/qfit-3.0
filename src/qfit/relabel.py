@@ -24,7 +24,6 @@ class RelabellerOptions:
     def __init__(self, nSims=10000, nChains=10):
         self.nSims = nSims
         self.nChains = nChains
-        self.random_seed = None
 
     def apply_command_args(self, args):
         for key, value in vars(args).items():
@@ -41,7 +40,7 @@ class Relabeller:
         self.nSims = options.nSims
         self.nChains = options.nChains
 
-        self.prng = np.random.default_rng(options.random_seed)
+        self.prng = np.random.default_rng(0)
 
         self.nodes = []
         self.permutation = []
@@ -280,15 +279,6 @@ def parse_args():
         default=10,
         metavar="<int>",
         help="Number of chains for MCMC.",
-    )
-
-    # Global options
-    p.add_argument(
-        "--random-seed",
-        dest="random_seed",
-        metavar="<int>",
-        type=int,
-        help="Seed value for PRNG",
     )
 
     args = p.parse_args()

@@ -187,7 +187,7 @@ def build_argparser():
         dest="sample_backbone_sigma",
         metavar="<float>",
         type=float,
-        help="Backbone random-sampling displacement (Å)",
+        help="Backbone sampling displacement (Å)",
     )
     p.add_argument(
         "--sample-angle",
@@ -341,15 +341,6 @@ def build_argparser():
         dest="seg_bic_threshold",
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold (segment)",
-    )
-
-    # Global options
-    p.add_argument(
-        "--random-seed",
-        dest="random_seed",
-        metavar="<int>",
-        type=int,
-        help="Seed value for PRNG",
     )
 
     # Output options

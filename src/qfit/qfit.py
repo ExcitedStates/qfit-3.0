@@ -35,7 +35,6 @@ class QFitOptions:
         self.verbose = False
         self.debug = False
         self.write_intermediate_conformers = False
-        self.random_seed = None
         self.label = None
         self.map = None
         self.structure = None
@@ -130,7 +129,7 @@ class _BaseQFit:
         self.xmap = xmap
         self.options = options
         self.BIC = np.inf
-        self.prng = np.random.default_rng(self.options.random_seed)
+        self.prng = np.random.default_rng(0)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
         self._bs = [self.conformer.b]
@@ -829,8 +828,7 @@ class QFitRotamericResidue(_BaseQFit):
         start_coor = atom.coor[0]  # We are working on a single atom.
         torsion_solutions = []
         for amplitude, direction in itertools.product(amplitudes, directions):
-            delta = self.prng.uniform(-sigma, sigma)
-            endpoint = start_coor + (amplitude + delta) * direction
+            endpoint = start_coor + amplitude * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result["x"])
 
@@ -1945,14 +1943,13 @@ class QFitCovalentLigand(_BaseQFit):
             self.options.sample_backbone_amplitude + 0.01,
             self.options.sample_backbone_step,
         )
-        sigma = self.options.sample_backbone_sigma
 
         for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + (amplitude + sigma * self.prng.random()) * direction
+            endpoint = start_coor + amplitude * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result["x"])
 
-            endpoint = start_coor - (amplitude + sigma * self.prng.random()) * direction
+            endpoint = start_coor - amplitude * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result["x"])
 
