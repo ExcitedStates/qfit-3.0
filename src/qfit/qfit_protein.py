@@ -187,7 +187,7 @@ def build_argparser():
         dest="sample_backbone_sigma",
         metavar="<float>",
         type=float,
-        help="Backbone random-sampling displacement (Å)",
+        help="Backbone sampling displacement (Å)",
     )
     p.add_argument(
         "--sample-angle",
