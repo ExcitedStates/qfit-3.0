@@ -138,14 +138,6 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}_refine.params" \
                --overwrite
 
-#__________________________________ADD HYDROGENS__________________________________
-# The first round of refinement regularizes geometry from qFit.
-# Here we add H with phenix.ready_set. Addition of H to the backbone is important
-#   since it introduces planarity restraints to the peptide bond.
-# We will also create a cif file for any ligands in the structure at this point.
-phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
-mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
-
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
@@ -187,6 +179,14 @@ while [ $zeroes -gt 1 ]; do
 
   ((i++));
 done
+
+#__________________________________ADD HYDROGENS__________________________________
+# The first round of refinement regularizes geometry from qFit.
+# Here we add H with phenix.ready_set. Addition of H to the backbone is important
+#   since it introduces planarity restraints to the peptide bond.
+# We will also create a cif file for any ligands in the structure at this point.
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
+mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
