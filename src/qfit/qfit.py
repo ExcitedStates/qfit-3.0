@@ -308,7 +308,7 @@ class _BaseQFit:
         """
         new_coor = []
         new_bfactor =[]
-        multiplication_factors = [1.0, 1.2, 1.3, 1.5, 0.9, 0.7, 0.5] 
+        multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5] 
         for coor, b, multi in zip(self._coor_set, self._bs, multiplication_factors):
             new_coor.append(coor)
             new_bfactor.append(b * multi)
@@ -1373,6 +1373,7 @@ class QFitSegment(_BaseQFit):
                         f"fragment {_resi_list[0].shortcode}--{_resi_list[-1].shortcode}"
                     )
                     fragments = fragments[mask]
+                    self.sample_b()
                     self._occupancies = self._occupancies[mask]
                     self._coor_set = [fragment.coor for fragment in fragments]
                     self._bs = [fragment.b for fragment in fragments]
