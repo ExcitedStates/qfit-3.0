@@ -85,11 +85,11 @@ def build_argparser():
         help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
     )
     p.add_argument(
-        "-rb",
-        "--randomize-b",
-        action="store_true",
-        dest="randomize_b",
-        help="Randomize B-factors of generated conformers",
+        "-sb",
+        "--sample-b",
+        action="store_false",
+        dest="sample_bfactors",
+        help="Sample B-factors of generated conformers",
     )
     p.add_argument(
         "-o",
