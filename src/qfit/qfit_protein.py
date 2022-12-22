@@ -327,6 +327,13 @@ def build_argparser():
 
     # qFit Segment options
     p.add_argument(
+        "--only-segment",
+        default=False,
+        dest="only_segment",
+        type=bool,
+        help="Only perform qfit segment",
+    )
+    p.add_argument(
         "-f",
         "--fragment-length",
         default=4,
