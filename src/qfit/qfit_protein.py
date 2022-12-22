@@ -377,8 +377,12 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-        multiconformer = self._run_qfit_residue_parallel()
-        multiconformer = self._run_qfit_segment(multiconformer)
+            
+        if self.options.only_segment:
+            multiconformer = self._run_qfit_segment()
+        else:
+            multiconformer = self._run_qfit_residue_parallel()
+            multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
     def get_map_around_substructure(self, substructure):
