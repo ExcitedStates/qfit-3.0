@@ -208,6 +208,20 @@ fi
 phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine.params" --overwrite 
 
 
+#________________________________CHECK FOR REDUCE ERRORS______________________________
+if [ -f "reduce_failure.pdb" ]; then
+  echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
+
+  phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
+fi
+
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
 cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
@@ -222,4 +236,8 @@ echo "                         The output can be found at ${pdb_name}_qFit.(pdb|
 if [ "${too_many_loops_flag}" = true ]; then
   echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
   echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
+fi
+
+if [ -f "reduce_failure.pdb" ]; then
+  echo "Refinement was run without checking for flips in NQH residues due to memory constraints. Please inspect your structure."
 fi
