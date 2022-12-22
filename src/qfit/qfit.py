@@ -111,6 +111,7 @@ class QFitOptions:
 
         ### From QFitSegmentOptions
         self.fragment_length = None
+        self.only_segment = False
 
         ### From QFitProteinOptions
         self.nproc = 1
