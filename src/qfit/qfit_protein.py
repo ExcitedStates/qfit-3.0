@@ -327,6 +327,12 @@ def build_argparser():
 
     # qFit Segment options
     p.add_argument(
+        "--only-segment",
+        action="store_true",
+        dest="only_segment",
+        help="Only perform qfit segment",
+    )
+    p.add_argument(
         "-f",
         "--fragment-length",
         default=4,
@@ -377,8 +383,12 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-        multiconformer = self._run_qfit_residue_parallel()
-        multiconformer = self._run_qfit_segment(multiconformer)
+        
+        if self.options.only_segment:
+            multiconformer = self._run_qfit_segment(self.structure)
+        else:
+            multiconformer = self._run_qfit_residue_parallel()
+            multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
 
     def get_map_around_substructure(self, substructure):
@@ -408,7 +418,8 @@ class QFitProtein:
         waters = self.structure.extract("record", "ATOM", "==")
         waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
-
+        
+        
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
