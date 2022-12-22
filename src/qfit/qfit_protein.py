@@ -385,7 +385,7 @@ class QFitProtein:
             self.pdb = ""
         
         if self.options.only_segment:
-            multiconformer = self._run_qfit_segment()
+            multiconformer = self._run_qfit_segment(self.structure)
         else:
             multiconformer = self._run_qfit_residue_parallel()
             multiconformer = self._run_qfit_segment(multiconformer)
