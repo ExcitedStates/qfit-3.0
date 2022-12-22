@@ -384,7 +384,13 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-            
+        
+        # Extract non-protein atoms
+        hetatms = self.structure.extract("record", "HETATM", "==")
+        waters = self.structure.extract("record", "ATOM", "==")
+        waters = waters.extract("resn", "HOH", "==")
+        hetatms = hetatms.combine(waters)
+        
         if self.options.only_segment:
             multiconformer = self._run_qfit_segment()
         else:
@@ -413,12 +419,6 @@ class QFitProtein:
             ctx = mp.get_context(method="forkserver")
         except ValueError:
             ctx = mp.get_context(method="spawn")
-
-        # Extract non-protein atoms
-        hetatms = self.structure.extract("record", "HETATM", "==")
-        waters = self.structure.extract("record", "ATOM", "==")
-        waters = waters.extract("resn", "HOH", "==")
-        hetatms = hetatms.combine(waters)
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
