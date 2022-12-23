@@ -33,8 +33,10 @@ Note: a pre-generated *multiconformer_model2.pdb* file is place in the folder fo
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. 
 
+### 3. Run qFit segment only. If you have manually edited the output of qFit and would like to re-label the alt confs and normalized the occupancies in the PDB, run:
+`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -segement-only`
 
-### 3. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
+### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
 In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
 using our KGS routine. This can be disabled using the *--no-backbone* flag.
@@ -58,14 +60,13 @@ For a full list of options, run:
 `qfit_residue -h`
 
 
-### 4. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
+### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
 
 Using the example 3K0N:
 
 `qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
-
-### 5.  Parallelization:
+### 6.  Parallelization:
 
 The *qfit_protein* program can be executed in parallel and the number of concurrent processes
 can be adjusted using the *-p* flag.
@@ -75,8 +76,7 @@ Using the example 3K0N, spawning 30 parallel processes:
 `qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -p 30`
 
 
-
-### 6. Modeling alternate conformers of a ligand
+### 7. Modeling alternate conformers of a ligand
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
