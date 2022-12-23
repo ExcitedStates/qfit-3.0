@@ -32,8 +32,8 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/3K0N.mtz",  # mapfile, using relative directory from tests/
-            "./example/3K0N.pdb",  # structurefile, using relative directory from tests/
+            "./tests/basic_qfit_protein_test/3k0n_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/basic_qfit_protein_test/3k0n_refine.pdb",  # structurefile, using relative directory from tests/
             "-l", "2FOFCWT,PH2FOFCWT",
         ]
 
@@ -78,4 +78,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 5  # Expect: 3*Ser99, 2*Phe113
+        assert len(mconformer_list) == 4  # Expect: 3*Ser99, 4*Phe113

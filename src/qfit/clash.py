@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 
+
 class ClashDetector:
 
     """Detect clashes between ligand and receptor using spatial hashing."""
@@ -13,7 +14,9 @@ class ClashDetector:
         self.scaling_factor = scaling_factor
         receptor_radius = receptor.vdw_radius
         self.ligand_radius = self.ligand.vdw_radius
-        self.voxelspacing = self.scaling_factor * (receptor_radius.max() + self.ligand_radius.max())
+        self.voxelspacing = self.scaling_factor * (
+            receptor_radius.max() + self.ligand_radius.max()
+        )
         self.exclude = exclude
 
         self.grid = defaultdict(list)
@@ -47,7 +50,7 @@ class ClashDetector:
             neighbors = self.grid[key]
             if len(neighbors) == 0:
                 continue
-            diff = (coor - neighbors)
+            diff = coor - neighbors
             distance_sq = (diff * diff).sum(axis=1)
             cutoff = half_sf * (radius + self.radius[key])
             cutoff_sq = cutoff * cutoff
@@ -69,7 +72,6 @@ class ClashDetector:
 
 
 class ClashDetector2:
-
     def __init__(self, receptor, ligand, scaling_factor=0.85, exclude=None):
 
         self.receptor = receptor
@@ -84,7 +86,10 @@ class ClashDetector2:
         grid_coor = (coor - origin) / distance
         grid_shape = ((corner - origin) / distance + 0.5).astype(np.int32)
         # Make a 3D empty grid and fill it
-        grid = [[[[] for i in range(grid_shape[2])] for j in range(grid_shape[1])] for k in range(grid_shape[0])]
+        grid = [
+            [[[] for i in range(grid_shape[2])] for j in range(grid_shape[1])]
+            for k in range(grid_shape[0])
+        ]
         for gxyz, xyz in zip(grid_coor, coor):
             i, j, k = [int(x) for x in gxyz]
             grid[i][j][k].append(xyz)
@@ -108,5 +113,5 @@ class ClashDetector2:
                 i += index[0]
                 j += index[1]
                 k += index[2]
-                diff = (coor - grid[i][j][k])
+                diff = coor - grid[i][j][k]
                 r2 = (diff * diff).sum(axis=1)

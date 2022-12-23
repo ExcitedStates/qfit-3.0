@@ -15,9 +15,9 @@ class _Ligand(_BaseStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         try:
-            self.id = (kwargs['resi'], kwargs['icode'])
+            self.id = (kwargs["resi"], kwargs["icode"])
         except KeyError:
-            self.id = (args[0]['resi'], args[0]['icode'])
+            self.id = (args[0]["resi"], args[0]["icode"])
             self.ligand_name = self.resn[0]
         self.nbonds = None
 
@@ -31,23 +31,32 @@ class _Ligand(_BaseStructure):
         else:
             self._get_connectivity()
 
-        #self.root = np.argwhere(self.name == self.link_data['name1'][i])
-        #self.order = self.rotation_order(self.root)
-        #self.bond_list = self.convert_rotation_tree_to_list(self.order)
+        # self.root = np.argwhere(self.name == self.link_data['name1'][i])
+        # self.order = self.rotation_order(self.root)
+        # self.bond_list = self.convert_rotation_tree_to_list(self.order)
 
     def __repr__(self):
-        string = 'Ligand: {}. Number of atoms: {}.'.format(self.resn[0], self.natoms)
+        string = "Ligand: {}. Number of atoms: {}.".format(self.resn[0], self.natoms)
         return string
+
+    @property
+    def shortcode(self):
+        resi, icode = self.id
+        shortcode = f"{resi}"
+        if icode:
+            shortcode += f"_{icode}"
+
+        return shortcode
 
     def _get_connectivity(self):
         """Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
         """
         coor = self.coor
-        #dm_size = self.natoms * (self.natoms - 1) // 2
-        #dm = np.zeros(dm_size, np.float64)
-        #k = 0
-        #for i in range(0, self.natoms - 1):
+        # dm_size = self.natoms * (self.natoms - 1) // 2
+        # dm = np.zeros(dm_size, np.float64)
+        # k = 0
+        # for i in range(0, self.natoms - 1):
         #    u = coor[i]
         #    for j in range(i + 1, self.natoms):
         #        u_v = u - coor[j]
@@ -59,7 +68,7 @@ class _Ligand(_BaseStructure):
         cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
         # Add 0.5 A to give covalently bound atoms more room
         cutoff_matrix = cutoff_matrix + cutoff_matrix.T + 0.5
-        connectivity_matrix = (dist_matrix < cutoff_matrix)
+        connectivity_matrix = dist_matrix < cutoff_matrix
         # Atoms are not connected to themselves
         np.fill_diagonal(connectivity_matrix, False)
         self.connectivity = connectivity_matrix
@@ -75,35 +84,35 @@ class _Ligand(_BaseStructure):
         covrad = self.covalent_radius
         natoms = self.natoms
         cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
-        connectivity_matrix = np.zeros_like(dist_matrix,dtype=bool)
+        connectivity_matrix = np.zeros_like(dist_matrix, dtype=bool)
         cif = mmCIFDictionary()
         cif.load_file(cif_file)
         for cif_data in cif:
-            if cif_data.name == f'comp_{self.ligand_name}':
+            if cif_data.name == f"comp_{self.ligand_name}":
                 for cif_table in cif_data:
                     if cif_table.name == "chem_comp_bond":
                         for cif_row in cif_table:
-                            a1 = cif_row['atom_id_1']
-                            a2 = cif_row['atom_id_2']
+                            a1 = cif_row["atom_id_1"]
+                            a2 = cif_row["atom_id_2"]
                             index1 = np.argwhere(self.name == a1)
                             index2 = np.argwhere(self.name == a2)
                             try:
-                                connectivity_matrix[index1,index2] = True
-                                connectivity_matrix[index2,index1] = True
+                                connectivity_matrix[index1, index2] = True
+                                connectivity_matrix[index2, index1] = True
                             except:
                                 pass
                             else:
                                 try:
-                                    index1 = index1[0,0]
-                                    index2 = index2[0,0]
+                                    index1 = index1[0, 0]
+                                    index2 = index2[0, 0]
                                 except:
                                     continue
                                 if index1 not in self.bond_types:
                                     self.bond_types[index1] = {}
                                 if index2 not in self.bond_types:
                                     self.bond_types[index2] = {}
-                                self.bond_types[index1][index2] = cif_row['type']
-                                self.bond_types[index2][index1] = cif_row['type']
+                                self.bond_types[index1][index2] = cif_row["type"]
+                                self.bond_types[index2][index1] = cif_row["type"]
 
         self._cutoff_matrix = cutoff_matrix
         self.connectivity = connectivity_matrix
@@ -145,8 +154,9 @@ class _Ligand(_BaseStructure):
             while v not in v1path:
                 v2path.append(v)
                 v = T[v]
-            ring = v1path[0:v1path.index(v) + 1] + v2path
+            ring = v1path[0 : v1path.index(v) + 1] + v2path
             return ring
+
         ring_paths = []
         T = {}
         conn = self.connectivity
@@ -219,7 +229,7 @@ class _Ligand(_BaseStructure):
         for root in range(self.natoms):
             # Check if root is Hydrogen
             element = self.e[root]
-            if element == 'H':
+            if element == "H":
                 continue
             # Check if root has already been clustered
             clustered = False
@@ -246,11 +256,11 @@ class _Ligand(_BaseStructure):
             if not ring_atom:
                 neighbors = np.flatnonzero(conn[root])
                 for n in neighbors:
-                    if self.e[n] == 'H':
+                    if self.e[n] == "H":
                         continue
                     neighbor_neighbors = np.flatnonzero(conn[n])
                     # Hydrogen neighbors don't count
-                    hydrogen_neighbors = (self.e[neighbor_neighbors] == 'H').sum()
+                    hydrogen_neighbors = (self.e[neighbor_neighbors] == "H").sum()
                     if len(neighbor_neighbors) - hydrogen_neighbors == 1:
                         cluster.append(n)
 
@@ -303,8 +313,9 @@ class _Ligand(_BaseStructure):
         self._coor[selection] = coor.dot(rotmat.T) + origin
 
     def rotation_order(self, root):
-
-        def _rotation_order(clusters, checked_clusters, atom, bonds, checked_bonds, tree):
+        def _rotation_order(
+            clusters, checked_clusters, atom, bonds, checked_bonds, tree
+        ):
             # Find cluster to which atom belongs to
             for cluster in clusters:
                 if atom in cluster:
@@ -339,15 +350,23 @@ class _Ligand(_BaseStructure):
                         continue
                     tree[bond] = {}
                     checked_bonds.append(bond)
-                    _rotation_order(clusters, checked_clusters, bond[1],
-                                    bonds, checked_bonds, tree[bond])
+                    _rotation_order(
+                        clusters,
+                        checked_clusters,
+                        bond[1],
+                        bonds,
+                        checked_bonds,
+                        tree[bond],
+                    )
 
         rotation_tree = {}
         clusters = self.rigid_clusters()
         bonds = self.rotatable_bonds()
         checked_clusters = []
         checked_bonds = []
-        _rotation_order(clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree)
+        _rotation_order(
+            clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree
+        )
         return rotation_tree
 
     def convert_rotation_tree_to_list(self, parent_tree):
@@ -357,7 +376,6 @@ class _Ligand(_BaseStructure):
             if child_trees:
                 bond_list += self.convert_rotation_tree_to_list(child_trees)
         return bond_list
-
 
 
 class BondOrder(object):
@@ -405,13 +423,14 @@ class BondOrder(object):
                     pass
             self._bondorder(n, depth)
 
+
 class Covalent_Ligand(_BaseStructure):
 
-    """ Covalent Ligand class """
+    """Covalent Ligand class"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.id = (args[0]['resi'], args[0]['icode'])
+        self.id = (args[0]["resi"], args[0]["icode"])
         self.ligand_name = self.resn[0]
         self.nbonds = None
         self.covalent_bonds = 0
@@ -424,28 +443,53 @@ class Covalent_Ligand(_BaseStructure):
         else:
             self._get_connectivity()
 
-        for i, res1 in enumerate(self.link_data['resn1']):
-            if res1 == self.ligand_name and self.chain[0] == self.link_data['chain1'][i]:
+        for i, res1 in enumerate(self.link_data["resn1"]):
+            if (
+                res1 == self.ligand_name
+                and self.chain[0] == self.link_data["chain1"][i]
+            ):
                 self.covalent_bonds += 1
                 self.covalent_partners.append(
-                    [self.link_data['chain2'][i],
-                     self.link_data['resi2'][i],
-                     self.link_data['icode2'][i],
-                     self.link_data['name2'][i]])
+                    [
+                        self.link_data["chain2"][i],
+                        self.link_data["resi2"][i],
+                        self.link_data["icode2"][i],
+                        self.link_data["name2"][i],
+                    ]
+                )
                 self.covalent_atoms.append(
-                    [self.link_data['chain1'][i],
-                     self.link_data['resi1'][i],
-                     self.link_data['icode1'][i],
-                     self.link_data['name1'][i]])
-                self.root = np.argwhere(self.name == self.link_data['name1'][i])
+                    [
+                        self.link_data["chain1"][i],
+                        self.link_data["resi1"][i],
+                        self.link_data["icode1"][i],
+                        self.link_data["name1"][i],
+                    ]
+                )
+                self.root = np.argwhere(self.name == self.link_data["name1"][i])
                 self.order = self.rotation_order(self.root)
                 self.bond_list = self.convert_rotation_tree_to_list(self.order)
         # self.type = args[0].data["type"]
 
     def __repr__(self):
-        string = (f'Covalent Ligand: {self.resn[0]}.'
-                  f' Number of atoms: {self.natoms}.')
+        string = f"Covalent Ligand: {self.resn[0]}." f" Number of atoms: {self.natoms}."
         return string
+
+    @property
+    def _identifier_tuple(self):
+        """Returns (chain, resi, icode) to identify this covalent ligand."""
+        chainid = self.chain[0]
+        resi, icode = self.id
+
+        return (chainid, resi, icode)
+
+    @property
+    def shortcode(self):
+        (chainid, resi, icode) = self._identifier_tuple
+        shortcode = f"{chainid}_{resi}"
+        if icode:
+            shortcode += f"_{icode}"
+
+        return shortcode
 
     def _get_connectivity_from_cif(self, cif_file):
         """Determine connectivity matrix of ligand and associated distance
@@ -457,35 +501,35 @@ class Covalent_Ligand(_BaseStructure):
         covrad = self.covalent_radius
         natoms = self.natoms
         cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
-        connectivity_matrix = np.zeros_like(dist_matrix,dtype=bool)
+        connectivity_matrix = np.zeros_like(dist_matrix, dtype=bool)
         cif = mmCIFDictionary()
         cif.load_file(cif_file)
         for cif_data in cif:
-            if cif_data.name == f'comp_{self.ligand_name}':
+            if cif_data.name == f"comp_{self.ligand_name}":
                 for cif_table in cif_data:
                     if cif_table.name == "chem_comp_bond":
                         for cif_row in cif_table:
-                            a1 = cif_row['atom_id_1']
-                            a2 = cif_row['atom_id_2']
+                            a1 = cif_row["atom_id_1"]
+                            a2 = cif_row["atom_id_2"]
                             index1 = np.argwhere(self.name == a1)
                             index2 = np.argwhere(self.name == a2)
                             try:
-                                connectivity_matrix[index1,index2] = True
-                                connectivity_matrix[index2,index1] = True
+                                connectivity_matrix[index1, index2] = True
+                                connectivity_matrix[index2, index1] = True
                             except:
                                 pass
                             else:
                                 try:
-                                    index1 = index1[0,0]
-                                    index2 = index2[0,0]
+                                    index1 = index1[0, 0]
+                                    index2 = index2[0, 0]
                                 except:
                                     continue
                                 if index1 not in self.bond_types:
                                     self.bond_types[index1] = {}
                                 if index2 not in self.bond_types:
                                     self.bond_types[index2] = {}
-                                self.bond_types[index1][index2] = cif_row['type']
-                                self.bond_types[index2][index1] = cif_row['type']
+                                self.bond_types[index1][index2] = cif_row["type"]
+                                self.bond_types[index2][index1] = cif_row["type"]
 
         self._cutoff_matrix = cutoff_matrix
         self.connectivity = connectivity_matrix
@@ -498,7 +542,7 @@ class Covalent_Ligand(_BaseStructure):
         cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
         # Add 0.5 A to give covalently bound atoms more room
         cutoff_matrix = cutoff_matrix + cutoff_matrix.T + 0.5
-        connectivity_matrix = (dist_matrix < cutoff_matrix)
+        connectivity_matrix = dist_matrix < cutoff_matrix
         # Atoms are not connected to themselves
         np.fill_diagonal(connectivity_matrix, False)
         self.connectivity = connectivity_matrix
@@ -506,7 +550,7 @@ class Covalent_Ligand(_BaseStructure):
 
     def clashes(self):
         """Checks if there are any internal clashes."""
-        ''' dist_matrix = squareform(pdist(self.coor))
+        """ dist_matrix = squareform(pdist(self.coor))
         mask = np.logical_not(self.connectivity)
         active_matrix = (self.active.reshape(1, -1) * self.active.reshape(-1, 1)) > 0
         mask &= active_matrix
@@ -514,7 +558,7 @@ class Covalent_Ligand(_BaseStructure):
         clash_matrix = dist_matrix < self._cutoff_matrix
         if np.any(np.logical_and(clash_matrix, mask)):
             return True
-        return False'''
+        return False"""
         pass
 
     def bonds(self):
@@ -532,9 +576,9 @@ class Covalent_Ligand(_BaseStructure):
 
     def rigid_clusters(self):
         """
-            Find rigid clusters / seeds in the molecule.
-            Currently seeds are either rings or terminal ends of the molecule,
-            i.e. the last two atoms.
+        Find rigid clusters / seeds in the molecule.
+        Currently seeds are either rings or terminal ends of the molecule,
+        i.e. the last two atoms.
         """
 
         conn = self.connectivity
@@ -545,7 +589,7 @@ class Covalent_Ligand(_BaseStructure):
 
         for root in range(self.natoms):
             # Ignore root if it is a Hydrogen
-            if self.e[root] == 'H':
+            if self.e[root] == "H":
                 continue
 
             # Check if root has already been clustered
@@ -574,11 +618,11 @@ class Covalent_Ligand(_BaseStructure):
             if not ring_atom:
                 neighbors = np.flatnonzero(conn[root])
                 for n in neighbors:
-                    if self.e[n] == 'H':
+                    if self.e[n] == "H":
                         continue
                     neighbor_neighbors = np.flatnonzero(conn[n])
                     # Ignore hydrogen neighbors:
-                    hydrogen_neighbors = (self.e[neighbor_neighbors] == 'H').sum()
+                    hydrogen_neighbors = (self.e[neighbor_neighbors] == "H").sum()
                     if len(neighbor_neighbors) - hydrogen_neighbors == 1:
                         if clustered[n] == 0:
                             cluster.append(n)
@@ -621,7 +665,7 @@ class Covalent_Ligand(_BaseStructure):
             while v not in v1path:
                 v2path.append(v)
                 v = T[v]
-            ring = v1path[0:v1path.index(v) + 1] + v2path
+            ring = v1path[0 : v1path.index(v) + 1] + v2path
             return ring
 
         ring_paths = []
@@ -645,7 +689,6 @@ class Covalent_Ligand(_BaseStructure):
                         T[n] = a
                         fringe.append(n)
         return ring_paths
-
 
     def rotatable_bonds(self):
 
@@ -720,8 +763,9 @@ class Covalent_Ligand(_BaseStructure):
         self._coor[selection] = coor.dot(rotmat.T) + origin
 
     def rotation_order(self, root):
-
-        def _rotation_order(clusters, checked_clusters, atom, bonds, checked_bonds, tree):
+        def _rotation_order(
+            clusters, checked_clusters, atom, bonds, checked_bonds, tree
+        ):
             # Find cluster to which atom belongs to
             for cluster in clusters:
                 if atom in cluster:
@@ -756,15 +800,23 @@ class Covalent_Ligand(_BaseStructure):
                         continue
                     tree[bond] = {}
                     checked_bonds.append(bond)
-                    _rotation_order(clusters, checked_clusters, bond[1],
-                                    bonds, checked_bonds, tree[bond])
+                    _rotation_order(
+                        clusters,
+                        checked_clusters,
+                        bond[1],
+                        bonds,
+                        checked_bonds,
+                        tree[bond],
+                    )
 
         rotation_tree = {}
         clusters = self.rigid_clusters()
         bonds = self.rotatable_bonds()
         checked_clusters = []
         checked_bonds = []
-        _rotation_order(clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree)
+        _rotation_order(
+            clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree
+        )
         return rotation_tree
 
     def convert_rotation_tree_to_list(self, parent_tree):

@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+
+"""
+The purpose of this script is to calculate the distance between each alpha carbon of two sequence matched PDB structures. This script is also dependent on
+the two structures having the same numbered residues and chain ids. 
+
+INPUT: 2 PDB structures, names of PDB structures
+OUTPUT: CSV file with distance between the alpha carbon atom of every residue between the two input structures
+
+example:
+alpha_carbon_rmsd.py pdb1.pdb pdb2.pdb pdb1_name pdb2_name 
+
+"""
+
 import os
 import numpy as np
 import pandas as pd
@@ -8,46 +21,44 @@ from qfit.structure import Structure
 
 def parse_args():
     p = ArgumentParser(description=__doc__)
-    p.add_argument("holo_structure", type=str,
-                   help="PDB-file containing structure.")
-    p.add_argument("apo_structure", type=str,
-                   help="PDB-file containing structure.") #this should be a superposed PDB files
-    p.add_argument("holo_pdb_name", type=str, help="name of Holo PDB.")
-    p.add_argument("apo_pdb_name", type=str, help="name of Holo PDB.")
-    p.add_argument("-dist", type=float, default='5.0',
-                  metavar="<float>", help="angstrom distance from ligand")
-    p.add_argument("-lig", type=str, help="ligand name")
+    p.add_argument("structure1", type=str, help="PDB-file containing structure.")
+    p.add_argument("structure2", type=str, help="PDB-file containing structure.")
+    p.add_argument("pdb_name1", type=str, help="name of first PDB.")
+    p.add_argument("pdb_name2", type=str, help="name of second PDB.")
     args = p.parse_args()
     return args
 
-def rmsd_alpha_carbon(holo, apo, holo_name, apo_name):
-   for chain in np.unique(holo.chain):
-    if chain not in apo.chain:
-       continue
-    holo = holo.extract('chain', chain, '==')
-    apo = apo.extract('chain', chain, '==')
-    rmsd = []
-    for i in np.unique(holo.resi):
-        CA_holo = holo.extract(f'chain {chain} and resi {i}')
-        CA_apo = apo.extract(f'chain {chain} and resi {i}')
-        CA_holo = CA_holo.extract('name','CA', '==').coor.mean(axis=0)
-        CA_apo = CA_apo.extract('name','CA', '==').coor.mean(axis=0)
-        rmsd.append(tuple((chain, i, np.linalg.norm(CA_holo - CA_apo, axis=0))))
-   df_rmsf = pd.DataFrame(rmsd, columns=['Chain', 'Residue', 'RMSD'])
-   df_rmsf.to_csv(holo_name + '_' + apo_name + '_rmsd.csv', index=False)
+
+def rmsd_alpha_carbon(pdb1, pdb2, pdb1_name, pdb2_name):
+    for chain in np.unique(pdb1.chain):
+        if chain not in pdb2.chain:
+            continue
+        pdb1 = pdb1.extract("chain", chain, "==")
+        pdb2 = pdb2.extract("chain", chain, "==")
+        rmsd = []
+        for i in np.unique(pdb1.resi):
+            CA1 = pdb1.extract(f"chain {chain} and resi {i}")
+            CA2 = pdb2.extract(f"chain {chain} and resi {i}")
+            CA1 = CA1.extract("name", "CA", "==").coor.mean(axis=0)
+            CA2 = CA2.extract("name", "CA", "==").coor.mean(axis=0)
+            rmsd.append(tuple((chain, i, np.linalg.norm(CA1 - CA1, axis=0))))
+    df_rmsf = pd.DataFrame(rmsd, columns=["Chain", "Residue", "RMSD"])
+    df_rmsf.to_csv(pdb1_name + "_" + pdb2_name + "_rmsd.csv", index=False)
+
 
 def main():
     args = parse_args()
-    holo_structure = Structure.fromfile(args.holo_structure)
-    apo_structure = Structure.fromfile(args.apo_structure)
+    structure1 = Structure.fromfile(args.structure1)
+    structure2 = Structure.fromfile(args.structure2)
 
-    holo_receptor = holo_structure.extract('record', 'ATOM')
-    holo_receptor = holo_receptor.extract('e', 'H', '!=')
+    structure1 = structure1.extract(
+        "record", "ATOM"
+    )  # we only want to look at protein atoms
 
-    apo_receptor = apo_structure.extract('record', 'ATOM')
-    apo_receptor = apo_receptor.extract('e', 'H', '!=')
+    structure2 = structure2.extract("record", "ATOM")
 
-    rmsd_alpha_carbon(holo_receptor, apo_receptor, args.holo_pdb_name, args.apo_pdb_name)
+    rmsd_alpha_carbon(structure1, structure2, args.pdb_name1, args.pdb_name2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

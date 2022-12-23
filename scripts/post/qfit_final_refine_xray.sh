@@ -39,6 +39,7 @@ if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
 fi
 pdb_name="${mapfile%.mtz}"
 
+
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 mtzmetadata=`phenix.mtz.dump "${pdb_name}.mtz"`
 resrange=`grep "Resolution range:" <<< "${mtzmetadata}"`
@@ -102,6 +103,11 @@ echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_na
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
 
+#__________________________________NORMALIZE OCCUPANCIES________________________________________
+redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
+mv -v "${multiconf}.fixed_norm.pdb" "${multiconf}.fixed"
+
+
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
@@ -132,14 +138,6 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}_refine.params" \
                --overwrite
 
-#__________________________________ADD HYDROGENS__________________________________
-# The first round of refinement regularizes geometry from qFit.
-# Here we add H with phenix.ready_set. Addition of H to the backbone is important
-#   since it introduces planarity restraints to the peptide bond.
-# We will also create a cif file for any ligands in the structure at this point.
-phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
-mv "${pdb_name}_002.pdb.updated.pdb" "${pdb_name}_002.pdb"
-
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
@@ -149,6 +147,7 @@ echo "refinement.main.number_of_macro_cycles=5"                                 
 echo "refinement.main.nqh_flips=True"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
+echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_occ_refine.params
@@ -181,6 +180,14 @@ while [ $zeroes -gt 1 ]; do
   ((i++));
 done
 
+#__________________________________ADD HYDROGENS__________________________________
+# The first round of refinement regularizes geometry from qFit.
+# Here we add H with phenix.ready_set. Addition of H to the backbone is important
+#   since it introduces planarity restraints to the peptide bond.
+# We will also create a cif file for any ligands in the structure at this point.
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
+mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
+
 #__________________________________FINAL REFINEMENT__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 
@@ -192,6 +199,7 @@ echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.par
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
 echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
+echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
@@ -199,6 +207,19 @@ fi
 
 phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine.params" --overwrite 
 
+#________________________________CHECK FOR REDUCE ERRORS______________________________
+if [ -f "reduce_failure.pdb" ]; then
+  echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
+
+  phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
+fi
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
@@ -215,3 +236,8 @@ if [ "${too_many_loops_flag}" = true ]; then
   echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
   echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
 fi
+
+if [ -f "reduce_failure.pdb" ]; then
+  echo "Refinement was run without checking for flips in NQH residues due to memory constraints. Please inspect your structure."
+fi
+

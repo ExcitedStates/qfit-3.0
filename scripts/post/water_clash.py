@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
-'''Water overlap script.
-
+"""
 This will take in two PDBs, one containing water molecules, one containing only protein or protein/hetatoms.
 It will then determine how many clashes occur between the two and adjust accordingly.
-'''
+
+INPUT: 2 PDB (one with water molecules, one without), 2 PDB names 
+OUTPUT: CSV file with output of residues that clash with water molecules.
+example: 
+water_clash.py pdb_with_no_water.pdb pdb_with_water.pdb --nowater_name {pdb name} --water_name {pdb name}
+
+"""
 
 from argparse import ArgumentParser
-
 import numpy as np
 import pandas as pd
 from qfit.clash import ClashDetector
@@ -16,19 +20,19 @@ from qfit.structure import Structure
 
 def parse_args():
     p = ArgumentParser(description=__doc__)
-    p.add_argument("no_water_structure", type=str,
-                   help="PDB-file containing structure.")
-    p.add_argument("water_structure", type=str,
-                   help="PDB-file containing structure.")
+    p.add_argument(
+        "no_water_structure", type=str, help="PDB-file containing structure."
+    )
+    p.add_argument("water_structure", type=str, help="PDB-file containing structure.")
     p.add_argument("map", type=str, help="ccp4 map of the structure")
     p.add_argument("--pdb", help="Name of the input PDB.")
     p.add_argument("--water", help="Name of the water structure.")
-    p.add_argument("-r","--resolution", help="High resolution of structure")
+    p.add_argument("-r", "--resolution", help="High resolution of structure")
     args = p.parse_args()
     return args
 
 
-class Water_Options():
+class Water_Options:
     def __init__(self):
         super().__init__()
         self.resolution = None
@@ -58,27 +62,40 @@ class Water_Overlap:
         if not self.options.pdb is None:
             self.pdb = self.options.pdb
         else:
-            self.pdb = ''
+            self.pdb = ""
         if not self.options.water is None:
             self.water = self.options.water
         else:
-            self.water = ''
+            self.water = ""
 
-        #subset structure into protein and water
-        self.water_str = self.structure_water.extract('resn', 'HOH', '==')
-        self.pro_str = self.structure_pro.extract('record', 'ATOM')
+        # subset structure into protein and water
+        self.water_str = self.structure_water.extract("resn", "HOH", "==")
+        self.pro_str = self.structure_pro.extract("record", "ATOM")
 
     def compare_density(self):
         clash = []
-        for c in (set(self.pro_str.chain)):
-            #print(c)
-            for r in set(self.pro_str.extract('chain', c, '==').resi):
-                #print(r)
-                self._cd = ClashDetector(self.water_str, self.pro_str.extract(f"resi {r} and chain {c}"), scaling_factor=0.75)
+        for c in set(self.pro_str.chain):
+            for r in set(self.pro_str.extract("chain", c, "==").resi):
+                # print(r)
+                self._cd = ClashDetector(
+                    self.water_str,
+                    self.pro_str.extract(f"resi {r} and chain {c}"),
+                    scaling_factor=0.75,
+                )
                 if self._cd():
-                    clash.append(tuple((c, r, np.unique(self.pro_str.extract(f"resi {r} and chain {c}").resn))))
-        clash_summary = pd.DataFrame(clash, columns =['Chain', 'Resi', 'Resn'])
-        clash_summary.to_csv(f'clash_summary_{self.pdb}_{self.water}.csv')
+                    clash.append(
+                        tuple(
+                            (
+                                c,
+                                r,
+                                np.unique(
+                                    self.pro_str.extract(f"resi {r} and chain {c}").resn
+                                ),
+                            )
+                        )
+                    )
+        clash_summary = pd.DataFrame(clash, columns=["Chain", "Resi", "Resn"])
+        clash_summary.to_csv(f"clash_summary_{self.pdb}_{self.water}.csv")
 
 
 def main():
@@ -87,7 +104,7 @@ def main():
     options = Water_Options()
     options.apply_command_args(args)
     structure_pro = Structure.fromfile(args.no_water_structure).reorder()
-    structure_pro = structure_pro.extract('e', 'H', '!=')
+    structure_pro = structure_pro.extract("e", "H", "!=")
     structure_wa = Structure.fromfile(args.water_structure).reorder()
 
     sub_structure = Water_Overlap(structure_pro, structure_wa, args.map, options)
