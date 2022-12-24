@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import itertools
 
 from .base_structure import _BaseStructure, PDBFile
 from .ligand import _Ligand
@@ -397,37 +398,34 @@ class Structure(_BaseStructure):
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
-        for chain in self:
+        for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 try:
                     altlocs.remove("")
                 except ValueError:
                     pass
-                sel_str = (
-                    f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
-                )
-                conformers = [self.extract(sel_str + x) for x in altlocs]
-                all_identical = True
-                for i in range(1, len(conformers)):
-                    diff = conformers[0].coor - conformers[i].coor
-                    dist = np.sum(np.linalg.norm(diff, axis=1))
-                    if dist > rmsd_cutoff:
-                        all_identical = False
-                        break
-                if all_identical:
-                    for i in range(1, len(conformers)):
-                        multiconformer = multiconformer.remove_conformer(
-                            residue.resi[0],
-                            residue.chain[0],
-                            conformers[0].altloc[0],
-                            conformers[i].altloc[0],
-                        )
-                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
-                    residue2 = multiconformer.extract(sel_str)
-                    residue2._q[residue2._selection] = 1.0
-                    residue2._altloc[residue2._selection] = ""
+                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                conformers = [multiconformer.extract(sel_str + x) for x in altlocs]
+                if len(set(altlocs)) == 1:
+                   continue
+                else:
+                  removed_conformers = [] #list of all conformer that are removed
+                  for conf_a, conf_b in itertools.combinations(conformers, 2):
+                      if conf_a.altloc[0] in removed_conformers: continue #we have already removed this conformer
+                      else:
+                        rmsd = np.sqrt(np.mean((conf_a.coor - conf_b.coor)**2))
+                        if rmsd > rmsd_cutoff:
+                           continue
+                        else:
+                           multiconformer = multiconformer.remove_conformer(
+                                         residue.resi[0],
+                                         residue.chain[0],
+                                         conf_a.altloc[0],
+                                         conf_b.altloc[0])
+                           removed_conformers.append(conf_b.altloc[0])
         return multiconformer
+
 
     @property
     def n_residue_conformers(self):
