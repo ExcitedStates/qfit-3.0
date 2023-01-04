@@ -35,7 +35,6 @@ class QFitOptions:
         self.verbose = False
         self.debug = False
         self.write_intermediate_conformers = False
-        self.random_seed = None
         self.label = None
         self.map = None
         self.structure = None
@@ -130,7 +129,7 @@ class _BaseQFit:
         self.xmap = xmap
         self.options = options
         self.BIC = np.inf
-        self.prng = np.random.default_rng(self.options.random_seed)
+        self.prng = np.random.default_rng(0)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
         self._bs = [self.conformer.b]
@@ -270,21 +269,12 @@ class _BaseQFit:
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
-            if self.options.randomize_b:
-                self._update_transformer(self.conformer)
             self._transformer.density()
             model = self._models[n]
             model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
-    def _randomize_bs(self, bs, atoms):
-        bs_copy = copy.deepcopy(bs)
-        if self.options.randomize_b:
-            mask = np.in1d(self.conformer.name, atoms)
-            add = 0.2 * self.prng.random(bs_copy[mask].shape[0]) - 0.1
-            bs_copy[mask] += np.multiply(bs[mask], add)
-        return bs_copy
 
     def _solve(
         self,
@@ -993,10 +983,6 @@ class QFitRotamericResidue(_BaseQFit):
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
-        new_bs = []
-        for b in self._bs:
-            new_bs.append(self._randomize_bs(b, ["N", "CA", "C", "O", "CB", "H", "HA"]))
-        self._bs = new_bs
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
@@ -1094,12 +1080,12 @@ class QFitRotamericResidue(_BaseQFit):
                                         >= 0.01
                                     ):
                                         new_coor_set.append(self.residue.coor)
-                                        new_bs.append(self._randomize_bs(b, bs_atoms))
+                                        new_bs.append(b)
                                     else:
                                         ex += 1
                                 else:
                                     new_coor_set.append(self.residue.coor)
-                                    new_bs.append(self._randomize_bs(b, bs_atoms))
+                                    new_bs.append(b)
                             else:
                                 ex += 1
 
@@ -2077,7 +2063,7 @@ class QFitCovalentLigand(_BaseQFit):
         iteration = 0
         new_bs = []
         for b in self._bs:
-            new_bs.append(self._randomize_bs(b, ["N", "CA", "C", "O", "CB", "H", "HA"]))
+            new_bs.append(b)
         self._bs = new_bs
 
         while True:
@@ -2189,12 +2175,10 @@ class QFitCovalentLigand(_BaseQFit):
                                             >= 0.01
                                         ):
                                             new_coor_set.append(coor)
-                                            new_bs.append(
-                                                self._randomize_bs(b, bs_atoms)
-                                            )
+                                            new_bs.append(b)
                                     else:
                                         new_coor_set.append(coor)
-                                        new_bs.append(self._randomize_bs(b, bs_atoms))
+                                        new_bs.append(b)
                             elif self.covalent_residue.clashes() == 0:
                                 if new_coor_set:
                                     delta = np.array(new_coor_set) - np.array(coor)
@@ -2209,10 +2193,10 @@ class QFitCovalentLigand(_BaseQFit):
                                         >= 0.01
                                     ):
                                         new_coor_set.append(coor)
-                                        new_bs.append(self._randomize_bs(b, bs_atoms))
+                                        new_bs.append(b)
                                 else:
                                     new_coor_set.append(coor)
-                                    new_bs.append(self._randomize_bs(b, bs_atoms))
+                                    new_bs.append(b)
 
                 self._coor_set = new_coor_set
                 self._bs = new_bs
@@ -2312,10 +2296,10 @@ class QFitCovalentLigand(_BaseQFit):
                                 >= 0.01
                             ):
                                 new_coor_set.append(new_coor)
-                                new_bs.append(self._randomize_bs(b, bs_atoms))
+                                new_bs.append(b)
                         else:
                             new_coor_set.append(new_coor)
-                            new_bs.append(self._randomize_bs(b, bs_atoms))
+                            new_bs.append(b)
                 elif self.covalent_residue.clashes() == 0:
                     if new_coor_set:
                         delta = np.array(new_coor_set) - np.array(new_coor)
@@ -2324,10 +2308,10 @@ class QFitCovalentLigand(_BaseQFit):
                             >= 0.01
                         ):
                             new_coor_set.append(new_coor)
-                            new_bs.append(self._randomize_bs(b, bs_atoms))
+                            new_bs.append(b)
                     else:
                         new_coor_set.append(new_coor)
-                        new_bs.append(self._randomize_bs(b, bs_atoms))
+                        new_bs.append(b)
         self._coor_set = new_coor_set
         self._bs = new_bs
         self.conformer = self.covalent_residue
