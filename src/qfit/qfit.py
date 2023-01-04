@@ -54,7 +54,6 @@ class QFitOptions:
         self.omit = False
         self.scale = True
         self.scale_rmask = 1.0
-        self.randomize_b = False
         self.bulk_solvent_level = 0.3
 
         # Sampling options
@@ -1986,11 +1985,11 @@ class QFitCovalentLigand(_BaseQFit):
         sigma = self.options.sample_backbone_sigma
 
         for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + (amplitude + sigma * self.prng.random()) * direction
+            endpoint = start_coor + amplitude * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result["x"])
 
-            endpoint = start_coor - (amplitude + sigma * self.prng.random()) * direction
+            endpoint = start_coor - amplitude * direction
             optimize_result = optimizer.optimize(atom_name, endpoint)
             torsion_solutions.append(optimize_result["x"])
 
