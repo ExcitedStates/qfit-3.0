@@ -144,14 +144,15 @@ echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"
 echo "refinement.output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
 echo "refinement.output.serial=3"                                                >> ${pdb_name}_occ_refine.params
 echo "refinement.main.number_of_macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
-echo "refinement.main.nqh_flips=True"                                            >> ${pdb_name}_occ_refine.params
+echo "refinement.main.nqh_flips=False"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
 echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
-if [ -f "${pdb_name}_002.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_occ_refine.params
+if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
 fi
+
 zeroes=50
 i=1
 too_many_loops_flag=false
