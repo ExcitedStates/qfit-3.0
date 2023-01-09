@@ -608,6 +608,38 @@ class QFitProtein:
             multiconformer.tofile(fname)
         return multiconformer
 
+    
+    def _create_refine_restraints(self, multiconformer):
+        '''
+        For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
+        This function will go through the qFit output and create a constraint file to be fed into refinement
+        '''
+        #create header
+        f = open("qFit_occupancy.params", "w+")
+        f.write("refinement {")
+        f.write("  refine {")
+        f.write("    occupancies {")
+        for chain in multiconformer:
+            for residue in chain:
+                if residue.extract('name', 'CA', '==').q == 1.0:
+                    #if something exists in the list, print it
+                    if len(resi) > 0:  #something exists and we should write it out
+                        for a in set(altloc):
+                            #create a string from each value in the resi array
+                            f.write("      constrained_group {")
+                            f.write(f"        selection = altid {a} and ((chain {chain[0]} and resseq {}) or (chain A and resseq 24))")
+                        f.write("             }")
+                    resi = []
+                    altloc = []
+                    chain = []
+                    continue
+                else:
+                    for alt in set(residue.altloc):
+                        #only append if it does not already exist in array
+                        resi.append(residue.resi[0])
+                        chain.append(residue.chain[0])
+                        altloc.append(alt[0])
+    
     @staticmethod
     def _run_qfit_residue(residue, structure, xmap, options, logqueue):
         """Run qfit on a single residue to determine density-supported conformers."""
