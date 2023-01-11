@@ -374,6 +374,7 @@ class Structure(_BaseStructure):
                             np.array(new_occ), 2
                         )  # deal with imprecision
                         residue.q = list(new_occ)
+        return multiconformer 
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
