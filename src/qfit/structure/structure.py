@@ -346,6 +346,42 @@ class Structure(_BaseStructure):
         and scale each alt conf occupancy for the residue to sum to one.
         To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
         """
+        data = {}
+        for chain in self.chains:
+            for conformer in chain.conformers:
+                for residue in conformer.residues:
+                   altlocs = list(set(residue.altloc))
+                   if len(altlocs) == 1:  # confirm occupancy = 1
+                      mask = (
+                        (self.data["resi"] == residue.resi[0])
+                        & (self.data["chain"] == residue.chain[0])
+                        )
+                   else:
+                      if "" in altlocs and len(altlocs) > 1:
+                         print(residue.resi[0])
+                         print(residue.chain[0])
+                         mask = (
+                               (self.data["resi"] == residue.resi[0])
+                               & (self.data["chain"] == residue.chain[0])
+                               & (self.data["altloc"] == '')
+                               )
+                         print(mask.sum())
+                   for attr in self.data:
+                       array = getattr(self, attr)
+                       if attr == "q":
+                           array[mask] = 1.0
+                       if attr == "altloc":
+                           array[mask] = ''
+                       data[attr] = array
+        return Structure(data)
+    
+    
+    def normalize_occupancy_old(self):
+        """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all.
+        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX),
+        and scale each alt conf occupancy for the residue to sum to one.
+        To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
+        """
 
         for chain in self:
             for residue in chain:
