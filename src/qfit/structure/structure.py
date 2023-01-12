@@ -354,23 +354,23 @@ class Structure(_BaseStructure):
                    if len(altlocs) == 1:  # confirm occupancy = 1
                       mask = (
                         (self.data["resi"] == residue.resi[0])
-                        & (self.data["chain"] == residue.chain[0])
+                        & (self.data["chain"] == 'A') #residue.chain[0])
                         )
                    else:
                       if "" in altlocs and len(altlocs) > 1:
-                         print(residue.resi[0])
-                         print(residue.chain[0])
                          mask = (
                                (self.data["resi"] == residue.resi[0])
-                               & (self.data["chain"] == residue.chain[0])
-                               & (self.data["altloc"] == '')
+                               & (self.data["chain"] == 'A') #residue.chain[0])
+                               & (self.data["altloc"] == altlocs[0])
                                )
-                         print(mask.sum())
+                   print(f'sum: {mask.sum()}')
                    for attr in self.data:
                        array = getattr(self, attr)
                        if attr == "q":
+                           #array = array
                            array[mask] = 1.0
-                       if attr == "altloc":
+                       elif attr == "altloc":
+                           #array = array
                            array[mask] = ''
                        data[attr] = array
         return Structure(data)
