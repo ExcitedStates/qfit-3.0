@@ -201,6 +201,7 @@ echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.par
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
 echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
 echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
+echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
@@ -218,6 +219,8 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
+  
 
   phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
 fi
