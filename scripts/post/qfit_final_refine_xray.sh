@@ -228,10 +228,14 @@ cp -v "${pdb_name}_005.mtz" "${pdb_name}_qFit.mtz"
 cp -v "${pdb_name}_005.log" "${pdb_name}_qFit.log"
 
 #__________________________COMMENTARY FOR USER_______________________________________
-echo ""
-echo "[qfit_final_refine_xray] Refinement is complete."
-echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
-echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+if [ -f "${pdb_name}_005.pdb" ]; then 
+   echo ""
+   echo "[qfit_final_refine_xray] Refinement is complete."
+   echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
+   echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+else
+   echo "Refinement did not complete."
+fi
 
 if [ "${too_many_loops_flag}" = true ]; then
   echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
