@@ -350,9 +350,9 @@ class Structure(_BaseStructure):
         data = self.data
         for chain in multiconformer:
             for residue in chain:
-                   altlocs = list(set(residue.altloc))
-                   mask = None
-                   if len(altlocs) == 1:  # confirm occupancy = 1
+                 altlocs = list(set(residue.altloc))
+                 mask = None
+                 if len(altlocs) == 1:  # confirm occupancy = 1
                      mask = (
                         (self.data["resi"] == residue.resi[0])
                         & (self.data["chain"] == residue.chain[0])
@@ -365,15 +365,15 @@ class Structure(_BaseStructure):
                            array[mask] = ''
                        data[attr] = array
                      multiconformer = Structure(data)
-                   else:
-                     new_occ = []
-                     if "" in altlocs and len(altlocs) > 1:
-                        mask = (
+                 else:
+                    new_occ = []
+                    if "" in altlocs and len(altlocs) > 1:
+                       mask = (
                                (self.data["resi"] == residue.resi[0])
                                & (self.data["chain"] == residue.chain[0])
                                & (self.data["altloc"] == '')
                                )
-                        for attr in data:
+                       for attr in data:
                           array = getattr(multiconformer, attr)
                           if attr == "q":
                             array[mask] = 1.0
@@ -388,13 +388,13 @@ class Structure(_BaseStructure):
                      for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
                         new_occ.append(np.round(conformers[i].q[0], 2))
-                                           if alt_sum != 1:  # we need to normalize
-                        new_occ = []
-                        for i in range(0, len(altlocs)):
-                            new_occ.append((np.round(conformers[i].q[0], 2)) / alt_sum)
-                        new_occ = normalize_to_precision(
-                            np.array(new_occ), 2
-                        )  # deal with imprecision 
+                        if alt_sum != 1:  # we need to normalize
+                          new_occ = []
+                          for i in range(0, len(altlocs)):
+                              new_occ.append((np.round(conformers[i].q[0], 2)) / alt_sum)
+                          new_occ = normalize_to_precision(
+                             np.array(new_occ), 2
+                           )  # deal with imprecision 
                      altloc_id = ['A', 'B', 'C', 'D', 'E']
                      for i in range(0, len(new_occ)):
                          mask = (
