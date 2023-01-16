@@ -614,31 +614,45 @@ class QFitProtein:
         For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
         This function will go through the qFit output and create a constraint file to be fed into refinement
         '''
-        #create header
         f = open("qFit_occupancy.params", "w+")
-        f.write("refinement {")
-        f.write("  refine {")
-        f.write("    occupancies {")
+        f.write("refinement {\n")
+        f.write("  refine {\n")
+        f.write("    occupancies {\n")
+        resi_ = []
+        altloc_ = []
+        chain_ = []
         for chain in multiconformer:
             for residue in chain:
-                if residue.extract('name', 'CA', '==').q == 1.0:
+              if residue.resn[0] in ROTAMERS:
+                if len(residue.extract('name', 'CA', '==').q) == 1:
                     #if something exists in the list, print it
-                    if len(resi) > 0:  #something exists and we should write it out
-                        for a in set(altloc):
+                    if len(resi_) > 0:  #something exists and we should write it out
+                        for a in set(altloc_):
                             #create a string from each value in the resi array
-                            f.write("      constrained_group {")
-                            f.write(f"        selection = altid {a} and ((chain {chain[0]} and resseq {}) or (chain A and resseq 24))")
-                        f.write("             }")
-                    resi = []
-                    altloc = []
-                    chain = []
-                    continue
+                            #resi_str = ','.join(map(str, resi_))
+                            f.write("      constrained_group {\n")
+                            for l in range(0, len(resi_)):
+                                #make string for each residue and concat the strings together
+                                if l == 0:
+                                    resi_selection = f"((chain {chain_[0]} and resseq {resi_[l]})"  #first residue
+                                else:
+                                    resi_selection = resi_selection + f" or (chain {chain_[0]} and resseq {resi_[l]})"
+                            f.write(f"        selection = altid {a} and {resi_selection})\n")
+                            f.write("             }\n")
+                    resi_ = []
+                    altloc_ = []
+                    chain_ = []
                 else:
-                    for alt in set(residue.altloc):
+                    for alt in list(set(residue.altloc)):
                         #only append if it does not already exist in array
-                        resi.append(residue.resi[0])
-                        chain.append(residue.chain[0])
-                        altloc.append(alt[0])
+                        if residue.resi[0] not in resi_:
+                           resi_.append(residue.resi[0])
+                        chain_.append(residue.chain[0])
+                        altloc_.append(alt[0])
+        f.write("   }\n")
+        f.write(" }\n")
+        f.write("}\n")
+        f.close()
     
     @staticmethod
     def _run_qfit_residue(residue, structure, xmap, options, logqueue):
