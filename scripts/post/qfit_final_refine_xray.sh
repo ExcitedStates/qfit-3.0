@@ -150,7 +150,7 @@ echo "refinement.output.write_maps=False"                                       
 echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
+  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
 zeroes=50
@@ -161,6 +161,7 @@ while [ $zeroes -gt 1 ]; do
   phenix.refine "${pdb_name}_002.pdb" \
                 "${pdb_name}_002.mtz" \
                 "${pdb_name}_occ_refine.params" \
+                qFit_occupancy.params \
                 --overwrite
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
@@ -235,6 +236,7 @@ if [ -f "${pdb_name}_005.pdb" ]; then
    echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
 else
    echo "Refinement did not complete."
+   echo "Please check for failure reports by examining log files."
 fi
 
 if [ "${too_many_loops_flag}" = true ]; then
