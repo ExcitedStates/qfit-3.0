@@ -346,71 +346,73 @@ class Structure(_BaseStructure):
         and scale each alt conf occupancy for the residue to sum to one.
         To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
         """
-        data = {}
-        for chain in self.chains:
-            for conformer in chain.conformers:
-                for residue in conformer.residues:
+        multiconformer = copy.deepcopy(self)
+        data = self.data
+        for chain in multiconformer:
+            for residue in chain:
                    altlocs = list(set(residue.altloc))
+                   mask = None
                    if len(altlocs) == 1:  # confirm occupancy = 1
-                      mask = (
+                     mask = (
                         (self.data["resi"] == residue.resi[0])
-                        & (self.data["chain"] == 'A') #residue.chain[0])
+                        & (self.data["chain"] == residue.chain[0])
                         )
-                   else:
-                      if "" in altlocs and len(altlocs) > 1:
-                         mask = (
-                               (self.data["resi"] == residue.resi[0])
-                               & (self.data["chain"] == 'A') #residue.chain[0])
-                               & (self.data["altloc"] == altlocs[0])
-                               )
-                   print(f'sum: {mask.sum()}')
-                   for attr in self.data:
-                       array = getattr(self, attr)
+                     for attr in data:
+                       array = getattr(multiconformer, attr)
                        if attr == "q":
-                           #array = array
                            array[mask] = 1.0
                        elif attr == "altloc":
-                           #array = array
                            array[mask] = ''
                        data[attr] = array
-        return Structure(data)
-    
-    
-    def normalize_occupancy_old(self):
-        """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all.
-        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX),
-        and scale each alt conf occupancy for the residue to sum to one.
-        To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
-        """
-
-        for chain in self:
-            for residue in chain:
-                altlocs = list(set(residue.altloc))
-                if len(altlocs) == 1:  # confirm occupancy = 1
-                    residue.q = 1.0
-                else:
-                    # determine if backbone atoms have any altlocs, if not, we do not need to consider them
-                    new_occ = []
-                    if "" in altlocs and len(altlocs) > 1:
-                        new_occ += list(
-                            self.extract(
-                                f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc ''"
-                            ).q
-                        )
+                     multiconformer = Structure(data)
+                   else:
+                     new_occ = []
+                     if "" in altlocs and len(altlocs) > 1:
+                        mask = (
+                               (self.data["resi"] == residue.resi[0])
+                               & (self.data["chain"] == residue.chain[0])
+                               & (self.data["altloc"] == '')
+                               )
+                        for attr in data:
+                          array = getattr(multiconformer, attr)
+                          if attr == "q":
+                            array[mask] = 1.0
+                          elif attr == "altloc":
+                            array[mask] = ''
+                          data[attr] = array
+                        multiconformer = Structure(data)
                         altlocs.remove("")
-                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
-                    conformers = [self.extract(sel_str + x) for x in altlocs]
-                    alt_sum = 0
-                    for i in range(0, len(conformers)):
-                        alt_sum += np.unique(conformers[i].q)[0]
-                    if alt_sum != 1:  # we need to normalize
+                     sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                     conformers = [self.extract(sel_str + x) for x in altlocs]
+                     alt_sum = 0
+                     for i in range(0, len(conformers)):
+                        alt_sum += np.round(conformers[i].q[0], 2)
+                        new_occ.append(np.round(conformers[i].q[0], 2))
+                                           if alt_sum != 1:  # we need to normalize
+                        new_occ = []
                         for i in range(0, len(altlocs)):
-                            new_occ += list(conformers[i].q / alt_sum)
+                            new_occ.append((np.round(conformers[i].q[0], 2)) / alt_sum)
                         new_occ = normalize_to_precision(
                             np.array(new_occ), 2
-                        )  # deal with imprecision
-                        residue.q = list(new_occ)
-        return multiconformer 
+                        )  # deal with imprecision 
+                     altloc_id = ['A', 'B', 'C', 'D', 'E']
+                     for i in range(0, len(new_occ)):
+                         mask = (
+                               (self.data["resi"] == residue.resi[0])
+                               & (self.data["chain"] == residue.chain[0])
+                               & (self.data["altloc"] == altloc_id[i])
+                               )
+                         for attr in data:
+                             array = getattr(multiconformer,attr)
+                             if attr == "q":
+                                array[mask] = new_occ[i]
+                             data[attr] = array
+                         multiconformer = Structure(data)
+        return Structure(data)
+
+
+    
+   
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
