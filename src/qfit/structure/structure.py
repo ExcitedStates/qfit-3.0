@@ -380,12 +380,12 @@ class Structure(_BaseStructure):
                           elif attr == "altloc":
                             array[mask] = ''
                           data[attr] = array
-                        multiconformer = Structure(data)
-                        altlocs.remove("")
-                     sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
-                     conformers = [self.extract(sel_str + x) for x in altlocs]
-                     alt_sum = 0
-                     for i in range(0, len(conformers)):
+                       multiconformer = Structure(data)
+                       altlocs.remove("")
+                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                    conformers = [self.extract(sel_str + x) for x in altlocs]
+                    alt_sum = 0
+                    for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
                         new_occ.append(np.round(conformers[i].q[0], 2))
                         if alt_sum != 1:  # we need to normalize
@@ -395,8 +395,8 @@ class Structure(_BaseStructure):
                           new_occ = normalize_to_precision(
                              np.array(new_occ), 2
                            )  # deal with imprecision 
-                     altloc_id = ['A', 'B', 'C', 'D', 'E']
-                     for i in range(0, len(new_occ)):
+                    altloc_id = ['A', 'B', 'C', 'D', 'E']
+                    for i in range(0, len(new_occ)):
                          mask = (
                                (self.data["resi"] == residue.resi[0])
                                & (self.data["chain"] == residue.chain[0])
