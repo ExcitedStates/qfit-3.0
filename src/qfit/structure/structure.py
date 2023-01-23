@@ -387,11 +387,11 @@ class Structure(_BaseStructure):
                     alt_sum = 0
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
-                        new_occ.append(np.round(conformers[i].q[0], 2))
+                        new_occ = np.append(new_occ,(np.round(conformers[i].q[0], 2)))
                         if alt_sum != 1:  # we need to normalize
                           new_occ = []
                           for i in range(0, len(altlocs)):
-                              new_occ.append((np.round(conformers[i].q[0], 2)) / alt_sum)
+                              new_occ = np.append(new_occ,((np.round(conformers[i].q[0], 2)) / alt_sum))
                           new_occ = normalize_to_precision(
                              np.array(new_occ), 2
                            )  # deal with imprecision 
