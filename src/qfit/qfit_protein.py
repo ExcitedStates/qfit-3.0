@@ -386,9 +386,11 @@ class QFitProtein:
         
         if self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
+            multiconformer = self._create_refine_restraints(multiconformer)
         else:
             multiconformer = self._run_qfit_residue_parallel()
             multiconformer = self._run_qfit_segment(multiconformer)
+            multiconformer = self._create_refine_restraints(multiconformer)
         return multiconformer
 
     def get_map_around_substructure(self, substructure):
