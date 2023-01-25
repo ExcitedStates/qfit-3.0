@@ -64,12 +64,12 @@ def get_bfactor(structure, pdb, ca, sidechain):
                             select.extract(f"resi {r} and chain {c}").resn[0]
                         ),
                         np.array2string(np.unique(c)),
-                        b_factor,
+                        b_factor, len(np.unique(select.extract(f"resi {r} and chain {c}").altloc))
                     )
                 )
             )
     B_factor = pd.DataFrame(
-        bfactors, columns=["PDB", "resi", "resn", "chain", "b_factor"]
+        bfactors, columns=["PDB", "resi", "resn", "chain", "b_factor", "num_altlocs"]
     )
     med = B_factor["b_factor"].median()  # median b-factor
     return B_factor, med
