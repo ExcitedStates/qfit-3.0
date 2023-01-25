@@ -147,7 +147,6 @@ echo "refinement.main.number_of_macro_cycles=5"                                 
 echo "refinement.main.nqh_flips=False"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
-echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
