@@ -616,7 +616,8 @@ class QFitProtein:
         For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
         This function will go through the qFit output and create a constraint file to be fed into refinement
         '''
-        f = open("qFit_occupancy.params", "w+")
+        fname = os.path.join(self.options.directory, "qFit_occupancy.params")
+        f = open(fname, "w+")
         f.write("refinement {\n")
         f.write("  refine {\n")
         f.write("    occupancies {\n")
