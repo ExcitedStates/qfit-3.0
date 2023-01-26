@@ -1,6 +1,8 @@
 #!/bin/bash
 # This script works with Phenix version 1.20.
 
+#This script should be used ONLY after using only-segment. If using qFit protein, please use qfit_final_refine_xray.sh.
+
 qfit_usage() {
   echo >&2 "Usage:";
   echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
@@ -103,10 +105,6 @@ echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_na
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
 
-#__________________________________NORMALIZE OCCUPANCIES________________________________________
-redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
-mv -v "${multiconf}.fixed_norm.pdb" "${multiconf}.fixed"
-
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
@@ -124,25 +122,11 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
 fi
 
-#__________________________________COORDINATE REFINEMENT ONLY__________________________________
-# Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
-echo "refinement.output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
-echo "refinement.output.serial=2"                    >> ${pdb_name}_refine.params
-echo "refinement.main.number_of_macro_cycles=5"      >> ${pdb_name}_refine.params
-echo "refinement.main.nqh_flips=False"               >> ${pdb_name}_refine.params
-echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.params
-
-phenix.refine  "${multiconf}.f_modified.updated.pdb" \
-               "${pdb_name}.mtz" \
-               "${pdb_name}_refine.params" \
-               --overwrite
-
-#__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
+#__________________________________REFINE WITH OCCUPANCIES RESTRAINED__________________________________
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
 echo "refinement.output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
-echo "refinement.output.serial=3"                                                >> ${pdb_name}_occ_refine.params
+echo "refinement.output.serial=1"                                                >> ${pdb_name}_occ_refine.params
 echo "refinement.main.number_of_macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.main.nqh_flips=False"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
@@ -152,45 +136,22 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
-zeroes=50
-i=1
-too_many_loops_flag=false
-while [ $zeroes -gt 1 ]; do
-  echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
-  phenix.refine "${pdb_name}_002.pdb" \
-                "${pdb_name}_002.mtz" \
+
+phenix.refine "${multiconf}.f_modified.updated.pdb" \
+                "${pdb_name}.mtz" \
                 "${pdb_name}_occ_refine.params" \
                 qFit_occupancy.params \
                 --overwrite
-
-  zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
-  echo "Post refinement zeroes: ${zeroes}"
-  if [ ! -f "${pdb_name}_003_norm.pdb" ]; then
-    echo >&2 "Normalize occupancies did not work!";
-    exit 1;
-  else
-    mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
-  fi
-
-  if [ $i -ge 50 ]; then
-    too_many_loops_flag=true
-    echo "[WARNING] qfit_final_refine_xray.sh:: Aborting refinement loop after ${i} rounds.";
-    break;
-  fi
-
-  ((i++));
-done
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
 # Here we add H with phenix.ready_set. Addition of H to the backbone is important
 #   since it introduces planarity restraints to the peptide bond.
 # We will also create a cif file for any ligands in the structure at this point.
-phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_002.pdb"
-mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_001.pdb"
+mv "${pdb_name}_001.updated.pdb" "${pdb_name}_001.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
-cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
@@ -203,11 +164,12 @@ echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.par
 echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
 echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
 
-if [ -f "${pdb_name}_002.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
+
+if [ -f "${pdb_name}_001.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${pdb_name}_001.ligands.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
-phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine.params" --overwrite 
+phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_final_refine.params" --overwrite 
 
 #________________________________CHECK FOR REDUCE ERRORS______________________________
 if [ -f "reduce_failure.pdb" ]; then
@@ -222,7 +184,7 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
   
 
-  phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
+  phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
 fi
 
 #__________________________________NAME FINAL FILES__________________________________
@@ -239,11 +201,6 @@ if [ -f "${pdb_name}_005.pdb" ]; then
 else
    echo "Refinement did not complete."
    echo "Please check for failure reports by examining log files."
-fi
-
-if [ "${too_many_loops_flag}" = true ]; then
-  echo "[qfit_final_refine_xray] WARNING: Refinement and low-occupancy rotamer culling was taking too long (${i} rounds).";
-  echo "                         Some low-occupancy rotamers may remain. Please inspect your structure.";
 fi
 
 if [ -f "reduce_failure.pdb" ]; then

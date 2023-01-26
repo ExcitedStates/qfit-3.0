@@ -386,9 +386,11 @@ class QFitProtein:
         
         if self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
+            multiconformer = self._create_refine_restraints(multiconformer)
         else:
             multiconformer = self._run_qfit_residue_parallel()
             multiconformer = self._run_qfit_segment(multiconformer)
+            multiconformer = self._create_refine_restraints(multiconformer)
         return multiconformer
 
     def get_map_around_substructure(self, substructure):
@@ -614,7 +616,8 @@ class QFitProtein:
         For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
         This function will go through the qFit output and create a constraint file to be fed into refinement
         '''
-        f = open("qFit_occupancy.params", "w+")
+        fname = os.path.join(self.options.directory, "qFit_occupancy.params")
+        f = open(fname, "w+")
         f.write("refinement {\n")
         f.write("  refine {\n")
         f.write("    occupancies {\n")

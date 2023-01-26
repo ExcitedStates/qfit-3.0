@@ -395,12 +395,11 @@ class Structure(_BaseStructure):
                        new_occ = normalize_to_precision(
                              np.array(new_occ), 2
                            )  # deal with imprecision 
-                    altloc_id = ['A', 'B', 'C', 'D', 'E']
                     for i in range(0, len(new_occ)):
                          mask = (
                                (self.data["resi"] == residue.resi[0])
                                & (self.data["chain"] == residue.chain[0])
-                               & (self.data["altloc"] == altloc_id[i])
+                               & (self.data["altloc"] == altlocs[i])
                                )
                          for attr in data:
                              array = getattr(multiconformer,attr)
