@@ -43,6 +43,9 @@ echo "";
 if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ -f ${org_model} ]]; then
   qfit_usage;
 fi
+
+#CCP4 or MAP
+
 pdb_name="${mapfile%.ccp4}"
 echo $pdb_name
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
@@ -91,27 +94,24 @@ cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}2.000.pdb"
 phenix.reduce "${pdb_name}2.000.pdb" > "${pdb_name}2_real_space_refined.001.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
+# Write refinement parameters into parameters file
+echo "output.prefix=${pdb_name}"                                  >> ${pdb_name}_occ_refine.params
+echo "output.serial=3"                                            >> ${pdb_name}_occ_refine.params
+echo "refinement.macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.nqh_flips=False"                                  >> ${pdb_name}_occ_refine.params
+echo "resolution=${res}"                                          >> ${pdb_name}_occ_refine.params
+
+if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
+fi
+
+
 zeroes=50
 i=1
 while [ $zeroes -gt 1 ]; do
   cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}2_real_space_refined.001.$(printf '%03d' $i).pdb";
   ((i++));
-  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-    phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" \
-                  "${pdb_name}.ccp4" \
-                  "${multiconf}.f_modified.ligands.cif" \
-                  output.file_name_prefix="${pdb_name}3" \
-                  macro_cycles=5 \
-                  resolution=${res} \
-                  --overwrite
-  else
-    phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" \
-                  "${pdb_name}.ccp4" \
-                  output.file_name_prefix="${pdb_name}3" \
-                  macro_cycles=5 \
-                  resolution=${res} \
-                  --overwrite
-  fi
+  phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}.ccp4" ${pdb_name}_occ_refine.params
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}3_real_space_refined.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
@@ -127,24 +127,22 @@ done
 
 #__________________________________FINAL REFINEMENT__________________________________
 mv "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}4_real_space_refined.001.pdb"
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  phenix.real_space_refine "${pdb_name}4_real_space_refined.001.pdb" \
-                "${pdb_name}.ccp4" \
-                "${multiconf}.f_modified.ligands.cif" \
-                output.file_name_prefix="${pdb_name}5" \
-                macro_cycles=5 \
-                resolution=${res} \
-                --overwrite
-else
-  phenix.real_space_refine "${pdb_name}4_real_space_refined.001.pdb" \
-                "${pdb_name}.ccp4" \
-                output.file_name_prefix="${pdb_name}5" \
-                macro_cycles=5 \
-                resolution=${res} \
-                --overwrite
+
+# Write refinement parameters into parameters file
+echo "output.prefix=${pdb_name}"                 >> ${pdb_name}_final_refine.params
+echo "output.serial=5"                           >> ${pdb_name}_final_refine.params
+echo "refinement.macro_cycles=5"                 >> ${pdb_name}_final_refine.params
+echo "refinement.nqh_flips=True"                 >> ${pdb_name}_final_refine.params
+echo "resolution=${res}"                         >> ${pdb_name}_final_refine.params
+
+if [ -f "${pdb_name}_002.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
 fi
+
+phenix.real_space_refine "${pdb_name}4_real_space_refined.001.pdb" "${pdb_name}.ccp4" ${pdb_name}_final_refine.params
 
 #__________________________________NAME FINAL FILES__________________________________
 cp "${pdb_name}5_real_space_refined.pdb" "${pdb_name}_qFit.pdb"
 cp "${pdb_name}.ccp4" "${pdb_name}_qFit.ccp4"
 cp "${pdb_name}5_real_space_refined.log" "${pdb_name}_qFit.log"
+
