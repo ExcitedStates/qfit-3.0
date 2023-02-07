@@ -48,8 +48,9 @@ fi
 
 pdb_name="${mapfile%.ccp4}"
 echo $pdb_name
+
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
-resolution=$(grep 'REMARK   3   RESOLUTION RANGE HIGH (ANGSTROMS) :' $org_model)
+resolution=$(grep 'REMARK   2 RESOLUTION.    ' $org_model)
 echo $resolution
 res=`echo "${resolution}" | cut -d " " -f 14 | cut -c 1-5`
 echo "Resolution: ${res}"
@@ -61,44 +62,19 @@ remove_duplicates "${multiconf}"
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
+phenix.elbow pdb_file_name="${multiconf}.f_modified.pdb" --final_geometry
+
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
 
-#__________________________________REFINEMENT WITHOUT HYDROGENS__________________________________
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "with ligand"
-  phenix.real_space_refine "${multiconf}.f_modified.updated.pdb" \
-                "${pdb_name}.ccp4" \
-                "${multiconf}.f_modified.ligands.cif" \
-                output.file_name_prefix="${pdb_name}2" \
-                macro_cycles=5 \
-                resolution=${res} \
-                --overwrite
-else
-  phenix.real_space_refine "${multiconf}.f_modified.pdb" \
-                "${pdb_name}.ccp4" \
-                output.file_name_prefix="${pdb_name}2" \
-                macro_cycles=5 \
-                resolution=${res} \
-                --overwrite
-fi
-
-#__________________________________ADD HYDROGENS__________________________________
-# The first round of refinement regularizes geometry from qFit.
-# Here we add H with phenix.reduce. Addition of H to the backbone is important
-#   since it introduces planarity restraints to the peptide bond.
-# This helps to prevent backbone conformers from being merged during
-#   subsequent rounds of refinement.
-cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}2.000.pdb"
-phenix.reduce "${pdb_name}2.000.pdb" > "${pdb_name}2_real_space_refined.001.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
 echo "output.prefix=${pdb_name}"                                  >> ${pdb_name}_occ_refine.params
 echo "output.serial=3"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
-echo "refinement.nqh_flips=False"                                  >> ${pdb_name}_occ_refine.params
+echo "refinement.nqh_flips=False"                                 >> ${pdb_name}_occ_refine.params
 echo "resolution=${res}"                                          >> ${pdb_name}_occ_refine.params
 
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
@@ -125,9 +101,17 @@ while [ $zeroes -gt 1 ]; do
   
 done
 
-#__________________________________FINAL REFINEMENT__________________________________
-mv "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}4_real_space_refined.001.pdb"
+#__________________________________ADD HYDROGENS__________________________________
+# The first round of refinement regularizes geometry from qFit.
+# Here we add H with phenix.reduce. Addition of H to the backbone is important
+#   since it introduces planarity restraints to the peptide bond.
+# This helps to prevent backbone conformers from being merged during
+#   subsequent rounds of refinement.
+cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}2.000.pdb"
+phenix.reduce "${pdb_name}2.000.pdb" > "${pdb_name}4_real_space_refined.001.pdb"
 
+
+#__________________________________FINAL REFINEMENT__________________________________
 # Write refinement parameters into parameters file
 echo "output.prefix=${pdb_name}"                 >> ${pdb_name}_final_refine.params
 echo "output.serial=5"                           >> ${pdb_name}_final_refine.params
