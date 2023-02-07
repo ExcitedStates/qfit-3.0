@@ -52,7 +52,7 @@ echo $pdb_name
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
 resolution=$(grep 'REMARK   2 RESOLUTION.    ' $org_model)
 echo $resolution
-res=`echo "${resolution}" | cut -d " " -f 14 | cut -c 1-5`
+res=`echo "${resolution}" | cut -d " " -f 9 | cut -c 1-5`
 echo "Resolution: ${res}"
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
