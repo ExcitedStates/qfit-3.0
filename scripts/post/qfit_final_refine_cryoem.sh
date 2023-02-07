@@ -40,13 +40,13 @@ echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUN
 echo "original model : ${org_model} $([[ -f ${org_model} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "";
-if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ -f ${org_model} ]]; then
+if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]] || [[ ! -f ${org_model} ]]; then
   qfit_usage;
 fi
 
 #CCP4 or MAP
 
-pdb_name="${mapfile%.ccp4}"
+pdb_name="${org_model%.pdb}"
 echo $pdb_name
 
 #__________________________________DETERMINE RESOLUTION AND (AN)ISOTROPIC REFINEMENT__________________________________
@@ -81,13 +81,12 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
-
 zeroes=50
 i=1
 while [ $zeroes -gt 1 ]; do
   cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}2_real_space_refined.001.$(printf '%03d' $i).pdb";
   ((i++));
-  phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}.ccp4" ${pdb_name}_occ_refine.params
+  phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" "${mapfile}" ${pdb_name}_occ_refine.params
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}3_real_space_refined.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
@@ -123,10 +122,9 @@ if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
-phenix.real_space_refine "${pdb_name}4_real_space_refined.001.pdb" "${pdb_name}.ccp4" ${pdb_name}_final_refine.params
+phenix.real_space_refine "${pdb_name}4_real_space_refined.001.pdb" "${mapfile}" ${pdb_name}_final_refine.params
 
 #__________________________________NAME FINAL FILES__________________________________
 cp "${pdb_name}5_real_space_refined.pdb" "${pdb_name}_qFit.pdb"
-cp "${pdb_name}.ccp4" "${pdb_name}_qFit.ccp4"
 cp "${pdb_name}5_real_space_refined.log" "${pdb_name}_qFit.log"
 
