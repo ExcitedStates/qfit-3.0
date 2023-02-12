@@ -84,7 +84,7 @@ class TestVolumeXmapIO(UnitBase):
             assert xmap.array[20][20][20] == pytest.approx(-0.0732, abs=0.00001)
             assert xmap.array[-1][-1][-1] == pytest.approx(-0.33892, abs=0.00001)
 
-        mtz_file = op.join(self.EXAMPLES, "3K0N.mtz")
+        mtz_file = op.join(self.DATA_BIG, "3k0n_map.mtz")
         xmap1 = XMap.fromfile(mtz_file, label="2FOFCWT,PH2FOFCWT")
         _validate_map(xmap1)
         assert xmap1.is_canonical_unit_cell()
@@ -155,7 +155,7 @@ class TestVolumeXmapIO(UnitBase):
             assert xmap.voxelspacing[2] == pytest.approx(0.33055, abs=0.0001)
             assert tuple(xmap.offset) == (0, 0, 0)
 
-        map_file = op.join(self.EXAMPLES, "3K0N.ccp4")
+        map_file = op.join(self.DATA_BIG, "3k0n.ccp4")
         xmap1 = XMap.fromfile(map_file, resolution=d_min)
         _validate_map(xmap1)
         map_tmp = tempfile.NamedTemporaryFile(suffix=".ccp4").name

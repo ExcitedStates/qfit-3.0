@@ -85,11 +85,11 @@ def build_argparser():
         help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
     )
     p.add_argument(
-        "-rb",
-        "--randomize-b",
-        action="store_true",
-        dest="randomize_b",
-        help="Randomize B-factors of generated conformers",
+        "-sb",
+        "--sample-b",
+        action="store_false",
+        dest="sample_bfactors",
+        help="Sample B-factors of generated conformers",
     )
     p.add_argument(
         "-o",
@@ -327,6 +327,12 @@ def build_argparser():
 
     # qFit Segment options
     p.add_argument(
+        "--only-segment",
+        action="store_true",
+        dest="only_segment",
+        help="Only perform qfit segment",
+    )
+    p.add_argument(
         "-f",
         "--fragment-length",
         default=4,
@@ -386,8 +392,14 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-        multiconformer = self._run_qfit_residue_parallel()
-        multiconformer = self._run_qfit_segment(multiconformer)
+        
+        if self.options.only_segment:
+            multiconformer = self._run_qfit_segment(self.structure)
+            multiconformer = self._create_refine_restraints(multiconformer)
+        else:
+            multiconformer = self._run_qfit_residue_parallel()
+            multiconformer = self._run_qfit_segment(multiconformer)
+            multiconformer = self._create_refine_restraints(multiconformer)
         return multiconformer
 
     @property
@@ -425,7 +437,8 @@ class QFitProtein:
         waters = self.structure.extract("record", "ATOM", "==")
         waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
-
+        
+        
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
@@ -606,6 +619,53 @@ class QFitProtein:
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
+    
+    def _create_refine_restraints(self, multiconformer):
+        '''
+        For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
+        This function will go through the qFit output and create a constraint file to be fed into refinement
+        '''
+        fname = os.path.join(self.options.directory, "qFit_occupancy.params")
+        f = open(fname, "w+")
+        f.write("refinement {\n")
+        f.write("  refine {\n")
+        f.write("    occupancies {\n")
+        resi_ = []
+        altloc_ = []
+        chain_ = []
+        for chain in multiconformer:
+            for residue in chain:
+              if residue.resn[0] in ROTAMERS:
+                if len(residue.extract('name', 'CA', '==').q) == 1:
+                    #if something exists in the list, print it
+                    if len(resi_) > 0:  #something exists and we should write it out
+                        for a in set(altloc_):
+                            #create a string from each value in the resi array
+                            #resi_str = ','.join(map(str, resi_))
+                            f.write("      constrained_group {\n")
+                            for l in range(0, len(resi_)):
+                                #make string for each residue and concat the strings together
+                                if l == 0:
+                                    resi_selection = f"((chain {chain_[0]} and resseq {resi_[l]})"  #first residue
+                                else:
+                                    resi_selection = resi_selection + f" or (chain {chain_[0]} and resseq {resi_[l]})"
+                            f.write(f"        selection = altid {a} and {resi_selection})\n")
+                            f.write("             }\n")
+                    resi_ = []
+                    altloc_ = []
+                    chain_ = []
+                else:
+                    for alt in list(set(residue.altloc)):
+                        #only append if it does not already exist in array
+                        if residue.resi[0] not in resi_:
+                           resi_.append(residue.resi[0])
+                        chain_.append(residue.chain[0])
+                        altloc_.append(alt[0])
+        f.write("   }\n")
+        f.write(" }\n")
+        f.write("}\n")
+        f.close()
+    
     @staticmethod
     def _run_qfit_residue(residue, structure, xmap, options, logqueue):
         """Run qfit on a single residue to determine density-supported conformers."""

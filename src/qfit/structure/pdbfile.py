@@ -114,8 +114,6 @@ def read_pdb_or_mmcif(fname):
         unit_cell (Optional[UnitCell]): unit cell object
         pdb_hierarchy (Optional[iotbx.pdb.hierarchy]): CCTBX PDB object
     """
-
-    """Read a pdb file using CCTBX and construct a PDBFile object."""
     iotbx_in = iotbx.pdb.pdb_input_from_any(
         file_name=fname, source_info=None, raise_sorry_if_format_error=True
     )

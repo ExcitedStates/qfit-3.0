@@ -1,9 +1,20 @@
 #!/usr/bin/env python
 
-"""Automatically build a multiconformer residue"""
+"""
+10/31/2022: Not frequently used anymore
+The purpose of this script is to identify residues with more than one conformer within 5 angstroms any (non-crystallographic) ligands in the PDB
+
+
+INPUT: PDB structure, name of PDB structure
+OUTPUT: CSV file with the residues within 5A of ligand with the number of single and multi conf structures
+
+example:
+find_altlocs_near_ligand.py pdb.pdb pdb_name 
+"""
 
 import argparse
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -11,6 +22,7 @@ from qfit.structure import Structure
 from qfit.structure.rotamers import ROTAMERS
 
 Dict = {
+    "HOH": 0,
     "DMS": 0,
     "CRY": 0,
     "IUM": 0,
@@ -664,8 +676,10 @@ def main():
             else:
                 homo += 1
     total = homo + hetero
+    if len(set(ligands.resn)) == 0:
+        sys.exit(0)
     for ligand_name in list(set(ligands.resn)):
-        near_homo = near_hetero = 0
+        near_homo = near_hetero = near_total = 0
         if ligand_name not in Dict:
             ligand = structure.extract("resn", ligand_name)
             mask = ligand.e != "H"
@@ -687,7 +701,8 @@ def main():
                 close_res.loc[n, "chain"] = chain
                 n += 1
             close_res.to_csv(
-                dir + pdb_name + "_" + ligand_name + "_closeres.csv", index=False
+                sstr(args.dir) + pdb_name + "_" + ligand_name + "_closeres.csv",
+                index=False,
             )
 
             for key in neighbors.keys():
@@ -713,7 +728,7 @@ def main():
             alt_loc.loc[m, "Total_Residues_Near_Ligand"] = near_total
             m += 1
 
-    alt_loc.to_csv(dir + pdb_name + "_Alt_Loc.csv", index=False)
+    alt_loc.to_csv(str(args.dir) + pdb_name + "_Alt_Loc.csv", index=False)
     print(
         pdb_name, ligand_name, homo, hetero, total, near_homo, near_hetero, near_total
     )

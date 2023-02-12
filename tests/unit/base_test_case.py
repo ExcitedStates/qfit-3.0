@@ -9,6 +9,7 @@ import os.path as op
 class UnitBase(unittest.TestCase):
     TESTS_DIR = op.dirname(op.dirname(__file__))
     DATA = op.join(TESTS_DIR, "data")
+    DATA_BIG = op.join(TESTS_DIR, "basic_qfit_protein_test")
     TINY_PDB = op.join(DATA, "phe113_fake_uc.pdb")
     TINY_CIF = op.join(DATA, "phe113_fake_uc.cif.gz")
     EXAMPLES = op.join(op.dirname(TESTS_DIR), "example")

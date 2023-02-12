@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+
+"""
+This script is to produce the intermediate file to calculate crystallographic order parameters. 
+INPUT: PDB structure, pdb name
+OUTPUT: A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
+
+example:
+make_methyl_df.py {pdb}.pdb {pdb_name} 
+"""
+
 import numpy as np
 import pandas as pd
 import argparse

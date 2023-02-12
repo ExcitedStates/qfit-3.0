@@ -18,14 +18,13 @@ logger = logging.getLogger(__name__)
 
 class TestQFitLigand(TemporaryDirectoryRunner):
     def mock_main(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "example")
+        data_dir = os.path.join(os.path.dirname(__file__), "qfit_ligand_test")
         # Prepare args
         args = [
-            os.path.join(data_dir, "composite_omit_map.mtz"),
-            os.path.join(data_dir, "4ms6.pdb"),
-            "-l",
-            "2FOFCWT,PH2FOFCWT",
-            "A, 702",  # selection
+            os.path.join(data_dir, "5AGK_composite_omit_map.mtz"),
+            os.path.join(data_dir, "5AGK.pdb"),
+            "-l", "2FOFCWT,PH2FOFCWT",
+            "B, 801",  # selection
         ]
 
         # TODO: Add options to reduce computational load
@@ -33,10 +32,7 @@ class TestQFitLigand(TemporaryDirectoryRunner):
         # Collect and act on arguments
         p = build_argparser()
         args = p.parse_args(args=args)
-        try:
-            os.mkdir(args.directory)
-        except OSError:
-            pass
+        os.makedirs(args.directory, exist_ok=True)
 
         # Apply the arguments to options
         options = QFitOptions()
@@ -49,8 +45,8 @@ class TestQFitLigand(TemporaryDirectoryRunner):
 
         # Build a QFitLigand job
         qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
-
-        assert qfit_ligand.ligand.natoms == 19
+        print(qfit_ligand.ligand.natoms)
+        assert qfit_ligand.ligand.natoms == 15
 
         return qfit_ligand
 
@@ -58,9 +54,7 @@ class TestQFitLigand(TemporaryDirectoryRunner):
         qfit_ligand = self.mock_main()
 
         # Run qfit object
-        # NOTE: Currently, running this qfit_ligand job takes 20-something
-        #       minutes on the GitHub Actions runner. This needs to be cut down.
 
-        # output = qfit_ligand.run() # TODO: Determine if you can just run part of this
-        # conformers = qfit_ligand.get_conformers()
-        # assert len(conformers) == 3  # TODO: fix when qfit_ligand working
+        output = qfit_ligand.run()
+        conformers = qfit_ligand.get_conformers()
+        assert len(conformers) == 2  

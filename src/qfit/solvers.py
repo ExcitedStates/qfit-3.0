@@ -131,8 +131,6 @@ if CPLEX:
                         i, j, self._quad_obj[i, j]
                     )
                 miqp.objective.set_linear(i, self._lin_obj[i])
-
-            # Sum of weights is <= 1
             ind = range(self._nconformers)
             val = [1] * self._nconformers
             lin_expr = [cplex.SparsePair(ind=ind, val=val)]
@@ -140,7 +138,7 @@ if CPLEX:
                 lin_expr=lin_expr,
                 rhs=[1],
                 senses=["L"],
-            )
+            )  # Sum of weights is <= 1
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
             # a regular QP.

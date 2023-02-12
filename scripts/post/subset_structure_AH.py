@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
-# Edited by Stephanie Wankowicz
-# began: 2019-04-10
-# last edited: 2019-09-17
+"""
+This script will take in 2 pdbs and a ligand or geometric point in the PDB and the PDB names and output a list of overlapping ligands and a list of close residues (determined by -distance).
+INPUT: 2 PDB, 2 PDB names, ligand [optional: distance]
+OUTPUT: Text file with list of close residue, text file with list of overlapping ligands 
+
+example:
+subset_structure_AH.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name} -ls {ligand name}
+"""
 
 import os
 import os.path
@@ -10,10 +15,8 @@ import time
 from argparse import ArgumentParser
 
 import numpy as np
-from qfit import Structure
-from qfit.qfit import QFitRotamericResidueOptions
-
-os.environ["OMP_NUM_THREADS"] = "1"
+from qfit.structure import Structure
+from qfit.qfit import QFitOptions
 
 
 def parse_args():
@@ -30,12 +33,6 @@ def parse_args():
         metavar="<dir>",
         help="Directory to store results.",
     )
-    p.add_argument(
-        "--debug",
-        action="store_true",
-        help="Write intermediate structures to file for debugging.",
-    )
-    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
     p.add_argument("--pdb_holo", help="Name of the input Holo PDB.")
     p.add_argument("--pdb_apo", help="Name of the input Apo PDB.")
 
@@ -74,7 +71,7 @@ class QFitMultiResOptions(QFitRotamericResidueOptions):
         self.pdb_apo = None
 
 
-class QFitMultiResidue:
+class subset_str:
     def __init__(self, holo_structure, apo_structure, options):
         self.holo_structure = holo_structure  # PDB with HOH at the bottom
         self.apo_structure = apo_structure  # PDB with HOH at the bottom
@@ -83,7 +80,7 @@ class QFitMultiResidue:
         self.close_hetatoms_apo = None
         self.pdb_holo = ""
         self.pdb_apo = ""
-        self.options = options  # user input
+        self.options = options
 
     def run(self):
         if not self.options.pdb_holo is None:
@@ -92,17 +89,15 @@ class QFitMultiResidue:
         if not self.options.pdb_apo is None:
             self.pdb_apo = self.options.pdb_apo + "_"
 
-        print(self.options.ligand_start)
-
         lig_structure = self.select_lig()
         lig_overlap = self.select_close_ligands()
         if not lig_overlap == None:
             with open(self.pdb_apo + "ligand_overlap.txt", "w") as file:
                 file.write(lig_overlap)
         substructure_apo, substructure_holo = self.select_close_residues()
-        fname = self.pdb_holo + "subset.pdb"  # self.options.distance + pdbname
+        fname = self.pdb_holo + "_subset.pdb"
         substructure_holo.tofile(fname)
-        fname = self.pdb_apo + "subset.pdb"  # self.options.distance + pdbname
+        fname = self.pdb_apo + "_subset.pdb"
         substructure_apo.tofile(fname)
         return substructure_apo, substructure_holo
 
@@ -111,7 +106,6 @@ class QFitMultiResidue:
         Select the residue IDs of the ligands you want to extract; get a central value of all atoms in that ligand
         """
         # first we are going to check which resiudes are ligands
-        # hetatms = self.structure.extract('record', 'HETATM', '==')
         lig_structure = self.holo_structure.extract(
             "resn", self.options.ligand_start
         )  #
@@ -120,7 +114,6 @@ class QFitMultiResidue:
         center_y = np.mean(lig_structure.coor[:, 1])
         center_z = np.mean(lig_structure.coor[:, 2])
         self.lig_center = [center_x, center_y, center_z]
-        # print(self.lig_center)
         return lig_structure
 
     def select_close_ligands(self):
@@ -187,7 +180,7 @@ class QFitMultiResidue:
                     self.close_atoms_chain_apo = self.atoms_apo.extract(
                         f"chain {chain} and resi {residue}"
                     )
-        fname_holo = self.pdb_holo + "_subset.pdb"  # self.options.distance + pdbname
+        fname_holo = self.pdb_holo + "_subset.pdb"
         return self.close_atoms_chain_apo, self.close_atoms_chain_holo
 
 
@@ -202,18 +195,13 @@ def main():
     apo_structure = Structure.fromfile(
         args.apo_structure
     ).reorder()  # put H20 on the bottom
-    print(apo_structure)
-    apo_structure = apo_structure.extract("e", "H", "!=")
     holo_structure = Structure.fromfile(
         args.holo_structure
     ).reorder()  # put H20 on the bottom
-    holo_structure = holo_structure.extract("e", "H", "!=")
     options_multi = QFitMultiResOptions()
     options_multi.apply_command_args(args)
-    time0 = time.time()
-    sub_structure = QFitMultiResidue(holo_structure, apo_structure, options_multi)
+    sub_structure = subset_str(holo_structure, apo_structure, options_multi)
     substructure = sub_structure.run()
-    print(f"Total time: {time.time() - time0}s")
 
 
 if __name__ == "__main__":

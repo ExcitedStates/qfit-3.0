@@ -425,7 +425,6 @@ class BondOrder(object):
 
 
 class CovalentLigand(_BaseStructure):
-
     """Covalent Ligand class"""
 
     def __init__(self, *args, **kwargs):

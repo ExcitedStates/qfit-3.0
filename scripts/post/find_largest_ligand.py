@@ -1,9 +1,19 @@
 #!/usr/bin/env python
 
-import argparse
+"""
+The purpose of this script is to identify the largest (non-crystallographic) ligand in the PDB. 
 
+INPUT: PDB structure, name of PDB structure
+OUTPUT: A text file named PDB_name_ligand_name.txt with the ligand name inside
+
+example:
+find_altlocs_near_ligand.py pdb.pdb pdb_name 
+"""
+
+
+import argparse
 import numpy as np
-from qfit import Structure
+from qfit.structure import Structure
 
 known_ligands = {
     "HOH": 0,
@@ -661,7 +671,7 @@ def main():
                         lig_name = ligand_name
 
     if lig_name:
-        with open("args.pdb" + "_ligand_name.txt", "w") as file:
+        with open(args.pdb + "_ligand_name.txt", "w") as file:
             file.write(lig_name)
 
 

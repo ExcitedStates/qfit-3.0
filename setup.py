@@ -25,7 +25,7 @@ def main():
         "setuptools_scm",
     ]
     install_requires = [
-        "numpy>=1.21.5,<1.22",
+        "numpy>=1.20,<1.22",
         "scipy>=1.0",
         "pandas>=1.2,<1.4",
         "pyparsing>=2.2.0",
@@ -73,12 +73,9 @@ def main():
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/qfit_RMSF.py",
             "scripts/post/find_altlocs_near_ligand.py",
-            "scripts/post/compare_apo_holo.py",
-            "scripts/post/get_metrics.py",
             "scripts/post/b_factor.py",
             "scripts/post/subset_structure_AH.py",
             "scripts/post/alpha_carbon_rmsd.py",
-            "scripts/post/reorder_pdb.py",
             "scripts/post/relabel_chain.py",
             "scripts/post/water_stats.py",
             "scripts/post/water_clash.py",

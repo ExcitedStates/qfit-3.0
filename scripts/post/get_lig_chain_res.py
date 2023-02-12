@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 
 """
-This script is for an automated way
-to get the residue ID and chain ID of a ligand of interest.
-Can be fed into qfit ligand.
+This script is for an automated way to get the residue ID and chain ID of a ligand of interest to be fed into qFit Ligand
+
+INPUT: PDB structure, ligand name
+OUTPUT: A text file named Ligand_name_chain_resi.txt with the residue number and chain of the ligand
+
+example:
+get_lig_chain_res.py pdb.pdb lig_name 
 """
 
 import argparse
-
 import numpy as np
-from qfit import Structure
+from qfit.structure import Structure
 
 
 def parse_args():
