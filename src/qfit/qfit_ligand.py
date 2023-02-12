@@ -406,10 +406,7 @@ def prepare_qfit_ligand(options):
 def main():
     p = build_argparser()
     args = p.parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
     if not args.pdb == None:
         pdb_id = args.pdb + "_"
     else:

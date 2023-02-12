@@ -210,11 +210,8 @@ def redistribute_occupancies_by_residue(residue, cutoff):
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-        output_file = os.path.join(args.directory, args.structure[:-4] + "_norm.pdb")
-    except OSError:
-        output_file = args.structure[:-4] + "_norm.pdb"
+    os.makedirs(args.directory, exist_ok=True)
+    output_file = os.path.join(args.directory, args.structure[:-4] + "_norm.pdb")
 
     structure = Structure.fromfile(args.structure)
 

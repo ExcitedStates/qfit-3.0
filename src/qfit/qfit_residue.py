@@ -355,10 +355,7 @@ def build_argparser():
 def main():
     p = build_argparser()
     args = p.parse_args(args=None)
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
     time0 = time.time()
 
     # Apply the arguments to options

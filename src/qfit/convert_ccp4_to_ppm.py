@@ -317,10 +317,7 @@ def parse_args():
 def main():
     args = parse_args()
     """ Create the output directory provided by the user: """
-    try:
-        os.makedirs(args.directory)
-    except OSError:  # If directory already exists...
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     time0 = time.time()  # Useful variable for profiling run times.
     """ Processing input structure and map """

@@ -37,10 +37,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     structure = Structure.fromfile(args.structure).reorder()
     chainid, resi = args.selection.split(",")
