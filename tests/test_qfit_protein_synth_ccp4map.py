@@ -38,8 +38,6 @@ class TestQfitProteinSyntheticDataCcp4Map(_BaseClass):
             "0.1",
             "--rotamer-neighborhood",
             "10",
-            "--random-seed",
-            str(self.RANDOM_SEED),
             "--debug",
         ]
         print(" ".join(qfit_args))

@@ -263,14 +263,6 @@ def build_argparser():
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
-    # Global options
-    p.add_argument(
-        "--random-seed",
-        dest="random_seed",
-        metavar="<int>",
-        type=int,
-        help="Seed value for PRNG",
-    )
 
     # Output options
     p.add_argument(

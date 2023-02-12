@@ -27,8 +27,6 @@ from .test_qfit_protein import TemporaryDirectoryRunner
 
 class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
     DATA = op.join(op.dirname(__file__), "data")
-    # the default is specifically chosen to make the 7-mer test pass
-    RANDOM_SEED = int(os.environ.get("QFIT_RANDOM_SEED", 7))
     # allowed difference from rotameric chi*
     CHI_RADIUS = 10
 
@@ -92,8 +90,6 @@ class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
             "0.1",
             "--rotamer-neighborhood",
             "10",
-            "--random-seed",
-            str(self.RANDOM_SEED),
             "--debug",
         ]
         print(" ".join(qfit_args))

@@ -55,8 +55,6 @@ class TestQFitProtein(TemporaryDirectoryRunner):
             "30",  # default: 60
             "-d",
             tmp_dir,
-            "--random-seed",
-            "7",
         ]
 
         # Collect and act on arguments
