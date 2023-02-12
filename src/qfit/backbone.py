@@ -126,14 +126,12 @@ class AtomMoveFunctional:
         self.endpoint = endpoint
 
     def target(self):
-
         current = self.segment._coor[self._atom_index]
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         return energy
 
     def gradient(self):
-
         """Return the gradient on the CB atom."""
 
         current = self.segment._coor[self._atom_index]
@@ -148,7 +146,6 @@ class AtomMoveFunctional:
         return energy, gradient
 
     def target_and_gradients_phi_psi(self):
-
         """Return the gradients by rotating along each phi and psi backbone angle."""
 
         target, gradient = self.target_and_gradient()
@@ -183,7 +180,6 @@ class AtomMoveFunctional:
 
 class NullSpaceOptimizer:
     def __init__(self, segment):
-
         self.segment = segment
         self.ndofs = len(segment) * 2
         self.rotator = BackboneRotator(segment)
@@ -210,7 +206,6 @@ class NullSpaceOptimizer:
         return result
 
     def target_and_gradient(self, torsions):
-
         self.rotator(torsions)
         # target, gradient = self._functional.target_and_gradients_phi_psi()
         target = self._functional.target()

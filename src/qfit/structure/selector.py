@@ -14,7 +14,6 @@ class _Selector:
     """
 
     def __init__(self):
-
         self.structure = None
 
         # Name selectors

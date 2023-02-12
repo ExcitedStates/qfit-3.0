@@ -997,7 +997,6 @@ class mmCIFFileWriter(object):
 
         ## write out the keys and values
         for col in cif_table.columns:
-
             cif_key = "_%s.%s" % (cif_table.name, col)
             l = [cif_key.ljust(kmax)]
 
@@ -1109,8 +1108,7 @@ class mmCIFFileWriter(object):
         listx = []
 
         for row in cif_table:
-            for (col, dtype, lenx) in wlist:
-
+            for col, dtype, lenx in wlist:
                 if col is None:
                     add_space = False
                     listx.append("\n")

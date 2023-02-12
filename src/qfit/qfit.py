@@ -79,9 +79,9 @@ class QFitOptions:
         self.sample_backbone_step = 0.1
         self.sample_backbone_sigma = 0.125
 
-        #Sample B-factors 
+        # Sample B-factors
         self.sample_bfactors = True
-        
+
         # N-CA-CB angle sampling
         self.sample_angle = True
         self.sample_angle_range = 7.5
@@ -311,12 +311,12 @@ class _BaseQFit:
 
     def sample_b(self):
         """
-        This funciton will take in coor set and b-factors for all conformers selected after QP (to help save time) 
-        and multiple each atom's b-factor by it multiplication factor.  
+        This funciton will take in coor set and b-factors for all conformers selected after QP (to help save time)
+        and multiple each atom's b-factor by it multiplication factor.
         """
         new_coor = []
-        new_bfactor =[]
-        multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5] 
+        new_bfactor = []
+        multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5]
         for coor, b, multi in zip(self._coor_set, self._bs, multiplication_factors):
             new_coor.append(coor)
             new_bfactor.append(b * multi)
@@ -967,7 +967,9 @@ class QFitRotamericResidue(_BaseQFit):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
-            iter_b_set = [] # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
+            iter_b_set = (
+                []
+            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1307,10 +1309,12 @@ class QFitSegment(_BaseQFit):
             f"{multiconformers.average_conformers():.2f}"
         )
         multiconformers = multiconformers.reorder()
-#         multiconformers = multiconformers.remove_identical_conformers(
-#             self.options.rmsd_cutoff
-#         )
-        multiconformers = multiconformers.normalize_occupancy()  # ensure that sum(occupancy) of residues is equal to one.
+        #         multiconformers = multiconformers.remove_identical_conformers(
+        #             self.options.rmsd_cutoff
+        #         )
+        multiconformers = (
+            multiconformers.normalize_occupancy()
+        )  # ensure that sum(occupancy) of residues is equal to one.
         logger.info(
             f"Average number of conformers after removal of identical conformers: "
             f"{multiconformers.average_conformers():.2f}"
@@ -1349,10 +1353,7 @@ class QFitSegment(_BaseQFit):
                         fragment = fragment.combine(element.set_backbone_occ())
                     combine = True
                     for fragment2 in fragments:
-                        if (
-                            calc_rmsd(fragment.coor, fragment2.coor)
-                            < 0.05
-                        ):
+                        if calc_rmsd(fragment.coor, fragment2.coor) < 0.05:
                             combine = False
                             break
                     if combine:
@@ -1518,8 +1519,8 @@ class QFitLigand(_BaseQFit):
         logger.info("Solving MIQP within run.")
         self._convert()
         self._solve(
-            threshold=self.options.threshold,
-            cardinality=self.options.cardinality)
+            threshold=self.options.threshold, cardinality=self.options.cardinality
+        )
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")

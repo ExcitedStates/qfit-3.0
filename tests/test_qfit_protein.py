@@ -47,7 +47,8 @@ class TestQFitProtein(TemporaryDirectoryRunner):
         args = [
             os.path.join(data_dir, "3k0n_map.mtz"),
             os.path.join(data_dir, "3k0n_refine.pdb"),
-            "-l", "2FOFCWT,PH2FOFCWT",
+            "-l",
+            "2FOFCWT,PH2FOFCWT",
             # Add options to reduce computational load
             "--backbone-amplitude",
             "0.10",  # default: 0.30
@@ -98,5 +99,5 @@ class TestQFitProtein(TemporaryDirectoryRunner):
     def test_run_qfit_residue_parallel(self):
         self._run_mock_qfit_residue_parallel("pdb")
 
-    #def test_run_qfit_residue_parallel_mmcif(self):
+    # def test_run_qfit_residue_parallel_mmcif(self):
     #    self._run_mock_qfit_residue_parallel("cif.gz")

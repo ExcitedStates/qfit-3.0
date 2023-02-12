@@ -546,7 +546,6 @@ def parse_args():
 
 
 def main():
-
     args = parse_args()
     """ Create the output directory provided by the user: """
     os.makedirs(args.directory, exist_ok=True)

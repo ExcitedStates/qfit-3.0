@@ -23,7 +23,8 @@ class TestQFitLigand(TemporaryDirectoryRunner):
         args = [
             os.path.join(data_dir, "5AGK_composite_omit_map.mtz"),
             os.path.join(data_dir, "5AGK.pdb"),
-            "-l", "2FOFCWT,PH2FOFCWT",
+            "-l",
+            "2FOFCWT,PH2FOFCWT",
             "B, 801",  # selection
         ]
 
@@ -57,4 +58,4 @@ class TestQFitLigand(TemporaryDirectoryRunner):
 
         output = qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
-        assert len(conformers) == 2  
+        assert len(conformers) == 2

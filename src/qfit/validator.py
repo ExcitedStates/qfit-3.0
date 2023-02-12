@@ -39,7 +39,6 @@ class Validator(object):
         return corr
 
     def fisher_z(self, structure, rmask=1.5, simple=True):
-
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         transformer = Transformer(structure, model_map)

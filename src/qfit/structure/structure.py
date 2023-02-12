@@ -353,63 +353,64 @@ class Structure(_BaseStructure):
         data = self.data
         for chain in multiconformer:
             for residue in chain:
-                 altlocs = list(set(residue.altloc))
-                 mask = None
-                 if len(altlocs) == 1:  # confirm occupancy = 1
-                     mask = (
-                        (self.data["resi"] == residue.resi[0])
-                        & (self.data["chain"] == residue.chain[0])
-                        )
-                     for attr in data:
-                       array = getattr(multiconformer, attr)
-                       if attr == "q":
-                           array[mask] = 1.0
-                       elif attr == "altloc":
-                           array[mask] = ''
-                       data[attr] = array
-                     multiconformer = Structure(data)
-                 else:
+                altlocs = list(set(residue.altloc))
+                mask = None
+                if len(altlocs) == 1:  # confirm occupancy = 1
+                    mask = (self.data["resi"] == residue.resi[0]) & (
+                        self.data["chain"] == residue.chain[0]
+                    )
+                    for attr in data:
+                        array = getattr(multiconformer, attr)
+                        if attr == "q":
+                            array[mask] = 1.0
+                        elif attr == "altloc":
+                            array[mask] = ""
+                        data[attr] = array
+                    multiconformer = Structure(data)
+                else:
                     new_occ = []
                     if "" in altlocs and len(altlocs) > 1:
-                       mask = (
-                               (self.data["resi"] == residue.resi[0])
-                               & (self.data["chain"] == residue.chain[0])
-                               & (self.data["altloc"] == '')
-                               )
-                       for attr in data:
-                          array = getattr(multiconformer, attr)
-                          if attr == "q":
-                            array[mask] = 1.0
-                          elif attr == "altloc":
-                            array[mask] = ''
-                          data[attr] = array
-                       multiconformer = Structure(data)
-                       altlocs.remove("")
+                        mask = (
+                            (self.data["resi"] == residue.resi[0])
+                            & (self.data["chain"] == residue.chain[0])
+                            & (self.data["altloc"] == "")
+                        )
+                        for attr in data:
+                            array = getattr(multiconformer, attr)
+                            if attr == "q":
+                                array[mask] = 1.0
+                            elif attr == "altloc":
+                                array[mask] = ""
+                            data[attr] = array
+                        multiconformer = Structure(data)
+                        altlocs.remove("")
                     sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                     conformers = [self.extract(sel_str + x) for x in altlocs]
                     alt_sum = 0
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
-                        new_occ = np.append(new_occ,(np.round(conformers[i].q[0], 2)))
+                        new_occ = np.append(new_occ, (np.round(conformers[i].q[0], 2)))
                     if alt_sum != 1:  # we need to normalize
-                       new_occ = []
-                       for i in range(0, len(altlocs)):
-                              new_occ = np.append(new_occ,((np.round(conformers[i].q[0], 2)) / alt_sum))
-                       new_occ = normalize_to_precision(
-                             np.array(new_occ), 2
-                           )  # deal with imprecision 
+                        new_occ = []
+                        for i in range(0, len(altlocs)):
+                            new_occ = np.append(
+                                new_occ, ((np.round(conformers[i].q[0], 2)) / alt_sum)
+                            )
+                        new_occ = normalize_to_precision(
+                            np.array(new_occ), 2
+                        )  # deal with imprecision
                     for i in range(0, len(new_occ)):
-                         mask = (
-                               (self.data["resi"] == residue.resi[0])
-                               & (self.data["chain"] == residue.chain[0])
-                               & (self.data["altloc"] == altlocs[i])
-                               )
-                         for attr in data:
-                             array = getattr(multiconformer,attr)
-                             if attr == "q":
+                        mask = (
+                            (self.data["resi"] == residue.resi[0])
+                            & (self.data["chain"] == residue.chain[0])
+                            & (self.data["altloc"] == altlocs[i])
+                        )
+                        for attr in data:
+                            array = getattr(multiconformer, attr)
+                            if attr == "q":
                                 array[mask] = new_occ[i]
-                             data[attr] = array
-                         multiconformer = Structure(data)
+                            data[attr] = array
+                        multiconformer = Structure(data)
         return Structure(data)
 
     def remove_conformer(self, resi, chain, altloc1, altloc2):
@@ -442,27 +443,30 @@ class Structure(_BaseStructure):
                     altlocs.remove("")
                 except ValueError:
                     pass
-                sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                sel_str = (
+                    f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                )
                 conformers = [multiconformer.extract(sel_str + x) for x in altlocs]
                 if len(set(altlocs)) == 1:
-                   continue
+                    continue
                 else:
-                  removed_conformers = [] #list of all conformer that are removed
-                  for conf_a, conf_b in itertools.combinations(conformers, 2):
-                      if conf_a.altloc[0] in removed_conformers: continue #we have already removed this conformer
-                      else:
-                        rmsd = np.sqrt(np.mean((conf_a.coor - conf_b.coor)**2))
-                        if rmsd > rmsd_cutoff:
-                           continue
+                    removed_conformers = []  # list of all conformer that are removed
+                    for conf_a, conf_b in itertools.combinations(conformers, 2):
+                        if conf_a.altloc[0] in removed_conformers:
+                            continue  # we have already removed this conformer
                         else:
-                           multiconformer = multiconformer.remove_conformer(
-                                         residue.resi[0],
-                                         residue.chain[0],
-                                         conf_a.altloc[0],
-                                         conf_b.altloc[0])
-                           removed_conformers.append(conf_b.altloc[0])
+                            rmsd = np.sqrt(np.mean((conf_a.coor - conf_b.coor) ** 2))
+                            if rmsd > rmsd_cutoff:
+                                continue
+                            else:
+                                multiconformer = multiconformer.remove_conformer(
+                                    residue.resi[0],
+                                    residue.chain[0],
+                                    conf_a.altloc[0],
+                                    conf_b.altloc[0],
+                                )
+                                removed_conformers.append(conf_b.altloc[0])
         return multiconformer
-
 
     @property
     def n_residue_conformers(self):
@@ -598,6 +602,7 @@ class Structure(_BaseStructure):
             crystal_symmetry=symm,
         )
 
+
 class _Chain(_BaseStructure):
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
@@ -652,7 +657,6 @@ class _Chain(_BaseStructure):
         return self._residue_groups
 
     def build_hierarchy(self):
-
         resi = self.resi
         # order = np.argsort(resi)
         # resi = resi[order]
@@ -803,9 +807,7 @@ class _Conformer(_BaseStructure):
     def ligands(self):
         if not self._residues:
             self.build_residues()
-        _ligands = [
-            l for l in self._residues if isinstance(l, Ligand) and l.natoms > 3
-        ]
+        _ligands = [l for l in self._residues if isinstance(l, Ligand) and l.natoms > 3]
         return _ligands
 
     @property

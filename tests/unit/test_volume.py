@@ -41,6 +41,7 @@ class TestVolumeXmapIO(UnitBase):
         xmap1.tofile(map_tmp)
         xmap2 = XMap.fromfile(map_tmp, resolution=d_min)
         _validate_map(xmap2)
+
         # extract region
         def _validate_extract_map(xmap):
             assert xmap.resolution.high == pytest.approx(d_min, abs=0.001)

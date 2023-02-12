@@ -11,7 +11,6 @@ class BackboneRotator:
     """Rotate around phi, psi angles."""
 
     def __init__(self, segment):
-
         self.segment = segment
         self.ndofs = 2 * len(segment.residues)
         self._starting_coor = segment.coor
@@ -51,7 +50,6 @@ class BackboneRotator:
             self._atoms_to_rotate.append(np.unique(atoms_to_rotate))
 
     def __call__(self, torsions):
-
         assert len(torsions) == self.ndofs, "Number of torsions should equal "
         " degrees of freedom"
 
@@ -142,7 +140,6 @@ class GlobalRotator:
     """Rotate ligand around its center."""
 
     def __init__(self, ligand, center=None):
-
         self.ligand = ligand
         self._center = center
         ligand_coor = self.ligand.coor
@@ -411,7 +408,6 @@ class ZAxisAligner:
 
 
 class RotationSets:
-
     LOCAL = (
         ("local_5_10.npy", 10, 5.00),
         ("local_5_100.npy", 100, 5.00),

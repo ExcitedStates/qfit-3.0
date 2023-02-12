@@ -36,6 +36,7 @@ class GridParameters:
     def __str__(self):
         return f"voxelspacing={list(self.voxelspacing)} grid={list(self.offset)}"
 
+
 class Resolution:
     def __init__(self, high=None, low=None):
         self.high = high
