@@ -193,7 +193,7 @@ mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 
 # Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
+echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
 echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
@@ -202,6 +202,8 @@ echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.par
 echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
 echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
 echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
+echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine.params
+echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
@@ -220,6 +222,8 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
   
 
   phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
