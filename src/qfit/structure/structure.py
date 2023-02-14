@@ -183,13 +183,13 @@ class Structure(_BaseStructure):
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O", "H", "HA"])
-            & np.isin(self.data["altloc"], ["B", "C", "D", "E"])
+            & np.isin(self.data["altloc"], altlocs_remove)
         )
         mask2 = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O"])
-            & np.isin(self.data["altloc"], ["A"])
+            & np.isin(self.data["altloc"], altloc_keep)
         )
 
         for attr in self.data:
