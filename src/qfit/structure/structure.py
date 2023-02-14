@@ -396,7 +396,7 @@ class Structure(_BaseStructure):
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
                         new_occ = np.append(new_occ,(np.round(conformers[i].q[0], 2)))
-                    if alt_sum != 1:  # we need to normalize
+                    if alt_sum != 1.0:  # we need to normalize
                        new_occ = []
                        for i in range(0, len(altlocs)):
                               new_occ = np.append(new_occ,((np.round(conformers[i].q[0], 2)) / alt_sum))
