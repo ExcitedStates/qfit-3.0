@@ -179,6 +179,7 @@ class Structure(_BaseStructure):
     def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
+        #determine altloc to keep
         sel_str = f"resi {resid} and chain {chainid}"
         conformers = [self.extract(sel_str)]
         altlocs = []
