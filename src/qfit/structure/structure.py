@@ -179,6 +179,13 @@ class Structure(_BaseStructure):
     def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
+        sel_str = f"resi {resid} and chain {chainid}"
+        conformers = [self.extract(sel_str)]
+        altlocs = []
+        for i in range(0, len(conformers)):
+            altlocs = np.append(altlocs, conformers[i].altloc[0])
+        altloc_keep = np.unique(altlocs)[0]
+        altlocs_remove = np.unique(altlocs)[1:]
         mask = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
