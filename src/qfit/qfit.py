@@ -1738,6 +1738,7 @@ class QFitLigand(_BaseQFit):
                 return
 
             # MIQP score conformer occupancy
+            self.sample_b()
             self._convert()
             self._solve(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
