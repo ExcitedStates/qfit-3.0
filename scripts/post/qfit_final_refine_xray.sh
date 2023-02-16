@@ -3,9 +3,9 @@
 
 qfit_usage() {
   echo >&2 "Usage:";
-  echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
+  echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb] [qFit_occupancy.params]";
   echo >&2 "";
-  echo >&2 "mapfile.mtz and multiconformer_model2.pdb MUST exist in this directory.";
+  echo >&2 "mapfile.mtz, multiconformer_model2.pdb, and qFit_occupancy.params MUST exist in this directory.";
   echo >&2 "Outputs will be written to mapfile_qFit.{pdb|mtz|log}.";
   exit 1;
 }
@@ -33,6 +33,7 @@ mapfile=$1
 multiconf=${2:-multiconformer_model2.pdb}
 echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
+
 echo "";
 if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
   qfit_usage;
