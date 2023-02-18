@@ -142,31 +142,34 @@ phenix.refine "${multiconf}.f_modified.updated.pdb" \
                 "${pdb_name}_occ_refine.params" \
                 qFit_occupancy.params \
                 --overwrite
+         
+#__________________________________REDISTRIBUTE OCCUPANCIES__________________________
+redistribute_cull_low_occupancies -occ 0.09 ${pdb_name}_001.pdb
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
 # Here we add H with phenix.ready_set. Addition of H to the backbone is important
 #   since it introduces planarity restraints to the peptide bond.
 # We will also create a cif file for any ligands in the structure at this point.
-phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_001.pdb"
-mv "${pdb_name}_001.updated.pdb" "${pdb_name}_001.pdb"
+phenix.ready_set hydrogens=true pdb_file_name="${pdb_name}_001_norm.pdb"
+mv "${pdb_name}_001_norm.updated.pdb" "${pdb_name}_001.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
 
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
-echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
-echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
-echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
-echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
-echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
-echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
-echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
-echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
+echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_segement_final_refine.params
+echo "refinement.output.serial=5"                >> ${pdb_name}_segement_final_refine.params
+echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_segement_final_refine.params
+echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_segement_final_refine.params
+echo "refinement.refine.${adp}"                  >> ${pdb_name}_segement_final_refine.params
+echo "refinement.output.write_maps=False"        >> ${pdb_name}_segement_final_refine.params
+echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_segement_final_refine.params
+echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_segement_final_refine.params
 
 
 if [ -f "${pdb_name}_001.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${pdb_name}_001.ligands.cif'"  >> ${pdb_name}_final_refine.params
+  echo "refinement.input.monomers.file_name='${pdb_name}_001.ligands.cif'"  >> ${pdb_name}_segement_final_refine.params
 fi
 
 phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_final_refine.params" --overwrite 
@@ -174,17 +177,17 @@ phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_final_ref
 #________________________________CHECK FOR REDUCE ERRORS______________________________
 if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.output.serial=5"                >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.refine.${adp}"                  >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.output.write_maps=False"        >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_segement_final_refine_noreduce.params
+  echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_segement_final_refine_noreduce.params
   
 
-  phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
+  phenix.refine "${pdb_name}_001.pdb" "${pdb_name}_001.mtz" "${pdb_name}_segement_final_refine_noreduce.params" --overwrite
 fi
 
 #__________________________________NAME FINAL FILES__________________________________
