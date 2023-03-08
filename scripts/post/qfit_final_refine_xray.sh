@@ -3,9 +3,9 @@
 
 qfit_usage() {
   echo >&2 "Usage:";
-  echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb]";
+  echo >&2 "  $0 mapfile.mtz [multiconformer_model2.pdb] [qFit_occupancy.params]";
   echo >&2 "";
-  echo >&2 "mapfile.mtz and multiconformer_model2.pdb MUST exist in this directory.";
+  echo >&2 "mapfile.mtz, multiconformer_model2.pdb, and qFit_occupancy.params MUST exist in this directory.";
   echo >&2 "Outputs will be written to mapfile_qFit.{pdb|mtz|log}.";
   exit 1;
 }
@@ -33,6 +33,7 @@ mapfile=$1
 multiconf=${2:-multiconformer_model2.pdb}
 echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
+
 echo "";
 if [[ ! -f "${mapfile}" ]] || [[ ! -f "${multiconf}" ]]; then
   qfit_usage;
@@ -194,7 +195,7 @@ mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 
 # Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine.params
+echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
 echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
@@ -203,6 +204,8 @@ echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.par
 echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
 echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
 echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
+echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine.params
+echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
@@ -221,6 +224,8 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
   
 
   phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
