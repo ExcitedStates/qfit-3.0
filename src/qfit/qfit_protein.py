@@ -730,7 +730,7 @@ class QFitProtein:
         # Determine if q-score is too low
         if options.qscore is not None:
            (chainid, resi, icode) = residue._identifier_tuple
-            if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < 0.7:
+           if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < 0.7:
                 logger.info(
                     f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
                 )
