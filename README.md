@@ -107,7 +107,7 @@ An example test case (3K0N) can be found in the [example/qfit_protein_example](e
 
 ### Recommended settings
 
-To model alternate conformers for all residues in a protein of interest using qFit,
+To model alternate conformers for all residues in a *X-ray crystallography* model using qFit,
 the following command should be used:
 
 `qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE]`
@@ -120,7 +120,6 @@ be used as input to the post-qFit refinement script provided in [scripts](script
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
  
-
 By default, qFit expects the labels FWT,PHWT to be present in the input map.
 Different labels can be set accordingly using the flag *-l*.
 
@@ -138,7 +137,16 @@ Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
-More advanced features of qFit (modeling single residue, ligand or cryo-EM structure, parallelization) are explained in [TUTORIAL](example/TUTORIAL.md).
+To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
+the following command should be used:
+
+`qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] --qscore [QSCORE_TXT_FILE]`
+
+After *multiconformer_model2.pdb* has been generated, refine this model using:
+
+`qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
+
+More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
 
 
 ## License
