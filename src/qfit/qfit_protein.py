@@ -811,6 +811,17 @@ def prepare_qfit_protein(options):
             radius = 0.5 + reso / 3.0
         scaler.scale(structure, radius=options.scale_rmask * radius)
 
+    if options.qscore is not None:
+       with open(options.qscore, 'r') as f: #not all qscore header are the same 'length'
+          for line_n, line_content in enumerate(f):
+              if "Q_sideChain" in line_content:
+                 break
+          start_row = line_n + 1
+       options.qscore = pd.read_csv(options.qscore, sep='\t', skiprows=start_row,skip_blank_lines=True,on_bad_lines='skip', header=None)
+       options.qscore = options.qscore.iloc[:,:6] #we only care about the first 6 columns
+       options.qscore.columns =['Chain', 'Res', 'Res_num', 'Q_backBone', 'Q_sideChain', 'Q_residue'] #rename column names
+       options.qscore['Res_num'] = options.qscore['Res_num'].fillna(0).astype(int)    
+        
     return QFitProtein(structure, xmap, options)
 
 
