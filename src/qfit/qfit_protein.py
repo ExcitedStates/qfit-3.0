@@ -348,6 +348,13 @@ def build_argparser():
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold (segment)",
     )
+    
+    # EM options
+    p.add_argument(
+        "-q",
+        "--qscore",
+        help="Q-score text output file",
+    )
 
     # Output options
     p.add_argument(
