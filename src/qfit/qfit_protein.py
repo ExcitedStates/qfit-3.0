@@ -726,7 +726,25 @@ class QFitProtein:
                 f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
             )
             return
-
+        
+        # Determine if q-score is too low
+        if options.qscore is not None:
+           (chainid, resi, icode) = residue._identifier_tuple
+            if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < 0.7:
+                logger.info(
+                    f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
+                )
+                resi_selstr = f"chain {chainid} and resi {resi}"
+                if icode:
+                    resi_selstr += f" and icode {icode}"
+                structure_new = structure
+                structure_resi = structure.extract(resi_selstr)
+                chain = structure_resi[chainid]
+                conformer = chain.conformers[0]
+                residue = conformer[residue.id]
+                residue.tofile(fname)
+                return
+        
         # Copy the structure
         (chainid, resi, icode) = residue._identifier_tuple
         resi_selstr = f"chain {chainid} and resi {resi}"
