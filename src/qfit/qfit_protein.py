@@ -348,6 +348,19 @@ def build_argparser():
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold (segment)",
     )
+    
+    # EM options
+    p.add_argument(
+        "-q",
+        "--qscore",
+        help="Q-score text output file",
+    )
+    p.add_argument(
+        "-q_cutoff",
+        "--qscore_cutoff",
+        help="Q-score value where we should not model in alternative conformers.",
+        default=0.7
+    )
 
     # Output options
     p.add_argument(
@@ -719,7 +732,25 @@ class QFitProtein:
                 f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
             )
             return
-
+        
+        # Determine if q-score is too low
+        if options.qscore is not None:
+           (chainid, resi, icode) = residue._identifier_tuple
+           if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < options.q_cutoff:
+                logger.info(
+                    f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
+                )
+                resi_selstr = f"chain {chainid} and resi {resi}"
+                if icode:
+                    resi_selstr += f" and icode {icode}"
+                structure_new = structure
+                structure_resi = structure.extract(resi_selstr)
+                chain = structure_resi[chainid]
+                conformer = chain.conformers[0]
+                residue = conformer[residue.id]
+                residue.tofile(fname)
+                return
+        
         # Copy the structure
         (chainid, resi, icode) = residue._identifier_tuple
         resi_selstr = f"chain {chainid} and resi {resi}"
@@ -804,6 +835,17 @@ def prepare_qfit_protein(options):
             radius = 0.5 + reso / 3.0
         scaler.scale(structure, radius=options.scale_rmask * radius)
 
+    if options.qscore is not None:
+       with open(options.qscore, 'r') as f: #not all qscore header are the same 'length'
+          for line_n, line_content in enumerate(f):
+              if "Q_sideChain" in line_content:
+                 break
+          start_row = line_n + 1
+       options.qscore = pd.read_csv(options.qscore, sep='\t', skiprows=start_row,skip_blank_lines=True,on_bad_lines='skip', header=None)
+       options.qscore = options.qscore.iloc[:,:6] #we only care about the first 6 columns
+       options.qscore.columns =['Chain', 'Res', 'Res_num', 'Q_backBone', 'Q_sideChain', 'Q_residue'] #rename column names
+       options.qscore['Res_num'] = options.qscore['Res_num'].fillna(0).astype(int)    
+        
     return QFitProtein(structure, xmap, options)
 
 
