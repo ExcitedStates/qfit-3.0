@@ -355,6 +355,12 @@ def build_argparser():
         "--qscore",
         help="Q-score text output file",
     )
+    p.add_argument(
+        "-q_cutoff",
+        "--qscore_cutoff",
+        help="Q-score value where we should not model in alternative conformers.",
+        default=0.7
+    )
 
     # Output options
     p.add_argument(
@@ -730,7 +736,7 @@ class QFitProtein:
         # Determine if q-score is too low
         if options.qscore is not None:
            (chainid, resi, icode) = residue._identifier_tuple
-           if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < 0.7:
+           if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < options.q_cutoff:
                 logger.info(
                     f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
                 )
