@@ -815,6 +815,11 @@ def prepare_qfit_protein(options):
     structure = Structure.fromfile(options.structure).reorder()
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
+        
+    #fixing issues with terminal oxygens
+    rename = structure.extract("name", "OXT", "==")
+    rename.name = 'O'
+    structure = structure.extract("name", "OXT", "!=").combine(rename)
 
     # Load map and prepare it
     xmap = XMap.fromfile(
