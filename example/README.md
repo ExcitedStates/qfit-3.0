@@ -39,7 +39,7 @@ Bear in mind that this final step currently depends on an existing installation
 of the [Phenix software suite](https://phenix-online.org/). 
 
 ### 3. Run qFit segment only. If you have manually edited the output of qFit and would like to re-label the alt confs and normalized the occupancies in the PDB, run:
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -segement-only`
+`qfit_protein qfit_segment_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_segment_example/multiconformer_model2_pruned.pdb --segement-only`
 
 ### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
