@@ -376,7 +376,7 @@ def build_argparser():
         "--debug", action="store_true", help="Log as much information as possible"
     )
     p.add_argument(
-        "--write-intermediate-conformers",
+        "--write_intermediate_conformers",
         action="store_true",
         help="Write intermediate structures to file (useful with debugging)",
     )
