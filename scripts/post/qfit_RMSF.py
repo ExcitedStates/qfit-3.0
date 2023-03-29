@@ -112,7 +112,10 @@ class RMSF:
 
         rmsf = pd.DataFrame(rmsf_data, columns=["resseq", "AA", "Chain", "RMSF"])
         rmsf["PDB_name"] = self.options.pdb
-        rmsf.to_csv(str(self.options.d) + self.pdb + "_qfit_RMSF.csv")
+        if self.options.d is not None:
+            rmsf.to_csv(f'{self.options.d}_{self.pdb}_qfit_RMSF.csv')
+        else:
+            rmsf.to_csv(f'{self.pdb}_qfit_RMSF.csv')
 
 
 def main():
