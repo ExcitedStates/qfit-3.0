@@ -385,7 +385,7 @@ class _BaseQFit:
 
         logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
 
-    def _write_intermediate_conformers(self, prefix="_conformer"):
+    def _write_intermediate_conformers(self, prefix="conformer"):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
@@ -744,6 +744,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._write_intermediate_conformers(prefix="qp_solution")
 
         # MIQP score conformer occupancy
+        self.sample_b()
         self._convert()
         self._solve(
             threshold=self.options.threshold, cardinality=self.options.cardinality
@@ -854,7 +855,7 @@ class QFitRotamericResidue(_BaseQFit):
         )
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(
-                prefix=f"_sample_backbone_segment{index:03d}"
+                prefix=f"sample_backbone_segment{index:03d}"
             )
 
     def _sample_angle(self):
@@ -931,7 +932,7 @@ class QFitRotamericResidue(_BaseQFit):
         self._bs = new_bs
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix=f"_sample_angle")
+            self._write_intermediate_conformers(prefix=f"sample_angle")
 
     def _sample_sidechain(self):
         opt = self.options
@@ -1087,7 +1088,7 @@ class QFitRotamericResidue(_BaseQFit):
             )
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}"
+                    prefix=f"sample_sidechain_iter{iteration}"
                 )
 
             # QP score conformer occupancy
@@ -1096,10 +1097,11 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}_qp"
+                    prefix=f"sample_sidechain_iter{iteration}_qp"
                 )
 
             # MIQP score conformer occupancy
+            self.sample_b()
             self._convert()
             self._solve(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
@@ -1107,7 +1109,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}_miqp"
+                    prefix=f"sample_sidechain_iter{iteration}_miqp"
                 )
 
             # Check if we are done
@@ -1595,7 +1597,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers")
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_qp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_qp")
         if len(self._coor_set) < 1:
             logger.warning(
                 f"{self.ligand.resn[0]}: "
@@ -1610,7 +1612,7 @@ class QFitLigand(_BaseQFit):
         )
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_localsearch_ligand_miqp")
+            self._write_intermediate_conformers(prefix="localsearch_ligand_miqp")
 
     def _sample_internal_dofs(self):
         opt = self.options
@@ -1728,7 +1730,7 @@ class QFitLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_ligand_iter{iteration}_qp"
+                    prefix=f"sample_ligand_iter{iteration}_qp"
                 )
             if len(self._coor_set) < 1:
                 logger.warning(
@@ -1746,7 +1748,7 @@ class QFitLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_ligand_iter{iteration}_miqp"
+                    prefix=f"sample_ligand_iter{iteration}_miqp"
                 )
 
             # Check if we are done
@@ -2183,7 +2185,7 @@ class QFitCovalentLigand(_BaseQFit):
 
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}"
+                    prefix=f"sample_sidechain_iter{iteration}"
                 )
 
             # QP score conformer occupancy
@@ -2192,7 +2194,7 @@ class QFitCovalentLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}_qp"
+                    prefix=f"sample_sidechain_iter{iteration}_qp"
                 )
 
             # MIQP score conformer occupancy
@@ -2203,7 +2205,7 @@ class QFitCovalentLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_sidechain_iter{iteration}_miqp"
+                    prefix=f"sample_sidechain_iter{iteration}_miqp"
                 )
 
             # Check if we are done
@@ -2301,7 +2303,7 @@ class QFitCovalentLigand(_BaseQFit):
         self._solve()
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_sample_covalent_bond_qp")
+            self._write_intermediate_conformers(prefix="sample_covalent_bond_qp")
 
         # MIQP score conformer occupancy
         self._convert()
@@ -2310,7 +2312,7 @@ class QFitCovalentLigand(_BaseQFit):
         )
         self._update_conformers()
         if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="_sample_covalent_bond_miqp")
+            self._write_intermediate_conformers(prefix="sample_covalent_bond_miqp")
 
     def _sample_ligand(self):
         opt = self.options
@@ -2422,7 +2424,7 @@ class QFitCovalentLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_ligand_iter{iteration}_qp"
+                    prefix=f"sample_ligand_iter{iteration}_qp"
                 )
 
             # MIQP score conformer occupancy
@@ -2433,7 +2435,7 @@ class QFitCovalentLigand(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"_sample_ligand_iter{iteration}_miqp"
+                    prefix=f"sample_ligand_iter{iteration}_miqp"
                 )
 
             # Check if we are done
