@@ -36,7 +36,9 @@ Once these are installed, you can:
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
-
+   For some of the post analysis scripts, you will also need sklean
+   conda install -c anaconda scikit-learn
+   
 1. Clone the latest release of the qFit source, and install to your conda env
    ```bash
    git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
