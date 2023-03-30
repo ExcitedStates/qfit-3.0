@@ -133,6 +133,8 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_xray.sh example/qfit_protein_example/3k0n_structure_factors.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
+Additionally, the qFit_occupancy.params file must exist in the folder.
+
 (A pre-generated multiconformer_model2.pdb file is available in the [qfit_protein_example](example/qfit_protein_example/) folder)
 
 Bear in mind that this final step currently depends on an existing installation
