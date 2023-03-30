@@ -744,6 +744,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._write_intermediate_conformers(prefix="qp_solution")
 
         # MIQP score conformer occupancy
+        self.sample_b()
         self._convert()
         self._solve(
             threshold=self.options.threshold, cardinality=self.options.cardinality
@@ -1100,6 +1101,7 @@ class QFitRotamericResidue(_BaseQFit):
                 )
 
             # MIQP score conformer occupancy
+            self.sample_b()
             self._convert()
             self._solve(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
