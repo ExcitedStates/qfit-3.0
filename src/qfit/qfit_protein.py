@@ -89,7 +89,7 @@ def build_argparser():
         "--scattering",
         choices=["xray", "electron"],
         default="xray",
-        help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
+        help="Scattering type",
     )
     p.add_argument(
         "-sb",
