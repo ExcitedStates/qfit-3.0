@@ -141,7 +141,9 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
-
+        
+        if self.em == True: #making sure electron SF are used
+            self.options.scattering='electron'
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
