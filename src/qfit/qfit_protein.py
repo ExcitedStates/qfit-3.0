@@ -52,6 +52,13 @@ def build_argparser():
         type=str,
         action=ValidateStructureFileArgument,
     )
+    
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_false",
+        help="Flag to tell qFit this is an EM structure.",
+    )
 
     # Map input options
     p.add_argument(
@@ -86,10 +93,10 @@ def build_argparser():
     )
     p.add_argument(
         "-sb",
-        "--sample-b",
+        "--no-sampling-b",
         action="store_false",
         dest="sample_bfactors",
-        help="Sample B-factors of generated conformers",
+        help="Do not sample b-factors within qFit",
     )
     p.add_argument(
         "-o",
