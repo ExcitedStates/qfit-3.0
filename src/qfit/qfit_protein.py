@@ -85,13 +85,6 @@ def build_argparser():
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
     )
     p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
-    )
-    p.add_argument(
         "-sb",
         "--no-sampling-b",
         action="store_false",
@@ -256,11 +249,10 @@ def build_argparser():
         "--remove-conformers-below-cutoff",
         action="store_true",
         dest="remove_conformers_below_cutoff",
-        help=(
+        help=
             "Remove conformers during sampling that have atoms "
             "with no density support, i.e. atoms are positioned "
-            "at density values below <density-cutoff>"
-        ),
+            "at density values below <density-cutoff>",
     )
     p.add_argument(
         "-cf",
@@ -836,7 +828,7 @@ def prepare_qfit_protein(options):
 
     # Scale map based on input structure
     if options.scale is True:
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, scattering=options.cryo_em)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
