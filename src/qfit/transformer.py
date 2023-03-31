@@ -73,6 +73,8 @@ class FFTTransformer:
     def __init__(self, structure, xmap, hkl=None, scattering="xray", b_add=None):
         self.structure = structure
         self.xmap = xmap
+        if self.em == True:
+            scattering="electron"
         if hkl is None:
             hkl = self.xmap.hkl
         self.hkl = hkl
@@ -154,6 +156,8 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
+        if self.em == True:
+            scattering="electron"
         if scattering == "xray":
             self._asf = ATOM_STRUCTURE_FACTORS
         elif scattering == "electron":
