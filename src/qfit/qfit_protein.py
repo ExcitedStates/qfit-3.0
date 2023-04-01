@@ -17,6 +17,7 @@ from .custom_argparsers import (
 )
 import logging
 import traceback
+import pandas as pd
 import itertools as itl
 from .logtools import (
     setup_logging,
