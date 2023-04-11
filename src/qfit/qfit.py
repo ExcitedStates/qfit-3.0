@@ -282,12 +282,12 @@ class _BaseQFit:
                     n = len(self._target)
                     try:
                         natoms = len(self.residue._rotamers["atoms"])
-                        k = 4 * confs * natoms
+                        k = (4 * atoms)/threshold
                     except AttributeError:
-                        k = 4 * confs
+                        k = (4 * atoms)/threshold
                     except:
                         natoms = np.sum(self.ligand.active)
-                        k = 4 * confs * natoms
+                        k = (4 * atoms)/threshold
                     BIC = n * np.log(rss / n) + k * np.log(n)
                     if BIC < self.BIC:
                         self.BIC = BIC
