@@ -713,7 +713,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
 
-        # Perform a final QP / MIQP step
+        # Check that there are no self-clashes within a conformer
         self.residue.active = True
         self.residue.update_clash_mask()
         new_coor_set = []
