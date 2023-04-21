@@ -313,7 +313,8 @@ class _BaseQFit:
         new_coor = []
         new_bfactor = []
         multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5]
-        for coor, b, multi in zip(self._coor_set, self._bs, multiplication_factors):
+        coor_b_pairs = zip(self._coor_set, self._bs)
+        for (coor, b), multi in itertools.product(coor_b_pairs, multiplication_factors):
             new_coor.append(coor)
             new_bfactor.append(b * multi)
         self._coor_set = new_coor
