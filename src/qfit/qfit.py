@@ -4,6 +4,7 @@ import os
 from sys import argv
 import copy
 from string import ascii_uppercase
+from collections import namedtuple
 import subprocess
 import numpy as np
 import tqdm
@@ -26,6 +27,12 @@ from .structure.rotamers import ROTAMERS
 
 
 logger = logging.getLogger(__name__)
+
+
+# Create a namedtuple 'class' (struct) which carries info about an MIQP solution
+MIQPSolutionStats = namedtuple(
+    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
+)
 
 
 class QFitOptions:
@@ -287,22 +294,21 @@ class _BaseQFit:
                 natoms = self._coor_set[0].shape[0]
                 k = (4 * natoms) / threshold
                 BIC = n * np.log(rss / n) + k * np.log(n)
-                miqp_solutions.append(
-                    (
-                        threshold,
-                        BIC,
-                        rss,
-                        solver.obj_value.copy(),
-                        solver.weights.copy(),
-                    )
+                solution = MIQPSolutionStats(
+                    threshold=threshold,
+                    BIC=BIC,
+                    rss=rss,
+                    objective=solver.obj_value.copy(),
+                    weights=solver.weights.copy(),
                 )
+                miqp_solutions.append(solution)
 
             # Update occupancies from solver weights
-            miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol[1])
-            self._occupancies = miqp_solution_lowest_bic[4]
+            miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol.BIC)
+            self._occupancies = miqp_solution_lowest_bic.weights
 
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-            return miqp_solution_lowest_bic[3]
+            return miqp_solution_lowest_bic.objective
 
         else:
             # Run solver with specified parameters
