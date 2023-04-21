@@ -258,7 +258,7 @@ class _BaseQFit:
         # Create and run solver
         logger.info("Solving QP")
         solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
-        solver()
+        solver.solve()
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
@@ -280,7 +280,7 @@ class _BaseQFit:
         if self.options.bic_threshold:
             self.BIC = np.inf
             for threshold in loop_range:
-                solver(cardinality=None, threshold=threshold)
+                solver.solve(cardinality=None, threshold=threshold)
                 rss = solver.obj_value * self._voxel_volume
                 confs = np.sum(solver.weights >= 0.002)
                 n = len(self._target)
@@ -296,7 +296,7 @@ class _BaseQFit:
                 if BIC < self.BIC:
                     self.BIC = BIC
         else:
-            solver(cardinality=cardinality, threshold=threshold)
+            solver.solve(cardinality=cardinality, threshold=threshold)
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
