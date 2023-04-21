@@ -132,7 +132,6 @@ class _BaseQFit:
         self.conformer.q = 1
         self.xmap = xmap
         self.options = options
-        self.BIC = np.inf
         self.prng = np.random.default_rng(0)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
@@ -278,7 +277,9 @@ class _BaseQFit:
 
         # Threshold selection by BIC:
         if self.options.bic_threshold:
-            self.BIC = np.inf
+            # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
+            # to determine if the better fit (RSS) justifies the use of a more complex model (k)
+            miqp_solutions = []
             for threshold in loop_range:
                 solver.solve(cardinality=None, threshold=threshold)
                 rss = solver.obj_value * self._voxel_volume
@@ -286,16 +287,32 @@ class _BaseQFit:
                 natoms = self._coor_set[0].shape[0]
                 k = (4 * natoms) / threshold
                 BIC = n * np.log(rss / n) + k * np.log(n)
-                if BIC < self.BIC:
-                    self.BIC = BIC
+                miqp_solutions.append(
+                    (
+                        threshold,
+                        BIC,
+                        rss,
+                        solver.obj_value.copy(),
+                        solver.weights.copy(),
+                    )
+                )
+
+            # Update occupancies from solver weights
+            miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol[1])
+            self._occupancies = miqp_solution_lowest_bic[4]
+
+            # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
+            return miqp_solution_lowest_bic[3]
+
         else:
+            # Run solver with specified parameters
             solver.solve(cardinality=cardinality, threshold=threshold)
 
-        # Update occupancies from solver weights
-        self._occupancies = solver.weights
+            # Update occupancies from solver weights
+            self._occupancies = solver.weights
 
-        # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-        return solver.obj_value
+            # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
+            return solver.obj_value
 
     def sample_b(self):
         """
@@ -1163,7 +1180,6 @@ class QFitSegment(_BaseQFit):
         self.options = options
         self.options.bic_threshold = self.options.seg_bic_threshold
         self.fragment_length = options.fragment_length
-        self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
         self._bs = [self.conformer.b]
