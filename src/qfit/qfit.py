@@ -282,16 +282,9 @@ class _BaseQFit:
             for threshold in loop_range:
                 solver.solve(cardinality=None, threshold=threshold)
                 rss = solver.obj_value * self._voxel_volume
-                confs = np.sum(solver.weights >= 0.002)
                 n = len(self._target)
-                try:
-                    natoms = len(self.residue._rotamers["atoms"])
-                    k = 4 * confs * natoms
-                except AttributeError:
-                    k = 4 * confs
-                except:
-                    natoms = np.sum(self.ligand.active)
-                    k = 4 * confs * natoms
+                natoms = self._coor_set[0].shape[0]
+                k = (4 * natoms) / threshold
                 BIC = n * np.log(rss / n) + k * np.log(n)
                 if BIC < self.BIC:
                     self.BIC = BIC
