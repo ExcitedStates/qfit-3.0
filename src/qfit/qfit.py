@@ -277,31 +277,36 @@ class _BaseQFit:
         cardinality,
         threshold,
         loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
+        chi=False,
     ):
         # Create solver
         logger.info("Solving MIQP")
         solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
 
+        
+        #determine if this occuring during chi sampling
+        if chi == False:
+        
         # Threshold selection by BIC:
-        if self.options.bic_threshold:
-            # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
-            # to determine if the better fit (RSS) justifies the use of a more complex model (k)
-            miqp_solutions = []
-            for threshold in loop_range:
-                solver.solve(cardinality=None, threshold=threshold)
-                rss = solver.obj_value * self._voxel_volume
-                n = len(self._target)
-                natoms = self._coor_set[0].shape[0]
-                k = (4 * natoms) / threshold
-                BIC = n * np.log(rss / n) + k * np.log(n)
-                solution = MIQPSolutionStats(
-                    threshold=threshold,
-                    BIC=BIC,
-                    rss=rss,
-                    objective=solver.obj_value.copy(),
-                    weights=solver.weights.copy(),
-                )
-                miqp_solutions.append(solution)
+            if self.options.bic_threshold:
+                # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
+                # to determine if the better fit (RSS) justifies the use of a more complex model (k)
+                miqp_solutions = []
+                for threshold in loop_range:
+                    solver.solve(cardinality=None, threshold=threshold)
+                    rss = solver.obj_value * self._voxel_volume
+                    n = len(self._target)
+                    natoms = self._coor_set[0].shape[0]
+                    k = (4 * natoms) / threshold
+                    BIC = n * np.log(rss / n) + k * np.log(n)
+                    solution = MIQPSolutionStats(
+                        threshold=threshold,
+                        BIC=BIC,
+                        rss=rss,
+                        objective=solver.obj_value.copy(),
+                        weights=solver.weights.copy(),
+                    )
+                    miqp_solutions.append(solution)
 
             # Update occupancies from solver weights
             miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol.BIC)
@@ -1122,7 +1127,7 @@ class QFitRotamericResidue(_BaseQFit):
             self.sample_b()
             self._convert()
             self._solve_miqp(
-                threshold=self.options.threshold, cardinality=self.options.cardinality
+                threshold=self.options.threshold, cardinality=self.options.cardinality, chi=True
             )
             self._update_conformers()
             if self.options.write_intermediate_conformers:
