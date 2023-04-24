@@ -1128,7 +1128,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._convert()
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options.cardinality,
+                cardinality=None,  # don't enforce strict cardinality constraint, just less-than 1/threshold
                 do_BIC_selection=False,  # override (cancel) BIC selection during chi sampling
             )
             self._update_conformers()
