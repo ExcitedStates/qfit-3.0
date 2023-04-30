@@ -5,6 +5,7 @@ from scipy import sparse
 
 
 logger = logging.getLogger(__name__)
+SolverError = ImportError("Could not load a valid solver.")
 
 
 # Try load solver sets
