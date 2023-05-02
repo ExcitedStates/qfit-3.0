@@ -28,20 +28,24 @@ def build_argparser():
     )
     return p
 
+
 class rotamers():
      def __init__(self, residue):
         self.residue = residue
-      
+
      def run(self):
-        #determine number of chi_index
         #get_all rotamers
-        all_rotamers = self.residue.rotamers
+        rotamers = self.residue.rotamers
+        rotamers.append(
+            [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
+        )
         #get number of chi angles
-        nchi = self.residue.nchi  
-        for r in all_rotamers:
-            for n in range(1, nchi):
-                self.residue.set_chi(n, r[n])
-            self.residue.tofile(f'{self.residue.resn[0]}_{r}.pdb') 
+        nchi = self.residue.nchi
+        for r in rotamers:
+            for n in range(0, nchi):
+                self.residue.set_chi(n+1, r[n])
+            self.residue.tofile(f'{self.residue.resn[0]}_{r}.pdb')
+
 def get_rotamers(structure, selection):
     chainid, residue_id = selection.split(",")
     structure_resi = structure.extract(f"resi {residue_id} and chain {chainid}")
