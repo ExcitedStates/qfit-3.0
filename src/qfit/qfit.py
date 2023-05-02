@@ -808,7 +808,9 @@ class QFitRotamericResidue(_BaseQFit):
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
-        for n, residue in enumerate(self.segment.residues[::-1]):
+        
+        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein 
+        for n, residue in enumerate(self.segment.residues[(index-3):(index+3)]):
             for backbone_atom in ["N", "CA", "C", "O"]:
                 if backbone_atom not in residue.name:
                     relative_to_residue = n - index
