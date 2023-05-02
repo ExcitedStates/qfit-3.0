@@ -142,8 +142,11 @@ class _BaseQFit:
         self._simple = True
         self._rmask = 1.5
         
-        if self.em == True: #making sure electron SF are used
-            self.options.scattering='electron'
+        if self.em == True:
+            self.options.scattering = 'electron' #making sure electron SF are used 
+            self.options.bulk_solvent_level = 0 #bulk solvent level is 0 for EM to work with electron SF
+            self.options.cardinality = 3 #maximum of 3 conformers can be choosen per residue 
+            
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
