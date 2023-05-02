@@ -58,7 +58,7 @@ def build_argparser():
         "-em",
         "--cryo_em",
         action="store_false",
-        help="Flag to tell qFit this is an EM structure.",
+        help="Run qFit with EM options",
     )
 
     # Map input options
