@@ -575,6 +575,8 @@ class QFitRotamericResidue(_BaseQFit):
             xmap = xmap.canonical_unit_cell()
             if options.scale:
                 # Prepare X-ray map
+                if self.options.em:
+                    options.scattering = 'electron'
                 scaler = MapScaler(xmap, scattering=options.scattering)
                 sel_str = f"resi {self.resi} and chain {self.chain}"
                 sel_str = f"not ({sel_str})"
