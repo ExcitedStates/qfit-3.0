@@ -39,6 +39,7 @@ class QFitOptions:
         self.qscore = None
         self.map = None
         self.structure = None
+        self.em = False
 
         # Density preparation options
         self.density_cutoff = 0.3
