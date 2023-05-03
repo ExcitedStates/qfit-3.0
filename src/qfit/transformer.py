@@ -73,8 +73,10 @@ class FFTTransformer:
     def __init__(self, structure, xmap, hkl=None, scattering="xray", b_add=None):
         self.structure = structure
         self.xmap = xmap
-        if self.em == True:
+        self.asf_range = 6
+        if self.options.em == True:
             scattering="electron"
+            self.asf_range = 5
         if hkl is None:
             hkl = self.xmap.hkl
         self.hkl = hkl
@@ -156,8 +158,10 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
+        self.asf_range = 6
         if self.em == True:
             scattering="electron"
+            self.asf_range = 5
         if scattering == "xray":
             self._asf = ATOM_STRUCTURE_FACTORS
         elif scattering == "electron":
@@ -284,7 +288,7 @@ class Transformer:
             asf = self._asf["C"]
         four_pi2 = 4 * np.pi * np.pi
         bw = []
-        for i in range(6):
+        for i in range(self.asf_range):
             if self.options.em:
                 divisor = asf[1][i]
             else: 
@@ -296,11 +300,11 @@ class Transformer:
                     bw.append(-four_pi2 / (asf[1][i]))
                 else: 
                     bw.append(-four_pi2 / (asf[1][i] + bfactor))
-        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(6)]
+        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
         r2 = r * r
         density = np.zeros_like(r2)
-        for i in range(6):
+        for i in range(self.asf_range):
             try:
                 exp_factor = bw[i] * r2
                 density += aw[i] * np.exp(bw[i] * r2)
@@ -315,12 +319,12 @@ class Transformer:
         asf = self._asf[element.capitalize()]
         four_pi2 = 4 * np.pi * np.pi
         if self.options.em:
-            bw = [-four_pi2 / (asf[1][i]) for i in range(6)]
+            bw = [-four_pi2 / (asf[1][i]) for i in range(self.asf_range)]
         else:
-            bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(6)]
-        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(6)]
+            bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(self.asf_range)]
+        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         derivative = np.zeros(r.size, np.float64)
-        for i in range(6):
+        for i in range(self.asf_range):
             derivative += (2.0 * bw[i] * aw[i]) * np.exp(bw[i] * r2)
         derivative *= r
         return r, derivative
