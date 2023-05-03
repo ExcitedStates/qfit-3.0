@@ -263,7 +263,7 @@ class _BaseQFit:
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
-        def _solve_qp(self):
+    def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
         solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
