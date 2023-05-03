@@ -300,7 +300,7 @@ class _BaseQFit:
                 natoms = self._coor_set[0].shape[0]
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
-                k = model_params_per_atom * natoms * nconfs
+                k = model_params_per_atom * natoms * nconfs * 0.95 #0.95 hyperparameter in put in here since we are almost always over penalizing 
 
                 BIC = n * np.log(rss / n) + k * np.log(n)
                 solution = MIQPSolutionStats(
