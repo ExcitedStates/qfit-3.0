@@ -263,52 +263,77 @@ class _BaseQFit:
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
-    def _solve(
-        self,
-        cardinality=None,
-        threshold=None,
-        loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
-    ):
-        # Create and run QP or MIQP solver
-        do_qp = cardinality is threshold is None
-        if do_qp:
-            logger.info("Solving QP")
-            solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
-            solver()
-        else:
-            logger.info("Solving MIQP")
-            solver = MIQPSolver(
-                self._target, self._models, use_cplex=self.options.cplex
-            )
-
-            # Threshold selection by BIC:
-            if self.options.bic_threshold:
-                self.BIC = np.inf
-                for threshold in loop_range:
-                    solver(cardinality=None, threshold=threshold)
-                    rss = solver.obj_value * self._voxel_volume
-                    confs = np.sum(solver.weights >= 0.002)
-                    n = len(self._target)
-                    try:
-                        natoms = len(self.residue._rotamers["atoms"])
-                        k = 4 * confs * natoms
-                    except AttributeError:
-                        k = 4 * confs
-                    except:
-                        natoms = np.sum(self.ligand.active)
-                        k = 4 * confs * natoms
-                    BIC = n * np.log(rss / n) + k * np.log(n)
-                    if BIC < self.BIC:
-                        self.BIC = BIC
-            else:
-                solver(cardinality=cardinality, threshold=threshold)
+        def _solve_qp(self):
+        # Create and run solver
+        logger.info("Solving QP")
+        solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
+        solver.solve()
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
 
-        # logger.info(f"Residual under footprint: {residual:.4f}")
-        # residual = 0
+        # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
         return solver.obj_value
+
+    def _solve_miqp(
+        self,
+        cardinality,
+        threshold,
+        loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
+        do_BIC_selection=None,
+    ):
+        #set loop range differently for EM
+        if self.options.em:
+            loop_range=[0.5, 0.33, 0.25]
+        # Set the default (from options) if it hasn't been passed as an argument
+        if do_BIC_selection is None:
+            do_BIC_selection = self.options.bic_threshold
+
+        # Create solver
+        logger.info("Solving MIQP")
+        solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
+
+        # Threshold selection by BIC:
+        if do_BIC_selection:
+            # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
+            # to determine if the better fit (RSS) justifies the use of a more complex model (k)
+            miqp_solutions = []
+            for threshold in loop_range:
+                solver.solve(cardinality=None, threshold=threshold)
+                rss = solver.obj_value * self._voxel_volume
+                n = len(self._target)
+
+                natoms = self._coor_set[0].shape[0]
+                nconfs = np.sum(solver.weights >= 0.002)
+                model_params_per_atom = 3 + int(self.options.sample_bfactors)
+                k = model_params_per_atom * natoms * nconfs * 0.95 #0.95 hyperparameter in put in here since we are almost always over penalizing 
+
+                BIC = n * np.log(rss / n) + k * np.log(n)
+                solution = MIQPSolutionStats(
+                    threshold=threshold,
+                    BIC=BIC,
+                    rss=rss,
+                    objective=solver.obj_value.copy(),
+                    weights=solver.weights.copy(),
+                )
+                miqp_solutions.append(solution)
+
+            # Update occupancies from solver weights
+            miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol.BIC)
+            self._occupancies = miqp_solution_lowest_bic.weights
+
+            # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
+            return miqp_solution_lowest_bic.objective
+
+        else:
+            # Run solver with specified parameters
+            solver.solve(cardinality=cardinality, threshold=threshold)
+
+            # Update occupancies from solver weights
+            self._occupancies = solver.weights
+
+            # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
+            return solver.obj_value
 
     
     def sample_b(self):
