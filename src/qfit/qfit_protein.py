@@ -829,12 +829,8 @@ def prepare_qfit_protein(options):
     xmap = xmap.canonical_unit_cell()
 
     # Scale map based on input structure
-    if options.em == True:
-        scattering = 'electron'
-    else:
-        scattering = 'xray'
     if options.scale is True:
-        scaler = MapScaler(xmap, scattering=scattering)
+        scaler = MapScaler(xmap, em=options.em)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
