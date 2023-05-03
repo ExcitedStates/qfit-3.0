@@ -106,12 +106,11 @@ class FFTTransformer:
         # self._fft_mask = fft_mask
         self._fft_mask = fft_mask[:, :, :hmax].copy()
         self.hkl = hkl
-        self.scattering = scattering
         if self.b_add is not None:
             b_original = self.structure.b
             self.structure.b += self.b_add
         self._transformer = Transformer(
-            self.structure, self.xmap, simple=True, scattering=self.scattering
+            self.structure, self.xmap, simple=True, em=self.em
         )
         self._transformer.initialize()
         if b_add is not None:
@@ -162,16 +161,11 @@ class Transformer:
         self.em = em
         self.asf_range = 6
         if self.em == True:
-            scattering="electron"
             self.asf_range = 5
-        if scattering == "xray":
-            self._asf = ATOM_STRUCTURE_FACTORS
-        elif scattering == "electron":
             self._asf = ELECTRON_SCATTERING_FACTORS
         else:
-            raise ValueError(
-                "Scattering source not supported. Choose 'xray' or 'electron'"
-            )
+            self._asf = ATOM_STRUCTURE_FACTORS
+            
         self._initialized = False
 
         if not simple and smax is None and self.xmap.resolution.high is not None:
