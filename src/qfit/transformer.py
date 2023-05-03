@@ -70,11 +70,12 @@ class FFTTransformer:
 
     """Transform a structure in a map via FFT"""
 
-    def __init__(self, structure, xmap, hkl=None, scattering="xray", b_add=None):
+    def __init__(self, structure, xmap, hkl=None, em=False, b_add=None):
         self.structure = structure
         self.xmap = xmap
         self.asf_range = 6
-        if self.options.em == True:
+        self.em = em
+        if self.em == True:
             scattering="electron"
             self.asf_range = 5
         if hkl is None:
@@ -149,7 +150,7 @@ class Transformer:
         rmax=3.0,
         rstep=0.01,
         simple=False,
-        scattering="xray",
+        em=False,
     ):
         self.structure = structure
         self.xmap = xmap
@@ -158,6 +159,7 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
+        self.em = em
         self.asf_range = 6
         if self.em == True:
             scattering="electron"
