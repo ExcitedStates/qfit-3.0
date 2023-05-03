@@ -297,7 +297,8 @@ class _BaseQFit:
                 rss = solver.obj_value * self._voxel_volume
                 n = len(self._target)
                 natoms = self._coor_set[0].shape[0]
-                k = (4 * natoms) / threshold
+                nconfs = np.sum(solver.weights >= 0.002)
+                k = 4 * natoms * nconfs
                 BIC = n * np.log(rss / n) + k * np.log(n)
                 solution = MIQPSolutionStats(
                     threshold=threshold,
