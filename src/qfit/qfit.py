@@ -334,6 +334,9 @@ class _BaseQFit:
         This funciton will take in coor set and b-factors for all conformers selected after QP (to help save time) 
         and multiple each atom's b-factor by it multiplication factor.  
         """
+        if not self.options.sample_bfactors:
+            return
+
         new_coor = []
         new_bfactor =[]
         multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5] 
