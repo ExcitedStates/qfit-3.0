@@ -258,7 +258,7 @@ def build_argparser():
         "--threshold-selection",
         dest="bic_threshold",
         action=ToggleActionFlag,
-        default=True,
+        default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
 
