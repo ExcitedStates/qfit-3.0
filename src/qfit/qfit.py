@@ -334,22 +334,24 @@ class _BaseQFit:
 
     
     def sample_b(self):
+        """Create copies of conformers that vary in B-factor.
+        For all conformers selected, create a copy with the B-factor vector by a scaling factor.
+        It is intended that this will be run after a QP step (to help save time)
+        and before an MIQP step.
         """
-        This funciton will take in coor set and b-factors for all conformers selected after QP (to help save time) 
-        and multiple each atom's b-factor by it multiplication factor.  
-        """
-        if self.options.em == True: #we do not sample b-factors with EM
-            self._coor_set = self._coor_set
-            self._bs = self._bs
-        else:
-            new_coor = []
-            new_bfactor =[]
-            multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5] 
-            for coor, b, multi in zip(self._coor_set, self._bs, multiplication_factors):
-                new_coor.append(coor)
-                new_bfactor.append(b * multi)
-            self._coor_set = new_coor
-            self._bs = new_bfactor
+        #don't sample b-factors with em
+        if not self.options.sample_bfactors or self.options.em:
+            return
+
+        new_coor = []
+        new_bfactor = []
+        multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5]
+        coor_b_pairs = zip(self._coor_set, self._bs)
+        for (coor, b), multi in itertools.product(coor_b_pairs, multiplication_factors):
+            new_coor.append(coor)
+            new_bfactor.append(b * multi)
+        self._coor_set = new_coor
+        self._bs = new_bfactor
 
     def _zero_out_most_similar_conformer(self):
         """Zero-out the lowest occupancy, most similar conformer.
