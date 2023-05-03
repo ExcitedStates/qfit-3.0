@@ -451,7 +451,7 @@ def main():
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, scattering=options.scattering, em=options.em)
         if args.omit:
             footprint = structure_resi
         else:
