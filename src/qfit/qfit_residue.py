@@ -52,7 +52,7 @@ def build_argparser():
         "-em",
         "--cryo_em",
         action="store_false",
-        dest="em"
+        dest="em",
         help="Run qFit with EM options",  
     )
 
