@@ -225,7 +225,7 @@ class _BaseQFit:
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
         print(self.em)
-        if self.em = False: 
+        if self.em == False: 
             # Set the lowest values in the map to the bulk solvent level:
             np.maximum(
                 self._subtransformer.xmap.array,
