@@ -289,17 +289,11 @@ class Transformer:
         four_pi2 = 4 * np.pi * np.pi
         bw = []
         for i in range(self.asf_range):
-            if self.options.em:
-                divisor = asf[1][i]
-            else: 
-                divisor = asf[1][i] + bfactor
+            divisor = asf[1][i] + bfactor
             if divisor <= 1e-4:
                 bw.append(0)
             else:
-                if self.options.em:
-                    bw.append(-four_pi2 / (asf[1][i]))
-                else: 
-                    bw.append(-four_pi2 / (asf[1][i] + bfactor))
+                bw.append(-four_pi2 / (asf[1][i] + bfactor))
         aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
         r2 = r * r
@@ -318,10 +312,7 @@ class Transformer:
         r2 = r * r
         asf = self._asf[element.capitalize()]
         four_pi2 = 4 * np.pi * np.pi
-        if self.options.em:
-            bw = [-four_pi2 / (asf[1][i]) for i in range(self.asf_range)]
-        else:
-            bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(self.asf_range)]
+        bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(self.asf_range)]
         aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         derivative = np.zeros(r.size, np.float64)
         for i in range(self.asf_range):
@@ -392,11 +383,8 @@ class Transformer:
             + asf[0][3] * np.exp(-asf[1][3] * s2)
             + asf[0][4] * np.exp(-asf[1][4] * s2)
             + asf[0][5]
-        )
-        if self.options.em:
-           w = 8 * f * np.exp(s2) * s
-        else:    
-            w = 8 * f * np.exp(-bfactor * s2) * s
+        )  
+        w = 8 * f * np.exp(-bfactor * s2) * s
         a = 4 * np.pi * s
         if r > 1e-4:
             return w / r * np.sin(a * r)
@@ -412,10 +400,7 @@ class Transformer:
             # f += asf[0][i] * np.exp(-asf[1][i] * s2)
             f += a * np.exp(-b * s2)
         a = 4 * np.pi * s
-        if self.options.em:
-            w = 8 * f * np.exp(s2) * s
-        else: 
-            w = 8 * f * np.exp(-bfactor * s2) * s
+        w = 8 * f * np.exp(-bfactor * s2) * s
         ar = a * r
         if r > 1e-4:
             return w / r * (a * np.cos(ar) - np.sin(ar) / r)
