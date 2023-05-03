@@ -8,10 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 class MapScaler:
-    def __init__(self, xmap, scattering="xray"):
+    def __init__(self, xmap, scattering="xray", em=False):
         self.xmap = xmap
         self.scattering = scattering
         self._model_map = xmap.zeros_like(xmap)
+        self.em = em
 
     def subtract(self, structure):
         if self.xmap.hkl is not None:
