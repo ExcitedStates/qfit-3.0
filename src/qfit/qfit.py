@@ -199,7 +199,7 @@ class _BaseQFit:
             smax=self._smax,
             smin=self._smin,
             simple=self._simple,
-            scattering=self.options.scattering,
+            em=self.em,
         )
         logger.debug(
             "[_BaseQFit._update_transformer]: Initializing radial density lookup table."
@@ -219,12 +219,11 @@ class _BaseQFit:
             smax=self._smax,
             smin=self._smin,
             simple=self._simple,
-            scattering=self.options.scattering,
+            em=self.em,
         )
         self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
-        print(self.em)
         if self.em == False: 
             # Set the lowest values in the map to the bulk solvent level:
             np.maximum(
@@ -573,9 +572,7 @@ class QFitRotamericResidue(_BaseQFit):
             xmap = xmap.canonical_unit_cell()
             if options.scale:
                 # Prepare X-ray map
-                if self.options.em:
-                    options.scattering = 'electron'
-                scaler = MapScaler(xmap, scattering=options.scattering)
+                scaler = MapScaler(xmap, em=self.em)
                 sel_str = f"resi {self.resi} and chain {self.chain}"
                 sel_str = f"not ({sel_str})"
                 footprint = structure.extract(sel_str)
