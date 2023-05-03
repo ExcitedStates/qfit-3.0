@@ -58,6 +58,7 @@ def build_argparser():
         "-em",
         "--cryo_em",
         action="store_false",
+        dest="em",
         help="Run qFit with EM options",
     )
 
@@ -828,8 +829,12 @@ def prepare_qfit_protein(options):
     xmap = xmap.canonical_unit_cell()
 
     # Scale map based on input structure
+    if options.em == True:
+        scattering = 'electron'
+    else:
+        scattering = 'xray'
     if options.scale is True:
-        scaler = MapScaler(xmap, scattering=options.cryo_em)
+        scaler = MapScaler(xmap, scattering=scattering)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
