@@ -773,7 +773,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # QP score conformer occupancy
         self._convert()
-        self._solve()
+        self._solve_qp()
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="qp_solution")
@@ -781,7 +781,7 @@ class QFitRotamericResidue(_BaseQFit):
         # MIQP score conformer occupancy
         self.sample_b()
         self._convert()
-        self._solve(
+        self._solve_miqp(
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
@@ -1128,7 +1128,7 @@ class QFitRotamericResidue(_BaseQFit):
 
             # QP score conformer occupancy
             self._convert()
-            self._solve()
+            self._solve_qp()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
@@ -1138,7 +1138,7 @@ class QFitRotamericResidue(_BaseQFit):
             # MIQP score conformer occupancy
             self.sample_b()
             self._convert()
-            self._solve(
+            self._solve_miqp(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
             )
             self._update_conformers()
@@ -1395,7 +1395,7 @@ class QFitSegment(_BaseQFit):
 
                 # QP score segment occupancy
                 self._convert()
-                self._solve()
+                self._solve_qp()
 
                 # Run MIQP in a loop, removing the most similar conformer until a solution is found
                 while True:
@@ -1418,7 +1418,7 @@ class QFitSegment(_BaseQFit):
                     try:
                         # MIQP score segment occupancy
                         self._convert()
-                        self._solve(
+                        self._solve_miqp(
                             threshold=self.options.threshold,
                             cardinality=self.options.cardinality,
                             loop_range=[0.34, 0.25, 0.2, 0.16, 0.14],
@@ -1535,7 +1535,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Converting densities within run.")
         self._convert()
         logger.info("Solving QP within run.")
-        self._solve()
+        self._solve_qp()
         logger.debug("Updating conformers within run.")
         self._update_conformers()
         if len(self._coor_set) < 1:
@@ -1547,7 +1547,7 @@ class QFitLigand(_BaseQFit):
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
         self._convert()
-        self._solve(
+        self._solve_miqp(
             threshold=self.options.threshold,
             cardinality=self.options.cardinality)
         self._update_conformers()
@@ -1628,7 +1628,7 @@ class QFitLigand(_BaseQFit):
         # QP score conformer occupancy
         logger.debug("Converting densities.")
         self._convert()
-        self._solve()
+        self._solve_qp()
         logger.debug("Updating conformers")
         self._update_conformers()
         if self.options.write_intermediate_conformers:
@@ -1642,7 +1642,7 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         self._convert()
-        self._solve(
+        self._solve_miqp(
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
@@ -1761,7 +1761,7 @@ class QFitLigand(_BaseQFit):
 
             # QP score conformer occupancy
             self._convert()
-            self._solve()
+            self._solve_qp()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
@@ -1777,7 +1777,7 @@ class QFitLigand(_BaseQFit):
 
             # MIQP score conformer occupancy
             self._convert()
-            self._solve(
+            self._solve_miqp(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
             )
             self._update_conformers()
@@ -2225,7 +2225,7 @@ class QFitCovalentLigand(_BaseQFit):
 
             # QP score conformer occupancy
             self._convert()
-            self._solve()
+            self._solve_qp()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
@@ -2234,7 +2234,7 @@ class QFitCovalentLigand(_BaseQFit):
 
             # MIQP score conformer occupancy
             self._convert()
-            self._solve(
+            self._solve_miqp(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
             )
             self._update_conformers()
@@ -2335,14 +2335,14 @@ class QFitCovalentLigand(_BaseQFit):
 
         # QP score conformer occupancy
         self._convert()
-        self._solve()
+        self._solve_qp()
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="sample_covalent_bond_qp")
 
         # MIQP score conformer occupancy
         self._convert()
-        self._solve(
+        self._solve_miqp(
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
@@ -2455,7 +2455,7 @@ class QFitCovalentLigand(_BaseQFit):
 
             # QP score conformer occupancy
             self._convert()
-            self._solve()
+            self._solve_qp()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
@@ -2464,7 +2464,7 @@ class QFitCovalentLigand(_BaseQFit):
 
             # MIQP score conformer occupancy
             self._convert()
-            self._solve(
+            self._solve_miqp(
                 threshold=self.options.threshold, cardinality=self.options.cardinality
             )
             self._update_conformers()
