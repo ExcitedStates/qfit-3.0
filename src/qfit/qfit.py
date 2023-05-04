@@ -4,6 +4,7 @@ import os
 from sys import argv
 import copy
 from string import ascii_uppercase
+from collections import namedtuple
 import subprocess
 import numpy as np
 import tqdm
