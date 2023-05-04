@@ -9,10 +9,10 @@ import scipy.stats as st
 
 
 class Validator(object):
-    def __init__(self, xmap, resolution, directory, scattering="xray"):
+    def __init__(self, xmap, resolution, directory, em=False):
         self.xmap = xmap
         self.resolution = resolution
-        self.scattering = scattering
+        self.em = em
         self.fname = os.path.join(directory, "validation_metrics.txt")
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
@@ -20,18 +20,18 @@ class Validator(object):
         model_map.set_space_group("P1")
         if mask_structure is None:
             transformer = Transformer(
-                structure, model_map, simple=simple, scattering=self.scattering
+                structure, model_map, simple=simple, em=self.em
             )
         else:
             transformer = Transformer(
-                mask_structure, model_map, simple=simple, scattering=self.scattering
+                mask_structure, model_map, simple=simple, em=self.em
             )
         transformer.mask(rmask)
         mask = model_map.array > 0
         model_map.array.fill(0)
         if mask_structure is not None:
             transformer = Transformer(
-                structure, model_map, simple=simple, scattering=self.scattering
+                structure, model_map, simple=simple, em=self.em
             )
         transformer.density()
 
