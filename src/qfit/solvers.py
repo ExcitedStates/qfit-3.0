@@ -31,7 +31,7 @@ class _Base_QPSolver(object):
     def initialize(self):
         raise NotImplementedError
 
-    def __call__(self):
+    def solve(self):
         raise NotImplementedError
 
 
@@ -78,7 +78,7 @@ if CPLEX:
             )
             self.initialized = True
 
-        def __call__(self):
+        def solve(self):
             if not self.initialized:
                 self.initialize()
 
@@ -106,7 +106,7 @@ if CPLEX:
 
             self.initialized = True
 
-        def __call__(self, cardinality=None, exact=False, threshold=None):
+        def solve(self, cardinality=None, exact=False, threshold=None):
             if not self.initialized:
                 self.initialize()
 
