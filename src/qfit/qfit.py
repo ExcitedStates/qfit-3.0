@@ -797,7 +797,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
-        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory)
+        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em)
 
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6) / 3.0
