@@ -28,6 +28,10 @@ from .structure.rotamers import ROTAMERS
 
 logger = logging.getLogger(__name__)
 
+# Create a namedtuple 'class' (struct) which carries info about an MIQP solution
+MIQPSolutionStats = namedtuple(
+    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
+)
 
 # Create a namedtuple 'class' (struct) which carries info about an MIQP solution
 MIQPSolutionStats = namedtuple(
@@ -46,6 +50,7 @@ class QFitOptions:
         self.qscore = None
         self.map = None
         self.structure = None
+        self.em = False
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -146,7 +151,12 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
-
+        
+        if self.options.em == True:
+            self.options.scattering = 'electron' #making sure electron SF are used 
+            self.options.bulk_solvent_level = 0 #bulk solvent level is 0 for EM to work with electron SF
+            self.options.cardinality = 3 #maximum of 3 conformers can be choosen per residue 
+            
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
@@ -199,7 +209,7 @@ class _BaseQFit:
             smax=self._smax,
             smin=self._smin,
             simple=self._simple,
-            scattering=self.options.scattering,
+            em=self.options.em,
         )
         logger.debug(
             "[_BaseQFit._update_transformer]: Initializing radial density lookup table."
@@ -219,18 +229,18 @@ class _BaseQFit:
             smax=self._smax,
             smin=self._smin,
             simple=self._simple,
-            scattering=self.options.scattering,
+            em=self.options.em,
         )
         self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
-
-        # Set the lowest values in the map to the bulk solvent level:
-        np.maximum(
-            self._subtransformer.xmap.array,
-            self.options.bulk_solvent_level,
-            out=self._subtransformer.xmap.array,
-        )
+        if self.options.em == False: 
+            # Set the lowest values in the map to the bulk solvent level:
+            np.maximum(
+                self._subtransformer.xmap.array,
+                self.options.bulk_solvent_level,
+                out=self._subtransformer.xmap.array,
+            )
 
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
@@ -279,6 +289,9 @@ class _BaseQFit:
         loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
         do_BIC_selection=None,
     ):
+        #set loop range differently for EM
+        if self.options.em:
+            loop_range=[0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
@@ -331,13 +344,12 @@ class _BaseQFit:
 
     def sample_b(self):
         """Create copies of conformers that vary in B-factor.
-
         For all conformers selected, create a copy with the B-factor vector by a scaling factor.
-
         It is intended that this will be run after a QP step (to help save time)
         and before an MIQP step.
         """
-        if not self.options.sample_bfactors:
+        #don't sample b-factors with em
+        if not self.options.sample_bfactors or self.options.em:
             return
 
         new_coor = []
@@ -571,7 +583,7 @@ class QFitRotamericResidue(_BaseQFit):
             xmap = xmap.canonical_unit_cell()
             if options.scale:
                 # Prepare X-ray map
-                scaler = MapScaler(xmap, scattering=options.scattering)
+                scaler = MapScaler(xmap, em=self.options.em)
                 sel_str = f"resi {self.resi} and chain {self.chain}"
                 sel_str = f"not ({sel_str})"
                 footprint = structure.extract(sel_str)
@@ -789,7 +801,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
-        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory)
+        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em)
 
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6) / 3.0

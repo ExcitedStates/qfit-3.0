@@ -17,6 +17,7 @@ from .custom_argparsers import (
 )
 import logging
 import traceback
+import pandas as pd
 import itertools as itl
 from .logtools import (
     setup_logging,
@@ -52,6 +53,14 @@ def build_argparser():
         type=str,
         action=ValidateStructureFileArgument,
     )
+    
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit with EM options",
+    )
 
     # Map input options
     p.add_argument(
@@ -78,18 +87,11 @@ def build_argparser():
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
     )
     p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
-    )
-    p.add_argument(
         "-sb",
-        "--sample-b",
+        "--no-sampling-b",
         action="store_false",
         dest="sample_bfactors",
-        help="Sample B-factors of generated conformers",
+        help="Do not sample b-factors within qFit",
     )
     p.add_argument(
         "-o",
@@ -249,11 +251,10 @@ def build_argparser():
         "--remove-conformers-below-cutoff",
         action="store_true",
         dest="remove_conformers_below_cutoff",
-        help=(
+        help=
             "Remove conformers during sampling that have atoms "
             "with no density support, i.e. atoms are positioned "
-            "at density values below <density-cutoff>"
-        ),
+            "at density values below <density-cutoff>",
     )
     p.add_argument(
         "-cf",
@@ -829,7 +830,7 @@ def prepare_qfit_protein(options):
 
     # Scale map based on input structure
     if options.scale is True:
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:

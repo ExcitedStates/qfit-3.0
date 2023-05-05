@@ -67,20 +67,6 @@ def build_argparser():
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
     )
     p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
-    )
-    p.add_argument(
-        "-rb",
-        "--randomize-b",
-        action="store_true",
-        dest="randomize_b",
-        help="Randomize B-factors of generated conformers",
-    )
-    p.add_argument(
         "-o",
         "--omit",
         action="store_true",
@@ -365,7 +351,7 @@ def prepare_qfit_ligand(options):
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         if options.omit:
             footprint = structure_ligand
         else:
