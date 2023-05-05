@@ -33,7 +33,7 @@ class TestQFitProtein:
         # Prepare args
         args = [
             "./tests/basic_qfit_protein_test/7KFR_box.ccp4",  # mapfile, using relative directory from tests/
-            "./tests/basic_qfit_protein_test/7KFR_refined.pdb",  # structurefile, using relative directory from tests/
+            "./tests/basic_qfit_protein_test/7KFR.pdb",  # structurefile, using relative directory from tests/
             "-r", "1.56",
             "-em"
         ]
