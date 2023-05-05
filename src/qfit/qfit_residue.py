@@ -81,13 +81,6 @@ def build_argparser():
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
     )
     p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
-    )
-    p.add_argument(
         "-rb",
         "--randomize-b",
         action="store_true",
