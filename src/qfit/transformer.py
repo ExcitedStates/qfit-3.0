@@ -351,7 +351,7 @@ class Transformer:
             # integrand, err = quadrature(self._scattering_integrand, self.smin,
             #                            self.smax, args=args)#, tol=1e-5, miniter=13, maxiter=15)
             integrand, err = fixed_quad(
-                self._scattering_integrand, self.smin, self.smax, args=args, n=50
+                self._scattering_integrand, self.smin, self.smax, self.em, args=args, n=50
             )
             density[n] = integrand
         return r, density
@@ -363,23 +363,32 @@ class Transformer:
             asf = self._asf[element.capitalize()]
             args = (x, asf, bfactor)
             integrand, err = quadrature(
-                self._scattering_integrand_derivative, self.smin, self.smax, args=args
+                self._scattering_integrand_derivative, self.smin, self.smax, self.em, args=args
             )
             derivative[n] = integrand
         return r, derivative
 
     @staticmethod
-    def _scattering_integrand(s, r, asf, bfactor):
+    def _scattering_integrand(s, r, asf, bfactor, em):
         """Integral function to be approximated to obtain radial density."""
         s2 = s * s
-        f = (
-            asf[0][0] * np.exp(-asf[1][0] * s2)
-            + asf[0][1] * np.exp(-asf[1][1] * s2)
-            + asf[0][2] * np.exp(-asf[1][2] * s2)
-            + asf[0][3] * np.exp(-asf[1][3] * s2)
-            + asf[0][4] * np.exp(-asf[1][4] * s2)
-            + asf[0][5]
-        )  
+        if em == True:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+            )  
+        else:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+                + asf[0][5]
+            )  
         w = 8 * f * np.exp(-bfactor * s2) * s
         a = 4 * np.pi * s
         if r > 1e-4:
