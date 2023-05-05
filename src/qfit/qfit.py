@@ -33,6 +33,12 @@ MIQPSolutionStats = namedtuple(
     "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
 )
 
+# Create a namedtuple 'class' (struct) which carries info about an MIQP solution
+MIQPSolutionStats = namedtuple(
+    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
+)
+
+
 class QFitOptions:
     def __init__(self):
         # General options
@@ -86,9 +92,9 @@ class QFitOptions:
         self.sample_backbone_step = 0.1
         self.sample_backbone_sigma = 0.125
 
-        #Sample B-factors 
+        # Sample B-factors
         self.sample_bfactors = True
-        
+
         # N-CA-CB angle sampling
         self.sample_angle = True
         self.sample_angle_range = 7.5
@@ -138,7 +144,6 @@ class _BaseQFit:
         self.conformer.q = 1
         self.xmap = xmap
         self.options = options
-        self.BIC = np.inf
         self.prng = np.random.default_rng(0)
         self._coor_set = [self.conformer.coor]
         self._occupancies = [1.0]
@@ -337,7 +342,6 @@ class _BaseQFit:
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
             return solver.obj_value
 
-    
     def sample_b(self):
         """Create copies of conformers that vary in B-factor.
         For all conformers selected, create a copy with the B-factor vector by a scaling factor.
@@ -760,7 +764,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
             self._sample_sidechain()
 
-        # Perform a final QP / MIQP step
+        # Check that there are no self-clashes within a conformer
         self.residue.active = True
         self.residue.update_clash_mask()
         new_coor_set = []
@@ -846,7 +850,9 @@ class QFitRotamericResidue(_BaseQFit):
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
-        for n, residue in enumerate(self.segment.residues[::-1]):
+        
+        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein 
+        for n, residue in enumerate(self.segment.residues[(index-3):(index+3)]):
             for backbone_atom in ["N", "CA", "C", "O"]:
                 if backbone_atom not in residue.name:
                     relative_to_residue = n - index
@@ -1146,7 +1152,9 @@ class QFitRotamericResidue(_BaseQFit):
             self.sample_b()
             self._convert()
             self._solve_miqp(
-                threshold=self.options.threshold, cardinality=self.options.cardinality
+                threshold=self.options.threshold,
+                cardinality=None,  # don't enforce strict cardinality constraint, just less-than 1/threshold
+                do_BIC_selection=False,  # override (cancel) BIC selection during chi sampling
             )
             self._update_conformers()
             if self.options.write_intermediate_conformers:
@@ -1210,7 +1218,6 @@ class QFitSegment(_BaseQFit):
         self.options = options
         self.options.bic_threshold = self.options.seg_bic_threshold
         self.fragment_length = options.fragment_length
-        self.BIC = np.inf
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
         self._bs = [self.conformer.b]
@@ -1556,7 +1563,8 @@ class QFitLigand(_BaseQFit):
         self._convert()
         self._solve_miqp(
             threshold=self.options.threshold,
-            cardinality=self.options.cardinality)
+            cardinality=self.options.cardinality,
+        )
         self._update_conformers()
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")

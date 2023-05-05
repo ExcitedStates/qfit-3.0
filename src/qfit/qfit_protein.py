@@ -604,10 +604,10 @@ class QFitProtein:
         else:
             self.options.threshold = 0.2
 
-        # Extract map of multiconformer in P1, with 5 A padding
+        # Extract map of multiconformer in P1
         logger.debug("Extracting map...")
         _then = time.process_time()
-        self.xmap = self.xmap.extract(self.structure.coor, padding=5)
+        self.xmap = self.get_map_around_substructure(self.structure)
         _now = time.process_time()
         logger.debug(f"Map extraction took {(_now - _then):.03f} s.")
 
