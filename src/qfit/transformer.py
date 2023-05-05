@@ -346,12 +346,12 @@ class Transformer:
         density = np.zeros_like(r)
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
-            args = (x, asf, bfactor)
+            args = (x, asf, bfactor, self.em)
             # Use a fixed number of quadrature points, 50 is more than enough
             # integrand, err = quadrature(self._scattering_integrand, self.smin,
             #                            self.smax, args=args)#, tol=1e-5, miniter=13, maxiter=15)
             integrand, err = fixed_quad(
-                self._scattering_integrand, self.smin, self.smax, self.em, args=args, n=50
+                self._scattering_integrand, self.smin, self.smax, args=args, n=50
             )
             density[n] = integrand
         return r, density
@@ -361,9 +361,9 @@ class Transformer:
         derivative = np.zeros_like(r)
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
-            args = (x, asf, bfactor)
+            args = (x, asf, bfactor,self.em)
             integrand, err = quadrature(
-                self._scattering_integrand_derivative, self.smin, self.smax, self.em, args=args
+                self._scattering_integrand_derivative, self.smin, self.smax, args=args
             )
             derivative[n] = integrand
         return r, derivative
