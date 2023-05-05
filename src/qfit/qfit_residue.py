@@ -51,7 +51,7 @@ def build_argparser():
     p.add_argument(
         "-em",
         "--cryo_em",
-        action="store_false",
+        action="store_true",
         dest="em",
         help="Run qFit with EM options",  
     )
