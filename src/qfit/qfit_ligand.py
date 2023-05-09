@@ -28,7 +28,12 @@ def build_argparser():
         "containing reflections and phases. For MTZ files "
         "use the --label options to specify columns to read.",
     )
-    p.add_argument("structure", type=str, help="PDB-file containing structure.")
+    p.add_argument(
+        "structure", 
+        type=str, 
+        help="PDB-file containing structure."
+        )
+
     p.add_argument(
         "-cif",
         "--cif_file",
@@ -276,6 +281,7 @@ def prepare_qfit_ligand(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure)
+    
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
@@ -291,18 +297,27 @@ def prepare_qfit_ligand(options):
     structure_ligand = structure.extract(
         f"resi {resi} and chain {chainid}"
     )  # fix ligand name
+    
 
     if icode:
         structure_ligand = structure_ligand.extract("icode", icode)  # fix ligand name
     sel_str = f"resi {resi} and chain {chainid}"
     sel_str = f"not ({sel_str})"  # TO DO COLLAPSE
+
     receptor = structure.extract(
         sel_str
     )  # selecting everything that is no the ligand of interest
-
+    
     receptor = receptor.extract(
         "record", "ATOM"
     )  # receptor.extract('resn', 'HOH', '!=')
+
+    protein = structure.extract("record", "ATOM", "==") # Extract all residues
+    all_hetatm = structure.extract("record", "HETATM", "==") # Extract everything but protein (aka HETATM)
+    hetatm = all_hetatm.extract(sel_str) # Extract all HETATM except the ligand run instance
+
+    global protein_hetatm # Make a global variable to be accessed later
+    protein_hetatm = protein.combine(hetatm) # Combine HETATM with residues to be attached later 
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -416,19 +431,24 @@ def main():
         conformer.altloc = ""
         fname = os.path.join(options.directory, f"conformer_{n}.pdb")
         conformer.tofile(fname)
+        # multiconformer_ligand_bound = Structure.fromfile(fname) # copying the contents of qfit_ligand run to a variable that'll be outputted
         conformer.altloc = altloc
         try:
-            multiconformer = multiconformer.combine(conformer)
+            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer) 
+
         except Exception:
-            multiconformer = Structure.fromstructurelike(conformer.copy())
+            multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
+        
+    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound) # stitching back protein and other HETATM to the multiconformer ligand output
+ 
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_{chainid}_{resi}.pdb"
+        options.directory, pdb_id + f"multiconformer_ligand_bound_{chainid}_{resi}.pdb"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_{chainid}_{resi}_{icode}.pdb"
+            options.directory, pdb_id + f"multiconformer_ligand_bound_{chainid}_{resi}_{icode}.pdb"
         )
     try:
-        multiconformer.tofile(fname)
+        multiconformer_ligand_bound.tofile(fname)
     except NameError:
-        logger.error("qFit-ligand failed to produce any valid conformers.")
+        logger.error("qFit-ligand failed to produce any valid conformers.")   
