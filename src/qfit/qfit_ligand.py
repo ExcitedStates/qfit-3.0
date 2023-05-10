@@ -316,7 +316,6 @@ def prepare_qfit_ligand(options):
     all_hetatm = structure.extract("record", "HETATM", "==") # Extract everything but protein (aka HETATM)
     hetatm = all_hetatm.extract(sel_str) # Extract all HETATM except the ligand run instance
 
-    global protein_hetatm # Make a global variable to be accessed later
     protein_hetatm = protein.combine(hetatm) # Combine HETATM with residues to be attached later 
 
     # Check which altlocs are present in the ligand. If none, take the
@@ -391,7 +390,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
+    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, protein_hetatm
 
 
 def main():
@@ -415,7 +414,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, protein_hetatm = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
@@ -431,16 +430,16 @@ def main():
         conformer.altloc = ""
         fname = os.path.join(options.directory, f"conformer_{n}.pdb")
         conformer.tofile(fname)
-        # multiconformer_ligand_bound = Structure.fromfile(fname) # copying the contents of qfit_ligand run to a variable that'll be outputted
         conformer.altloc = altloc
         try:
             multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer) 
-
-        except Exception:
+        except NameError:
+            # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
-        
-    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound) # stitching back protein and other HETATM to the multiconformer ligand output
- 
+
+    # Stitch back protein and other HETATM to the multiconformer ligand output
+    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound)
+
     fname = os.path.join(
         options.directory, pdb_id + f"multiconformer_ligand_bound_{chainid}_{resi}.pdb"
     )
