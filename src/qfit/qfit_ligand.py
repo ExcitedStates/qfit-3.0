@@ -436,16 +436,20 @@ def main():
         except NameError:
             # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
+    
+    # Print multiconformer_ligand_only as an output file
+    multiconformer_ligand_only = os.path.join(options.directory, "multiconformer_ligand_only.pdb")
+    multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
 
     # Stitch back protein and other HETATM to the multiconformer ligand output
     multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound)
 
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_ligand_bound_{chainid}_{resi}.pdb"
+        options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_ligand_bound_{chainid}_{resi}_{icode}.pdb"
+            options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
         )
     try:
         multiconformer_ligand_bound.tofile(fname)
