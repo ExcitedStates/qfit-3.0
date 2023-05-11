@@ -344,7 +344,6 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
-    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
@@ -431,7 +430,11 @@ def main():
     multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
 
     # Stitch back protein and other HETATM to the multiconformer ligand output
+<<<<<<< HEAD
     multiconformer_ligand_bound = receptor.combine(multiconformer_ligand_bound)
+=======
+    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound).reorder()
+>>>>>>> 713227b1bdf45983d33f2cc3595c31542904853d
 
     fname = os.path.join(
         options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
