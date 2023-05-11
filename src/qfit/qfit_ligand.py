@@ -430,7 +430,7 @@ def main():
     multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
 
     # Stitch back protein and other HETATM to the multiconformer ligand output
-    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound)
+    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound).reorder()
 
     fname = os.path.join(
         options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
