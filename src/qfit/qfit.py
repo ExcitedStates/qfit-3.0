@@ -316,7 +316,7 @@ class _BaseQFit:
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = model_params_per_atom * natoms * nconfs * 0.95 #0.95 hyperparameter in put in here since we are almost always over penalizing 
                 if segment is not None:
-                    k = nconfs. #for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
+                    k = nconfs #for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
                 solution = MIQPSolutionStats(
                     threshold=threshold,
