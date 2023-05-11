@@ -296,27 +296,17 @@ def prepare_qfit_ligand(options):
     # Extract the ligand:
     structure_ligand = structure.extract(
         f"resi {resi} and chain {chainid}"
-    )  # fix ligand name
+    )  
     
 
     if icode:
-        structure_ligand = structure_ligand.extract("icode", icode)  # fix ligand name
+        structure_ligand = structure_ligand.extract("icode", icode)  
     sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"  # TO DO COLLAPSE
+    sel_str = f"not ({sel_str})"  
 
     receptor = structure.extract(
         sel_str
     )  # selecting everything that is no the ligand of interest
-    
-    receptor = receptor.extract(
-        "record", "ATOM"
-    )  # receptor.extract('resn', 'HOH', '!=')
-
-    protein = structure.extract("record", "ATOM", "==") # Extract all residues
-    all_hetatm = structure.extract("record", "HETATM", "==") # Extract everything but protein (aka HETATM)
-    hetatm = all_hetatm.extract(sel_str) # Extract all HETATM except the ligand run instance
-
-    protein_hetatm = protein.combine(hetatm) # Combine HETATM with residues to be attached later 
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -331,10 +321,9 @@ def prepare_qfit_ligand(options):
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
             structure_ligand = structure_ligand.extract(sel_str)
-            receptor = receptor.extract(f"not altloc {altloc}")
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file:  # TO DO: STEPHANIE
+    if options.cif_file: 
         ligand = _Ligand(
             structure_ligand.data,
             structure_ligand._selection,
@@ -420,7 +409,7 @@ def main():
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    # POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    # POST QFIT LIGAND WRITE OUTPUT 
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ""
