@@ -344,7 +344,6 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
-    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
@@ -379,7 +378,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, protein_hetatm
+    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
 
 
 def main():
