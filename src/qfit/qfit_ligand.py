@@ -379,7 +379,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, protein_hetatm
+    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
 
 
 def main():
@@ -403,7 +403,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode, protein_hetatm = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
@@ -431,7 +431,7 @@ def main():
     multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
 
     # Stitch back protein and other HETATM to the multiconformer ligand output
-    multiconformer_ligand_bound = protein_hetatm.combine(multiconformer_ligand_bound)
+    multiconformer_ligand_bound = receptor.combine(multiconformer_ligand_bound)
 
     fname = os.path.join(
         options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
