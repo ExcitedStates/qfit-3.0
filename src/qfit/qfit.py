@@ -1436,8 +1436,7 @@ class QFitSegment(_BaseQFit):
                         self._convert()
                         self._solve_miqp(
                             threshold=self.options.threshold,
-                            cardinality=self.options.cardinality,
-                            loop_range=[0.34, 0.25, 0.2, 0.16, 0.14],
+                            cardinality=self.options.cardinality
                         )
                     except SolverError:
                         # MIQP failed and we need to remove conformers that are close to each other
