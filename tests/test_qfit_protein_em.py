@@ -68,6 +68,8 @@ class TestQFitProtein:
         # simplify to only run on two residues (reduce computational load)
         qfit.structure = qfit.structure.extract("resi", (403), "==")
         qfit.structure = qfit.structure.reorder()
+        print(len(list(qfit.structure.single_conformer_residues)))
+        print(qfit.structure)
         assert len(list(qfit.structure.single_conformer_residues)) == 1
 
         return qfit
