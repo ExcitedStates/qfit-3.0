@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class _BaseStructure:
-
     REQUIRED_ATTRIBUTES = [
         "record",
         "name",
@@ -34,7 +33,6 @@ class _BaseStructure:
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
-
         self.parent = parent
         self.data = data
         self._selection = selection

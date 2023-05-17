@@ -73,7 +73,7 @@ class Relabeller:
         with tqdm.tqdm(
             node_pairs, total=n_combos, desc="Pairwise interactions", leave=True
         ) as pbar:
-            for ((i, node1), (j, node2)) in pbar:
+            for (i, node1), (j, node2) in pbar:
                 if node1.resi[0] != node2.resi[0] or node1.chain[0] != node2.chain[0]:
                     metric[i, j] = self.pairwise_residue_energy(node1, node2)
 

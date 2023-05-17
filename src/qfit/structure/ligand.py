@@ -180,7 +180,6 @@ class _Ligand(_BaseStructure):
         return ring_paths
 
     def rotatable_bonds(self):
-
         """Determine all rotatable bonds.
 
         A rotatable bond is currently described as two neighboring atoms with
@@ -216,7 +215,6 @@ class _Ligand(_BaseStructure):
         return rotatable_bonds
 
     def rigid_clusters(self):
-
         """Find rigid clusters / seeds in the molecule.
 
         Currently seeds are either rings or terminal ends of the molecule, i.e.
@@ -691,7 +689,6 @@ class Covalent_Ligand(_BaseStructure):
         return ring_paths
 
     def rotatable_bonds(self):
-
         """Determine all rotatable bonds.
 
         A rotatable bond is currently described as two neighboring atoms with

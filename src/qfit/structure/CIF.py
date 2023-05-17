@@ -24,11 +24,11 @@ L_GLOBAL = "<global>"
 L_TAG = "<tag>"
 L_VALUE = "<value>"
 
+
 #
 # Parser classes
 #
 class CIFFile:
-
     "Parser for reading a CIF 1.1 file."
 
     def __init__(self):
@@ -61,7 +61,6 @@ class CIFFile:
 
 
 class DataBlock:
-
     "CIF data block of tags and tables."
 
     def __init__(self, name, lexer, filename):

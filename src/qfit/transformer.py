@@ -21,7 +21,6 @@ class SFTransformer:
         self._resolution = np.min(abc / hkl_max)
 
     def __call__(self, nyquist=2):
-
         h, k, l = self.hkl.T
 
         naive_voxelspacing = self._resolution / (2 * nyquist)
@@ -122,7 +121,6 @@ class FFTTransformer:
         self._transformer.reset(*args, **kwargs)
 
     def density(self):
-
         self._transformer.density()
         fft_grid = rfftn(self.xmap.array)
         fft_grid[self._fft_mask] = 0
@@ -313,7 +311,6 @@ class Transformer:
         return r, derivative
 
     def correlation_gradients(self, target):
-
         self._coor_to_grid_coor()
         lmax = np.asarray(
             [self.rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64

@@ -236,7 +236,6 @@ class SpaceGroup:
         pdb_name=None,
         symop_list=None,
     ):
-
         self.number = number
         self.num_sym_equiv = num_sym_equiv
         self.num_primitive_sym_equiv = num_primitive_sym_equiv

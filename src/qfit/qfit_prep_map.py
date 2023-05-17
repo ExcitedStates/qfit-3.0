@@ -4,7 +4,6 @@ from qfit.scaler import MapScaler
 
 
 def parse_args():
-
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("xmap", type=XMap.fromfile)
     p.add_argument("structure", type=Structure.fromfile)
@@ -14,7 +13,6 @@ def parse_args():
 
 
 def main():
-
     args = parse_args()
     scaler = MapScaler(args.xmap)
     scaler.scale(args.structure)

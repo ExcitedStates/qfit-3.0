@@ -121,7 +121,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
 
     # Create a map of atomname → occupancies
     atom_occs = dict()
-    for (name, altloc, atomidx, q) in zip(
+    for name, altloc, atomidx, q in zip(
         residue.name, residue.altloc, residue._selection, residue.q
     ):
         if name not in atom_occs:

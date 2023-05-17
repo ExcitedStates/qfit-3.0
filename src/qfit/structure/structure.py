@@ -565,7 +565,6 @@ class _Chain(_BaseStructure):
         return self._residue_groups
 
     def build_hierarchy(self):
-
         resi = self.resi
         # order = np.argsort(resi)
         # resi = resi[order]
