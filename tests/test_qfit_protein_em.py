@@ -38,12 +38,6 @@ class TestQFitProtein:
             "-em"
         ]
 
-        # Add options to reduce computational load
-        args.extend([
-            "--backbone-amplitude", "0.10",  # default: 0.30
-            "--rotamer-neighborhood", "30",  # default: 60
-        ])
-
         # Collect and act on arguments
         p = build_argparser()
         args = p.parse_args(args=args)
