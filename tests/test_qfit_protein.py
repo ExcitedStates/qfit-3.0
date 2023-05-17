@@ -76,7 +76,7 @@ class TestQFitProtein:
         qfit = self.mock_main()
 
         # Run qfit object
-        #multiconformer = qfit._run_qfit_residue_parallel()
-        #mconformer_list = list(multiconformer.residues)
-        #print(mconformer_list)  # If we fail, this gets printed.
-        #assert len(mconformer_list) == 2  # Expect: 1*Ser99, 1*Phe113
+        multiconformer = qfit._run_qfit_residue_parallel()
+        mconformer_list = list(multiconformer.residues)
+        print(mconformer_list)  # If we fail, this gets printed.
+        assert len(mconformer_list) == 2  # Expect: 1*Ser99, 1*Phe113
