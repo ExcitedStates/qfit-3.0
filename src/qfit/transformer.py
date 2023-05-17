@@ -21,7 +21,6 @@ class SFTransformer:
         self._resolution = np.min(abc / hkl_max)
 
     def __call__(self, nyquist=2):
-
         h, k, l = self.hkl.T
 
         naive_voxelspacing = self._resolution / (2 * nyquist)
@@ -76,7 +75,7 @@ class FFTTransformer:
         self.asf_range = 6
         self.em = em
         if self.em == True:
-            scattering="electron"
+            scattering = "electron"
             self.asf_range = 5
         if hkl is None:
             hkl = self.xmap.hkl
@@ -126,7 +125,6 @@ class FFTTransformer:
         self._transformer.reset(*args, **kwargs)
 
     def density(self):
-
         self._transformer.density()
         fft_grid = rfftn(self.xmap.array)
         fft_grid[self._fft_mask] = 0
@@ -165,7 +163,7 @@ class Transformer:
             self._asf = ELECTRON_SCATTERING_FACTORS
         else:
             self._asf = ATOM_STRUCTURE_FACTORS
-            
+
         self._initialized = False
 
         if not simple and smax is None and self.xmap.resolution.high is not None:
@@ -317,7 +315,6 @@ class Transformer:
         return r, derivative
 
     def correlation_gradients(self, target):
-
         self._coor_to_grid_coor()
         lmax = np.asarray(
             [self.rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
@@ -361,7 +358,7 @@ class Transformer:
         derivative = np.zeros_like(r)
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
-            args = (x, asf, bfactor,self.em)
+            args = (x, asf, bfactor, self.em)
             integrand, err = quadrature(
                 self._scattering_integrand_derivative, self.smin, self.smax, args=args
             )
@@ -379,7 +376,7 @@ class Transformer:
                 + asf[0][2] * np.exp(-asf[1][2] * s2)
                 + asf[0][3] * np.exp(-asf[1][3] * s2)
                 + asf[0][4] * np.exp(-asf[1][4] * s2)
-            )  
+            )
         else:
             f = (
                 asf[0][0] * np.exp(-asf[1][0] * s2)
@@ -388,7 +385,7 @@ class Transformer:
                 + asf[0][3] * np.exp(-asf[1][3] * s2)
                 + asf[0][4] * np.exp(-asf[1][4] * s2)
                 + asf[0][5]
-            )  
+            )
         w = 8 * f * np.exp(-bfactor * s2) * s
         a = 4 * np.pi * s
         if r > 1e-4:

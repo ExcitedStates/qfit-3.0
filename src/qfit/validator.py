@@ -19,9 +19,7 @@ class Validator(object):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         if mask_structure is None:
-            transformer = Transformer(
-                structure, model_map, simple=simple, em=self.em
-            )
+            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
         else:
             transformer = Transformer(
                 mask_structure, model_map, simple=simple, em=self.em
@@ -30,16 +28,13 @@ class Validator(object):
         mask = model_map.array > 0
         model_map.array.fill(0)
         if mask_structure is not None:
-            transformer = Transformer(
-                structure, model_map, simple=simple, em=self.em
-            )
+            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
         transformer.density()
 
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         return corr
 
     def fisher_z(self, structure, rmask=1.5, simple=True):
-
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         transformer = Transformer(structure, model_map)

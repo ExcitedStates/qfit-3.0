@@ -151,12 +151,16 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
-        
+
         if self.options.em == True:
-            self.options.scattering = 'electron' #making sure electron SF are used 
-            self.options.bulk_solvent_level = 0 #bulk solvent level is 0 for EM to work with electron SF
-            self.options.cardinality = 3 #maximum of 3 conformers can be choosen per residue 
-            
+            self.options.scattering = "electron"  # making sure electron SF are used
+            self.options.bulk_solvent_level = (
+                0  # bulk solvent level is 0 for EM to work with electron SF
+            )
+            self.options.cardinality = (
+                3  # maximum of 3 conformers can be choosen per residue
+            )
+
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
@@ -234,7 +238,7 @@ class _BaseQFit:
         self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
-        if self.options.em == False: 
+        if self.options.em == False:
             # Set the lowest values in the map to the bulk solvent level:
             np.maximum(
                 self._subtransformer.xmap.array,
@@ -290,9 +294,9 @@ class _BaseQFit:
         do_BIC_selection=None,
         segment=None,
     ):
-        #set loop range differently for EM
+        # set loop range differently for EM
         if self.options.em:
-            loop_range=[0.5, 0.33, 0.25]
+            loop_range = [0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
@@ -314,9 +318,11 @@ class _BaseQFit:
                 natoms = self._coor_set[0].shape[0]
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
-                k = model_params_per_atom * natoms * nconfs * 0.95 #0.95 hyperparameter in put in here since we are almost always over penalizing 
+                k = (
+                    model_params_per_atom * natoms * nconfs * 0.95
+                )  # 0.95 hyperparameter in put in here since we are almost always over penalizing
                 if segment is not None:
-                    k = nconfs #for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
+                    k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
                 solution = MIQPSolutionStats(
                     threshold=threshold,
@@ -350,7 +356,7 @@ class _BaseQFit:
         It is intended that this will be run after a QP step (to help save time)
         and before an MIQP step.
         """
-        #don't sample b-factors with em
+        # don't sample b-factors with em
         if not self.options.sample_bfactors or self.options.em:
             return
 
@@ -803,7 +809,9 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
-        validator = Validator(self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em)
+        validator = Validator(
+            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em
+        )
 
         if self.xmap.resolution.high < 3.0:
             cutoff = 0.7 + (self.xmap.resolution.high - 0.6) / 3.0
@@ -852,9 +860,9 @@ class QFitRotamericResidue(_BaseQFit):
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
-        
-        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein 
-        for n, residue in enumerate(self.segment.residues[(index-3):(index+3)]):
+
+        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
+        for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
             for backbone_atom in ["N", "CA", "C", "O"]:
                 if backbone_atom not in residue.name:
                     relative_to_residue = n - index
@@ -1011,7 +1019,9 @@ class QFitRotamericResidue(_BaseQFit):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
             end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
-            iter_b_set = [] # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
+            iter_b_set = (
+                []
+            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1353,10 +1363,12 @@ class QFitSegment(_BaseQFit):
             f"{multiconformers.average_conformers():.2f}"
         )
         multiconformers = multiconformers.reorder()
-#         multiconformers = multiconformers.remove_identical_conformers(
-#             self.options.rmsd_cutoff
-#         )
-        multiconformers = multiconformers.normalize_occupancy()  # ensure that sum(occupancy) of residues is equal to one.
+        #         multiconformers = multiconformers.remove_identical_conformers(
+        #             self.options.rmsd_cutoff
+        #         )
+        multiconformers = (
+            multiconformers.normalize_occupancy()
+        )  # ensure that sum(occupancy) of residues is equal to one.
         logger.info(
             f"Average number of conformers after removal of identical conformers: "
             f"{multiconformers.average_conformers():.2f}"
@@ -1395,10 +1407,7 @@ class QFitSegment(_BaseQFit):
                         fragment = fragment.combine(element.set_backbone_occ())
                     combine = True
                     for fragment2 in fragments:
-                        if (
-                            calc_rmsd(fragment.coor, fragment2.coor)
-                            < 0.05
-                        ):
+                        if calc_rmsd(fragment.coor, fragment2.coor) < 0.05:
                             combine = False
                             break
                     if combine:
@@ -1437,7 +1446,7 @@ class QFitSegment(_BaseQFit):
                         self._solve_miqp(
                             threshold=self.options.threshold,
                             cardinality=self.options.cardinality,
-                            segment=True
+                            segment=True,
                         )
                     except SolverError:
                         # MIQP failed and we need to remove conformers that are close to each other

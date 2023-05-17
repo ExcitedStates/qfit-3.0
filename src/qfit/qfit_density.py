@@ -9,7 +9,6 @@ from .transformer import FFTTransformer, Transformer
 
 
 def parse_args():
-
     p = argparse.ArgumentParser(description=__doc__)
 
     p.add_argument("pdb_file", type=str, help="PDB file containing structure.")

@@ -28,11 +28,7 @@ def build_argparser():
         "containing reflections and phases. For MTZ files "
         "use the --label options to specify columns to read.",
     )
-    p.add_argument(
-        "structure", 
-        type=str, 
-        help="PDB-file containing structure."
-        )
+    p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     p.add_argument(
         "-cif",
@@ -281,7 +277,7 @@ def prepare_qfit_ligand(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure)
-    
+
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
@@ -294,15 +290,12 @@ def prepare_qfit_ligand(options):
         icode = ""
 
     # Extract the ligand:
-    structure_ligand = structure.extract(
-        f"resi {resi} and chain {chainid}"
-    )  
-    
+    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
 
     if icode:
-        structure_ligand = structure_ligand.extract("icode", icode)  
+        structure_ligand = structure_ligand.extract("icode", icode)
     sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"  
+    sel_str = f"not ({sel_str})"
 
     receptor = structure.extract(
         sel_str
@@ -323,7 +316,7 @@ def prepare_qfit_ligand(options):
             structure_ligand = structure_ligand.extract(sel_str)
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file: 
+    if options.cif_file:
         ligand = _Ligand(
             structure_ligand.data,
             structure_ligand._selection,
@@ -408,7 +401,7 @@ def main():
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    # POST QFIT LIGAND WRITE OUTPUT 
+    # POST QFIT LIGAND WRITE OUTPUT
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ""
@@ -420,13 +413,15 @@ def main():
         conformer.tofile(fname)
         conformer.altloc = altloc
         try:
-            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer) 
+            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
         except NameError:
             # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
-    
+
     # Print multiconformer_ligand_only as an output file
-    multiconformer_ligand_only = os.path.join(options.directory, "multiconformer_ligand_only.pdb")
+    multiconformer_ligand_only = os.path.join(
+        options.directory, "multiconformer_ligand_only.pdb"
+    )
     multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
 
     # Stitch back protein and other HETATM to the multiconformer ligand output
@@ -441,4 +436,4 @@ def main():
     try:
         multiconformer_ligand_bound.tofile(fname)
     except NameError:
-        logger.error("qFit-ligand failed to produce any valid conformers.")   
+        logger.error("qFit-ligand failed to produce any valid conformers.")

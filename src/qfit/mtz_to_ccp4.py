@@ -3,7 +3,6 @@ from qfit import XMap
 
 
 def parse_args():
-
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("mtz")
     p.add_argument("-l", "--label", default="FWT,PHWT")
@@ -13,7 +12,6 @@ def parse_args():
 
 
 def main():
-
     args = parse_args()
     xmap = XMap.fromfile(args.mtz, label=args.label)
     space_group = xmap.unit_cell.space_group

@@ -21,7 +21,8 @@ class TestQFitLigand:
         args = [
             "./tests/qfit_ligand_test/5AGK_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
             "./tests/qfit_ligand_test/5AGK.pdb",  # structurefile, using relative directory from tests/
-            "-l", "2FOFCWT,PH2FOFCWT",
+            "-l",
+            "2FOFCWT,PH2FOFCWT",
             "B, 801",  # selection
         ]
 
@@ -45,7 +46,9 @@ class TestQFitLigand:
         log_run_info(options, logger)
 
         # Build a QFitLigand job
-        qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
+        qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(
+            options=options
+        )
         assert qfit_ligand.ligand.natoms == 15
 
         return qfit_ligand
@@ -57,4 +60,4 @@ class TestQFitLigand:
 
         output = qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
-        assert len(conformers) == 2  
+        assert len(conformers) == 2

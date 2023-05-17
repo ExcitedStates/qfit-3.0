@@ -4,7 +4,6 @@ import numpy as np
 
 
 class Record:
-
     LENGTH = 80
 
     @classmethod
@@ -236,11 +235,9 @@ class _Crystal:
 
 
 class MTZFile:
-
     HEADER_WIDTH = 80
 
     def __init__(self, fname):
-
         with open(fname, "rb") as f:
             self._process_file(f)
         self.ncrystals = len(self.crystals)

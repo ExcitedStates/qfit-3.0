@@ -389,7 +389,6 @@ def parse_volume(fid, fmt=None):
 
 
 class CCP4Parser:
-
     HEADER_SIZE = 1024
     HEADER_TYPE = (
         "i" * 10
@@ -412,7 +411,6 @@ class CCP4Parser:
     HEADER_CHUNKS = [1] * 25 + [9, 3, 12] + [1] * 3 + [4, 4, 1, 1, 800]
 
     def __init__(self, fid):
-
         if isinstance(fid, str):
             fhandle = open(fid, "rb")
         elif isinstance(fid, file):
@@ -484,7 +482,6 @@ class CCP4Parser:
         self.symbt = self.fhandle.read(self.header["nsymbt"])
 
     def _get_density(self):
-
         # Determine the dtype of the file based on the mode
         mode = self.header["mode"]
         if mode == 0:
@@ -525,7 +522,6 @@ class MRCParser(CCP4Parser):
 
 
 def to_mrc(fid, volume, labels=[], fmt=None):
-
     if fmt is None:
         fmt = os.path.splitext(fid)[-1][1:]
 

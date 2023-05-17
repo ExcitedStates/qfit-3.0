@@ -628,9 +628,7 @@ class _RotamerResidue(_BaseResidue):
             if self.name[idx] != atom2:
                 idx2 = np.argwhere(self.name == atom2)[0]
                 index = np.ndarray((1,), dtype="int")
-                index[
-                    0,
-                ] = np.array(self.__dict__["_selection"][0], dtype="int")
+                index[0,] = np.array(self.__dict__["_selection"][0], dtype="int")
                 for attr in [
                     "record",
                     "name",

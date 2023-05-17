@@ -47,13 +47,13 @@ def build_argparser():
         help="Chain, residue id, and optionally insertion code for "
         "residue in structure, e.g. A,105, or A,105:A.",
     )
-    
+
     p.add_argument(
         "-em",
         "--cryo_em",
         action="store_true",
         dest="em",
-        help="Run qFit with EM options",  
+        help="Run qFit with EM options",
     )
 
     # Map input options

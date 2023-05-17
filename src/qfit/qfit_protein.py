@@ -53,7 +53,7 @@ def build_argparser():
         type=str,
         action=ValidateStructureFileArgument,
     )
-    
+
     p.add_argument(
         "-em",
         "--cryo_em",
@@ -251,10 +251,9 @@ def build_argparser():
         "--remove-conformers-below-cutoff",
         action="store_true",
         dest="remove_conformers_below_cutoff",
-        help=
-            "Remove conformers during sampling that have atoms "
-            "with no density support, i.e. atoms are positioned "
-            "at density values below <density-cutoff>",
+        help="Remove conformers during sampling that have atoms "
+        "with no density support, i.e. atoms are positioned "
+        "at density values below <density-cutoff>",
     )
     p.add_argument(
         "-cf",
@@ -349,7 +348,7 @@ def build_argparser():
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold (segment)",
     )
-    
+
     # EM options
     p.add_argument(
         "-q",
@@ -360,7 +359,7 @@ def build_argparser():
         "-q_cutoff",
         "--qscore_cutoff",
         help="Q-score value where we should not model in alternative conformers.",
-        default=0.7
+        default=0.7,
     )
 
     # Output options
@@ -397,7 +396,7 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-        
+
         if self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             multiconformer = self._create_refine_restraints(multiconformer)
@@ -434,8 +433,7 @@ class QFitProtein:
         waters = self.structure.extract("record", "ATOM", "==")
         waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
-        
-        
+
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
@@ -624,12 +622,11 @@ class QFitProtein:
             multiconformer.tofile(fname)
         return multiconformer
 
-    
     def _create_refine_restraints(self, multiconformer):
-        '''
+        """
         For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
         This function will go through the qFit output and create a constraint file to be fed into refinement
-        '''
+        """
         fname = os.path.join(self.options.directory, "qFit_occupancy.params")
         f = open(fname, "w+")
         f.write("refinement {\n")
@@ -640,37 +637,44 @@ class QFitProtein:
         chain_ = []
         for chain in multiconformer:
             for residue in chain:
-              if residue.resn[0] in ROTAMERS:
-                if len(residue.extract('name', 'CA', '==').q) == 1:
-                    #if something exists in the list, print it
-                    if len(resi_) > 0:  #something exists and we should write it out
-                        for a in set(altloc_):
-                            #create a string from each value in the resi array
-                            #resi_str = ','.join(map(str, resi_))
-                            f.write("      constrained_group {\n")
-                            for l in range(0, len(resi_)):
-                                #make string for each residue and concat the strings together
-                                if l == 0:
-                                    resi_selection = f"((chain {chain_[0]} and resseq {resi_[l]})"  #first residue
-                                else:
-                                    resi_selection = resi_selection + f" or (chain {chain_[0]} and resseq {resi_[l]})"
-                            f.write(f"        selection = altid {a} and {resi_selection})\n")
-                            f.write("             }\n")
-                    resi_ = []
-                    altloc_ = []
-                    chain_ = []
-                else:
-                    for alt in list(set(residue.altloc)):
-                        #only append if it does not already exist in array
-                        if residue.resi[0] not in resi_:
-                           resi_.append(residue.resi[0])
-                        chain_.append(residue.chain[0])
-                        altloc_.append(alt[0])
+                if residue.resn[0] in ROTAMERS:
+                    if len(residue.extract("name", "CA", "==").q) == 1:
+                        # if something exists in the list, print it
+                        if (
+                            len(resi_) > 0
+                        ):  # something exists and we should write it out
+                            for a in set(altloc_):
+                                # create a string from each value in the resi array
+                                # resi_str = ','.join(map(str, resi_))
+                                f.write("      constrained_group {\n")
+                                for l in range(0, len(resi_)):
+                                    # make string for each residue and concat the strings together
+                                    if l == 0:
+                                        resi_selection = f"((chain {chain_[0]} and resseq {resi_[l]})"  # first residue
+                                    else:
+                                        resi_selection = (
+                                            resi_selection
+                                            + f" or (chain {chain_[0]} and resseq {resi_[l]})"
+                                        )
+                                f.write(
+                                    f"        selection = altid {a} and {resi_selection})\n"
+                                )
+                                f.write("             }\n")
+                        resi_ = []
+                        altloc_ = []
+                        chain_ = []
+                    else:
+                        for alt in list(set(residue.altloc)):
+                            # only append if it does not already exist in array
+                            if residue.resi[0] not in resi_:
+                                resi_.append(residue.resi[0])
+                            chain_.append(residue.chain[0])
+                            altloc_.append(alt[0])
         f.write("   }\n")
         f.write(" }\n")
         f.write("}\n")
         f.close()
-    
+
     @staticmethod
     def _run_qfit_residue(residue, structure, xmap, options, logqueue):
         """Run qfit on a single residue to determine density-supported conformers."""
@@ -733,11 +737,19 @@ class QFitProtein:
                 f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
             )
             return
-        
+
         # Determine if q-score is too low
         if options.qscore is not None:
-           (chainid, resi, icode) = residue._identifier_tuple
-           if list(options.qscore[(options.qscore['Res_num'] == resi) & (options.qscore['Chain'] == chainid)]['Q_sideChain'])[0] < options.q_cutoff:
+            (chainid, resi, icode) = residue._identifier_tuple
+            if (
+                list(
+                    options.qscore[
+                        (options.qscore["Res_num"] == resi)
+                        & (options.qscore["Chain"] == chainid)
+                    ]["Q_sideChain"]
+                )[0]
+                < options.q_cutoff
+            ):
                 logger.info(
                     f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
                 )
@@ -751,7 +763,7 @@ class QFitProtein:
                 residue = conformer[residue.id]
                 residue.tofile(fname)
                 return
-        
+
         # Copy the structure
         (chainid, resi, icode) = residue._identifier_tuple
         resi_selstr = f"chain {chainid} and resi {resi}"
@@ -816,10 +828,10 @@ def prepare_qfit_protein(options):
     structure = Structure.fromfile(options.structure).reorder()
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
-        
-    #fixing issues with terminal oxygens
+
+    # fixing issues with terminal oxygens
     rename = structure.extract("name", "OXT", "==")
-    rename.name = 'O'
+    rename.name = "O"
     structure = structure.extract("name", "OXT", "!=").combine(rename)
 
     # Load map and prepare it
@@ -842,16 +854,34 @@ def prepare_qfit_protein(options):
         scaler.scale(structure, radius=options.scale_rmask * radius)
 
     if options.qscore is not None:
-       with open(options.qscore, 'r') as f: #not all qscore header are the same 'length'
-          for line_n, line_content in enumerate(f):
-              if "Q_sideChain" in line_content:
-                 break
-          start_row = line_n + 1
-       options.qscore = pd.read_csv(options.qscore, sep='\t', skiprows=start_row,skip_blank_lines=True,on_bad_lines='skip', header=None)
-       options.qscore = options.qscore.iloc[:,:6] #we only care about the first 6 columns
-       options.qscore.columns =['Chain', 'Res', 'Res_num', 'Q_backBone', 'Q_sideChain', 'Q_residue'] #rename column names
-       options.qscore['Res_num'] = options.qscore['Res_num'].fillna(0).astype(int)    
-        
+        with open(
+            options.qscore, "r"
+        ) as f:  # not all qscore header are the same 'length'
+            for line_n, line_content in enumerate(f):
+                if "Q_sideChain" in line_content:
+                    break
+            start_row = line_n + 1
+        options.qscore = pd.read_csv(
+            options.qscore,
+            sep="\t",
+            skiprows=start_row,
+            skip_blank_lines=True,
+            on_bad_lines="skip",
+            header=None,
+        )
+        options.qscore = options.qscore.iloc[
+            :, :6
+        ]  # we only care about the first 6 columns
+        options.qscore.columns = [
+            "Chain",
+            "Res",
+            "Res_num",
+            "Q_backBone",
+            "Q_sideChain",
+            "Q_residue",
+        ]  # rename column names
+        options.qscore["Res_num"] = options.qscore["Res_num"].fillna(0).astype(int)
+
     return QFitProtein(structure, xmap, options)
 
 

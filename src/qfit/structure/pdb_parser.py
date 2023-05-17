@@ -47,7 +47,6 @@ class PDBFile(object):
             self._f.close()
 
     def read(self):
-
         pdb = {}
         f = self._f
         line = f.readline()

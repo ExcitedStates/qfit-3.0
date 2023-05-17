@@ -97,7 +97,7 @@ class RMSF:
 
         rmsf = pd.DataFrame(rmsf_data, columns=["resseq", "AA", "Chain", "RMSF"])
         rmsf["PDB_name"] = self.options.pdb
-        rmsf.to_csv(f'{self.options.pdb}_qfit_RMSF.csv')
+        rmsf.to_csv(f"{self.options.pdb}_qfit_RMSF.csv")
 
 
 def main():

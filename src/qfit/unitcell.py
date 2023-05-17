@@ -17,7 +17,6 @@ class UnitCell:
     def __init__(
         self, a=1.0, b=1.0, c=1.0, alpha=90.0, beta=90.0, gamma=90.0, space_group="P1"
     ):
-
         self.a = a
         self.b = b
         self.c = c
