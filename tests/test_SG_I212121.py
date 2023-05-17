@@ -32,8 +32,8 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./example/2apb.mtz",  # mapfile, using relative directory from tests/
-            "./example/2APB.pdb",  # structurefile, using relative directory from tests/
+            "./tests/space_group_test/2apb_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/space_group_test/2apb.pdb",  # structurefile, using relative directory from tests/
             "-l",
             "FP,SIGFP",
         ]

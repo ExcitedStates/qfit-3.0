@@ -7,5 +7,10 @@
 #   $ git config --local blame.ignoreRevsFile .git-blame-ignore-revs
 #
 
+# main
 73c42b66021929d326a89edf885f2c1e03814f9c # initial blackification
 8625ad3de3832206b946bb290e6732b218bfce0c # reinforce blackening
+
+# dev
+6971e3f778fae170369e747d7b3e3306133bedce # initial blackification
+dd208bf43392a49a97a696300e40102c276d1642 # reinforce blackening

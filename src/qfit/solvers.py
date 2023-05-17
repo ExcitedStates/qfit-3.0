@@ -31,7 +31,7 @@ class _Base_QPSolver(object):
     def initialize(self):
         raise NotImplementedError
 
-    def __call__(self):
+    def solve(self):
         raise NotImplementedError
 
 
@@ -78,7 +78,7 @@ if CPLEX:
             )
             self.initialized = True
 
-        def __call__(self):
+        def solve(self):
             if not self.initialized:
                 self.initialize()
 
@@ -106,7 +106,7 @@ if CPLEX:
 
             self.initialized = True
 
-        def __call__(self, cardinality=None, exact=False, threshold=None, ligand=None):
+        def solve(self, cardinality=None, exact=False, threshold=None):
             if not self.initialized:
                 self.initialize()
 
@@ -131,25 +131,14 @@ if CPLEX:
                         i, j, self._quad_obj[i, j]
                     )
                 miqp.objective.set_linear(i, self._lin_obj[i])
-            if ligand is None:
-                ind = range(self._nconformers)
-                val = [1] * self._nconformers
-                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
-                miqp.linear_constraints.add(
-                    lin_expr=lin_expr,
-                    rhs=[1],
-                    senses=["E"],
-                )
-
-            else:
-                ind = range(self._nconformers)
-                val = [1] * self._nconformers
-                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
-                miqp.linear_constraints.add(
-                    lin_expr=lin_expr,
-                    rhs=[1],
-                    senses=["L"],
-                )  # this is a ligand and we are ok with a sum of occupancies being =< 1 # Sum of weights is == 1
+            ind = range(self._nconformers)
+            val = [1] * self._nconformers
+            lin_expr = [cplex.SparsePair(ind=ind, val=val)]
+            miqp.linear_constraints.add(
+                lin_expr=lin_expr,
+                rhs=[1],
+                senses=["L"],
+            )  # Sum of weights is <= 1
 
             # If cardinality or threshold is specified the problem is a MIQP, else its
             # a regular QP.

@@ -29,6 +29,7 @@ def build_argparser():
         "use the --label options to specify columns to read.",
     )
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
+
     p.add_argument(
         "-cif",
         "--cif_file",
@@ -65,20 +66,6 @@ def build_argparser():
         metavar="<float>",
         type=float,
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
-    )
-    p.add_argument(
-        "-rb",
-        "--randomize-b",
-        action="store_true",
-        dest="randomize_b",
-        help="Randomize B-factors of generated conformers",
     )
     p.add_argument(
         "-o",
@@ -258,17 +245,8 @@ def build_argparser():
         "--threshold-selection",
         dest="bic_threshold",
         action=ToggleActionFlag,
-        default=True,
+        default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
-    )
-
-    # Global options
-    p.add_argument(
-        "--random-seed",
-        dest="random_seed",
-        metavar="<int>",
-        type=int,
-        help="Seed value for PRNG",
     )
 
     # Output options
@@ -299,6 +277,7 @@ def prepare_qfit_ligand(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure)
+
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
@@ -311,21 +290,16 @@ def prepare_qfit_ligand(options):
         icode = ""
 
     # Extract the ligand:
-    structure_ligand = structure.extract(
-        f"resi {resi} and chain {chainid}"
-    )  # fix ligand name
+    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
 
     if icode:
-        structure_ligand = structure_ligand.extract("icode", icode)  # fix ligand name
+        structure_ligand = structure_ligand.extract("icode", icode)
     sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"  # TO DO COLLAPSE
+    sel_str = f"not ({sel_str})"
+
     receptor = structure.extract(
         sel_str
     )  # selecting everything that is no the ligand of interest
-
-    receptor = receptor.extract(
-        "record", "ATOM"
-    )  # receptor.extract('resn', 'HOH', '!=')
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -340,10 +314,9 @@ def prepare_qfit_ligand(options):
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
             structure_ligand = structure_ligand.extract(sel_str)
-            receptor = receptor.extract(f"not altloc {altloc}")
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file:  # TO DO: STEPHANIE
+    if options.cif_file:
         ligand = _Ligand(
             structure_ligand.data,
             structure_ligand._selection,
@@ -364,7 +337,6 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
-    logger.info("Receptor atoms selected: {natoms}".format(natoms=receptor.natoms))
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
@@ -374,7 +346,7 @@ def prepare_qfit_ligand(options):
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         if options.omit:
             footprint = structure_ligand
         else:
@@ -399,7 +371,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode
+    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
 
 
 def main():
@@ -423,13 +395,13 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()
     logger.info(f"Total time: {time.time() - time0}s")
 
-    # POST QFIT LIGAND WRITE OUTPUT (done within the qfit protein run command)
+    # POST QFIT LIGAND WRITE OUTPUT
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ""
@@ -441,17 +413,27 @@ def main():
         conformer.tofile(fname)
         conformer.altloc = altloc
         try:
-            multiconformer = multiconformer.combine(conformer)
-        except Exception:
-            multiconformer = Structure.fromstructurelike(conformer.copy())
+            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
+        except NameError:
+            # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
+            multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
+
+    # Print multiconformer_ligand_only as an output file
+    multiconformer_ligand_only = os.path.join(
+        options.directory, "multiconformer_ligand_only.pdb"
+    )
+    multiconformer_ligand_bound.tofile(multiconformer_ligand_only)
+
+    # Stitch back protein and other HETATM to the multiconformer ligand output
+    multiconformer_ligand_bound = receptor.combine(multiconformer_ligand_bound)
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_{chainid}_{resi}.pdb"
+        options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_{chainid}_{resi}_{icode}.pdb"
+            options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
         )
     try:
-        multiconformer.tofile(fname)
+        multiconformer_ligand_bound.tofile(fname)
     except NameError:
         logger.error("qFit-ligand failed to produce any valid conformers.")

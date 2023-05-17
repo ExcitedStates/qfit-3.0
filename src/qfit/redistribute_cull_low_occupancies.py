@@ -230,6 +230,7 @@ def main():
     n_removed = np.sum(mask)
 
     # Get list of all non-hetatom residue
+    n_removed = 0  # keep track of the residues we are removing
     # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
     for chain in structure:
         for residue in chain:

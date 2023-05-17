@@ -1,11 +1,13 @@
 import numpy as np
 import copy
+import itertools
 
 from .base_structure import _BaseStructure, PDBFile
 from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
+from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
 class Structure(_BaseStructure):
@@ -177,17 +179,25 @@ class Structure(_BaseStructure):
     def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
+        # determine altloc to keep
+        sel_str = f"resi {resid} and chain {chainid}"
+        conformers = [self.extract(sel_str)]
+        altlocs = []
+        for i in range(0, len(conformers)):
+            altlocs = np.append(altlocs, conformers[i].altloc[0])
+        altloc_keep = np.unique(altlocs)[0]
+        altlocs_remove = np.unique(altlocs)[1:]
         mask = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O", "H", "HA"])
-            & np.isin(self.data["altloc"], ["B", "C", "D", "E"])
+            & np.isin(self.data["altloc"], altlocs_remove)
         )
         mask2 = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O"])
-            & np.isin(self.data["altloc"], ["A"])
+            & np.isin(self.data["altloc"], altloc_keep)
         )
 
         for attr in self.data:
@@ -338,6 +348,76 @@ class Structure(_BaseStructure):
             data, link_data=self.link_data, scale=self.scale, cryst_info=self.cryst_info
         )
 
+    def normalize_occupancy(self):
+        """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all.
+        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX),
+        and scale each alt conf occupancy for the residue to sum to one.
+        To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
+        """
+        multiconformer = copy.deepcopy(self)
+        data = self.data
+        for chain in multiconformer:
+            for residue in chain:
+                altlocs = list(set(residue.altloc))
+                mask = None
+                if len(altlocs) == 1:  # confirm occupancy = 1
+                    mask = (self.data["resi"] == residue.resi[0]) & (
+                        self.data["chain"] == residue.chain[0]
+                    )
+                    for attr in data:
+                        array = getattr(multiconformer, attr)
+                        if attr == "q":
+                            array[mask] = 1.0
+                        elif attr == "altloc":
+                            array[mask] = ""
+                        data[attr] = array
+                    multiconformer = Structure(data)
+                else:
+                    new_occ = []
+                    if "" in altlocs and len(altlocs) > 1:
+                        mask = (
+                            (self.data["resi"] == residue.resi[0])
+                            & (self.data["chain"] == residue.chain[0])
+                            & (self.data["altloc"] == "")
+                        )
+                        for attr in data:
+                            array = getattr(multiconformer, attr)
+                            if attr == "q":
+                                array[mask] = 1.0
+                            elif attr == "altloc":
+                                array[mask] = ""
+                            data[attr] = array
+                        multiconformer = Structure(data)
+                        altlocs.remove("")
+                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
+                    conformers = [self.extract(sel_str + x) for x in altlocs]
+                    alt_sum = 0
+                    for i in range(0, len(conformers)):
+                        alt_sum += np.round(conformers[i].q[0], 2)
+                        new_occ = np.append(new_occ, (np.round(conformers[i].q[0], 2)))
+                    if alt_sum != 1.0:  # we need to normalize
+                        new_occ = []
+                        for i in range(0, len(altlocs)):
+                            new_occ = np.append(
+                                new_occ, ((np.round(conformers[i].q[0], 2)) / alt_sum)
+                            )
+                        new_occ = normalize_to_precision(
+                            np.array(new_occ), 2
+                        )  # deal with imprecision
+                    for i in range(0, len(new_occ)):
+                        mask = (
+                            (self.data["resi"] == residue.resi[0])
+                            & (self.data["chain"] == residue.chain[0])
+                            & (self.data["altloc"] == altlocs[i])
+                        )
+                        for attr in data:
+                            array = getattr(multiconformer, attr)
+                            if attr == "q":
+                                array[mask] = new_occ[i]
+                            data[attr] = array
+                        multiconformer = Structure(data)
+        return Structure(data)
+
     def remove_conformer(self, resi, chain, altloc1, altloc2):
         data = {}
         mask = (
@@ -361,7 +441,7 @@ class Structure(_BaseStructure):
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
-        for chain in self:
+        for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 try:
@@ -371,26 +451,26 @@ class Structure(_BaseStructure):
                 sel_str = (
                     f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                 )
-                conformers = [self.extract(sel_str + x) for x in altlocs]
-                all_identical = True
-                for i in range(1, len(conformers)):
-                    diff = conformers[0].coor - conformers[i].coor
-                    dist = np.sum(np.linalg.norm(diff, axis=1))
-                    if dist > rmsd_cutoff:
-                        all_identical = False
-                        break
-                if all_identical:
-                    for i in range(1, len(conformers)):
-                        multiconformer = multiconformer.remove_conformer(
-                            residue.resi[0],
-                            residue.chain[0],
-                            conformers[0].altloc[0],
-                            conformers[i].altloc[0],
-                        )
-                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
-                    residue2 = multiconformer.extract(sel_str)
-                    residue2._q[residue2._selection] = 1.0
-                    residue2._altloc[residue2._selection] = ""
+                conformers = [multiconformer.extract(sel_str + x) for x in altlocs]
+                if len(set(altlocs)) == 1:
+                    continue
+                else:
+                    removed_conformers = []  # list of all conformer that are removed
+                    for conf_a, conf_b in itertools.combinations(conformers, 2):
+                        if conf_a.altloc[0] in removed_conformers:
+                            continue  # we have already removed this conformer
+                        else:
+                            rmsd = np.sqrt(np.mean((conf_a.coor - conf_b.coor) ** 2))
+                            if rmsd > rmsd_cutoff:
+                                continue
+                            else:
+                                multiconformer = multiconformer.remove_conformer(
+                                    residue.resi[0],
+                                    residue.chain[0],
+                                    conf_a.altloc[0],
+                                    conf_b.altloc[0],
+                                )
+                                removed_conformers.append(conf_b.altloc[0])
         return multiconformer
 
     @property

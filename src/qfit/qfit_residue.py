@@ -48,6 +48,14 @@ def build_argparser():
         "residue in structure, e.g. A,105, or A,105:A.",
     )
 
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit with EM options",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
@@ -71,13 +79,6 @@ def build_argparser():
         metavar="<float>",
         type=float,
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
     )
     p.add_argument(
         "-rb",
@@ -190,7 +191,7 @@ def build_argparser():
         dest="sample_backbone_sigma",
         metavar="<float>",
         type=float,
-        help="Backbone random-sampling displacement (Å)",
+        help="Backbone sampling displacement (Å)",
     )
     p.add_argument(
         "--sample-angle",
@@ -320,15 +321,6 @@ def build_argparser():
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
 
-    # Global options
-    p.add_argument(
-        "--random-seed",
-        dest="random_seed",
-        metavar="<int>",
-        type=int,
-        help="Seed value for PRNG",
-    )
-
     # Output options
     p.add_argument(
         "-d",
@@ -453,7 +445,7 @@ def main():
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         if args.omit:
             footprint = structure_resi
         else:
@@ -468,29 +460,14 @@ def main():
             radius = 0.5 + reso / 3.0
         scaler.scale(footprint, radius=args.scale_rmask * radius)
     xmap = xmap.extract(residue.coor, padding=args.padding)
-    ext = ".ccp4"
-    if not np.allclose(xmap.origin, 0):
-        ext = ".mrc"
-    scaled_fname = os.path.join(args.directory, f"scaled{ext}")
-    xmap.tofile(scaled_fname)
     qfit = QFitRotamericResidue(residue, structure, xmap, options)
     qfit.run()
-    qfit.write_maps()
     conformers = qfit.get_conformers()
     nconformers = len(conformers)
     altloc = ""
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
-        # skip = False
-        # for conf in conformers[:n]:
-        #    print("Checking RMSD")
-        #    if conformer.rmsd(conf) < 0.2:
-        #        skip = True
-        #        print("Skipping")
-        #        break
-        # if skip:
-        #    continue
         conformer.altloc = ""
         fname = os.path.join(options.directory, f"conformer_{n}.pdb")
         conformer.tofile(fname)
@@ -499,6 +476,7 @@ def main():
             multiconformer = multiconformer.combine(conformer)
         except Exception:
             multiconformer = Structure.fromstructurelike(conformer.copy())
+    multiconformer.normalize_occupancy()  # normalize the occupancy of each conformation
     fname = os.path.join(options.directory, f"multiconformer_{chainid}_{resi}.pdb")
     if icode:
         fname = os.path.join(
