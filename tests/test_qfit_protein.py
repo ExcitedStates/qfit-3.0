@@ -68,6 +68,7 @@ class TestQFitProtein:
         qfit.structure = qfit.structure.extract("resi", (99, 113), "==")
         qfit.structure = qfit.structure.reorder()
         assert len(list(qfit.structure.single_conformer_residues)) == 2
+        print(len(list(qfit.structure.single_conformer_residues)))
 
         return qfit
 
