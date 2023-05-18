@@ -16,7 +16,6 @@ from string import ascii_uppercase
 from qfit.structure import Structure
 
 
-
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("holo_str", type=str, help="PDB-file containing structure.")
