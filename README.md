@@ -97,7 +97,7 @@ Before creating a commit, you will have to perform two actions:
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please refer below for a basic usage example. More specialized and advanced use case examples
-are shown in [TUTORIAL](example/TUTORIAL.md) in the [example](example/) directory.
+are shown in [TUTORIAL](example/README.md) in the [example](example/) directory.
 
 To remove single-conformer model bias, qFit should be used with a composite omit
 map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
