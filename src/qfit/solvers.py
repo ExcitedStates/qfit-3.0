@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 import numpy as np
@@ -107,14 +109,27 @@ if CPLEX:
             self.threads = threads
 
         def _initialize(self):
-            """Precompute two inner products.
+            """Precompute the quadratic coefficients & objective (P, q).
 
             These values don't depend on threshold/cardinality.
             Having these objectives pre-computed saves a few cycles when MIQP
             is evaluated for multiple values of threshold/cardinality.
             """
-            self._quad_obj = np.inner(self._models, self._models)
-            self._lin_obj = -np.inner(self._models, self._target)
+            # minimize 0.5 x.T P x + q.T x
+            #   where P = self._quad_obj =   ρ_model.T ρ_model
+            #         q = self._lin_obj  = - ρ_model.T ρ_obs
+            _quad_obj_coeffs = np.inner(self._models, self._models)
+            _lin_obj_coeffs = -np.inner(self._models, self._target)
+
+            # We have to unpack the arrays for CPLEX into CSR format (even though they're dense)
+            self._quad_obj: list[cplex.SparsePair] = []
+            for row in _quad_obj_coeffs:
+                idxs, vals = zip(*enumerate(row.tolist()))
+                self._quad_obj.append(cplex.SparsePair(ind=idxs, val=vals))
+
+            # CPLEX requires linear objectives as a list of (idx, val) tuples
+            self._lin_obj: list[tuple[int, float]]
+            self._lin_obj = list(enumerate(_lin_obj_coeffs))
 
             self.initialized = True
 
@@ -122,98 +137,91 @@ if CPLEX:
             if not self.initialized:
                 self._initialize()
 
+            # Create and configure the cplex object
             miqp = cplex.Cplex()
             miqp.set_results_stream(None)
             miqp.set_log_stream(None)
             miqp.set_warning_stream(None)
             miqp.set_error_stream(None)
-
-            # Set number of threads to use
             if self.threads is not None:
                 miqp.parameters.threads.set(self.threads)
 
-            # Setup QP part of the MIQP
+            # Create variables and set linear constraints
+            # w_i ≤ 1
             variable_names = [f"w{n}" for n in range(self._nconformers)]
             upper_bounds = self._nconformers * [1.0]
-
             miqp.variables.add(names=variable_names, ub=upper_bounds)
-            for i in range(self._nconformers):
-                for j in range(i, self._nconformers):
-                    miqp.objective.set_quadratic_coefficients(
-                        i, j, self._quad_obj[i, j]
-                    )
-                miqp.objective.set_linear(i, self._lin_obj[i])
-            ind = range(self._nconformers)
-            val = [1] * self._nconformers
-            lin_expr = [cplex.SparsePair(ind=ind, val=val)]
-            miqp.linear_constraints.add(
-                lin_expr=lin_expr,
-                rhs=[1],
-                senses=["L"],
-            )  # Sum of weights is <= 1
 
-            # If cardinality or threshold is specified the problem is a MIQP, else its
-            # a regular QP.
+            # Σ_i w_i ≤ 1
+            ind = range(self._nconformers)
+            val = self._nconformers * [1.0]
+            miqp.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(ind=ind, val=val)],
+                senses=["L"],
+                rhs=[1.0],
+            )
+
+            # Setup quadratic objective of the MIQP
+            miqp.objective.set_quadratic(self._quad_obj)
+            miqp.objective.set_linear(self._lin_obj)
+            miqp.objective.set_sense(miqp.objective.sense.minimize)
+
+            # If cardinality or threshold is specified, the problem is a MIQP,
+            # so we need to add binary integer variables z_i.
             if cardinality not in (None, 0) or threshold not in (None, 0):
+                # z_i ∈ {0, 1}
                 integer_names = [f"z{n}" for n in range(self._nconformers)]
                 variable_types = self._nconformers * miqp.variables.type.binary
                 miqp.variables.add(names=integer_names, types=variable_types)
 
-                # Only count weights for which zi is 1
-                for n in range(self._nconformers):
-                    w = f"w{n}"
-                    z = f"z{n}"
-                    miqp.linear_constraints.add(
-                        lin_expr=[cplex.SparsePair(ind=[w, z], val=[1, -1])],
-                        rhs=[0],
-                        senses="L",
-                    )
-                    # Set the threshold constraint
-                    if threshold not in (None, 0):
-                        miqp.linear_constraints.add(
-                            lin_expr=[
-                                cplex.SparsePair(ind=[z, w], val=[threshold, -1])
-                            ],
-                            rhs=[0],
-                            senses=["L"],
-                        )
-                # Set the cardinality constraint
-                if cardinality not in (None, 0):
-                    senses = "L"
-                    if exact:
-                        senses = "E"
-                        cardinality = min(cardinality, self._nconformers)
-                    lin_expr = [
-                        [
-                            list(range(self._nconformers, 2 * self._nconformers)),
-                            self._nconformers * [1],
-                        ]
-                    ]
-                    miqp.linear_constraints.add(
-                        lin_expr=lin_expr,
-                        rhs=[cardinality],
-                        senses=senses,
-                    )
+                # Only count weights for which z_i is 1
+                # w_i - z_i ≤ 0
+                # (∵ z_i ∈ {0,1} and 0 ≤ w_i ≤ 1, this is only true when z_i = 1)
+                lin_expr = [
+                    cplex.SparsePair(ind=[f"w{n}", f"z{n}"], val=[1, -1])
+                    for n in range(self._nconformers)
+                ]
+                senses = self._nconformers * ["L"]
+                rhs = self._nconformers * [0.0]
+                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
+
+            # Set the threshold constraint if applicable
+            if threshold not in (None, 0):
+                # tdmin z_i - w_i ≤ 0, i.e. w_i ≥ tdmin
+                lin_expr = [
+                    cplex.SparsePair(ind=[f"z{n}", f"w{n}"], val=[threshold, -1])
+                    for n in range(self._nconformers)
+                ]
+                senses = self._nconformers * ["L"]
+                rhs = self._nconformers * [0.0]
+                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
+
+            # Set the cardinality constraint if applicable
+            if cardinality not in (None, 0):
+                # Σ z_i ≤ cardinality
+                ind = [f"z{n}" for n in range(self._nconformers)]
+                val = self._nconformers * [1]
+                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
+                if exact:
+                    senses = ["E"]
+                    rhs = [min(cardinality, self._nconformers)]
+                else:
+                    senses = ["L"]
+                    rhs = [cardinality]
+                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
+
+            # Solve
             miqp.solve()
 
-            self.obj_value = 2 * miqp.solution.get_objective_value() + np.inner(
-                self._target, self._target
-            )
-            self.weights = np.asarray(miqp.solution.get_values()[: self._nconformers])
+            # Store the density residual and the weights
+            self.obj_value = (
+                2 * miqp.solution.get_objective_value()
+                + np.inner(self._target, self._target)
+            )  # fmt:skip
+            self.weights = np.array(miqp.solution.get_values()[: self._nconformers])
+
+            # Close the cplex object
             miqp.end()
-            q = self._lin_obj.reshape(-1, 1)
-            P = self._quad_obj
-            w = self.weights.reshape(-1, 1)
-
-            # print("CPLEX MIQP")
-            # print('P:', P)
-            # print('q:', q)
-            # print('w:', w)
-
-            # obj = 0.5 * w.T @ P @ w + q.T @ w
-            # print("calculated myself OBJ:", obj)
-            # print('from solver OBJ:', self.obj_value)
-            # print("TOTAL:", self.obj_value * 2 + np.inner(self._target, self._target))
 
 
 # Create a "pseudo-class" to abstract the choice of solver.
@@ -291,6 +299,49 @@ class QPSolver(object):
 
 # Create a "pseudo-class" to abstract the choice of solver.
 class MIQPSolver(object):
+    """Finds the combination of conformer-occupancies that minimizes difference density.
+
+    Problem statement
+    -----------------
+    We have observed density ρ^o from the user-provided map (target).
+    We also have a set of conformers, each with modelled/calculated density ρ^c_i.
+    We want find the vector of occupancies ω = <ω_0, ..., ω_n> that minimizes
+        the difference between the observed and modelled density --- that minimizes
+        a residual sum-of-squares function, rss(ω).
+    Mathematically, we wish to minimize:
+        min_ω rss(ω) = min_ω || ρ^c ω - ρ^o ||^2
+
+    Expanding & rearranging rss(ω):
+        rss(ω) = ( ρ^c ω - ρ^o ).T  ( ρ^c ω - ρ^o )
+                = ω.T ρ^c.T ρ^c ω - 2 ρ^o.T ρ^c ω + ρ^o.T ρ^o
+    We can rewrite this as
+        rss(ω) = ω.T P ω + 2 q.T ω + C
+    where
+        P =  ρ^c.T ρ^c
+        q = -ρ^c.T ρ^o
+        C =  ρ^o.T ρ^o
+
+    Noting that the canonical QP objective function is
+        g(x) = 1/2 x.T P x + q.T x
+    we can use a QP solver to find min_x g(x), which, by equivalence,
+        will provide the solution to min_ω rss(ω).
+
+    Solution constraints
+    --------------------
+    Furthermore, these occupancies are meaningful parameters, so we require
+    that their sum is within the unit interval:
+        Σ ω_i ≤ 1
+
+    We also want to have either:
+        (a) a set of conformers of known size (cardinality), or
+        (b) a set of conformers with _at least_ threshold occupancy, or else zero (threshold).
+    This can be achieved with a mixed-integer linear constraint:
+        z_i t_min ≤ ω_i ≤ z_i
+    where
+        z_i ∈ {0, 1}
+        t_min is the minimum-allowable threshold value for ω.
+    """
+
     def __new__(cls, *args, **kwargs):
         """Construct an initialised instance of the appropriate solver."""
 
