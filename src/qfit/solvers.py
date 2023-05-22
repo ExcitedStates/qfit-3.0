@@ -29,7 +29,8 @@ __all__ = ["QPSolver", "MIQPSolver", "SolverError"]
 class _Base_QPSolver(object):
     """Base class for Quadratic Programming solvers.
 
-    Declares required interface functions for child classes to overwrite."""
+    Declares required interface functions for child classes to overwrite.
+    """
 
     def solve(self):
         raise NotImplementedError
@@ -59,29 +60,40 @@ if CPLEX:
             logger.debug(
                 f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})"
             )
+
+            # minimize 0.5 x.T P x + q.T x
+            #   where P = self._quad_obj      =   ρ_model.T ρ_model
+            #         q = self._lin_obj       = - ρ_model.T ρ_obs
             self._quad_obj = cvxopt.matrix(np.inner(self._models, self._models), tc="d")
             self._lin_obj = cvxopt.matrix(-np.inner(self._models, self._target), tc="d")
 
-            # lower-equal constraints.
-            # Each weight falls in the closed interval [0..1] and its sum is <= 1.
-            # There are 2 * nconformers bounds + 1 constraint
-            # Make a sparse matrix to represent this information.
-            self._le_constraints = cvxopt.spmatrix(
-                self._nconformers * [-1.0] + 2 * self._nconformers * [1.0],
-                list(range(2 * self._nconformers))
-                + self._nconformers * [2 * self._nconformers],
-                3 * list(range(self._nconformers)),
-            )
-            self._le_bounds = cvxopt.matrix(
-                self._nconformers * [0.0] + (self._nconformers + 1) * [1.0], tc="d"
-            )
+            # subject to:
+            #   G x ≤ h
+            #   where G = self._le_constraints
+            #         h = self._le_bounds
+            #
+            #   Each weight x falls in the closed interval [0..1], and the sum of all weights is <= 1.
+            #   This corresponds to 2 * nconformers bounds + 1 constraint.
+            #   We construct G with a sparse matrix.
+            #         constraint idx=[0..N)            constraint idx=[N..2N)                               constraint idx=2N
+            rowidxs = [*range(0, self._nconformers)] + [*range(self._nconformers, 2 * self._nconformers)] + (self._nconformers * [2 * self._nconformers])  # fmt:skip
+            #         -x_i ≤ 0                         x_i ≤ 1                                              Σ_i x_i ≤ 1
+            coeffs  = (self._nconformers * [-1.0])   + (self._nconformers * [1.0])                        + (self._nconformers * [1.0])  # fmt:skip
+            colidxs = [*range(0, self._nconformers)] + [*range(0, self._nconformers)]                     + [*range(0, self._nconformers)]  # fmt:skip
+            threshs = (self._nconformers * [0.0])    + (self._nconformers * [1.0])                        + [1.0]  # fmt:skip
+            self._le_constraints = cvxopt.spmatrix(coeffs, rowidxs, colidxs, tc="d")
+            self._le_bounds = cvxopt.matrix(threshs, tc="d")
 
+            # Solve
             self._solution = cvxopt.solvers.qp(
                 self._quad_obj, self._lin_obj, self._le_constraints, self._le_bounds
             )
-            self.obj_value = 2 * self._solution["primal objective"] + np.inner(
-                self._target, self._target
-            )
+
+            # Store the density residual and the weights
+            self.obj_value = (
+                2 * self._solution["primal objective"] + 
+                np.inner(self._target, self._target)
+            )  # fmt:skip
             self.weights = np.asarray(self._solution["x"]).ravel()
 
     class CPLEX_MIQPSolver(_Base_QPSolver):
@@ -206,6 +218,42 @@ if CPLEX:
 
 # Create a "pseudo-class" to abstract the choice of solver.
 class QPSolver(object):
+    """Finds the combination of conformer-occupancies that minimizes difference density.
+
+    Problem statement
+    -----------------
+    We have observed density ρ^o from the user-provided map (target).
+    We also have a set of conformers, each with modelled/calculated density ρ^c_i.
+    We want find the vector of occupancies ω = <ω_0, ..., ω_n> that minimizes
+        the difference between the observed and modelled density --- that minimizes
+        a residual sum-of-squares function, rss(ω).
+    Mathematically, we wish to minimize:
+        min_ω rss(ω) = min_ω || ρ^c ω - ρ^o ||^2
+
+    Expanding & rearranging rss(ω):
+        rss(ω) = ( ρ^c ω - ρ^o ).T  ( ρ^c ω - ρ^o )
+                = ω.T ρ^c.T ρ^c ω - 2 ρ^o.T ρ^c ω + ρ^o.T ρ^o
+    We can rewrite this as
+        rss(ω) = ω.T P ω + 2 q.T ω + C
+    where
+        P =  ρ^c.T ρ^c
+        q = -ρ^c.T ρ^o
+        C =  ρ^o.T ρ^o
+
+    Noting that the canonical QP objective function is
+        g(x) = 1/2 x.T P x + q.T x
+    we can use a QP solver to find min_x g(x), which, by equivalence,
+        will provide the solution to min_ω rss(ω).
+
+    Solution constraints
+    --------------------
+    Furthermore, these occupancies are meaningful parameters, so we require
+    that their sum is within the unit interval:
+        Σ ω_i ≤ 1
+    and that each individual occupancy is a positive fractional number:
+        0 ≤ ω_i ≤ 1
+    """
+
     def __new__(cls, *args, **kwargs):
         """Return a constructor for the appropriate solver."""
 
