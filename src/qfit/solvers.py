@@ -33,9 +33,6 @@ class _Base_QPSolver(object):
 
     Declares required interface functions for child classes to overwrite."""
 
-    def initialize(self):
-        raise NotImplementedError
-
     def solve(self):
         raise NotImplementedError
 
@@ -55,12 +52,11 @@ if CPLEX:
             self._target = target
             self._models = models
             self._nconformers = models.shape[0]
-            self.initialized = False
 
             self._solution = None
             self.weights = None
 
-        def initialize(self):
+        def solve(self):
             # Set up the matrices and restraints
             logger.debug(
                 f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})"
@@ -81,11 +77,6 @@ if CPLEX:
             self._le_bounds = cvxopt.matrix(
                 self._nconformers * [0.0] + (self._nconformers + 1) * [1.0], tc="d"
             )
-            self.initialized = True
-
-        def solve(self):
-            if not self.initialized:
-                self.initialize()
 
             self._solution = cvxopt.solvers.qp(
                 self._quad_obj, self._lin_obj, self._le_constraints, self._le_bounds
@@ -99,13 +90,19 @@ if CPLEX:
         """Mixed-Integer Quadratic Programming solver based on CPLEX."""
 
         def __init__(self, target, models, threads=1):
+            self.initialized = False
             self._target = target
             self._models = models
             self._nconformers = models.shape[0]
-            self.initialized = False
             self.threads = threads
 
-        def initialize(self):
+        def _initialize(self):
+            """Precompute two inner products.
+
+            These values don't depend on threshold/cardinality.
+            Having these objectives pre-computed saves a few cycles when MIQP
+            is evaluated for multiple values of threshold/cardinality.
+            """
             self._quad_obj = np.inner(self._models, self._models)
             self._lin_obj = -np.inner(self._models, self._target)
 
@@ -113,7 +110,7 @@ if CPLEX:
 
         def solve(self, cardinality=None, exact=False, threshold=None):
             if not self.initialized:
-                self.initialize()
+                self._initialize()
 
             miqp = cplex.Cplex()
             miqp.set_results_stream(None)
