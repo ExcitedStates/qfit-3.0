@@ -1009,10 +1009,6 @@ class QFitRotamericResidue(_BaseQFit):
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
-        new_bs = []
-        for b in self._bs:
-            new_bs.append(b)
-        self._bs = new_bs
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
