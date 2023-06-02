@@ -26,8 +26,6 @@ from .logtools import (
 )
 from . import MapScaler, Structure, XMap
 from .structure.rotamers import ROTAMERS
-from .structure.WATER_LOCS_5 import WATERS
-from .structure.chi1 import chi_atoms
 from .transformer import Transformer
 from .solvers import QPSolver, MIQPSolver
 
@@ -304,7 +302,8 @@ def prepare_qfit_water(options):
     )
     xmap = xmap.canonical_unit_cell()
     if options.scale is True:
-        scaler = MapScaler(xmap, em=options.em)
+        #scaler = MapScaler(xmap, em=options.em)
+        scaler = MapScaler(xmap, scattering=options.scattering)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
