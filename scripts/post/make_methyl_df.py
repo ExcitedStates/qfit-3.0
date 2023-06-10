@@ -45,4 +45,4 @@ for chain in np.unique(structure.chain):
 methyl_df = pd.DataFrame(
     methyl, columns=["resi", "a1", "resi", "a2", "hold1", "hold2", "chain", "resn"]
 )
-methyl_df.to_csv(args.pdb + "_qFit_methyl.dat", sep=" ", index=False)
+methyl_df.to_csv(args.pdb + ".dat", sep=" ", index=False)
