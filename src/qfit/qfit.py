@@ -1161,7 +1161,6 @@ class QFitRotamericResidue(_BaseQFit):
                 )
 
             # MIQP score conformer occupancy
-            self.sample_b()
             self._convert()
             self._solve_miqp(
                 threshold=self.options.threshold,
