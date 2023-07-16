@@ -26,13 +26,13 @@ Once these are installed, you can:
 
 1. Create a new conda env & activate it
    ```bash
-   conda create --name qfit "python>=3.7,<3.9"
+   conda create --name qfit "python>=3.9"
    conda activate qfit
    ```
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl numpy=1.20
+   conda install -c anaconda mkl numpy=1.22
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
@@ -60,7 +60,7 @@ Instead of the first step in the above Installation section, use this:
 
 1. Create a new conda env & activate it
    ```bash
-   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.8"
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
    conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
    conda activate qfit
    ```
