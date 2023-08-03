@@ -83,6 +83,7 @@ class QFitOptions:
         self.threshold = 0.20
         self.bic_threshold = True
         self.seg_bic_threshold = True
+        self.bic_number = 0.95
 
         ### From QFitRotamericResidueOptions, QFitCovalentLigandOptions
         # Backbone sampling
@@ -290,13 +291,13 @@ class _BaseQFit:
         self,
         cardinality,
         threshold,
-        loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
+        loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
         segment=None,
     ):
         # set loop range differently for EM
         if self.options.em:
-            loop_range = [0.5, 0.33, 0.25]
+            loop_range = [1.0, 0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
@@ -319,7 +320,7 @@ class _BaseQFit:
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
-                    model_params_per_atom * natoms * nconfs * 0.95
+                    model_params_per_atom * natoms * nconfs * self.options.BIC_num
                 )  # 0.95 hyperparameter in put in here since we are almost always over penalizing
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
