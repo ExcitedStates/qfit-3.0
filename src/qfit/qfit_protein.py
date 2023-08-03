@@ -61,8 +61,14 @@ def build_argparser():
         dest="em",
         help="Run qFit with EM options",
     )
-
     # Map input options
+    p.add_argument(
+        "-bn",
+        "--BIC_num",
+        action="store_true",
+        dest="BIC_num"
+    )
+    )
     p.add_argument(
         "-l",
         "--label",
