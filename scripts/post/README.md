@@ -18,6 +18,9 @@ X-ray crystallography:
 Cryo-EM: 
 `qfit_final_refine_cryoem.sh /path/to/ccp4_file.ccp4 original_pdb.pdb multiconformer_model2.pdb`
 
+Segment Only:
+This script should only be used after running qFit_protein --only-segment 
+`qfit_segment_refine.sh /path/to/mtz_file.mtz multiconformer_model2.pdb`
 
 ## Analysis Scripts
 These analysis scripts should be used on outputs after refinement. Many can be done using other populate structrual programs, but we have amended many of them here to work with multiconformer models. 

@@ -23,17 +23,6 @@ def build_argparser():
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
     p.add_argument("pdb", type=str, help="name of PDB")
 
-    # Output options
-    p.add_argument(
-        "-d",
-        "--directory",
-        type=os.path.abspath,
-        default=".",
-        metavar="<dir>",
-        help="Directory to store results.",
-    )
-    p.add_argument("--pdb", help="Name of the input PDB.")
-
     return p
 
 
@@ -49,10 +38,6 @@ class RMSF:
         self.structure = self.options.structure
 
     def run(self):
-        if not self.options.pdb is None:
-            self.pdb = self.options.pdb + "_"
-        else:
-            self.pdb = ""
         self.average_coor_heavy_atom()
 
     def average_coor_heavy_atom(self):
@@ -112,7 +97,7 @@ class RMSF:
 
         rmsf = pd.DataFrame(rmsf_data, columns=["resseq", "AA", "Chain", "RMSF"])
         rmsf["PDB_name"] = self.options.pdb
-        rmsf.to_csv(str(self.options.d) + self.pdb + "_qfit_RMSF.csv")
+        rmsf.to_csv(f"{self.options.pdb}_qfit_RMSF.csv")
 
 
 def main():

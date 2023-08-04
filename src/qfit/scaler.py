@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 
 
 class MapScaler:
-    def __init__(self, xmap, scattering="xray"):
+    def __init__(self, xmap, em=False):
         self.xmap = xmap
-        self.scattering = scattering
         self._model_map = xmap.zeros_like(xmap)
+        self.em = em
 
     def subtract(self, structure):
         if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
             transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, scattering=self.scattering
+                structure, self._model_map, hkl=hkl, em=self.em
             )
         else:
             transformer = Transformer(
@@ -35,7 +35,7 @@ class MapScaler:
         if self.xmap.hkl is not None:
             hkl = self.xmap.hkl
             transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, scattering=self.scattering
+                structure, self._model_map, hkl=hkl, em=self.em
             )
         else:
             transformer = Transformer(
@@ -43,7 +43,7 @@ class MapScaler:
                 self._model_map,
                 simple=True,
                 rmax=3,
-                scattering=self.scattering,
+                em=self.em,
             )
 
         # Get all map coordinates of interest:

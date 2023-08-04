@@ -65,7 +65,9 @@ def get_bfactor(structure, pdb, ca, sidechain):
                         ),
                         np.array2string(np.unique(c)),
                         b_factor,
-                        b_factor, len(np.unique(select.extract(f"resi {r} and chain {c}").altloc))
+                        len(
+                            np.unique(select.extract(f"resi {r} and chain {c}").altloc)
+                        ),
                     )
                 )
             )

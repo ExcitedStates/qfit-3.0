@@ -68,9 +68,14 @@ class FFTTransformer:
 
     """Transform a structure in a map via FFT"""
 
-    def __init__(self, structure, xmap, hkl=None, scattering="xray", b_add=None):
+    def __init__(self, structure, xmap, hkl=None, em=False, b_add=None):
         self.structure = structure
         self.xmap = xmap
+        self.asf_range = 6
+        self.em = em
+        if self.em == True:
+            scattering = "electron"
+            self.asf_range = 5
         if hkl is None:
             hkl = self.xmap.hkl
         self.hkl = hkl
@@ -98,12 +103,11 @@ class FFTTransformer:
         # self._fft_mask = fft_mask
         self._fft_mask = fft_mask[:, :, :hmax].copy()
         self.hkl = hkl
-        self.scattering = scattering
         if self.b_add is not None:
             b_original = self.structure.b
             self.structure.b += self.b_add
         self._transformer = Transformer(
-            self.structure, self.xmap, simple=True, scattering=self.scattering
+            self.structure, self.xmap, simple=True, em=self.em
         )
         self._transformer.initialize()
         if b_add is not None:
@@ -141,7 +145,7 @@ class Transformer:
         rmax=3.0,
         rstep=0.01,
         simple=False,
-        scattering="xray",
+        em=False,
     ):
         self.structure = structure
         self.xmap = xmap
@@ -150,14 +154,14 @@ class Transformer:
         self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
-        if scattering == "xray":
-            self._asf = ATOM_STRUCTURE_FACTORS
-        elif scattering == "electron":
+        self.em = em
+        self.asf_range = 6
+        if self.em == True:
+            self.asf_range = 5
             self._asf = ELECTRON_SCATTERING_FACTORS
         else:
-            raise ValueError(
-                "Scattering source not supported. Choose 'xray' or 'electron'"
-            )
+            self._asf = ATOM_STRUCTURE_FACTORS
+
         self._initialized = False
 
         if not simple and smax is None and self.xmap.resolution.high is not None:
@@ -276,17 +280,17 @@ class Transformer:
             asf = self._asf["C"]
         four_pi2 = 4 * np.pi * np.pi
         bw = []
-        for i in range(6):
+        for i in range(self.asf_range):
             divisor = asf[1][i] + bfactor
             if divisor <= 1e-4:
                 bw.append(0)
             else:
                 bw.append(-four_pi2 / (asf[1][i] + bfactor))
-        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(6)]
+        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
         r2 = r * r
         density = np.zeros_like(r2)
-        for i in range(6):
+        for i in range(self.asf_range):
             try:
                 exp_factor = bw[i] * r2
                 density += aw[i] * np.exp(bw[i] * r2)
@@ -300,10 +304,10 @@ class Transformer:
         r2 = r * r
         asf = self._asf[element.capitalize()]
         four_pi2 = 4 * np.pi * np.pi
-        bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(6)]
-        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(6)]
+        bw = [-four_pi2 / (asf[1][i] + bfactor) for i in range(self.asf_range)]
+        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
         derivative = np.zeros(r.size, np.float64)
-        for i in range(6):
+        for i in range(self.asf_range):
             derivative += (2.0 * bw[i] * aw[i]) * np.exp(bw[i] * r2)
         derivative *= r
         return r, derivative
@@ -337,7 +341,7 @@ class Transformer:
         density = np.zeros_like(r)
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
-            args = (x, asf, bfactor)
+            args = (x, asf, bfactor, self.em)
             # Use a fixed number of quadrature points, 50 is more than enough
             # integrand, err = quadrature(self._scattering_integrand, self.smin,
             #                            self.smax, args=args)#, tol=1e-5, miniter=13, maxiter=15)
@@ -352,7 +356,7 @@ class Transformer:
         derivative = np.zeros_like(r)
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
-            args = (x, asf, bfactor)
+            args = (x, asf, bfactor, self.em)
             integrand, err = quadrature(
                 self._scattering_integrand_derivative, self.smin, self.smax, args=args
             )
@@ -360,17 +364,26 @@ class Transformer:
         return r, derivative
 
     @staticmethod
-    def _scattering_integrand(s, r, asf, bfactor):
+    def _scattering_integrand(s, r, asf, bfactor, em):
         """Integral function to be approximated to obtain radial density."""
         s2 = s * s
-        f = (
-            asf[0][0] * np.exp(-asf[1][0] * s2)
-            + asf[0][1] * np.exp(-asf[1][1] * s2)
-            + asf[0][2] * np.exp(-asf[1][2] * s2)
-            + asf[0][3] * np.exp(-asf[1][3] * s2)
-            + asf[0][4] * np.exp(-asf[1][4] * s2)
-            + asf[0][5]
-        )
+        if em == True:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+            )
+        else:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+                + asf[0][5]
+            )
         w = 8 * f * np.exp(-bfactor * s2) * s
         a = 4 * np.pi * s
         if r > 1e-4:

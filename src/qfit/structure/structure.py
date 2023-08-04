@@ -178,7 +178,7 @@ class Structure(_BaseStructure):
     def collapse_backbone(self, resid, chainid):
         """Collapses the backbone atoms of a given residue"""
         data = {}
-        #determine altloc to keep
+        # determine altloc to keep
         sel_str = f"resi {resid} and chain {chainid}"
         conformers = [self.extract(sel_str)]
         altlocs = []
@@ -397,14 +397,16 @@ class Structure(_BaseStructure):
                     alt_sum = 0
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
-                        new_occ = np.append(new_occ,(np.round(conformers[i].q[0], 2)))
+                        new_occ = np.append(new_occ, (np.round(conformers[i].q[0], 2)))
                     if alt_sum != 1.0:  # we need to normalize
-                       new_occ = []
-                       for i in range(0, len(altlocs)):
-                              new_occ = np.append(new_occ,((np.round(conformers[i].q[0], 2)) / alt_sum))
-                       new_occ = normalize_to_precision(
-                             np.array(new_occ), 2
-                           )  # deal with imprecision 
+                        new_occ = []
+                        for i in range(0, len(altlocs)):
+                            new_occ = np.append(
+                                new_occ, ((np.round(conformers[i].q[0], 2)) / alt_sum)
+                            )
+                        new_occ = normalize_to_precision(
+                            np.array(new_occ), 2
+                        )  # deal with imprecision
                     for i in range(0, len(new_occ)):
                         mask = (
                             (self.data["resi"] == residue.resi[0])

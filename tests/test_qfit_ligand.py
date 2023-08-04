@@ -45,8 +45,9 @@ class TestQFitLigand(TemporaryDirectoryRunner):
         log_run_info(options, logger)
 
         # Build a QFitLigand job
-        qfit_ligand, chainid, resi, icode = prepare_qfit_ligand(options=options)
-        print(qfit_ligand.ligand.natoms)
+        qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(
+            options=options
+        )
         assert qfit_ligand.ligand.natoms == 15
 
         return qfit_ligand

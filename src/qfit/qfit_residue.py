@@ -49,6 +49,14 @@ def build_argparser():
         "residue in structure, e.g. A,105, or A,105:A.",
     )
 
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit with EM options",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
@@ -72,13 +80,6 @@ def build_argparser():
         metavar="<float>",
         type=float,
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type",
     )
     p.add_argument(
         "-rb",
@@ -442,7 +443,7 @@ def main():
     xmap = xmap.canonical_unit_cell()
     if args.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         if args.omit:
             footprint = structure_resi
         else:

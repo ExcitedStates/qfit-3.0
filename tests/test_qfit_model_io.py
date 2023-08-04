@@ -119,7 +119,6 @@ class TestQFitModelIO(TemporaryDirectoryRunner):
         ]
 
         qfit = self._run_qfit(args)
-
         # Residue 288 is marked as HETATM in the PDB file since it is a modified residue
         qfit.structure = qfit.structure.extract("resi", (287, 288, 289), "==")
         assert (np.unique(qfit.structure.resi)[1]) == 288

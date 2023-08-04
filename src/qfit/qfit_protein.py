@@ -17,6 +17,7 @@ from .custom_argparsers import (
 )
 import logging
 import traceback
+import pandas as pd
 import itertools as itl
 from .logtools import (
     setup_logging,
@@ -53,6 +54,14 @@ def build_argparser():
         action=ValidateStructureFileArgument,
     )
 
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit with EM options",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
@@ -78,18 +87,11 @@ def build_argparser():
         help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
     )
     p.add_argument(
-        "-z",
-        "--scattering",
-        choices=["xray", "electron"],
-        default="xray",
-        help="Scattering type [THIS IS CURRENTLY NOT SUPPORTED]",
-    )
-    p.add_argument(
         "-sb",
-        "--sample-b",
+        "--no-sampling-b",
         action="store_false",
         dest="sample_bfactors",
-        help="Sample B-factors of generated conformers",
+        help="Do not sample b-factors within qFit",
     )
     p.add_argument(
         "-o",
@@ -249,11 +251,9 @@ def build_argparser():
         "--remove-conformers-below-cutoff",
         action="store_true",
         dest="remove_conformers_below_cutoff",
-        help=(
-            "Remove conformers during sampling that have atoms "
-            "with no density support, i.e. atoms are positioned "
-            "at density values below <density-cutoff>"
-        ),
+        help="Remove conformers during sampling that have atoms "
+        "with no density support, i.e. atoms are positioned "
+        "at density values below <density-cutoff>",
     )
     p.add_argument(
         "-cf",
@@ -349,6 +349,19 @@ def build_argparser():
         help="Use BIC to select the most parsimonious MIQP threshold (segment)",
     )
 
+    # EM options
+    p.add_argument(
+        "-q",
+        "--qscore",
+        help="Q-score text output file",
+    )
+    p.add_argument(
+        "-q_cutoff",
+        "--qscore_cutoff",
+        help="Q-score value where we should not model in alternative conformers.",
+        default=0.7,
+    )
+
     # Output options
     p.add_argument(
         "-d",
@@ -363,7 +376,7 @@ def build_argparser():
         "--debug", action="store_true", help="Log as much information as possible"
     )
     p.add_argument(
-        "--write-intermediate-conformers",
+        "--write_intermediate_conformers",
         action="store_true",
         help="Write intermediate structures to file (useful with debugging)",
     )
@@ -594,10 +607,10 @@ class QFitProtein:
         else:
             self.options.threshold = 0.2
 
-        # Extract map of multiconformer in P1, with 5 A padding
+        # Extract map of multiconformer in P1
         logger.debug("Extracting map...")
         _then = time.process_time()
-        self.xmap = self.xmap.extract(self.structure.coor, padding=5)
+        self.xmap = self.get_map_around_substructure(self.structure)
         _now = time.process_time()
         logger.debug(f"Map extraction took {(_now - _then):.03f} s.")
 
@@ -692,6 +705,32 @@ class QFitProtein:
             )
             return
 
+        # Determine if q-score is too low
+        if options.qscore is not None:
+            (chainid, resi, icode) = residue._identifier_tuple
+            if (
+                list(
+                    options.qscore[
+                        (options.qscore["Res_num"] == resi)
+                        & (options.qscore["Chain"] == chainid)
+                    ]["Q_sideChain"]
+                )[0]
+                < options.q_cutoff
+            ):
+                logger.info(
+                    f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
+                )
+                resi_selstr = f"chain {chainid} and resi {resi}"
+                if icode:
+                    resi_selstr += f" and icode {icode}"
+                structure_new = structure
+                structure_resi = structure.extract(resi_selstr)
+                chain = structure_resi[chainid]
+                conformer = chain.conformers[0]
+                residue = conformer[residue.id]
+                residue.tofile(fname)
+                return
+
         # Copy the structure
         (chainid, resi, icode) = residue._identifier_tuple
         resi_selstr = f"chain {chainid} and resi {resi}"
@@ -757,6 +796,11 @@ def prepare_qfit_protein(options):
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
+    # fixing issues with terminal oxygens
+    rename = structure.extract("name", "OXT", "==")
+    rename.name = "O"
+    structure = structure.extract("name", "OXT", "!=").combine(rename)
+
     # Load map and prepare it
     xmap = XMap.fromfile(
         options.map, resolution=options.resolution, label=options.label
@@ -765,7 +809,7 @@ def prepare_qfit_protein(options):
 
     # Scale map based on input structure
     if options.scale is True:
-        scaler = MapScaler(xmap, scattering=options.scattering)
+        scaler = MapScaler(xmap, em=options.em)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:
@@ -775,6 +819,35 @@ def prepare_qfit_protein(options):
         if reso is not None:
             radius = 0.5 + reso / 3.0
         scaler.scale(structure, radius=options.scale_rmask * radius)
+
+    if options.qscore is not None:
+        with open(
+            options.qscore, "r"
+        ) as f:  # not all qscore header are the same 'length'
+            for line_n, line_content in enumerate(f):
+                if "Q_sideChain" in line_content:
+                    break
+            start_row = line_n + 1
+        options.qscore = pd.read_csv(
+            options.qscore,
+            sep="\t",
+            skiprows=start_row,
+            skip_blank_lines=True,
+            on_bad_lines="skip",
+            header=None,
+        )
+        options.qscore = options.qscore.iloc[
+            :, :6
+        ]  # we only care about the first 6 columns
+        options.qscore.columns = [
+            "Chain",
+            "Res",
+            "Res_num",
+            "Q_backBone",
+            "Q_sideChain",
+            "Q_residue",
+        ]  # rename column names
+        options.qscore["Res_num"] = options.qscore["Res_num"].fillna(0).astype(int)
 
     return QFitProtein(structure, xmap, options)
 
