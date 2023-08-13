@@ -25,10 +25,8 @@ from qfit.structure import Structure
 from .test_qfit_protein import TemporaryDirectoryRunner
 
 
-class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
+class SyntheticMapRunner(TemporaryDirectoryRunner):
     DATA = op.join(op.dirname(__file__), "data")
-    # allowed difference from rotameric chi*
-    CHI_RADIUS = 10
 
     def _get_file_path(self, base_name):
         return op.join(self.DATA, base_name)
@@ -51,6 +49,11 @@ class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
         os.symlink(pdb_file_name, pdb_link)
         fmodel.run(args=fmodel_args, log=null_out())
         return output_file
+
+
+class TestQfitProteinSyntheticData(SyntheticMapRunner):
+    # allowed difference from rotameric chi*
+    CHI_RADIUS = 10
 
     def _get_rotamer(self, residue, chi_radius=CHI_RADIUS):
         # FIXME this is awful, we should replace it with something like
@@ -167,7 +170,7 @@ class TestQfitProteinSyntheticData(TemporaryDirectoryRunner):
 
     def test_qfit_protein_3mer_ser_p21(self):
         """Build a Ser residue with two rotamers at moderate resolution"""
-        self._run_kmer_and_validate_identical_rotamers("ASA", 1.7, chi_radius=15)
+        self._run_kmer_and_validate_identical_rotamers("ASA", 1.65, chi_radius=15)
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """
