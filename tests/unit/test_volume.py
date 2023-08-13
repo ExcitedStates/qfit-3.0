@@ -4,6 +4,7 @@ import os.path as op
 
 import pytest
 import numpy as np
+from iotbx.file_reader import any_file
 
 from qfit.volume import XMap
 
@@ -66,6 +67,32 @@ class TestVolumeXmapIO(UnitBase):
         assert xmap1.is_canonical_unit_cell()
         xmap8 = xmap1.canonical_unit_cell()
         _validate_map(xmap8)
+
+        # test interpolation
+        pdbh = any_file(self.TINY_PDB).file_object.hierarchy
+        sel_cache = pdbh.atom_selection_cache()
+        sel = sel_cache.iselection("not element H and (occupancy > 0.5 or bfactor < 19)")
+        xyz1 = pdbh.select(sel).atoms().extract_xyz().as_numpy_array()
+        sel2 = sel_cache.iselection("(name N or name CA or name C) and altloc A")
+        xyz2 = pdbh.select(sel).atoms().extract_xyz().as_numpy_array()
+
+        def _validate_interpolation(xmap):
+            # XXX why does CD1 in the B conformer have 0 sigma density?
+            density = xmap.interpolate(xyz1)
+            assert np.all(density > 0.75)
+            assert np.mean(density) > 3
+            density = xmap.interpolate(xyz2)
+            assert density[0] == pytest.approx(5.86, abs=0.1)
+            assert density[1] == pytest.approx(4.36, abs=0.1)
+            assert density[2] == pytest.approx(5.01, abs=0.1)
+
+        _validate_interpolation(xmap1)
+        _validate_interpolation(xmap2)
+        # interpolate in extracted map
+        density = xmap3.interpolate(xyz2)
+        assert density[0] == pytest.approx(5.86, abs=0.1)
+        assert density[1] == pytest.approx(4.36, abs=0.1)
+        assert density[2] == pytest.approx(5.01, abs=0.1)
 
     def test_xmap_from_mtz_large(self):
         d_min = 1.39089
@@ -190,3 +217,35 @@ class TestVolumeXmapIO(UnitBase):
         xmap5.write_map_file(map_tmp)
         xmap6 = XMap.from_mapfile(map_tmp, resolution=d_min)
         _validate_extract_map(xmap6)
+
+    @pytest.mark.skip("TODO - test for CCTBX FFT behavior")
+    def test_cctbx_io_with_fft(self):
+        from iotbx.file_reader import any_file
+        MTZ = self.make_tiny_fmodel_mtz()
+        miller_arrays = any_file(MTZ).file_object.as_miller_arrays()
+        coeffs = miller_arrays[0]
+        print(coeffs.info().label_string())
+        fft_map = coeffs.fft_map(resolution_factor=0.25)
+        fft_map.apply_sigma_scaling()
+        tmp_map = tempfile.NamedTemporaryFile(suffix="map.ccp4").name
+        fft_map.as_ccp4_map(tmp_map)
+        d_min = coeffs.d_min()
+        def _validate_map(xmap):
+            assert xmap.resolution.high == pytest.approx(d_min, abs=0.001)
+            assert (
+                str(xmap.unit_cell)
+                == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+            # These are parameters expected from CCTBX FFT gridding
+            assert xmap.array.size == 38880
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
+            assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
+            assert xmap.array.shape == (24, 36, 45)
+            # assert list(xmap.array[0:5]) == ""
+            assert xmap.array[0][0][0] == pytest.approx(-0.4325, abs=0.0001)
+            assert xmap.array[12][18][22] == pytest.approx(0.1639, abs=0.0001)
+            assert tuple(xmap.offset) == (0, 0, 0)
+        xmap1 = XMap.fromfile(tmp_map, resolution=coeffs.d_min())
+        _validate_map(xmap1)
+        xmap2 = XMap.fromfile(MTZ, label="FWT,PHIFWT")
+        _validate_map(xmap2)
