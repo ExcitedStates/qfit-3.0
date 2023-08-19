@@ -1,9 +1,6 @@
 """
 Relatively fast integration tests of qfit_protein using synthetic data for
-a variety of small peptide with several alternate conformers.  Some of these
-tests (especially the ones with Phe residues) are extremely unstable without
-setting a pre-determined random seed for qfit_protein; future work should
-investigate the sensitivity.
+a variety of small peptide with several alternate conformers.
 """
 
 from collections import defaultdict

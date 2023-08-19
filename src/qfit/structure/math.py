@@ -1,6 +1,8 @@
 import numpy as np
+import scitbx.matrix
 
 
+# TODO use scitbx.math.orthonormal_basis
 def gram_schmidt_orthonormal_zx(coords):
     """Create an orthonormal basis from atom vectors z & x.
 
@@ -31,9 +33,7 @@ def Rz(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
     """
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
+    return get_rotation_around_vector([0,0,1], theta)
 
 
 def Ry(theta):
@@ -45,12 +45,10 @@ def Ry(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about y.
     """
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.array([[cos_theta, 0, sin_theta], [0, 1, 0], [-sin_theta, 0, cos_theta]])
+    return get_rotation_around_vector([0,1,0], theta)
 
 
-def Rv(vector, theta):
+def get_rotation_around_vector(vector, theta):
     """Create a rotation matrix for rotating about a vector.
 
     Args:
@@ -58,52 +56,19 @@ def Rv(vector, theta):
         theta (float): Angle of rotation in radians.
 
     Returns:
-         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+         np.ndarray[float]: A 3x3 rotation matrix for rotation around the vector.
     """
-    (x, y, z) = vector / np.linalg.norm(vector)
-    K = np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
-    rot = (
-        np.cos(theta) * np.identity(3)
-        + np.sin(theta) * K
-        + (1 - np.cos(theta)) * np.outer(vector, vector)
-    )
-    return rot
-
-
-def aa_to_rotmat(axis, angle):
-    """Create a rotation matrix for a given Euler axis, angle rotation.
-
-    Args:
-        axis (np.ndarray[np.float]): A (3,) vector about which to rotate.
-        theta (float): Angle of rotation in radians.
-
-    Returns:
-         np.ndarray[float]: A 3x3 rotation matrix for rotation about axis.
-    """
-    kx, ky, kz = axis
-    K = np.array([[0, -kz, ky], [kz, 0, -kx], [-ky, kx, 0]])
-    K2 = K @ K
-    R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
-    return R
+    axis = scitbx.matrix.col(tuple(vector))
+    rot_mat = axis.axis_and_angle_as_r3_rotation_matrix(theta, deg=False)
+    return np.array(rot_mat).reshape((3,3))
 
 
 def dihedral_angle(coor):
     """Calculate dihedral angle starting from four points."""
-    b1 = coor[0] - coor[1]
-    b2 = coor[3] - coor[2]
-    b3 = coor[2] - coor[1]
-    n1 = np.cross(b3, b1)
-    n2 = np.cross(b3, b2)
-    m1 = np.cross(n1, n2)
-
-    norm = np.linalg.norm
-    normfactor = norm(n1) * norm(n2)
-    sinv = norm(m1) / normfactor
-    cosv = np.inner(n1, n2) / normfactor
-    angle = np.rad2deg(np.arctan2(sinv, cosv))
-
-    # Check sign of angle
-    u = np.cross(n1, n2)
-    if np.inner(u, b3) < 0:
-        angle *= -1
-    return angle
+    if len(coor) != 4:
+        raise ValueError(f"Computing a dihedral angle requires exactly 4 points")
+    if isinstance(coor, np.ndarray):
+        coor = coor.tolist()
+    # adding np.round() gets us closer to the floating-point behavior of the
+    # previous all-numpy implementation
+    return np.round(scitbx.matrix.dihedral_angle(coor, deg=True), decimals=6)

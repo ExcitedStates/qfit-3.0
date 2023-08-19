@@ -5,7 +5,7 @@ from scipy.spatial.distance import pdist, squareform
 
 from .base_structure import _BaseStructure
 from .mmCIF import mmCIFDictionary
-from .math import aa_to_rotmat
+from .math import get_rotation_around_vector
 
 
 class Ligand(_BaseStructure):
@@ -296,6 +296,7 @@ class Ligand(_BaseStructure):
                 self._find_neighbors_recursively(ln, neighbors, conn)
         return neighbors
 
+    # XXX unused
     def rotate_along_bond(self, bond, angle):
         coor = self.coor
         atoms_to_rotate = self.atoms_to_rotate(bond)
@@ -306,7 +307,7 @@ class Ligand(_BaseStructure):
 
         coor = coor[atoms_to_rotate]
         coor -= origin
-        rotmat = aa_to_rotmat(axis, angle)
+        rotmat = get_rotation_around_vector(axis, angle)
         selection = self._selection[atoms_to_rotate]
         self._coor[selection] = coor.dot(rotmat.T) + origin
 
@@ -744,6 +745,7 @@ class CovalentLigand(_BaseStructure):
                 self._find_neighbors_recursively(ln, neighbors, conn)
         return neighbors
 
+    # XXX unused
     def rotate_along_bond(self, bond, angle):
         coor = self.coor
         atoms_to_rotate = self.atoms_to_rotate(bond)
@@ -754,7 +756,7 @@ class CovalentLigand(_BaseStructure):
 
         coor = coor[atoms_to_rotate]
         coor -= origin
-        rotmat = aa_to_rotmat(axis, angle)
+        rotmat = get_rotation_around_vector(axis, angle)
         selection = self._selection[atoms_to_rotate]
         self._coor[selection] = coor.dot(rotmat.T) + origin
 

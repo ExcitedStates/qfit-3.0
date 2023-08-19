@@ -102,6 +102,7 @@ def poolworker_setup_logging(logqueue):
             process_ROOTLOGGER.addHandler(queue_handler)
 
 
+# FIXME can this be replaced with logging.handlers.QueueListener?
 class QueueListener(threading.Thread):
     """A Thread that handles LogRecords from a Queue.
 

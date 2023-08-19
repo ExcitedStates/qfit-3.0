@@ -2,6 +2,7 @@
 
 from itertools import product
 
+from cctbx import uctbx
 import numpy as np
 import numpy.linalg as la
 
@@ -15,8 +16,16 @@ class UnitCell:
     """
 
     def __init__(
-        self, a=1.0, b=1.0, c=1.0, alpha=90.0, beta=90.0, gamma=90.0, space_group="P1"
+        self,
+        a=1.0,
+        b=1.0,
+        c=1.0,
+        alpha=90.0,
+        beta=90.0,
+        gamma=90.0,
+        space_group="P1"
     ):
+        self._uctbx_cell = uctbx.unit_cell((a, b, c, alpha, beta, gamma))
         self.a = a
         self.b = b
         self.c = c
@@ -26,14 +35,6 @@ class UnitCell:
         self.gamma = gamma
 
         self.set_space_group(space_group)
-
-        self._sin_alpha = np.sin(np.deg2rad(self.alpha))
-        self._sin_beta = np.sin(np.deg2rad(self.beta))
-        self._sin_gamma = np.sin(np.deg2rad(self.gamma))
-
-        self._cos_alpha = np.cos(np.deg2rad(self.alpha))
-        self._cos_beta = np.cos(np.deg2rad(self.beta))
-        self._cos_gamma = np.cos(np.deg2rad(self.gamma))
 
         self.orth_to_frac = self.calc_fractionalization_matrix()
         self.frac_to_orth = self.calc_orthogonalization_matrix()
@@ -52,9 +53,7 @@ class UnitCell:
         )
 
     def to_cctbx(self):
-        from cctbx.uctbx import unit_cell
-
-        return unit_cell((self.a, self.b, self.c, self.alpha, self.beta, self.gamma))
+        return self._uctbx_cell
 
     @staticmethod
     def from_cctbx(uc):
@@ -79,82 +78,19 @@ class UnitCell:
         """Calculates the volume of the rhombohedral created by the
         unit vectors a1/|a1|, a2/|a2|, a3/|a3|.
         """
-        return np.sqrt(
-            1
-            - (self._cos_alpha * self._cos_alpha)
-            - (self._cos_beta * self._cos_beta)
-            - (self._cos_gamma * self._cos_gamma)
-            + (2 * self._cos_alpha * self._cos_beta * self._cos_gamma)
-        )
+        return self._uctbx_cell.volume() / (self.a * self.b * self.c)
 
     def calc_volume(self):
         """Calculates the volume of the unit cell."""
-        return self.a * self.b * self.c * self.calc_v()
-
-    def calc_reciprocal_unit_cell(self):
-        """Corresponding reciprocal unit cell."""
-        V = self.calc_volume()
-
-        ra = (self.b * self.c * self._sin_alpha) / V
-        rb = (self.a * self.c * self._sin_beta) / V
-        rc = (self.a * self.b * self._sin_gamma) / V
-
-        ralpha = np.arccos(
-            (self._cos_beta * self._cos_gamma - self._cos_alpha)
-            / (self._sin_beta * self._sin_gamma)
-        )
-        rbeta = np.arccos(
-            (self._cos_alpha * self._cos_gamma - self._cos_beta)
-            / (self._sin_alpha * self._sin_gamma)
-        )
-        rgamma = np.arccos(
-            (self._cos_alpha * self._cos_beta - self._cos_gamma)
-            / (self._sin_alpha * self._sin_beta)
-        )
-
-        return UnitCell(ra, rb, rc, ralpha, rbeta, rgamma)
+        return self._uctbx_cell.volume()
 
     def calc_orthogonalization_matrix(self):
         """Cartesian to fractional coordinates."""
-
-        v = self.calc_v()
-
-        f11 = self.a
-        f12 = self.b * self._cos_gamma
-        f13 = self.c * self._cos_beta
-        f22 = self.b * self._sin_gamma
-        f23 = (self.c * (self._cos_alpha - self._cos_beta * self._cos_gamma)) / (
-            self._sin_gamma
-        )
-        f33 = (self.c * v) / self._sin_gamma
-
-        orth_to_frac = np.array(
-            [[f11, f12, f13], [0.0, f22, f23], [0.0, 0.0, f33]], float
-        )
-
-        return orth_to_frac
+        return np.reshape(self._uctbx_cell.orthogonalization_matrix(), (3, 3))
 
     def calc_fractionalization_matrix(self):
         """Fractional to Cartesian coordinates."""
-
-        v = self.calc_v()
-
-        o11 = 1.0 / self.a
-        o12 = -self._cos_gamma / (self.a * self._sin_gamma)
-        o13 = (self._cos_gamma * self._cos_alpha - self._cos_beta) / (
-            self.a * v * self._sin_gamma
-        )
-        o22 = 1.0 / (self.b * self._sin_gamma)
-        o23 = (self._cos_gamma * self._cos_beta - self._cos_alpha) / (
-            self.b * v * self._sin_gamma
-        )
-        o33 = self._sin_gamma / (self.c * v)
-
-        frac_to_orth = np.array(
-            [[o11, o12, o13], [0.0, o22, o23], [0.0, 0.0, o33]], float
-        )
-
-        return frac_to_orth
+        return np.reshape(self._uctbx_cell.fractionalization_matrix(), (3, 3))
 
     def calc_orth_to_frac(self, v):
         """Calculates and returns the fractional coordinate vector of
@@ -249,94 +185,3 @@ class UnitCell:
 
     def set_space_group(self, space_group):
         self.space_group = spacegroups.getSpaceGroup(space_group)
-
-
-def strRT(R, T):
-    """Returns a string for a rotation/translation pair in a readable form."""
-    x = "[%6.3f %6.3f %6.3f %6.3f]\n" % (R[0, 0], R[0, 1], R[0, 2], T[0])
-    x += "[%6.3f %6.3f %6.3f %6.3f]\n" % (R[1, 0], R[1, 1], R[1, 2], T[1])
-    x += "[%6.3f %6.3f %6.3f %6.3f]\n" % (R[2, 0], R[2, 1], R[2, 2], T[2])
-
-    return x
-
-
-## <testing>
-# def test_module():
-#    print("=================================================")
-#    print("TEST CASE #1: Triclinic unit cell")
-#    print()
-#
-#    uc = UnitCell(7.877, 7.210, 7.891, 105.563, 116.245, 79.836)
-#
-#    e = np.array([[1.0, 0.0, 0.0],
-#                     [0.0, 1.0, 0.0],
-#                     [0.0, 0.0, 1.0]], float)
-#
-#
-#    print uc
-#    print("volume                   = ", uc.calc_v())
-#    print("cell volume              = ", uc.calc_volume())
-#    print("fractionalization matrix =\n", uc.calc_fractionalization_matrix())
-#    print("orthogonalization matrix =\n", uc.calc_orthogonalization_matrix())
-#
-#    print("orth * e =\n", np.dot(
-#        uc.calc_orthogonalization_matrix(), e))
-#
-#
-#    print "calc_frac_to_orth"
-#    vlist = [
-#        np.array([0.0, 0.0, 0.0]),
-#        np.array([0.5, 0.5, 0.5]),
-#        np.array([1.0, 1.0, 1.0]),
-#        np.array([-0.13614, 0.15714, -0.07165]) ]
-#
-#    for v in vlist:
-#        ov = uc.calc_frac_to_orth(v)
-#        v2 = uc.calc_orth_to_frac(ov)
-#        print "----"
-#        print "    ",v
-#        print "    ",ov
-#        print "    ",v2
-#        print "----"
-#
-#
-#    print "================================================="
-#
-#    print
-#
-#    print "================================================="
-#    print "TEST CASE #2: Reciprocal of above unit cell "
-#    print
-#
-#    ruc = uc.calc_reciprocal_unit_cell()
-#    print ruc
-#    print "volume      = ", ruc.calc_v()
-#    print "cell volume = ", ruc.calc_volume()
-#
-#    print "================================================="
-#
-#    print
-#
-#    print "================================================="
-#    print "TEST CASE #3: Orthogonal space symmetry operations"
-#
-#    unitx = UnitCell(a           = 64.950,
-#                     b           = 64.950,
-#                     c           = 68.670,
-#                     alpha       = 90.00,
-#                     beta        = 90.00,
-#                     gamma       = 120.00,
-#                     space_group = "P 32 2 1")
-#    print unitx
-#    print
-#
-#    for symop in unitx.space_group.iter_symops():
-#        print "Fractional Space SymOp:"
-#        print symop
-#        print "Orthogonal Space SymOp:"
-#        print unitx.calc_orth_symop(symop)
-#        print
-#
-# if __name__ == "__main__":
-#    test_module()
-## </testing>
