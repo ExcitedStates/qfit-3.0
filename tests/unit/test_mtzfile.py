@@ -4,7 +4,7 @@ import os.path as op
 import numpy as np
 import pytest
 
-from qfit.mtzfile import MTZFile
+from qfit.xtal.mtzfile import MTZFile
 
 from .base_test_case import UnitBase
 

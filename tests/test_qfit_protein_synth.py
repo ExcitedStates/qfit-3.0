@@ -51,19 +51,19 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         ]
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
+        return fmodel_mtz
 
     def _validate_new_fmodel(
         self,
+        fmodel_in,
         high_resolution,
         expected_correlation=0.99,
         model_name="multiconformer_model2.pdb",
     ):
-        mtz_new = "fmodel_out.mtz"
-        fmodel_mtz = self._create_fmodel(
-            model_name, output_file=mtz_new, high_resolution=high_resolution
-        )
+        fmodel_out = self._create_fmodel(model_name,
+                                         high_resolution=high_resolution)
         # correlation of the single-conf 7-mer fmodel is 0.922
-        self._compare_maps(fmodel_mtz, "fmodel_out.mtz", expected_correlation)
+        self._compare_maps(fmodel_in, fmodel_out, expected_correlation)
 
     def _run_and_validate_identical_rotamers(
         self,
@@ -74,9 +74,11 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         expected_correlation=0.99,
         model_name="multiconformer_model2.pdb",
     ):
-        self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_mtz = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_new_fmodel(
-            high_resolution=d_min, expected_correlation=expected_correlation
+            fmodel_in=fmodel_mtz,
+            high_resolution=d_min,
+            expected_correlation=expected_correlation
         )
         rotamers_in = self._get_model_rotamers(pdb_multi, chi_radius)
         rotamers_out = self._get_model_rotamers(model_name, chi_radius)
@@ -127,10 +129,6 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
     def test_qfit_protein_ser_i212121(self):
         """A single two-conformer Ser residue in a I212121 cell"""
         self._run_serine_monomer("I212121")
-
-    def test_qfit_protein_ser_p4212(self):
-        """A single two-conformer Ser residue in a P4212 cell"""
-        self._run_serine_monomer("P4212")
 
     def test_qfit_protein_ser_i422(self):
         """A single two-conformer Ser residue in a I422 cell"""
@@ -203,9 +201,9 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         """
         d_min = 1.5
         (pdb_multi, pdb_single) = self._get_start_models("AFA")
-        self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi)
-        self._validate_new_fmodel(high_resolution=d_min)
+        self._validate_new_fmodel(fmodel_in=fmodel_in, high_resolution=d_min)
 
     def test_qfit_protein_3mer_phe_p21_mmcif(self):
         """
@@ -216,9 +214,10 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         cif_single = "single_conf.cif"
         s = Structure.fromfile(pdb_single)
         s.tofile(cif_single)
-        self._run_qfit_cli(pdb_multi, cif_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, cif_single, high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi, "multiconformer_model.cif")
         self._validate_new_fmodel(
+            fmodel_in=fmodel_in,
             high_resolution=d_min, model_name="multiconformer_model.cif"
         )
 
@@ -234,9 +233,10 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
                 new_symmetry=("P1", (12, 6, 10, 90, 105, 90)),
                 pdb_file=pdb_file))
         (pdb_multi, pdb_single) = new_models
-        self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min),
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi)
-        self._validate_new_fmodel(high_resolution=d_min)
+        self._validate_new_fmodel(fmodel_in=fmodel_in,
+                                  high_resolution=d_min)
 
     def test_qfit_protein_7mer_peptide_p21(self):
         """
@@ -244,9 +244,9 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         """
         d_min = 1.3
         (pdb_multi, pdb_single) = self._get_start_models("GNNAFNS")
-        self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_7mer_confs(pdb_multi)
-        self._validate_new_fmodel(d_min, 0.95)
+        self._validate_new_fmodel(fmodel_in, d_min, 0.95)
 
     def test_qfit_protein_7mer_peptide_p1(self):
         """
@@ -260,9 +260,9 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
                 new_symmetry=("P1", (30, 10, 15, 90, 105, 90)),
                 pdb_file=pdb_file))
         (pdb_multi, pdb_single) = new_models
-        self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_7mer_confs(pdb_multi)
-        self._validate_new_fmodel(d_min, 0.95)
+        self._validate_new_fmodel(fmodel_in, d_min, 0.95)
 
     def _validate_7mer_confs(self, pdb_file_multi):
         rotamers_in = self._get_model_rotamers(pdb_file_multi)

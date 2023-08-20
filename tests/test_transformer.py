@@ -4,8 +4,8 @@ import os.path as op
 import numpy as np
 
 from qfit.structure import Structure
-from qfit.transformer import FFTTransformer
-from qfit.volume import XMap
+from qfit.xtal.transformer import FFTTransformer
+from qfit.xtal.volume import XMap
 
 from .test_qfit_protein_synth import SyntheticMapRunner
 

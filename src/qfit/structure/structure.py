@@ -8,7 +8,7 @@ from .ligand import Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from .math import Rz
-from ..unitcell import UnitCell
+from qfit.xtal.unitcell import UnitCell
 from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
@@ -959,54 +959,3 @@ class Segment(_BaseStructure):
             if residue.id == residue_id:
                 return n
         raise ValueError("Residue is not part of segment.")
-
-    def rotate_psi(self, index, angle):
-        """Rotate along psi dihedral (about the CA--C bond)."""
-        selection = [residue._selection for residue in self.residues[index + 1 :]]
-        residue = self.residues[index]
-        selection.append(residue.select("name", ("O", "OXT")))
-        selection = np.concatenate(selection)
-
-        # Make an orthogonal axis system based on 3 atoms
-        # TODO: Use .math.gram_schmidt_orthonormal_zx (or something similar)
-        #       Note that here, the axes are 1→2, 2→1, 0=1×2.
-        origin = system_coor[0].copy()
-        CA = residue.extract("name", "CA").coor[0]
-        C = residue.extract("name", "C").coor[0]
-        O = residue.extract("name", "O").coor[0]
-        system_coor = np.vstack((CA, C, O))
-        system_coor -= origin
-        zaxis = system_coor[1] / np.linalg.norm(system_coor[1])
-        yaxis = system_coor[2] - np.inner(system_coor[2], zaxis) * zaxis
-        yaxis /= np.linalg.norm(yaxis)
-        xaxis = np.cross(yaxis, zaxis)
-
-        # Create transformation matrix
-        backward = np.vstack((xaxis, yaxis, zaxis))
-        forward = backward.T
-        angle = np.deg2rad(angle)
-        rotation = Rz(angle)
-        R = forward @ rotation @ backward
-
-        # Apply transformation
-        coor = self._coor[selection]
-        coor -= origin
-        coor = np.dot(coor, R.T)
-        coor += origin
-        self._coor[selection] = coor
-
-
-def calc_rmsd(coor_a, coor_b):
-    """Determine root-mean-square distance between two structures.
-
-    Args:
-        coor_a (np.ndarray[(n_atoms, 3), dtype=np.float]):
-            Coordinates for structure a.
-        coor_b (np.ndarray[(n_atoms, 3), dtype=np.float]):
-            Coordinates for structure b.
-
-    Returns:
-        np.float:
-            Distance between two structures.
-    """
-    return np.sqrt(np.mean((coor_a - coor_b) ** 2))

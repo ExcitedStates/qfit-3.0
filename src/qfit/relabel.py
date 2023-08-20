@@ -5,7 +5,7 @@ import itertools as itl
 import copy
 import tqdm
 import logging
-from .vdw_radii import vdwRadiiTable, EpsilonTable, EpsilonIndex, EpsilonArray
+from .structure.vdw_radii import vdwRadiiTable, EpsilonTable, EpsilonIndex, EpsilonArray
 from .structure import Structure
 
 

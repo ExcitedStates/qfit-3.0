@@ -1,12 +1,12 @@
-from __future__ import division
-import numpy as np
 import copy
 import os
-from .volume import XMap
-from .transformer import Transformer
-from .structure import Structure
+
+import numpy as np
 import scipy.stats as st
 
+from qfit.xtal.volume import XMap
+from qfit.xtal.transformer import Transformer
+from qfit.structure import Structure
 
 class Validator(object):
     def __init__(self, xmap, resolution, directory, em=False):

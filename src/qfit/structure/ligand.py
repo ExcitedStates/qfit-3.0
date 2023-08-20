@@ -293,7 +293,7 @@ class Ligand(_BaseStructure):
         local_neighbors = np.flatnonzero(self.connectivity[neighbor])
         for ln in local_neighbors:
             if ln not in neighbors:
-                self._find_neighbors_recursively(ln, neighbors, conn)
+                self._find_neighbors_recursively(ln, neighbors)
         return neighbors
 
     # XXX unused
@@ -742,23 +742,8 @@ class CovalentLigand(_BaseStructure):
         local_neighbors = np.flatnonzero(conn[neighbor])
         for ln in local_neighbors:
             if ln not in neighbors:
-                self._find_neighbors_recursively(ln, neighbors, conn)
+                self._find_neighbors_recursively(ln, neighbors)
         return neighbors
-
-    # XXX unused
-    def rotate_along_bond(self, bond, angle):
-        coor = self.coor
-        atoms_to_rotate = self.atoms_to_rotate(bond)
-        origin = coor[bond[0]]
-        end = coor[bond[1]]
-        axis = end - origin
-        axis /= np.linalg.norm(axis)
-
-        coor = coor[atoms_to_rotate]
-        coor -= origin
-        rotmat = get_rotation_around_vector(axis, angle)
-        selection = self._selection[atoms_to_rotate]
-        self._coor[selection] = coor.dot(rotmat.T) + origin
 
     def rotation_order(self, root):
         def _rotation_order(

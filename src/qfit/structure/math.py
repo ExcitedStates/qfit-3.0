@@ -72,3 +72,19 @@ def dihedral_angle(coor):
     # adding np.round() gets us closer to the floating-point behavior of the
     # previous all-numpy implementation
     return np.round(scitbx.matrix.dihedral_angle(coor, deg=True), decimals=6)
+
+
+def calc_rmsd(coor_a, coor_b):
+    """Determine root-mean-square distance between two structures.
+
+    Args:
+        coor_a (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure a.
+        coor_b (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure b.
+
+    Returns:
+        np.float:
+            Distance between two structures.
+    """
+    return np.sqrt(np.mean((coor_a - coor_b) ** 2))

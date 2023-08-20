@@ -39,7 +39,7 @@ class _BaseStructure:
         self._selection = selection
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
-        self.link_data = None
+        self.link_data = {}
         self.crystal_symmetry = None
         self.unit_cell = None
         self.file_format = None  # "pdb"  # default is PDB
@@ -127,7 +127,7 @@ class _BaseStructure:
 
     def rotate(self, R):
         """Rotate structure"""
-        coor = np.dot(self.coor, R.T)
+        coor = np.dot(self.coor, R.T)  # pylint: disable=access-member-before-definition
         self.coor = coor
 
     def rmsd(self, structure):

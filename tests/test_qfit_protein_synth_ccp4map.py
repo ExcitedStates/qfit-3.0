@@ -11,7 +11,7 @@ import os
 import pytest
 
 from qfit.structure import Structure
-from qfit.volume import XMap
+from qfit.xtal.volume import XMap
 
 from .test_qfit_protein_synth import TestQfitProteinSyntheticData as _BaseClass
 
@@ -24,9 +24,10 @@ class TestQfitProteinSyntheticDataCcp4Map(_BaseClass):
     __test__ = True
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution):
-        self._create_fmodel(pdb_file_multi, high_resolution=high_resolution)
+        fmodel_mtz = self._create_fmodel(pdb_file_multi,
+                                         high_resolution=high_resolution)
         os.symlink(pdb_file_single, "single.pdb")
-        xmap = XMap.from_mtz("fmodel.mtz", label="FWT,PHIFWT")
+        xmap = XMap.from_mtz(fmodel_mtz, label="FWT,PHIFWT")
         xmap.tofile("fmodel_1.ccp4")
         qfit_args = [
             "qfit_protein",

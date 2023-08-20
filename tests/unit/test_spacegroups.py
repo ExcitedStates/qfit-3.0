@@ -1,7 +1,7 @@
 import pytest
 from libtbx.utils import Sorry
 
-from qfit.spacegroups import SpaceGroup, getSpaceGroup
+from qfit.xtal.spacegroups import SpaceGroup, getSpaceGroup
 
 from .base_test_case import UnitBase
 

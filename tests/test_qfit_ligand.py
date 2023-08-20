@@ -1,7 +1,7 @@
 import os
 import logging
 
-from qfit.qfit_ligand import (
+from qfit.command_line.qfit_ligand import (
     QFitOptions,
     prepare_qfit_ligand,
     build_argparser,
@@ -10,13 +10,12 @@ from qfit.logtools import (
     setup_logging,
     log_run_info,
 )
-
-from .test_qfit_protein import TemporaryDirectoryRunner
+from qfit.utils.test_utils import BaseTestRunner
 
 logger = logging.getLogger(__name__)
 
 
-class TestQFitLigand(TemporaryDirectoryRunner):
+class TestQFitLigand(BaseTestRunner):
     def mock_main(self):
         data_dir = os.path.join(os.path.dirname(__file__), "qfit_ligand_test")
         # Prepare args
@@ -54,9 +53,7 @@ class TestQFitLigand(TemporaryDirectoryRunner):
 
     def test_run_qfit_ligand(self):
         qfit_ligand = self.mock_main()
-
         # Run qfit object
-
-        output = qfit_ligand.run()
+        qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
         assert len(conformers) == 2

@@ -6,7 +6,7 @@ import numpy as np
 
 from qfit.qfit import QFitRotamericResidue, QFitOptions
 from qfit.structure import Structure
-from qfit.volume import XMap
+from qfit.xtal.volume import XMap
 
 from .test_qfit_protein_synth import SyntheticMapRunner
 
@@ -68,13 +68,6 @@ class TestQfitResidueSampling(SyntheticMapRunner):
         result = self._run_sample_sidechain_3mer(pdb_single, fmodel_mtz, options)
         multi_conf = Structure.fromfile(pdb_multi)
         return result, multi_conf
-
-        reference_confs = []
-        k = 1
-        max_k = len(list(multi.residues)) - 1
-        while k < max_k:
-            reference_confs.append(list(multi.residues)[k])
-            k += 3
 
     def _run_sample_sidechain_3mer_and_validate(self,
                                                 peptide_name,

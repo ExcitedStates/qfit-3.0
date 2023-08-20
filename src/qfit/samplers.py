@@ -420,15 +420,6 @@ class RotationSets:
     _DATA_DIRECTORY = os.path.join(os.path.dirname(__file__), "data")
 
     @classmethod
-    def get_set(cls, angle):
-        angles = zip(*cls.SETS)[-1]
-        diff = [abs(a - angle) for a in angles]
-        fname = cls.SETS[diff.index(min(diff))][0]
-        with open(os.path.join(cls._DATA_DIRECTORY, fname)) as f:
-            quat_weights = np.load(f)
-        return cls.quats_to_rotmats(quat_weights[:, :4])
-
-    @classmethod
     def get_local_set(cls, fname="local_10_10.npy"):
         quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
         return cls.quats_to_rotmats(quats)

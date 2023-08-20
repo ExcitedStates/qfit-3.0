@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 
-from .samplers import BackboneRotator
+from qfit.samplers import BackboneRotator
 
 
 def adp_ellipsoid_axes(U_ij):

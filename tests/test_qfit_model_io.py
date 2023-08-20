@@ -2,8 +2,10 @@ import pytest
 import os
 import logging
 import multiprocessing as mp
+
 import numpy as np
-from qfit.qfit_protein import (
+
+from qfit.command_line.qfit_protein import (
     QFitOptions,
     build_argparser,
     prepare_qfit_protein,
@@ -12,8 +14,7 @@ from qfit.logtools import (
     setup_logging,
     log_run_info,
 )
-
-from .test_qfit_protein import TemporaryDirectoryRunner
+from qfit.utils.test_utils import BaseTestRunner
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,8 @@ def setup_module(module):
         cleanup_on_sigterm()
 
 
-class TestQFitModelIO(TemporaryDirectoryRunner):
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "example")
+class TestQFitModelIO(BaseTestRunner):
+    data_dir = os.path.join(os.path.dirname(__file__), "qfit_io_test")
     CUSTOM_ARGS = [
         "--backbone-amplitude",
         "0.10",  # default: 0.30

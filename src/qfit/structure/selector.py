@@ -169,6 +169,7 @@ class _Selector:
             selection = self.curr_sel[mask]
             return selection
 
+    @staticmethod
     def _get_operator(loperator):
         if loperator in ("==", "!="):
             oper = operator.eq

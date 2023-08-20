@@ -3,12 +3,14 @@ Phenix extensions
 """
 
 import subprocess
+import os
 
 def run_phenix_aniso(structure,
                      chain_id,
                      resid,
                      prev_resid,
-                     high_resolution):
+                     high_resolution,
+                     options):
     # Identify which atoms to refine anisotropically:
     if high_resolution < 1.45:
         adp = "not (water or element H)"

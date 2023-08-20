@@ -6,25 +6,26 @@ import copy
 from string import ascii_uppercase
 from collections import namedtuple
 import subprocess
+
 import numpy as np
 import tqdm
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
+from .phenix_refine import run_phenix_aniso
+from .relabel import RelabellerOptions, Relabeller
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, SolverError
 from .structure import Structure, Segment, calc_rmsd
-from .structure.residue import residue_type
 from .structure.ligand import BondOrder
-from .transformer import Transformer
-from .validator import Validator
-from .volume import XMap
-from .scaler import MapScaler
-from .relabel import RelabellerOptions, Relabeller
+from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
-from .phenix_refine import run_phenix_aniso
+from .validator import Validator
+from .xtal.scaler import MapScaler
+from .xtal.transformer import Transformer
+from .xtal.volume import XMap
 
 
 logger = logging.getLogger(__name__)
@@ -586,7 +587,8 @@ class QFitRotamericResidue(_BaseQFit):
                 chain_id=self.chain,
                 resid=self.resi,
                 prev_resid=prv_resi,
-                high_resolution=xmap.resolution.high)
+                high_resolution=xmap.resolution.high,
+                options=options)
             # Reload structure and xmap as omit map:
             structure = Structure.fromfile(new_pdb).reorder()
             if not options.hydro:

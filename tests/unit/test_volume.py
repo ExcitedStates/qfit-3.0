@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from iotbx.file_reader import any_file
 
-from qfit.volume import XMap
+from qfit.xtal.volume import XMap
 
 from .base_test_case import UnitBase
 
