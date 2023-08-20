@@ -103,7 +103,6 @@ class TestSpaceGroups(UnitBase):
     # XXX these are in the PDB list but CCTBX does not know about them
     PDB_UNKNOWN = ["I 1 21 1", "C 1 21 1", "P 21 21 2 A", "C 4 21 2", "F 4 2 2", "A 1"]
 
-    # @pytest.mark.skip("For development purposes")
     def test_from_cctbx(self):
         for name in self.PDB_SPACE_GROUPS:
             g1 = getSpaceGroup(name)

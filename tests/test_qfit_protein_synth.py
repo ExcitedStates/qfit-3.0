@@ -1,6 +1,6 @@
 """
 Relatively fast integration tests of qfit_protein using synthetic data for
-a variety of small peptide with several alternate conformers.
+a variety of small peptides with several alternate conformers.
 """
 
 from collections import defaultdict
@@ -10,19 +10,13 @@ import tempfile
 import os.path as op
 import os
 
-import pytest
-from mmtbx.command_line import fmodel
 from iotbx.file_reader import any_file
-from cctbx.crystal import symmetry
-from scitbx.array_family import flex
-from libtbx.utils import null_out
 
 from qfit.structure import Structure
+from qfit.utils.test_utils import BaseTestRunner
 
-from .test_qfit_protein import TemporaryDirectoryRunner
 
-
-class SyntheticMapRunner(TemporaryDirectoryRunner):
+class SyntheticMapRunner(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "data")
 
     def _get_file_path(self, base_name):
@@ -34,53 +28,16 @@ class SyntheticMapRunner(TemporaryDirectoryRunner):
             self._get_file_path(f"{peptide_name}_single.pdb"),
         )
 
-    def _create_fmodel(self, pdb_file_name, high_resolution, output_file="fmodel.mtz"):
-        fmodel_args = [
-            pdb_file_name,
-            f"high_resolution={high_resolution}",
-            "r_free_flags_fraction=0.1",
-            "output.label=FWT",
-            f"output.file_name={output_file}",
-        ]
-        pdb_link = output_file.replace(".mtz", "_in.pdb")
-        os.symlink(pdb_file_name, pdb_link)
-        fmodel.run(args=fmodel_args, log=null_out())
-        return output_file
-
 
 class TestQfitProteinSyntheticData(SyntheticMapRunner):
-    # allowed difference from rotameric chi*
-    CHI_RADIUS = 10
-
-    def _get_rotamer(self, residue, chi_radius=CHI_RADIUS):
-        # FIXME this is awful, we should replace it with something like
-        # mmtbx.rotalyze but I don't have the necessary library data
-        if len(residue.rotamers) == 0:
-            return None
-        chis = [residue.get_chi(i + 1) for i in range(len(residue.rotamers[0]))]
-        for rotamer in residue.rotamers:
-            delta_chi = [abs(a - b) for a, b in zip(chis, rotamer)]
-            if all([x < chi_radius or x > 360 - chi_radius for x in delta_chi]):
-                return tuple(rotamer)
-        raise ValueError(f"Can't find a rotamer for residue {residue}")
-
-    def _get_model_rotamers(self, file_name, chi_radius=CHI_RADIUS):
-        s = Structure.fromfile(file_name)
-        rotamers = defaultdict(set)
-        for residue in s.residues:
-            try:
-                rot = self._get_rotamer(residue, chi_radius=chi_radius)
-                rotamers[residue.resi[0]].add(rot)
-            except (IndexError, ValueError) as e:
-                print(e)
-        return rotamers
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution):
-        self._create_fmodel(pdb_file_multi, high_resolution=high_resolution)
+        fmodel_mtz = self._create_fmodel(pdb_file_multi,
+                                         high_resolution=high_resolution)
         os.symlink(pdb_file_single, "single.pdb")
         qfit_args = [
             "qfit_protein",
-            "fmodel.mtz",
+            fmodel_mtz,
             pdb_file_single,
             "--resolution",
             str(high_resolution),
@@ -102,33 +59,18 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         model_name="multiconformer_model2.pdb",
     ):
         mtz_new = "fmodel_out.mtz"
-        self._create_fmodel(
+        fmodel_mtz = self._create_fmodel(
             model_name, output_file=mtz_new, high_resolution=high_resolution
         )
-        fmodel_1 = any_file("fmodel.mtz")
-        fmodel_2 = any_file("fmodel_out.mtz")
-        array1 = fmodel_1.file_object.as_miller_arrays()[0].data()
-        array2 = fmodel_2.file_object.as_miller_arrays()[0].data()
-        lc = flex.linear_correlation(flex.abs(array1), flex.abs(array2))
         # correlation of the single-conf 7-mer fmodel is 0.922
-        assert lc.coefficient() >= expected_correlation
-
-    def _replace_symmetry(self, space_group_symbol, unit_cell, pdb_multi, pdb_single):
-        new_symm = symmetry(space_group_symbol=space_group_symbol, unit_cell=unit_cell)
-        s1 = Structure.fromfile(pdb_multi)
-        s1.crystal_symmetry = new_symm
-        s1.tofile("multi_newsymm.pdb")
-        s2 = Structure.fromfile(pdb_single)
-        s2.crystal_symmetry = new_symm
-        s2.tofile("single_newsymm.pdb")
-        return ("multi_newsymm.pdb", "single_newsymm.pdb")
+        self._compare_maps(fmodel_mtz, "fmodel_out.mtz", expected_correlation)
 
     def _run_and_validate_identical_rotamers(
         self,
         pdb_multi,
         pdb_single,
         d_min,
-        chi_radius=CHI_RADIUS,
+        chi_radius=SyntheticMapRunner.CHI_RADIUS,
         expected_correlation=0.99,
         model_name="multiconformer_model2.pdb",
     ):
@@ -143,16 +85,56 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         return rotamers_out
 
     def _run_kmer_and_validate_identical_rotamers(
-        self, peptide_name, d_min, chi_radius=CHI_RADIUS
+        self, peptide_name, d_min, chi_radius=SyntheticMapRunner.CHI_RADIUS
     ):
         (pdb_multi, pdb_single) = self._get_start_models(peptide_name)
         return self._run_and_validate_identical_rotamers(
             pdb_multi, pdb_single, d_min, chi_radius
         )
 
+    def _run_serine_monomer(self, space_group_symbol):
+        (pdb_multi, pdb_single) = self._get_serine_monomer_with_symmetry(
+            space_group_symbol)
+        return self._run_and_validate_identical_rotamers(
+            pdb_multi, pdb_single, d_min=1.5, chi_radius=5)
+
+    def test_qfit_protein_ser_basic_box(self):
+        """A single two-conformer Ser residue in a perfectly cubic P1 cell"""
+        (pdb_multi, pdb_single) = self._get_serine_monomer_inputs()
+        return self._run_and_validate_identical_rotamers(
+            pdb_multi, pdb_single, d_min=1.5, chi_radius=5)
+
     def test_qfit_protein_ser_p1(self):
-        """A single two-conformer Ser residue in a P1 cell"""
-        self._run_kmer_and_validate_identical_rotamers("Ser", d_min=1.5, chi_radius=5)
+        """A single two-conformer Ser residue in an irregular triclinic cell"""
+        self._run_serine_monomer("P1")
+
+    def test_qfit_protein_ser_p21(self):
+        """A single two-conformer Ser residue in a P21 cell"""
+        self._run_serine_monomer("P21")
+
+    def test_qfit_protein_ser_p4212(self):
+        """A single two-conformer Ser residue in a P4212 cell"""
+        self._run_serine_monomer("P4212")
+
+    def test_qfit_protein_ser_p6322(self):
+        """A single two-conformer Ser residue in a P6322 cell"""
+        self._run_serine_monomer("P6322")
+
+    def test_qfit_protein_ser_c2221(self):
+        """A single two-conformer Ser residue in a C2221 cell"""
+        self._run_serine_monomer("C2221")
+
+    def test_qfit_protein_ser_i212121(self):
+        """A single two-conformer Ser residue in a I212121 cell"""
+        self._run_serine_monomer("I212121")
+
+    def test_qfit_protein_ser_p4212(self):
+        """A single two-conformer Ser residue in a P4212 cell"""
+        self._run_serine_monomer("P4212")
+
+    def test_qfit_protein_ser_i422(self):
+        """A single two-conformer Ser residue in a I422 cell"""
+        self._run_serine_monomer("I422")
 
     def test_qfit_protein_3mer_arg_p21(self):
         """Build an Arg residue with two conformers"""
@@ -246,13 +228,12 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         medium resolution
         """
         d_min = 1.5
-        (pdb_multi, pdb_single) = self._get_start_models("AFA")
-        (pdb_multi, pdb_single) = self._replace_symmetry(
-            space_group_symbol="P1",
-            unit_cell=(12, 6, 10, 90, 105, 90),
-            pdb_multi=pdb_multi,
-            pdb_single=pdb_single,
-        )
+        new_models = []
+        for pdb_file in self._get_start_models("AFA"):
+            new_models.append(self._replace_symmetry(
+                new_symmetry=("P1", (12, 6, 10, 90, 105, 90)),
+                pdb_file=pdb_file))
+        (pdb_multi, pdb_single) = new_models
         self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min),
         self._validate_phe_3mer_confs(pdb_multi)
         self._validate_new_fmodel(high_resolution=d_min)
@@ -273,13 +254,12 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         in a smaller P1 cell.
         """
         d_min = 1.3
-        (pdb_multi, pdb_single) = self._get_start_models("GNNAFNS")
-        (pdb_multi, pdb_single) = self._replace_symmetry(
-            space_group_symbol="P1",
-            unit_cell=(30, 10, 15, 90, 105, 90),
-            pdb_multi=pdb_multi,
-            pdb_single=pdb_single,
-        )
+        new_models = []
+        for pdb_file in self._get_start_models("GNNAFNS"):
+            new_models.append(self._replace_symmetry(
+                new_symmetry=("P1", (30, 10, 15, 90, 105, 90)),
+                pdb_file=pdb_file))
+        (pdb_multi, pdb_single) = new_models
         self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_7mer_confs(pdb_multi)
         self._validate_new_fmodel(d_min, 0.95)
@@ -301,22 +281,6 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
 
-    def _iterate_symmetry_mate_models(self, pdb_single_start):
-        d_min = 1.2
-        pdb_in = any_file(pdb_single_start)
-        pdbh = pdb_in.file_object.hierarchy
-        xrs = pdb_in.file_object.xray_structure_simple()
-        sites_frac = xrs.sites_frac()
-        for i_op, rt_mx in enumerate(xrs.space_group().smx()):
-            os.mkdir(f"op{i_op}")
-            os.chdir(f"op{i_op}")
-            new_sites = flex.vec3_double([rt_mx * xyz for xyz in sites_frac])
-            xrs.set_sites_frac(new_sites)
-            pdbh.atoms().set_xyz(xrs.sites_cart())
-            pdb_single_new = f"single_op{i_op}.pdb"
-            pdbh.write_pdb_file(pdb_single_new, crystal_symmetry=xrs)
-            yield op.abspath(pdb_single_new)
-
     def test_qfit_protein_3mer_lys_p6322_all_sites(self):
         """
         Iterate over all symmetry operators in the P6(3)22 space group and
@@ -331,15 +295,11 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
             self._iterate_symmetry_mate_models(pdb_single_start)
         ):
             print(f"running with model {op.basename(pdb_single)}")
-            os.mkdir(f"op{i_op}")
-            os.chdir(f"op{i_op}")
-            try:
+            with self._run_in_tmpdir(f"op{i_op}"):
                 rotamers = self._run_and_validate_identical_rotamers(
                     pdb_multi, pdb_single, d_min=d_min, chi_radius=15
                 )
                 assert len(rotamers[2]) == 3
-            finally:
-                os.chdir(cwd)
 
     def test_qfit_protein_3mer_arg_sensitivity(self):
         """
@@ -365,7 +325,6 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         pdb_multi_new = "ARA_low_occ.pdb"
         pdbh.write_pdb_file(pdb_multi_new, crystal_symmetry=symm)
         self._run_and_validate_identical_rotamers(pdb_multi_new, pdb_single, d_min)
-        # assert False
 
     def test_qfit_protein_3mer_multiconformer(self):
         """

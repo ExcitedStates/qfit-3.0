@@ -12,7 +12,33 @@ from .base_test_case import UnitBase
 
 
 class TestVolumeXmapIO(UnitBase):
-    def test_xmap_from_mtz(self):
+    def test_xmap_from_mtz_water(self):
+        d_min = 2.0
+        def _validate_map(xmap):
+            assert xmap.resolution.high == pytest.approx(d_min, abs=0.001)
+            assert (
+                str(xmap.unit_cell)
+                == "UnitCell(a=4.000000, b=5.000000, c=6.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
+            )
+            assert xmap.array.size == 960
+            assert tuple(xmap.unit_cell_shape) == (8, 10, 12)
+            assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
+            assert xmap.array.shape == (12, 10, 8)  # TODO
+            # assert list(xmap.array[0:5]) == ""
+            assert xmap.array[0][0][0] == pytest.approx(-0.719, abs=0.001)
+            assert xmap.array[6][5][4] == pytest.approx(7.32, abs=0.001)
+            assert tuple(xmap.offset) == (0, 0, 0)
+
+        MTZ = self.make_water_fmodel_mtz(d_min)
+        xmap1 = XMap.fromfile(MTZ, label="FWT,PHIFWT")
+        # print([str(x) for x in xmap1.unit_cell.space_group.symop_list])
+        _validate_map(xmap1)
+        map_tmp = tempfile.NamedTemporaryFile(suffix=".ccp4").name
+        xmap1.tofile(map_tmp)
+        xmap2 = XMap.fromfile(map_tmp, resolution=d_min)
+        _validate_map(xmap2)
+
+    def test_xmap_from_mtz_protein(self):
         d_min = 1.3922
 
         def _validate_map(xmap):

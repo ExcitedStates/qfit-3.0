@@ -1,12 +1,14 @@
 """
-Core utilities for unit-testing with mocked data
+Additional utilities for unit-testing with mock data
 """
+
 import tempfile
 import unittest
 import os.path as op
 
+from qfit.utils.test_utils import BaseTestRunner
 
-class UnitBase(unittest.TestCase):
+class UnitBase(BaseTestRunner):
     TESTS_DIR = op.dirname(op.dirname(__file__))
     DATA = op.join(TESTS_DIR, "data")
     DATA_BIG = op.join(TESTS_DIR, "basic_qfit_protein_test")
@@ -19,16 +21,11 @@ class UnitBase(unittest.TestCase):
         Use 'phenix.fmodel' to generate Fcalc map coefficients in MTZ format
         """
         mtz_out = tempfile.NamedTemporaryFile(suffix="-fmodel.mtz").name
-        from mmtbx.command_line import fmodel
-        from libtbx.utils import null_out
-
-        args = [
-            self.TINY_PDB,
-            "high_resolution=1.39",
-            "r_free_flags_fraction=0.1",
-            "output.label=FWT",
-            "output.file_name={}".format(mtz_out),
-        ]
-        fmodel.run(args=args, log=null_out())
+        self._create_fmodel(self.TINY_PDB, 1.39, mtz_out)
         print(mtz_out)
         return mtz_out
+
+    def make_water_fmodel_mtz(self, d_min):
+        pdb_tmp = self._get_water_pdb()
+        mtz_out = tempfile.NamedTemporaryFile(suffix="-water-fmodel.mtz").name
+        return self._create_fmodel(pdb_tmp, d_min, mtz_out)

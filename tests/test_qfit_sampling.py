@@ -50,18 +50,22 @@ class TestQfitResidueSampling(SyntheticMapRunner):
         xmap = XMap.fromfile(mtz_file, label="FWT,PHIFWT")
         return structure, xmap
 
+    def _run_sample(self, residue, structure, xmap, options):
+        with self._run_in_tmpdir():
+            runner = QFitRotamericResidue(residue, structure, xmap, options)
+            runner._sample_sidechain()
+            return runner
+
     def _run_sample_sidechain_3mer(self, pdb_file, mtz_file, options):
         structure, xmap = self._load_qfit_inputs(pdb_file, mtz_file)
         residue = list(structure.residues)[1]
-        runner = QFitRotamericResidue(residue, structure, xmap, options)
-        runner._sample_sidechain()
-        return runner
+        return self._run_sample(residue, structure, xmap, options)
 
     def _run_setup_and_sample_sidechain_3mer(self, peptide_name, high_resolution):
         pdb_multi, pdb_single = self._get_start_models(peptide_name)
-        self._create_fmodel(pdb_multi, high_resolution=high_resolution)
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=high_resolution)
         options = self._get_qfit_options()
-        result = self._run_sample_sidechain_3mer(pdb_single, "fmodel.mtz", options)
+        result = self._run_sample_sidechain_3mer(pdb_single, fmodel_mtz, options)
         multi_conf = Structure.fromfile(pdb_multi)
         return result, multi_conf
 
@@ -113,3 +117,22 @@ class TestQfitResidueSampling(SyntheticMapRunner):
         reference_confs = _get_multi_conf_residues(multi)
         pairs, rmsds = _get_best_rmsds(reference_confs, new_confs, 0.6)
         assert len(pairs) == 2
+
+    def test_sample_sidechain_serine_space_group_symops(self):
+        """
+        Search for rotamers of an isolated two-conformer Ser residue, iterating
+        over several different spacegroups and all of their symmetry operators
+        """
+        d_min = 1.5
+        for pdb_multi, pdb_single in self._get_all_serine_monomer_crystals():
+            fmodel_mtz = self._create_fmodel(pdb_multi, d_min)
+            for pdb_symm in self._iterate_symmetry_mate_models(pdb_single):
+                print(pdb_symm)
+                structure, xmap = self._load_qfit_inputs(pdb_symm, fmodel_mtz)
+                residue = list(structure.residues)[0]
+                options = self._get_qfit_options()
+                result = self._run_sample(residue, structure, xmap, options)
+                rotamers = set([])
+                for residue in result.get_conformers():
+                    rotamers.add(self._get_rotamer(residue, chi_radius=12))
+                assert rotamers == {(-177,), (-65,)}

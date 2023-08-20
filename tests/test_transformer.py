@@ -29,16 +29,13 @@ class TestTransformer(SyntheticMapRunner):
 
     def _run_all(self, peptide_name, d_min, corr_min=0.999):
         pdb_multi, pdb_single = self._get_start_models(peptide_name)
-        self._create_fmodel(pdb_multi, high_resolution=d_min)
-        self._run_transformer(pdb_multi, "fmodel.mtz", corr_min)
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
+        self._run_transformer(pdb_multi, fmodel_mtz, corr_min)
 
     def test_transformer_water_p1(self):
-        pdb_file = self._get_file_path("water.pdb")
-        self._create_fmodel(pdb_file, high_resolution=2.0)
-        self._run_transformer(pdb_file, "fmodel.mtz")
-
-    def test_transformer_ser_p1(self):
-        self._run_all("Ser", 1.5)
+        pdb_file = self._get_water_pdb()
+        fmodel_mtz = self._create_fmodel(pdb_file, high_resolution=2.0)
+        self._run_transformer(pdb_file, fmodel_mtz)
 
     def test_transformer_3mer_ser_p21(self):
         self._run_all("ASA", 1.5)
@@ -49,12 +46,21 @@ class TestTransformer(SyntheticMapRunner):
     def test_transformer_3mer_trp_3conf_p21(self):
         pdb_multi = self._get_file_path("AWA_2conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
-        self._create_fmodel(pdb_multi, high_resolution=0.8)
-        self._run_transformer(pdb_multi, "fmodel.mtz")
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=0.8)
+        self._run_transformer(pdb_multi, fmodel_mtz)
 
     def test_transformer_3mer_lys_p6322(self):
         pdb_multi = self._get_file_path("AKA_p6322_3conf.pdb")
         pdb_single_start = self._get_file_path("AKA_p6322_single.pdb")
         assert op.isfile(pdb_multi)
-        self._create_fmodel(pdb_multi, high_resolution=0.8)
-        self._run_transformer(pdb_multi, "fmodel.mtz")
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=0.8)
+        self._run_transformer(pdb_multi, fmodel_mtz)
+
+    def test_transformer_ser_monomer_space_groups(self):
+        """
+        Test transformer behavior with a Ser monomer in several different
+        space groups.
+        """
+        for pdb_multi, pdb_single in self._get_all_serine_monomer_crystals():
+            fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=1.4)
+            self._run_transformer(pdb_multi, fmodel_mtz, 0.998)
