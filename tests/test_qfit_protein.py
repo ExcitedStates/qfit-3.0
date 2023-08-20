@@ -13,7 +13,7 @@ from qfit.logtools import (
     setup_logging,
     log_run_info,
 )
-from qfit.utils.test_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner
 
 
 logger = logging.getLogger(__name__)

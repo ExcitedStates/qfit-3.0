@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import os.path as op
 
-from qfit.utils.test_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner
 
 class UnitBase(BaseTestRunner):
     TESTS_DIR = op.dirname(op.dirname(__file__))

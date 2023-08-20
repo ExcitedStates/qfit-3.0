@@ -3,7 +3,7 @@ import os.path as op
 import subprocess
 
 from qfit.structure import Structure
-from qfit.utils.test_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner
 
 
 class TestCommandLineTools(BaseTestRunner):

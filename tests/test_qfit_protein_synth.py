@@ -13,7 +13,7 @@ import os
 from iotbx.file_reader import any_file
 
 from qfit.structure import Structure
-from qfit.utils.test_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner
 
 
 class SyntheticMapRunner(BaseTestRunner):
