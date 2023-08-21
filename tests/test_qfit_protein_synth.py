@@ -9,8 +9,10 @@ import unittest
 import tempfile
 import os.path as op
 import os
+import sys
 
 from iotbx.file_reader import any_file
+import pytest
 
 from qfit.structure import Structure
 from qfit.utils.mock_utils import BaseTestRunner
@@ -168,6 +170,7 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         # have overlapped conformations of the same rotamer)
         assert len(rotamers[2]) == 2
 
+    @pytest.mark.skipif(sys.platform == "darwin", reason="FIXME: Skipping due to CPLEX Error 5002 in CI tests")
     def test_qfit_protein_3mer_trp_3conf_p21(self):
         """
         Build a Trp residue with three different rotamers, two of them
