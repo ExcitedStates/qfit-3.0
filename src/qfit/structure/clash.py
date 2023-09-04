@@ -1,3 +1,5 @@
+# TODO unit tests
+
 import itertools
 from collections import defaultdict
 
@@ -68,47 +70,3 @@ class ClashDetector:
                 break
 
         return nclashes > 0
-
-
-class ClashDetector2:
-    def __init__(self, receptor, ligand, scaling_factor=0.85, exclude=None):
-        self.receptor = receptor
-        self.ligand = ligand
-        self.scaling_factor = scaling_factor
-        self.exclude = exclude
-
-        self._ligand_radii = self.ligand.vdw_radius
-        coor = self.receptor.coor
-        origin = np.min(coor, axis=0)
-        corner = np.max(coor, axis=0)
-        grid_coor = (coor - origin) / distance
-        grid_shape = ((corner - origin) / distance + 0.5).astype(np.int32)
-        # Make a 3D empty grid and fill it
-        grid = [
-            [[[] for i in range(grid_shape[2])] for j in range(grid_shape[1])]
-            for k in range(grid_shape[0])
-        ]
-        for gxyz, xyz in zip(grid_coor, coor):
-            i, j, k = [int(x) for x in gxyz]
-            grid[i][j][k].append(xyz)
-
-        for i in range(grid_shape[0]):
-            for j in range(grid_shape[1]):
-                for k in range(grid_shape[2]):
-                    grid[i][j][k] = np.asarray(grid[i][j][k])
-        self._grid = grid
-
-    def __call__(self):
-        active = self.ligand.active
-        ligand_coor = self.ligand.coor
-        for is_active, coor, radius in zip(active, ligand_coor, self.ligand_radii):
-            if not is_active:
-                continue
-            grid_coor = (coor - origin) * inv_voxelspacing
-            index = [int(x) for x in grid_coor]
-            for i, j, k in itertools.product(range(-1, 2), repeat=3):
-                i += index[0]
-                j += index[1]
-                k += index[2]
-                diff = coor - grid[i][j][k]
-                r2 = (diff * diff).sum(axis=1)

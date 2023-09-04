@@ -95,7 +95,8 @@ class _Selector:
         self.structure = structure
         self.curr_sel = self.structure._selection
         if self.curr_sel is None:
-            self.curr_sel = np.arange(self.structure._name.size, dtype=np.uintp)
+            # FIXME use a proper size attribute here
+            self.curr_sel = np.arange(self.structure.name.size, dtype=np.uintp)
 
     def _push_first(self, strg, loc, toks):
         self.expr_stack.append(toks[0])

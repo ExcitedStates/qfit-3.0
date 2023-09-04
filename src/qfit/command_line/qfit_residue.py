@@ -217,10 +217,11 @@ def main(argv=sys.argv):
         best_q = -1
         for i, altloc in enumerate(altlocs):
             conformer = structure_resi.extract("altloc", ("", altloc))
-            if len(conformer.name) > longest_conf:
+            conformer_length = len(conformer.name)
+            if conformer_length > longest_conf:
                 idx = i
-                longest_conf = len(conformer.name)
-            elif len(conformer.name) == longest_conf:
+                longest_conf = conformer_length
+            elif conformer_length == longest_conf:
                 if conformer.q[0] > best_q:
                     idx = i
                     best_q = conformer.q[0]

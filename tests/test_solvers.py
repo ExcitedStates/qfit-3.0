@@ -1,9 +1,9 @@
 import pytest
 
-from qfit.solvers import *
+from qfit.solvers import (QPSolver, MIQPSolver)
 
 
-def setup_module(module):
+def setup_module(module):  # pylint: disable=unused-argument
     import qfit.solvers
 
     # Manually set CPLEX to False

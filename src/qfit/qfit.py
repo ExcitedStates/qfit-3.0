@@ -11,7 +11,6 @@ import numpy as np
 import tqdm
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
-from .clash import ClashDetector
 from .phenix_refine import run_phenix_aniso
 from .relabel import RelabellerOptions, Relabeller
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
@@ -19,6 +18,7 @@ from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, SolverError
 from .structure import Structure, Segment, calc_rmsd
+from .structure.clash import ClashDetector
 from .structure.ligand import BondOrder
 from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
@@ -623,7 +623,7 @@ class QFitRotamericResidue(_BaseQFit):
             xmap = xmap.extract(residue.coor, padding=options.padding)
 
         # Check if residue has complete heavy atoms. If not, complete it.
-        expected_atoms = np.array(self.residue._rotamers["atoms"])
+        expected_atoms = np.array(self.residue.get_residue_info("atoms"))
         missing_atoms = np.isin(
             expected_atoms, test_elements=self.residue.name, invert=True
         )
@@ -672,7 +672,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # If including hydrogens, report if any H are missing
         if options.hydro:
-            expected_h_atoms = np.array(self.residue._rotamers["hydrogens"])
+            expected_h_atoms = np.array(self.residue.get_residue_info("hydrogens"))
             missing_h_atoms = np.isin(
                 expected_h_atoms, test_elements=self.residue.name, invert=True
             )
@@ -1006,13 +1006,13 @@ class QFitRotamericResidue(_BaseQFit):
                 # clash mask.
                 self.residue.active = True
                 if chi_index < self.residue.nchi:
-                    current = self.residue._rotamers["chi-rotate"][chi_index]
-                    deactivate = self.residue._rotamers["chi-rotate"][chi_index + 1]
+                    current = self.residue.get_residue_info("chi-rotate")[chi_index]
+                    deactivate = self.residue.get_residue_info("chi-rotate")[chi_index + 1]
                     selection = self.residue.select("name", deactivate)
                     self.residue._active[selection] = False
                     bs_atoms = list(set(current) - set(deactivate))
                 else:
-                    bs_atoms = self.residue._rotamers["chi-rotate"][chi_index]
+                    bs_atoms = self.residue.get_residue_info("chi-rotate")[chi_index]
 
                 self.residue.update_clash_mask()
                 active = self.residue.active
@@ -1911,15 +1911,15 @@ class QFitCovalentLigand(_BaseQFit):
                 # clash mask.
                 self.covalent_residue.active = True
                 if chi_index < self.covalent_residue.nchi:
-                    deactivate = self.covalent_residue._rotamers["chi-rotate"][
-                        chi_index + 1
-                    ]
+                    rs = self.covalent_residue.get_rotamers("chi-rotate")
+                    current = rs[chi_index]
+                    deactivate = rs[chi_index + 1]
                     selection = self.covalent_residue.select("name", deactivate)
                     self.covalent_residue._active[selection] = False
                     # FIXME 'current' is undefined here
                     bs_atoms = list(set(current) - set(deactivate))
                 else:
-                    bs_atoms = self.covalent_residue._rotamers["chi-rotate"][chi_index]
+                    bs_atoms = self.covalent_residue.get_residue_info("chi-rotate")[chi_index]
                 if self.options.sample_ligand:
                     sel_str = (
                         f"chain {self.covalent_residue.chain[0]} "
@@ -2034,8 +2034,6 @@ class QFitCovalentLigand(_BaseQFit):
         selection = self.covalent_residue.select(sel_str)
         self.covalent_residue._active[selection] = True
         self.covalent_ligand._active[selection] = True
-        # FIXME 'current' is undefined here
-        bs_atoms = list(set(current))
         new_coor_set = []
         new_bs = []
         n = 0

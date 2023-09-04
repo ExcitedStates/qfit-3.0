@@ -90,12 +90,6 @@ class mmCIFRow(dict):
     def get_lower(self, clower, default=None):
         return dict.get(self, clower, default)
 
-    def has_key(self, column):
-        return dict.has_key(self, column.lower())
-
-    def has_key_lower(self, clower):
-        return dict.has_key(self, clower)
-
 
 class mmCIFTable(list):
     """Contains columns and rows of data for a mmCIF section. Rows of data

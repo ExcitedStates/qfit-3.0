@@ -100,12 +100,19 @@ class _RotamerResidue(_BaseResidue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         resname = self.resn[0]
-        self._rotamers = ROTAMERS[resname]
-        self.nchi = self._rotamers["nchi"]
-        self.nrotamers = len(self._rotamers["rotamers"])
-        self.rotamers = self._rotamers["rotamers"]
+        self._residue_info = ROTAMERS[resname]
+        self.nchi = self._residue_info["nchi"]
+        self.rotamers = self._residue_info["rotamers"]
+        self.nrotamers = len(self.rotamers)
         self._init_clash_detection()
         self.i = 0
+
+    def get_residue_info(self, key):
+        return self._residue_info[key]
+
+    # FIXME deprecated
+    def get_rotamers(self, key):
+        return self._residue_info[key]
 
     def _init_clash_detection(self, scaling_factor=0.75, covalent_bonds=None):
         # Setup the condensed distance based arrays for clash detection and fill them
@@ -113,7 +120,7 @@ class _RotamerResidue(_BaseResidue):
         self._clash_mask = np.ones(self._ndistances, bool)
         self._clash_radius2 = np.zeros(self._ndistances, float)
         radii = self.covalent_radius
-        bonds = self._rotamers["bonds"]
+        bonds = self._residue_info["bonds"]
         if covalent_bonds:
             for bond in covalent_bonds:
                 bonds.append(bond)
@@ -173,7 +180,7 @@ class _RotamerResidue(_BaseResidue):
         return nclashes
 
     def get_chi(self, chi_index):
-        atoms = self._rotamers["chi"][chi_index]
+        atoms = self._residue_info["chi"][chi_index]
         selection = self.select("name", atoms)
         ordered_sel = []
         for atom in atoms:
@@ -186,7 +193,7 @@ class _RotamerResidue(_BaseResidue):
         return angle
 
     def set_chi(self, chi_index, value, covalent=None, length=None):
-        atoms = self._rotamers["chi"][chi_index]
+        atoms = self._residue_info["chi"][chi_index]
         selection = self.select("name", atoms)
 
         # Translate coordinates to center on coor[1]
@@ -199,7 +206,7 @@ class _RotamerResidue(_BaseResidue):
         forward = backward.T
 
         # Complete selection to be rotated
-        atoms_to_rotate = self._rotamers["chi-rotate"][chi_index]
+        atoms_to_rotate = self._residue_info["chi-rotate"][chi_index]
         selection = self.select("name", atoms_to_rotate)
         if covalent in atoms_to_rotate:
             # If we are rotating the atom that is covalently bonded
@@ -247,7 +254,8 @@ class _RotamerResidue(_BaseResidue):
             )
             raise RuntimeError(msg)
 
-        for atom, position in zip(self._rotamers["atoms"], self._rotamers["positions"]):
+        for atom, position in zip(self._residue_info["atoms"],
+                                  self._residue_info["positions"]):
             # Found a missing atom!
             if atom not in self.name:
                 self.complete_residue_recursive(atom)
@@ -262,14 +270,14 @@ class _RotamerResidue(_BaseResidue):
             )
             raise RuntimeError(msg)
 
-        ref_atom = self._rotamers["connectivity"][atom][0]
+        ref_atom = self._residue_info["connectivity"][atom][0]
         if ref_atom not in self.name:
             self.complete_residue_recursive(ref_atom)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
-        bond_length, bond_length_sd = self._rotamers["bond_dist"][ref_atom][atom]
+        bond_length, bond_length_sd = self._residue_info["bond_dist"][ref_atom][atom]
         # Identify a suitable atom for the bond angle:
-        for angle in self._rotamers["bond_angle"]:
+        for angle in self._residue_info["bond_angle"]:
             if angle[0][1] == ref_atom and angle[0][2] == atom:
                 if angle[0][0][0] == "H":
                     continue
@@ -283,26 +291,26 @@ class _RotamerResidue(_BaseResidue):
                 dihedral_atom = None
                 # If the atom's position is dependent on a rotamer,
                 # identify the fourth dihedral angle atom:
-                for i, chi in self._rotamers["chi"].items():
+                for i, chi in self._residue_info["chi"].items():
                     if (
                         chi[1] == bond_angle_atom
                         and chi[2] == ref_atom
                         and chi[3] == atom
                     ):
                         dihedral_atom = chi[0]
-                        dihed_angle = self._rotamers["rotamers"][0][i - 1]
+                        dihed_angle = self._residue_info["rotamers"][0][i - 1]
 
                 # If the atom's position is not dependent on a rotamer,
                 # identify the fourth dihedral angle atom:
                 if dihedral_atom is None:
-                    for dihedral in self._rotamers["dihedral"]:
+                    for dihedral in self._residue_info["dihedral"]:
                         if (
                             dihedral[0][1] == bond_angle_atom
                             and dihedral[0][2] == ref_atom
                             and dihedral[0][3] == atom
                         ):
                             dihedral_atom = dihedral[0][0]
-                            if dihedral[1][0] in self._rotamers["atoms"]:
+                            if dihedral[1][0] in self._residue_info["atoms"]:
                                 other_dihedral_atom = dihedral[1][0]
                                 if dihedral_atom not in self.name:
                                     self.complete_residue_recursive(dihedral_atom)
@@ -636,9 +644,8 @@ class _RotamerResidue(_BaseResidue):
         setattr(self, "natoms", self.natoms + 1)
 
     def reorder(self):
-        for idx, atom2 in enumerate(
-            self._rotamers["atoms"] + self._rotamers["hydrogens"]
-        ):
+        atoms = self._residue_info["atoms"] + self._residue_info["hydrogens"]
+        for idx, atom2 in enumerate(atoms):
             if self.name[idx] != atom2:
                 idx2 = np.argwhere(self.name == atom2)[0]
                 index = np.ndarray((1,), dtype="int")

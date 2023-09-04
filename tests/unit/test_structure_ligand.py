@@ -18,7 +18,7 @@ class TestStructureLigand(UnitBase):
         structure_ligand = structure.extract("resi 1 and chain B")
         ligand = Ligand(
             structure_ligand.data,
-            structure_ligand._selection,
+            structure_ligand._selection,  # pylint: disable=protected-access
             link_data=structure_ligand.link_data,
             cif_file=CIF,
         )

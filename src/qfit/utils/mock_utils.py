@@ -220,7 +220,7 @@ class BaseTestRunner(unittest.TestCase):
                     file_name))
             else:
                 final_pdbs.append(file_name)
-        return tuple(final_pdbs)
+        return (final_pdbs[0], final_pdbs[1])
 
     def _get_serine_monomer_with_symmetry(self, space_group_symbol):
         """

@@ -118,7 +118,8 @@ if CPLEX:
 
             # Set number of threads to use
             if self.threads is not None:
-                miqp.parameters.threads.set(self.threads)
+                # XXX is this valid or is pylint correct?
+                miqp.parameters.threads.set(self.threads)  # pylint: disable=no-member
 
             # Setup QP part of the MIQP
             variable_names = [f"w{n}" for n in range(self._nconformers)]

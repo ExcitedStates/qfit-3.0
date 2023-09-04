@@ -19,7 +19,7 @@ from qfit.utils.mock_utils import BaseTestRunner
 logger = logging.getLogger(__name__)
 
 
-def setup_module(module):
+def setup_module(module):  # pylint: disable=unused-argument
     # Here, we add compatibility for multiprocessing coverage reports.
     # via: https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-use-multiprocessing-pool
     try:

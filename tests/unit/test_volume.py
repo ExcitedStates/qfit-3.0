@@ -171,7 +171,7 @@ class TestVolumeXmapIO(UnitBase):
             MTZ,
             self.TINY_PDB,
             f"output.directory={tmp_dir}",
-            f"output.prefix=tiny",
+            "output.prefix=tiny",
             "buffer=5.0",
             "grid_resolution_factor=0.25",
         ]
@@ -246,7 +246,6 @@ class TestVolumeXmapIO(UnitBase):
 
     @pytest.mark.skip("TODO - test for CCTBX FFT behavior")
     def test_cctbx_io_with_fft(self):
-        from iotbx.file_reader import any_file
         MTZ = self.make_tiny_fmodel_mtz()
         miller_arrays = any_file(MTZ).file_object.as_miller_arrays()
         coeffs = miller_arrays[0]

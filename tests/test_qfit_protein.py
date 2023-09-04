@@ -19,7 +19,7 @@ from qfit.utils.mock_utils import BaseTestRunner
 logger = logging.getLogger(__name__)
 
 
-def setup_module(module):
+def setup_module(module):  # pylint: disable=unused-argument
     # Here, we add compatibility for multiprocessing coverage reports.
     # via: https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-use-multiprocessing-pool
     try:
@@ -31,7 +31,7 @@ def setup_module(module):
 
 
 class TestQFitProtein(BaseTestRunner):
-    def mock_main(self, file_ext, tmp_dir):
+    def mock_main(self, file_ext, tmp_dir):  # pylint: disable=unused-argument
         data_dir = os.path.join(os.path.dirname(__file__), "basic_qfit_protein_test")
         # Prepare args
         args = [
@@ -76,7 +76,7 @@ class TestQFitProtein(BaseTestRunner):
         print(f"TMP for {file_ext} is {tmp_dir}")
         qfit = self.mock_main(file_ext, tmp_dir)
         # Run qfit object
-        multiconformer = qfit._run_qfit_residue_parallel()
+        multiconformer = qfit._run_qfit_residue_parallel()  # pylint: disable=protected-access
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
         mconformer_resn = [r.resn[0] for r in mconformer_list]

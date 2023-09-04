@@ -362,7 +362,7 @@ class QFitProtein:
                 "multiconformer_residue.pdb",
             )
             if not os.path.exists(fname):
-                logger.warn(
+                logger.warning(
                     f"[{residue.shortcode}] Couldn't find {fname}! "
                     "Will not be present in multiconformer_model.pdb!"
                 )

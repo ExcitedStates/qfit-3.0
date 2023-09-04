@@ -8,7 +8,7 @@ from .structure import Structure, Segment
 from .structure.ligand import CovalentLigand, Ligand
 from .xtal.scaler import MapScaler
 from .xtal.transformer import Transformer
-from .xtal.volume import EMMap, XMap
+from .xtal.volume import XMap
 
 
 LOGGER = logging.getLogger(__name__)

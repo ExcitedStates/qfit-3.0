@@ -53,7 +53,7 @@ class TestQfitResidueSampling(SyntheticMapRunner):
     def _run_sample(self, residue, structure, xmap, options):
         with self._run_in_tmpdir():
             runner = QFitRotamericResidue(residue, structure, xmap, options)
-            runner._sample_sidechain()
+            runner._sample_sidechain()  # pylint: disable=protected-access
             return runner
 
     def _run_sample_sidechain_3mer(self, pdb_file, mtz_file, options):

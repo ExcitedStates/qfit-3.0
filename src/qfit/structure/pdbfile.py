@@ -1,5 +1,5 @@
 import gzip
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import itertools as itl
 from math import inf
 import logging
@@ -8,7 +8,7 @@ import numpy as np
 
 import iotbx.pdb
 import iotbx.cif.model
-from libtbx import group_args, smart_open
+from libtbx import smart_open
 
 __all__ = ["read_pdb", "write_pdb", "read_pdb_or_mmcif", "write_mmcif", "ANISOU_FIELDS"]
 logger = logging.getLogger(__name__)
@@ -90,7 +90,10 @@ def _from_iotbx_pdb_hierarchy(
             for key, uij_n_frac in zip(ANISOU_FIELDS, atom.uij):
                 uij_n_int = int(np.round(uij_n_frac * 10000))
                 anisou[key].append(uij_n_int)
-    return group_args(
+    fields = ["coor", "anisou", "link", "resolution", "crystal_symmetry",
+              "pdb_hierarchy", "file_format"]
+    PDBInput = namedtuple("PDBInput", fields)
+    return PDBInput(
         coor=data,
         anisou=anisou,
         link=link,
@@ -222,17 +225,24 @@ def write_mmcif(fname, structure):
         print(cif_object, file=f)
 
 
-class RecordParser(object):
+class RecordParser:
     """
     Interface class to provide record parsing routines for a PDB file.  This
     is no longer used for parsing ATOM records or crystal symmetry, which are
     handled by CCTBX, but it remains useful as a generic fixed-column-width
     parser for other records that CCTBX leaves unstructured.
 
-    Deriving classes should have class variables for {fields, columns, dtypes, fmtstr}.
+    Deriving classes should have class variables for {fields, columns, dtypes,
+    fmtstr}.
     """
+    fields = tuple()
+    columns = tuple()
+    dtypes = tuple()
+    fmtstr = tuple()
+    fmttrs = tuple()
 
-    __slots__ = ("fields", "columns", "dtypes", "fmtstr", "fmttrs")
+    # prevent assigning additional attributes
+    __slots__ = []
 
     @classmethod
     def parse_line(cls, line):

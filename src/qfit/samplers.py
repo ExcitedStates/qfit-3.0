@@ -240,7 +240,7 @@ class ChiRotator:
         self.residue = residue
         self.chi_index = chi_index
         # Get the coordinates that define the torsion angle
-        torsion_atoms = self.residue._rotamers["chi"][chi_index]
+        torsion_atoms = self.residue.get_residue_info("chi")[chi_index]
         selection = self.residue.select("name", torsion_atoms)
         new_selection = []
         for atom in torsion_atoms:
@@ -261,7 +261,7 @@ class ChiRotator:
         self._forward = self._backward.T.copy()
 
         # Save the coordinates aligned along the Z-axis for fast future rotation
-        atoms_to_rotate = self.residue._rotamers["chi-rotate"][chi_index]
+        atoms_to_rotate = self.residue.get_residue_info("chi-rotate")[chi_index]
         self._atom_selection = self.residue.select("name", atoms_to_rotate)
         if covalent in atoms_to_rotate:
             # If we are rotating the atom that is covalently bonded

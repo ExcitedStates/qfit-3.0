@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import os.path
 from copy import copy
 from itertools import product
@@ -46,13 +47,17 @@ class Resolution:
         return Resolution(self.high, self.low)
 
 
-class _BaseVolume:
+class _BaseVolume(ABC):
     def __init__(self, array, grid_parameters=None, origin=(0, 0, 0)):
         self.array = array
         if grid_parameters is None:
             grid_parameters = GridParameters()
         self.grid_parameters = grid_parameters
         self.origin = np.asarray(origin, np.float64)
+
+    @abstractmethod
+    def write_map_file(self, file_name):
+        ...
 
     @property
     def shape(self):
@@ -85,21 +90,6 @@ class _BaseVolume:
         grid = flex.grid((ox, oy, oz), (nx + ox, ny + oy, nz + oz))
         density.reshape(grid)
         return density
-
-    def write_map_file(self, file_name):
-        density = self.as_cctbx_map()
-        if file_name.endswith(".ccp4"):
-            writer = iotbx.ccp4_map.write_ccp4_map
-        else:
-            writer = iotbx.mrcfile.write_ccp4_map
-        writer(
-            file_name=file_name,
-            unit_cell=self.unit_cell.to_cctbx(),
-            space_group=self.unit_cell.space_group.as_cctbx_group(),
-            unit_cell_grid=[int(x) for x in self.unit_cell_shape],
-            map_data=density,
-            labels=flex.std_string(["qfit"]),
-        )
 
 
 # XXX currently unused
@@ -391,13 +381,17 @@ class XMap(_BaseVolume):
     def set_space_group(self, space_group):
         self.unit_cell.set_space_group(space_group)
 
-
-class ASU:
-
-    """Assymetric Unit Cell"""
-
-    def __init__(
-        self, array, grid_parameters=None, unit_cell=None, resolution=None, hkl=None
-    ):
-        raise NotImplementedError
-        super().__init__(array, grid_parameters, unit_cell, resolution, hkl)
+    def write_map_file(self, file_name):
+        density = self.as_cctbx_map()
+        if file_name.endswith(".ccp4"):
+            writer = iotbx.ccp4_map.write_ccp4_map
+        else:
+            writer = iotbx.mrcfile.write_ccp4_map
+        writer(
+            file_name=file_name,
+            unit_cell=self.unit_cell.to_cctbx(),
+            space_group=self.unit_cell.space_group.as_cctbx_group(),
+            unit_cell_grid=[int(x) for x in self.unit_cell_shape],
+            map_data=density,
+            labels=flex.std_string(["qfit"]),
+        )
