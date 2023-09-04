@@ -2,9 +2,7 @@ import gc
 import multiprocessing as mp
 import os.path
 import os
-import sys
 import time
-import argparse
 import logging
 import traceback
 import itertools as itl
@@ -498,7 +496,7 @@ class QFitProtein:
 
         # Determine if q-score is too low
         if options.qscore is not None:
-            (chainid, resi, icode) = residue._identifier_tuple
+            (chainid, resi, icode) = residue.identifier_tuple
             if (
                 list(
                     options.qscore[
@@ -523,7 +521,7 @@ class QFitProtein:
                 return
 
         # Copy the structure
-        (chainid, resi, icode) = residue._identifier_tuple
+        (chainid, resi, icode) = residue.identifier_tuple
         resi_selstr = f"chain {chainid} and resi {resi}"
         if icode:
             resi_selstr += f" and icode {icode}"
@@ -558,10 +556,7 @@ class QFitProtein:
                 f"[{qfit.identifier}] This is a result of the following exception:\n"
                 f"{tb})"
             )
-            qfit.conformer = residue.copy()
-            qfit._occupancies = [residue.q]
-            qfit._coor_set = [residue.coor]
-            qfit._bs = [residue.b]
+            qfit.reset_residue(residue)
 
         # Save multiconformer_residue
         qfit.tofile()

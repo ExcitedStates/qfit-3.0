@@ -1,19 +1,14 @@
 from abc import ABC, abstractmethod
 import os.path
 from copy import copy
-from itertools import product
 from numbers import Real
-from struct import unpack as _unpack, pack as _pack
-from sys import byteorder as _BYTEORDER
 import logging
-import time
 
 import numpy as np
 from scipy.ndimage import map_coordinates
 from iotbx.reflection_file_reader import any_reflection_file
 import iotbx.ccp4_map
 import iotbx.mrcfile
-from cctbx import sgtbx
 from scitbx.array_family import flex
 
 from qfit.xtal.spacegroups import SpaceGroup

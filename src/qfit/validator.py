@@ -1,4 +1,3 @@
-import copy
 import os
 
 import numpy as np
@@ -8,7 +7,7 @@ from qfit.xtal.volume import XMap
 from qfit.xtal.transformer import Transformer
 from qfit.structure import Structure
 
-class Validator(object):
+class Validator:
     def __init__(self, xmap, resolution, directory, em=False):
         self.xmap = xmap
         self.resolution = resolution

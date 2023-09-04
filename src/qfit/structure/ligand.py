@@ -5,7 +5,6 @@ from scipy.spatial.distance import pdist, squareform
 
 from .base_structure import _BaseStructure
 from .mmCIF import mmCIFDictionary
-from .math import get_rotation_around_vector
 
 
 class Ligand(_BaseStructure):

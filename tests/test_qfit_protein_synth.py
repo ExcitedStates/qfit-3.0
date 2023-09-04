@@ -3,10 +3,7 @@ Relatively fast integration tests of qfit_protein using synthetic data for
 a variety of small peptides with several alternate conformers.
 """
 
-from collections import defaultdict
 import subprocess
-import unittest
-import tempfile
 import os.path as op
 import os
 import sys
@@ -17,6 +14,7 @@ import pytest
 from qfit.structure import Structure
 from qfit.utils.mock_utils import BaseTestRunner
 
+DISABLE_SLOW = os.environ.get("QFIT_ENABLE_SLOW_TESTS", None) is None
 
 class SyntheticMapRunner(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "data")
@@ -185,12 +183,12 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         s = Structure.fromfile("multiconformer_model2.pdb")
         trp_confs = [r for r in s.residues if r.resn[0] == "TRP"]
         # FIXME with the minimized model we get 4 confs, at any resolution
-        # assert len(trp_confs) == 3
+        assert len(trp_confs) >= 3
 
     def _validate_phe_3mer_confs(
         self, pdb_file_multi, new_model_name="multiconformer_model2.pdb"
     ):
-        rotamers_in = self._get_model_rotamers(pdb_file_multi)
+        #rotamers_in = self._get_model_rotamers(pdb_file_multi)
         rotamers_out = self._get_model_rotamers(new_model_name, chi_radius=15)
         # Phe2 should have two rotamers, but this may occasionally appear as
         # three due to the ring flips, and we can't depend on which orientation
@@ -284,6 +282,7 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
 
+    @pytest.mark.skipif(DISABLE_SLOW, reason="Slow P6322 symmetry test disabled")
     def test_qfit_protein_3mer_lys_p6322_all_sites(self):
         """
         Iterate over all symmetry operators in the P6(3)22 space group and
@@ -293,7 +292,6 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         d_min = 1.2
         pdb_multi = self._get_file_path("AKA_p6322_3conf.pdb")
         pdb_single_start = self._get_file_path("AKA_p6322_single.pdb")
-        cwd = os.getcwd()
         for i_op, pdb_single in enumerate(
             self._iterate_symmetry_mate_models(pdb_single_start)
         ):

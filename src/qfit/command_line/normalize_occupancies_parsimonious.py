@@ -1,12 +1,7 @@
 """Automatically build a multiconformer residue"""
 
 import argparse
-import logging
-import copy
 import os
-from string import ascii_uppercase
-import sys
-import time
 
 import numpy as np
 
@@ -61,7 +56,7 @@ def main():
             altlocs = list(set(residue.altloc))
             # Deal with the simplest case first: only a single conformer
             if len(altlocs) == 1:
-                residue._q[residue._selection] = 1.0
+                residue.q = 1.0
                 continue
 
             # Should we collapse the backbone for the current residue?
@@ -84,12 +79,12 @@ def main():
                 # and fix altloc and occupancy of the backbone
                 if should_collapse:
                     print("collapse!")
-                    conf1._q[conf1._selection] = 1.0
-                    conf1._altloc[conf1._selection] = ""
+                    conf1.q = 1.0
+                    conf1.altloc = ""
                     for altloc2 in altlocs[1:]:
                         conf2 = residue.extract("altloc", altloc2)
                         conf2 = conf2.extract("name", ("N", "CA", "C", "O"))
-                        [to_remove.append(x) for x in conf2._selection]
+                        to_remove.extend(list(conf2.selection))
                     print(to_remove)
                     conf1.tofile(str(residue.chain[0]) + str(residue.resi[0]) + ".pdb")
 
@@ -102,17 +97,13 @@ def main():
                     conf1 = residue.extract("altloc", altloc1)
                     conf1 = conf1.extract("name", ("N", "CA", "C", "O"), "!=")
                     if np.min(conf1.q) < args.occ_cutoff:
-                        [to_remove.append(x) for x in conf1._selection]
+                        to_remove.extend(list(conf1.selection))
                         continue
                     for altloc2 in altlocs[i + 1 :]:
                         conf2 = residue.extract("altloc", altloc2)
                         conf2 = conf2.extract("name", ("N", "CA", "C", "O"), "!=")
                         if conf1.rmsd(conf2) < args.rmsd_cutoff:
-                            [to_remove.append(x) for x in conf2._selection]
-                """ try:
-                    structure._altloc[conf._selection] = ''
-                except:
-                    pass """
+                            to_remove.extend(list(conf2.selection))
             # Now, to the case where the backbone is not collapsed
             else:
                 # Here, we only want to remove if ALL conformers are identical or below
@@ -146,21 +137,21 @@ def main():
                     for altloc1 in altlocs:
                         conf1 = residue.extract("altloc", altloc1)
                         if np.min(conf1.q) > args.occ_cutoff and found_unique_conf:
-                            [to_remove.append(x) for x in conf1._selection]
+                            to_remove.extend(list(conf1.selection))
                             found_unique_conf = True
 
                 # If the occupancy of the conformer fell below the cutoff...
                 for altloc in altlocs:
                     conf = residue.extract("altloc", altloc)
                     if np.min(conf.q) < args.occ_cutoff:
-                        [to_remove.append(x) for x in conf._selection]
+                        to_remove.extend(list(conf.selection))
 
     # Remove conformers in to_remove list:
     mask = structure.active
     mask[to_remove] = False
     data = {}
     for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[mask]
+        data[attr] = structure.get_array(attr).copy()[mask]
     structure = Structure(data).reorder()
     # for chain in structure:
     #   for residue in chain:
@@ -176,12 +167,12 @@ def main():
                 pass
             naltlocs = len(altlocs)
             if naltlocs < 2:
-                residue._q[residue._selection] = 1.0
-                residue._altloc[residue._selection] = ""
+                residue.q = 1.0
+                residue.altloc = ""
             else:
                 conf = residue.extract("altloc", altlocs)
                 natoms = len(residue.extract("altloc", altlocs[-1]).name)
                 factor = natoms / np.sum(conf.q)
-                residue._q[conf._selection] *= factor
+                residue._q[conf.selection] *= factor
     structure.tofile(output_file)
     print(len(to_remove))

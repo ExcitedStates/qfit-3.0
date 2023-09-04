@@ -1,7 +1,5 @@
-import copy
-
 import numpy as np
-from numpy.fft import fftn, ifftn, rfftn, irfftn
+from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
 
 from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
@@ -53,7 +51,6 @@ class SFTransformer:
                 sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
             fft_grid[lsym, ksym, hsym] = sf
             fft_grid[-lsym, -ksym, -hsym] = sf.conj()
-        # grid = np.fft.ifftn(fft_grid)
         nx = shape[-1]
         grid = np.fft.irfftn(fft_grid[:, :, : nx // 2 + 1])
         grid -= grid.mean()

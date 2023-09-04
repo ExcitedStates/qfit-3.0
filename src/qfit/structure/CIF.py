@@ -35,8 +35,6 @@ class CIFFile:
         self.data_blocks = []
 
     def load_file(self, f):
-        import types
-
         if isinstance(f, (str,)):
             name = f
             f = open(f)
@@ -160,7 +158,7 @@ class Lexer:
             self.pushed_token = None
             return t
 
-        from string import whitespace, digits
+        from string import whitespace
 
         while True:
             #

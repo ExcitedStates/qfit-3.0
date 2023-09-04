@@ -1,11 +1,9 @@
 import itertools
 import logging
 import os
-from sys import argv
 import copy
 from string import ascii_uppercase
 from collections import namedtuple
-import subprocess
 
 import numpy as np
 import tqdm
@@ -153,6 +151,7 @@ class _BaseQFit:
         self._smax = None
         self._simple = True
         self._rmask = 1.5
+        self._cd = lambda: NotImplemented
 
         if self.options.em == True:
             self.options.scattering = "electron"  # making sure electron SF are used
@@ -303,7 +302,7 @@ class _BaseQFit:
         self,
         cardinality,
         threshold,
-        loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
+        loop_range=(0.5, 0.4, 0.33, 0.3, 0.25, 0.2),
         do_BIC_selection=None,
         segment=None,
     ):
@@ -454,7 +453,7 @@ class _BaseQFit:
 
             data = {}
             for attr in self.conformer.data:
-                array1 = getattr(self.conformer, attr)
+                array1 = self.conformer.get_array(attr)
                 data[attr] = array1[self.conformer.active]
             Structure(data).tofile(fname)
 
@@ -646,11 +645,11 @@ class QFitRotamericResidue(_BaseQFit):
 
             # Rebuild to include the new residue atoms
             index = len(self.structure.record)
-            mask = getattr(self.residue, "atomid") >= index
+            mask = self.residue.atomid >= index
             data = {}
             for attr in self.structure.data:
                 data[attr] = np.concatenate(
-                    (getattr(structure, attr), getattr(residue, attr)[mask])
+                    (structure.get_array(attr), residue.get_array(attr)[mask])
                 )
 
             # Create a new Structure, and re-extract the current residue from it.
@@ -720,6 +719,12 @@ class QFitRotamericResidue(_BaseQFit):
     @property
     def primary_entity(self):
         return self.residue
+
+    def reset_residue(self, residue):
+        self.conformer = residue.copy()
+        self._occupancies = [residue.q]
+        self._coor_set = [residue.coor]
+        self._bs = [residue.b]
 
     @property
     def directory_name(self):
@@ -875,9 +880,8 @@ class QFitRotamericResidue(_BaseQFit):
         # Create an array of amplitudes to scan:
         #   We start from stepsize, making sure to stop only after bba.
         #   Also include negative amplitudes.
-        eps = ((bba / bbs) / 2) * np.finfo(
-            float
-        ).epsneg  # ε to avoid FP errors in arange
+        # ε to avoid FP errors in arange
+        eps = ((bba / bbs) / 2) * np.finfo(float).epsneg  # pylint: disable=no-member
         amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
         amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
@@ -1158,8 +1162,7 @@ class QFitSegment(_BaseQFit):
 
     def __init__(self, structure, xmap, options):
         self.segment = structure
-        super(QFitSegment, self).__init__(structure, structure, xmap, options,
-                                          reset_q=False)
+        super().__init__(structure, structure, xmap, options, reset_q=False)
         self.options.bic_threshold = self.options.seg_bic_threshold
         self.fragment_length = options.fragment_length
         self.orderings = []
@@ -1222,13 +1225,13 @@ class QFitSegment(_BaseQFit):
                         O_single = np.linalg.norm(O_pos - conformer.coor[mask][1])
                         O_single = O_single <= 0.05
                     except TypeError:
-                        CA_pos, O_pos = [coor for coor in conformer.coor[mask]]
+                        CA_pos, O_pos = list(conformer.coor[mask])
                 multiconformer.append(conformer)
 
             # Check to see if the residue has a single conformer:
             if naltlocs == 1:
                 # Process the existing segment
-                if len(segment):
+                if len(segment) > 0:
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
                 segment = []
@@ -1241,7 +1244,7 @@ class QFitSegment(_BaseQFit):
             # Check if we need to collapse the backbone
             elif CA_single and O_single:
                 # Process the existing segment
-                if len(segment):
+                if len(segment) > 0:
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
                 segment = []
@@ -1257,7 +1260,7 @@ class QFitSegment(_BaseQFit):
         # Teardown progress bar
         residue_groups_pbar.close()
 
-        if len(segment):
+        if len(segment) > 0:
             logger.debug(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
                 multiconformers = multiconformers.combine(path)
@@ -1446,7 +1449,7 @@ class QFitLigand(_BaseQFit):
                 logger.info("Starting local search")
                 self._local_search()
             self._coor_set.append(self._starting_coor_set)
-            self.ligand._active[self.ligand._selection] = True
+            self.ligand.active = True
             logger.info("Starting sample internal dofs")
             self._sample_internal_dofs()
             self._all_coor_set += self._coor_set
@@ -1458,8 +1461,8 @@ class QFitLigand(_BaseQFit):
 
         # Find consensus across roots:
         self.conformer = self.ligand
-        self.ligand._q[self.ligand._selection] = 1.0
-        self.ligand._active[self.ligand._selection] = True
+        self.ligand.q = 1.0
+        self.ligand.active = True
         self._coor_set = self._all_coor_set
         self._bs = self._all_bs
         if len(self._coor_set) < 1:
@@ -1484,13 +1487,13 @@ class QFitLigand(_BaseQFit):
         # Set occupancies of rigid cluster and its direct neighboring atoms to
         # 1 for clash detection and MIQP
         selection = self.ligand._selection
-        self.ligand._active[selection] = True
+        self.ligand.active = True
         center = self.ligand.coor[self._cluster].mean(axis=0)
         new_coor_set = []
         new_bs = []
         for coor, b in zip(self._coor_set, self._bs):
-            self.ligand._coor[selection] = coor
-            self.ligand._b[selection] = b
+            self.ligand.coor = coor
+            self.ligand.b = b
             rotator = GlobalRotator(self.ligand, center=center)
             for rotmat in RotationSets.get_local_set():
                 rotator(rotmat)
@@ -1515,7 +1518,8 @@ class QFitLigand(_BaseQFit):
                             new_coor_set.append(new_coor)
                             new_bs.append(b)
 
-        self.ligand._active[self.ligand._selection] = False
+        self.ligand.active = False
+        # FIXME this logic should not use internal variables
         selection = self.ligand._selection[self._cluster]
         self.ligand._active[selection] = True
         for atom in self._cluster:
@@ -1568,7 +1572,7 @@ class QFitLigand(_BaseQFit):
                 end_bond_index = min(
                     starting_bond_index + self.options.dofs_per_iteration, nbonds
                 )
-            self.ligand._active[selection] = True
+            self.ligand.active = True
             for bond_index in range(starting_bond_index, end_bond_index):
                 nbonds_sampled = bond_index + 1
 
@@ -1577,8 +1581,8 @@ class QFitLigand(_BaseQFit):
                 new_coor_set = []
                 new_bs = []
                 for coor, b in zip(self._coor_set, self._bs):
-                    self.ligand._coor[selection] = coor
-                    self.ligand._b[selection] = b
+                    self.ligand.coor = coor
+                    self.ligand.b = b
                     rotator = BondRotator(self.ligand, *atoms)
                     for angle in self._sampling_range:
                         new_coor = rotator(angle)
@@ -1604,8 +1608,8 @@ class QFitLigand(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-            self.ligand._active[selection] = False
-            active = np.zeros_like(self.ligand._active[selection], dtype=bool)
+            self.ligand.active = False
+            active = np.zeros_like(self.ligand.active, dtype=bool)
             # Activate all the atoms of the ligand that have been sampled
             # up until the bond we are currently sampling:
             for cluster in self._rigid_clusters:
@@ -1614,7 +1618,7 @@ class QFitLigand(_BaseQFit):
                         active[cluster] = True
                         for atom in cluster:
                             active[self.ligand.connectivity[atom]] = True
-            self.ligand._active[selection] = active
+            self.ligand.active = active
             self.conformer = self.ligand
 
             logger.info(f"Nconf: {len(self._coor_set)}")
@@ -1694,7 +1698,7 @@ class QFitCovalentLigand(_BaseQFit):
             data = {}
             for attr in receptor.data:
                 data[attr] = np.concatenate(
-                    (getattr(receptor, attr), getattr(covalent_ligand, attr))
+                    (receptor.get_array(attr), covalent_ligand.get_array(attr))
                 )
             mask = (data["resi"] == covalent_ligand.resi[0]) & (
                 data["chain"] == covalent_ligand.chain[0]
@@ -1998,10 +2002,9 @@ class QFitCovalentLigand(_BaseQFit):
                     "clashes and density support."
                 )
                 raise RuntimeError(msg)
-            else:
-                logger.info(
-                    f"Side chain sampling produced {len(self._coor_set)} conformers"
-                )
+            logger.info(
+                f"Side chain sampling produced {len(self._coor_set)} conformers"
+            )
 
             self._save_intermediate(f"sample_sidechain_iter{iteration}")
 
@@ -2157,10 +2160,9 @@ class QFitCovalentLigand(_BaseQFit):
                     "clashes and density support."
                 )
                 raise RuntimeError(msg)
-            else:
-                logger.info(
-                    f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers"
-                )
+            logger.info(
+                f"Ligand sampling {iteration} generated {len(self._coor_set)} conformers"
+            )
 
             self._solve_qp_and_update(f"sample_ligand_iter{iteration}_qp")
             self._solve_miqp_and_update(f"sample_ligand_iter{iteration}_miqp")

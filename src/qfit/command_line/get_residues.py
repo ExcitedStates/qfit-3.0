@@ -2,11 +2,7 @@
 # XXX this is also redundant with phenix.pdbtools
 
 import argparse
-import logging
 import os
-from string import ascii_uppercase
-import sys
-import time
 
 import numpy as np
 

@@ -4,7 +4,6 @@ Test qfit_ligand using synthetic structures
 
 import subprocess
 import string
-import os
 
 from iotbx.file_reader import any_file
 

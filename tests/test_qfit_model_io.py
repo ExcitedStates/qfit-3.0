@@ -1,7 +1,6 @@
 import pytest
 import os
 import logging
-import multiprocessing as mp
 
 import numpy as np
 

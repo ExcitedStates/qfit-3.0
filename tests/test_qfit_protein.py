@@ -1,8 +1,6 @@
-import pytest
 import os
 import logging
 import tempfile
-import multiprocessing as mp
 
 from qfit.command_line.qfit_protein import (
     QFitOptions,

@@ -3,7 +3,6 @@ Additional utilities for unit-testing with mock data
 """
 
 import tempfile
-import unittest
 import os.path as op
 
 from qfit.utils.mock_utils import BaseTestRunner

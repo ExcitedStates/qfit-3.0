@@ -1,10 +1,8 @@
 """Hierarchically build a multiconformer ligand."""
 
-import argparse
 import logging
 import os.path
 import os
-import sys
 import time
 from string import ascii_uppercase
 
@@ -123,14 +121,14 @@ def prepare_qfit_ligand(options):
     if options.cif_file:
         ligand = Ligand(
             structure_ligand.data,
-            structure_ligand._selection,
+            structure_ligand.selection,
             link_data=structure_ligand.link_data,
             cif_file=options.cif_file,
         )
     else:
         ligand = Ligand(
             structure_ligand.data,
-            structure_ligand._selection,
+            structure_ligand.selection,
             link_data=structure_ligand.link_data,
         )
     if ligand.natoms == 0:
@@ -229,11 +227,11 @@ def main():
     # Stitch back protein and other HETATM to the multiconformer ligand output
     multiconformer_ligand_bound = receptor.combine(multiconformer_ligand_bound)
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
+        options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
+            options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
         )
     try:
         multiconformer_ligand_bound.tofile(fname)

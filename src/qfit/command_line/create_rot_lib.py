@@ -1,19 +1,6 @@
 import argparse
-import copy
-import itertools
-import logging
-import os
-import subprocess
-from sys import argv
 
-import numpy as np
-
-from qfit.samplers import ChiRotator, CBAngleRotator, BondRotator
-from qfit.samplers import CovalentBondRotator, GlobalRotator
-from qfit.samplers import RotationSets, Translator
-from qfit.structure import Structure, Segment, calc_rmsd
-from qfit.structure.residue import residue_type
-from qfit.structure.rotamers import ROTAMERS
+from qfit.structure import Structure
 
 
 def build_argparser():

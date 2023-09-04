@@ -1,13 +1,11 @@
 import argparse
 from collections import namedtuple
-import logging
 import os
 from string import ascii_uppercase
 
 import numpy as np
 
 from qfit import Structure
-from qfit.structure.rotamers import ROTAMERS
 
 
 def parse_args():
@@ -114,7 +112,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (qfit.structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure.ResidueGroup): residue to perform occupancy
             redistribution on by iterating over atoms
         cutoff (float): occupancy threshold
     """
@@ -124,7 +122,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
     # Create a map of atomname → occupancies
     atom_occs = dict()
     for name, altloc, atomidx, q in zip(
-        residue.name, residue.altloc, residue._selection, residue.q
+        residue.name, residue.altloc, residue.selection, residue.q
     ):
         if name not in atom_occs:
             atom_occs[name] = list()
@@ -175,7 +173,7 @@ def redistribute_occupancies_by_residue(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (qfit.structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure.ResidueGroup): residue to perform occupancy
             redistribution on
         cutoff (float): occupancy threshold
     """
@@ -245,7 +243,7 @@ def main():
     # Create structure without low occupancy confs (culling)
     data = {}
     for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[~mask]
+        data[attr] = structure.get_array(attr).copy()[~mask]
     structure = Structure(data).reorder()
 
     # add het atoms back in

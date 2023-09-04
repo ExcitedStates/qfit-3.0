@@ -1,16 +1,9 @@
 """Automatically build a multiconformer residue."""
 
 import argparse
-import logging
 import os
-from string import ascii_uppercase
-import sys
-import time
-
-import numpy as np
 
 from qfit import Structure
-from qfit.structure import residue_type
 
 
 def parse_args():

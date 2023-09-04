@@ -1,4 +1,3 @@
-import gzip
 from collections import defaultdict, namedtuple
 import itertools as itl
 from math import inf

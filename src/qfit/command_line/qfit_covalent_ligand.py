@@ -1,6 +1,5 @@
 """Hierarchically build a multiconformer ligand."""
 
-import argparse
 import logging
 import os.path
 import os
@@ -155,7 +154,7 @@ def main(argv=sys.argv):
     else:
         level = logging.INFO
     logging.basicConfig(filename=logging_fname, level=level)
-    logger.info(" ".join(sys.argv))
+    logger.info(" ".join(argv))
     logger.info(time.strftime("%c %Z"))
     if args.verbose:
         console_out = logging.StreamHandler(stream=sys.stdout)
@@ -198,14 +197,14 @@ def main(argv=sys.argv):
     if args.cif_file:
         covalent_ligand = CovalentLigand(
             structure_ligand.data,
-            structure_ligand._selection,
+            structure_ligand.selection,
             link_data=structure_ligand.link_data,
             cif_file=args.cif_file,
         )
     else:
         covalent_ligand = CovalentLigand(
             structure_ligand.data,
-            structure_ligand._selection,
+            structure_ligand.selection,
             link_data=structure_ligand.link_data,
         )
     if covalent_ligand.natoms == 0:

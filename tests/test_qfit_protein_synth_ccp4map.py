@@ -5,12 +5,10 @@ Fast qfit_protein integration tests using ccp4 maps as input
 # FIXME resolve different outcomes from MTZ-input base class
 
 import subprocess
-import os.path as op
 import os
 
 import pytest
 
-from qfit.structure import Structure
 from qfit.xtal.volume import XMap
 
 from .test_qfit_protein_synth import TestQfitProteinSyntheticData as _BaseClass

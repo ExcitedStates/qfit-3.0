@@ -1,4 +1,3 @@
-import unittest
 import tempfile
 import os.path as op
 

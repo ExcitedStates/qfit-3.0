@@ -3,7 +3,6 @@ Unit tests for structure I/O and basic manipulation
 """
 
 import tempfile
-import unittest
 import os.path as op
 
 import numpy as np

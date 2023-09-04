@@ -42,7 +42,7 @@ def run_phenix_aniso(structure,
     out_root = f"out_{chain_id}_{resid}"
     structure.tofile(f"{out_root}.pdb")
     # FIXME this should just call mmtbx directly
-    subprocess.run(
+    subprocess.check_call(
         [
             "phenix.pdbtools",
             "modify.selection="
@@ -59,37 +59,37 @@ def run_phenix_aniso(structure,
 
     # Add hydrogens to the structure:
     with open(f"{out_root}_modified_H.pdb", "w") as out_mod_H:
-        subprocess.run(
+        subprocess.check_call(
             ["phenix.reduce", f"{out_root}_modified.pdb"], stdout=out_mod_H
         )
 
     # Generate CIF file of unknown ligands for refinement:
-    subprocess.run(["phenix.elbow", "--do_all", f"{out_root}_modified_H.pdb"])
+    subprocess.check_call(["phenix.elbow", "--do_all", f"{out_root}_modified_H.pdb"])
 
     # Run the refinement protocol:
     if os.path.isfile(f"elbow.{out_root}_modified_H_pdb.all.001.cif"):
         elbow = f"elbow.{out_root}_modified_H_pdb.all.001.cif"
-        subprocess.run(
+        subprocess.check_call(
             [
                 "phenix.refine",
                 f"{options.map}",
                 f"{out_root}_modified_H.pdb",
                 "--overwrite",
                 f"chain_{chain_id}_res_{resid}_adp.params",
-                f"refinement.input.xray_data.labels=F-obs",
+                "refinement.input.xray_data.labels=F-obs",
                 f"{elbow}",
             ]
         )
     else:
         # Run the refinement protocol:
-        subprocess.run(
+        subprocess.check_call(
             [
                 "phenix.refine",
                 f"{options.map}",
                 f"{out_root}_modified_H.pdb",
                 "--overwrite",
                 f"chain_{chain_id}_res_{resid}_adp.params",
-                f"refinement.input.xray_data.labels=F-obs",
+                "refinement.input.xray_data.labels=F-obs",
             ]
         )
     return (f"{out_root}_modified_H_refine_001.pdb",

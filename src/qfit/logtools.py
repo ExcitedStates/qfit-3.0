@@ -62,11 +62,11 @@ def log_run_info(options, logger):
     logger.info(f"===== qFit version: {version} =====")
     logger.info(time.strftime("%c %Z"))
     logger.info(f"{cmd}")
-    logger.info(f"===== qFit parameters: =====")
+    logger.info("===== qFit parameters: =====")
     for key in vars(options).keys():
         logger.info(f"{key}: {getattr(options, key)}")
     logger.info(f"numpy float resolution: {np.finfo(float).resolution:.1e}")  # pylint: disable=no-member
-    logger.info(f"============================\n")
+    logger.info("============================\n")
 
 
 def poolworker_setup_logging(logqueue):

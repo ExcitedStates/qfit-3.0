@@ -72,8 +72,7 @@ class Weight:
             return self.P(dist, self.m2, self.c2, self.b2)
         elif dist < self.r2:
             return self.P(dist, self.m3, self.c3, self.b3)
-        else:
-            return 0.0
+        return 0.0
 
 
 class Point:
@@ -168,7 +167,7 @@ class _BaseEDIA:
                                     dist = np.linalg.norm(
                                         coor - self.Grid[i][j][k].coor
                                     )
-                                except:
+                                except Exception:
                                     self.Grid[i][j][k] = Point(
                                         np.dot(
                                             np.asarray([k, j, i])
@@ -283,7 +282,7 @@ class _BaseEDIA:
                 < float(BondLengthTable[atom_a[2]][atom_b[2]]) + error
             ):
                 return 1
-        except:
+        except Exception:
             return 0
         return 0
 
@@ -431,7 +430,7 @@ class _BaseEDIA:
                     OPIA,
                 )
             )
-        except:
+        except Exception:
             print(
                 "{0} Comb {1:.2f} {2:.2f} {3:.2f}".format(
                     residue.resi[0], sum(occupancy.values()), EDIAm_Comb, OPIA
@@ -481,11 +480,10 @@ class _BaseEDIA:
     def DFS(self, residue, label):
         if self.visited[residue] != 0:
             return
-        else:
-            self.visited[residue] = label
-            for i in range(len(self.adj_matrix)):
-                if self.adj_matrix[residue][i]:
-                    self.DFS(i, label)
+        self.visited[residue] = label
+        for i in range(len(self.adj_matrix)):
+            if self.adj_matrix[residue][i]:
+                self.DFS(i, label)
 
 
 class ediaResidue(_BaseEDIA):
@@ -545,17 +543,10 @@ def parse_args():
     return p.parse_args()
 
 
-""" Main function """
-
-
 def main():
     args = parse_args()
-    """ Create the output directory provided by the user: """
     os.makedirs(args.directory, exist_ok=True)
-
     time0 = time.time()  # Useful variable for profiling run times.
-
-    """ Processing input structure and map """
     # Read structure in:
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
@@ -580,9 +571,4 @@ def main():
     else:
         edia = ediaResidue(residue, structure, xmap, options)
     edia()
-
-    """ Profiling run time: """
     passed = time.time() - time0
-
-
-#    print(f"Time passed: {passed}s")

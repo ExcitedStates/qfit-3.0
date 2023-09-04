@@ -2,18 +2,14 @@ import argparse
 import logging
 from math import sqrt
 import os
-from string import ascii_uppercase
-import sys
 import time
 
 import numpy as np
 
-from qfit.structure import BondLengthTable
 from qfit.xtal.electron_density_radii import ElectronDensityRadiusTable, ResolutionBins
 from qfit import (
     Structure,
     XMap,
-    Transformer,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,7 +153,7 @@ class _BaseConvertMap:
                                     dist = np.linalg.norm(
                                         coor - self.Grid[i][j][k].coor
                                     )
-                                except:
+                                except Exception:
                                     self.Grid[i][j][k] = Point(
                                         np.dot(
                                             np.asarray([k, j, i])
@@ -228,13 +224,13 @@ class _BaseConvertMap:
                         green[row + j][column + k] = min(
                             255, 255 * self.Grid[i][j][k].Green / 3.0
                         )
-                    except:
+                    except Exception:
                         green[row + j][column + k] = 255
                     try:
                         blue[row + j][column + k] = 255 - min(
                             255, self.Grid[i][j][k].Blue * 255 / 100
                         )
-                    except:
+                    except Exception:
                         blue[row + j][column + k] = 255
             column += len(self.xmap.array[0][0])
             if column >= dim * len(self.xmap.array[0][0]):
@@ -310,30 +306,17 @@ def parse_args():
     return p.parse_args()
 
 
-""" Main function """
-
-
 def main():
     args = parse_args()
-    """ Create the output directory provided by the user: """
     os.makedirs(args.directory, exist_ok=True)
-
     time0 = time.time()  # Useful variable for profiling run times.
-    """ Processing input structure and map """
-    # Read structure in:
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
     structure = structure.extract("altloc", ("", "A", "B", "C", "D", "E"))
-    # Prepare X-ray map
     xmap = XMap.fromfile(args.xmap)
-
     options = converterOptions()
     options.apply_command_args(args)
-
     converter = ConvertMap(structure, xmap, options)
     converter()
-    """ Profiling run time: """
     passed = time.time() - time0
-
-
 #    print(f"Time passed: {passed}s")

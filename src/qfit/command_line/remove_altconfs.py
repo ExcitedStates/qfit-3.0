@@ -2,20 +2,14 @@
 # XXX note that phenix.pdbtools remove_alt_confs=True will do the same thing
 
 import argparse
-import logging
 import os
-from string import ascii_uppercase
 import sys
-import time
 
 from scitbx.array_family import flex
 from iotbx.file_reader import any_file
 
-from qfit import Structure
-from qfit.structure import residue_type
 
-
-def parse_args(argv=sys.argv):
+def parse_args(argv):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
     # Output options
@@ -31,8 +25,8 @@ def parse_args(argv=sys.argv):
     return p.parse_args(argv[1:])
 
 
-def main(argv=sys.argv):
-    args = parse_args(argv)
+def main():
+    args = parse_args(sys.argv)
     os.makedirs(args.directory, exist_ok=True)
     pdb_file = any_file(args.structure)
     hierarchy = pdb_file.file_object.hierarchy

@@ -1,8 +1,4 @@
-import unittest
-import os.path as op
-
 import numpy as np
-import pytest
 
 from qfit.xtal.mtzfile import MTZFile
 

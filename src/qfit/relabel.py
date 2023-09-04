@@ -1,12 +1,11 @@
-import argparse
-import sys
-import numpy as np
 import itertools as itl
 import copy
 import tqdm
 import logging
-from .structure.vdw_radii import vdwRadiiTable, EpsilonTable, EpsilonIndex, EpsilonArray
-from .structure import Structure
+
+import numpy as np
+
+from .structure.vdw_radii import vdwRadiiTable, EpsilonIndex, EpsilonArray
 
 
 logger = logging.getLogger(__name__)
@@ -244,11 +243,10 @@ class Relabeller:
                 for altloc in list(set(residue.altloc)):
                     if altloc == "":
                         continue
-                    else:
-                        Idx = perm[minIdx][res].index(node)
-                        new_altloc = Altlocs[Idx]
-                        mask = residue.altloc == altloc
-                        tmpAltlocs[mask] = new_altloc
+                    Idx = perm[minIdx][res].index(node)
+                    new_altloc = Altlocs[Idx]
+                    mask = residue.altloc == altloc
+                    tmpAltlocs[mask] = new_altloc
                     node += 1
                 residue.altloc = copy.deepcopy(tmpAltlocs)
                 res += 1

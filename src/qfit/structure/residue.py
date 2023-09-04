@@ -1,12 +1,11 @@
-import numpy as np
-import copy
-import math
-import logging
 import itertools as itl
+import logging
+
+import numpy as np
+
 from .base_structure import _BaseStructure
 from .math import *
 from .rotamers import ROTAMERS
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +60,7 @@ class _BaseResidue(_BaseStructure):
         return string
 
     @property
-    def _identifier_tuple(self):
+    def identifier_tuple(self):
         """Returns (chain, resi, icode) to identify this residue."""
         chainid = self.chain[0]
         resi, icode = self.id
@@ -70,7 +69,7 @@ class _BaseResidue(_BaseStructure):
 
     @property
     def shortcode(self):
-        (chainid, resi, icode) = self._identifier_tuple
+        (chainid, resi, icode) = self.identifier_tuple
         shortcode = f"{chainid}_{resi}"
         if icode:
             shortcode += f"_{icode}"
@@ -92,11 +91,11 @@ class _BaseResidue(_BaseStructure):
         )
 
 
-class _Residue(_BaseResidue):
+class Residue(_BaseResidue):
     pass
 
 
-class _RotamerResidue(_BaseResidue):
+class RotamerResidue(_BaseResidue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         resname = self.resn[0]
@@ -430,7 +429,7 @@ class _RotamerResidue(_BaseResidue):
         # Loop over parameters, and return the first success.
         for try_theta, try_L in tries:
             try:
-                coordinates = _RotamerResidue.position_from_bond_parms(
+                coordinates = RotamerResidue.position_from_bond_parms(
                     i, j, k, try_L, try_theta, chi
                 )
             except ValueError:
@@ -619,29 +618,17 @@ class _RotamerResidue(_BaseResidue):
             index = len(self.data["record"]) - 1
         for attr in self.data:
             if attr == "e":
-                setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), element))
+                self.data[attr] = np.append(self.data[attr], element)
             elif attr == "atomid":
-                setattr(
-                    self, "_" + attr, np.append(getattr(self, "_" + attr), index + 1)
-                )
+                self.data[attr] = np.append(self.data[attr], index + 1)
             elif attr == "name":
-                setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), name))
+                self.data["name"] = np.append(self.data["name"], name)
             elif attr == "coor":
-                setattr(
-                    self,
-                    "_" + attr,
-                    np.append(
-                        getattr(self, "_" + attr), np.expand_dims(coor, axis=0), axis=0
-                    ),
-                )
+                self.data["coor"] = np.append(self.data["coor"], np.expand_dims(coor, axis=0))
             else:
-                setattr(
-                    self,
-                    "_" + attr,
-                    np.append(getattr(self, "_" + attr), getattr(self, attr)[-1]),
-                )
-        setattr(self, "_selection", np.append(self.__dict__["_selection"], index + 1))
-        setattr(self, "natoms", self.natoms + 1)
+                self.data[attr] = np.append(self.data[attr], self.get_array(attr)[-1])
+        self._selection = np.append(self._selection, index + 1)
+        self.natoms += 1
 
     def reorder(self):
         atoms = self._residue_info["atoms"] + self._residue_info["hydrogens"]

@@ -26,9 +26,7 @@ def adp_ellipsoid_axes(U_ij):
     # Scale unit eigenvectors by associated eigenvalues to return principal axes
     #   TODO: Should we? This would mean -bba/-bbs would not behave as expected.
     # directions = [e for e in (eigvals * eigvecs).T]
-    directions = [e for e in eigvecs.T]
-
-    return directions
+    return list(eigvecs.T)
 
 
 def compute_jacobian5d(bb_coor):

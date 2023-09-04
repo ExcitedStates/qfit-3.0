@@ -1,6 +1,5 @@
 """Automatically build a multiconformer residue."""
 
-import argparse
 import logging
 import os
 import sys
@@ -156,7 +155,7 @@ def main(argv=sys.argv):
     # try:
     if os.path.isfile(args.directory + "/multiconformer_residue.pdb"):
         print("This residue has completed")
-        exit()
+        sys.exit(0)
     else:
         print("Beginning qfit_residue")
 

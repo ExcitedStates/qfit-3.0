@@ -2,16 +2,9 @@
 # XXX this seems like a duplicate of remove_altconfs
 
 import argparse
-import logging
 import os
-import sys
-import time
-from string import ascii_uppercase
-
-import numpy as np
 
 from qfit import Structure
-from qfit.structure import residue_type
 
 
 def parse_args():

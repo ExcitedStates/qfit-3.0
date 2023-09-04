@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-from scipy import sparse
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ __all__ = ["QPSolver", "MIQPSolver", "SolverError"]
 
 
 # Define the required functions for (MI)QP solver objects
-class _Base_QPSolver(object):
+class _Base_QPSolver:
     """Base class for Quadratic Programming solvers.
 
     Declares required interface functions for child classes to overwrite."""
@@ -206,7 +205,7 @@ if CPLEX:
 
 
 # Create a "pseudo-class" to abstract the choice of solver.
-class QPSolver(object):
+class QPSolver:
     def __new__(cls, *args, **kwargs):
         """Return a constructor for the appropriate solver."""
 
@@ -243,7 +242,7 @@ class QPSolver(object):
 
 
 # Create a "pseudo-class" to abstract the choice of solver.
-class MIQPSolver(object):
+class MIQPSolver:
     def __new__(cls, *args, **kwargs):
         """Construct an initialised instance of the appropriate solver."""
 

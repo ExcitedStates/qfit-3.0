@@ -50,8 +50,8 @@ class BackboneRotator:
             self._atoms_to_rotate.append(np.unique(atoms_to_rotate))
 
     def __call__(self, torsions):
-        assert len(torsions) == self.ndofs, "Number of torsions should equal "
-        " degrees of freedom"
+        assert len(torsions) == self.ndofs, \
+            "Number of torsions should equal degrees of freedom"
 
         # We start with the last torsion as this is more efficient
         torsions = np.deg2rad(torsions[::-1])
@@ -190,11 +190,11 @@ class BondAngleRotator:
         self.atom3 = a3
 
         # Determine which atoms will be moved by the rotation.
-        self._root = getattr(ligand, key).tolist().index(a2)
+        self._root = ligand.get_array(key).tolist().index(a2)
         self._conn = ligand.connectivity
         self.atoms_to_rotate = [self._root]
         self._foundroot = 0
-        curr = getattr(ligand, key).tolist().index(a3)
+        curr = ligand.get_array(key).tolist().index(a3)
         self._find_neighbours_recursively(curr)
         if self._foundroot > 1:
             raise ValueError("Atoms are part of a ring. Bond angle cannot be rotated.")
@@ -205,7 +205,7 @@ class BondAngleRotator:
         self._t = self.ligand.coor[self._root]
         self._coor_to_rotate -= self._t
         # The rotation axis is the cross product between a1 and a3.
-        a1_coor = self.ligand.coor[getattr(ligand, key).tolist().index(a1)]
+        a1_coor = self.ligand.coor[ligand.get_array(key).tolist().index(a1)]
         axis = np.cross(a1_coor - self._t, self._coor_to_rotate[1])
 
         # Align the rotation axis to the z-axis for the coordinates
@@ -295,7 +295,7 @@ class CovalentBondRotator:
         self.atom2 = a2
 
         # Determine which atoms will be moved by the rotation.
-        self._root = getattr(covalent_residue, key).tolist().index(a1)
+        self._root = covalent_residue.get_array(key).tolist().index(a1)
         self._conn = ligand.connectivity
         self.atoms_to_rotate = range(len(ligand.name))
 
@@ -334,11 +334,11 @@ class BondRotator:
         self.atom2 = a2
 
         # Determine which atoms will be moved by the rotation.
-        self._root = getattr(ligand, key).tolist().index(a1)
+        self._root = ligand.get_array(key).tolist().index(a1)
         self._conn = ligand.connectivity
         self.atoms_to_rotate = [self._root]
         self._foundroot = 0
-        curr = getattr(ligand, key).tolist().index(a2)
+        curr = ligand.get_array(key).tolist().index(a2)
         self._find_neighbours_recursively(curr)
         # if self._foundroot > 1:
         #    raise ValueError("Atoms are part of a ring. Bond cannot be rotated.")

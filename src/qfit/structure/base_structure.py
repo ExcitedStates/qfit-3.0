@@ -1,5 +1,5 @@
+from abc import ABC
 import logging
-from collections import defaultdict
 from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
 
@@ -13,7 +13,7 @@ from .selector import _Selector
 logger = logging.getLogger(__name__)
 
 
-class _BaseStructure:
+class _BaseStructure(ABC):
     REQUIRED_ATTRIBUTES = [
         "record",
         "name",
@@ -39,46 +39,23 @@ class _BaseStructure:
         self._selection = selection
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
-        self.link_data = {}
-        self.crystal_symmetry = None
-        self.unit_cell = None
-        self.file_format = None  # "pdb"  # default is PDB
-        for attr, array in data.items():
-            hattr = "_" + attr
-            setattr(self, hattr, array)
-            prop = self._structure_property(hattr)
-            setattr(self.__class__, attr, prop)
-        self._x, self._y, self._z = self._coor.T
-        for attr in "xyz":
-            hattr = "_" + attr
-            prop = self._structure_property(hattr)
-            setattr(self.__class__, attr, prop)
-
-        for key, value in kwargs.items():
-            if key in self.OTHER_ATTRIBUTES:
-                setattr(self, key, value)
-
+        self.link_data = kwargs.get("link_data", {})
+        self.crystal_symmetry = kwargs.get("crystal_symmetry", None)
+        self.unit_cell = kwargs.get("unit_cell", None)
+        self.file_format = kwargs.get("file_format", None)
+        # FIXME
+        self._coor = data["coor"]
+        self._name = data["name"]
+        self._active = data["active"]
+        self._b = data["b"]
+        self._q = data["q"]
+        self.total_length = self._coor.shape[0]
         if selection is None:
-            self.natoms = self._coor.shape[0]
+            self.natoms = self.total_length
         else:
             self.natoms = self._selection.size
 
-    def _structure_property(self, property_name, docstring=None):
-        def getter(self):
-            if self._selection is None:
-                return self.__getattribute__(property_name).copy()
-            else:
-                return self.__getattribute__(property_name)[self._selection]
-
-        def setter(self, value):
-            if self._selection is None:
-                getattr(self, property_name)[:] = value
-            else:
-                getattr(self, property_name)[self._selection] = value
-
-        return property(getter, setter, doc=docstring)
-
-    def _get_property(self, ptype):
+    def _get_element_property(self, ptype):
         elements, ind = np.unique(self.e, return_inverse=True)
         values = []
         for e in elements:
@@ -93,24 +70,27 @@ class _BaseStructure:
         out = np.asarray(values, dtype=np.float64)[ind]
         return out
 
+    @property
+    def selection(self):
+        return self._selection
+
     def get_selected_data(self):
         if self._selection is None:
             return self.data
-        else:
-            return {k: v[self._selection] for k, v in self.data.items()}
+        return {k: v[self._selection] for k, v in self.data.items()}
 
     @property
     def covalent_radius(self):
-        return self._get_property("covrad")
+        return self._get_element_property("covrad")
 
     @property
     def vdw_radius(self):
-        return self._get_property("vdwrad")
+        return self._get_element_property("vdwrad")
 
     def copy(self):
         data = {}
         for attr in self.data:
-            data[attr] = getattr(self, attr).copy()
+            data[attr] = self.get_array(attr).copy()
         return self.__class__(data, parent=None, selection=None, **self._kwargs)
 
     def get_dihedral_angle(self, coor):
@@ -135,7 +115,8 @@ class _BaseStructure:
         coor2 = structure.coor
         if coor1.shape != coor2.shape:
             raise ValueError("Coordinate shapes are not equivalent")
-        if "TYR" in self.resn:
+        resnames = set(self.resn)
+        if "TYR" in resnames:
             idx_cd1 = structure.name.tolist().index("CD1")
             idx_cd2 = structure.name.tolist().index("CD2")
             idx_ce1 = structure.name.tolist().index("CE1")
@@ -149,7 +130,7 @@ class _BaseStructure:
                 np.sqrt(3 * np.inner(diff, diff) / diff.size),
                 np.sqrt(3 * np.inner(diff2, diff2) / diff2.size),
             )
-        if "PHE" in self.resn:
+        elif "PHE" in resnames:
             idx_cd1 = structure.name.tolist().index("CD1")
             idx_cd2 = structure.name.tolist().index("CD2")
             idx_ce1 = structure.name.tolist().index("CE1")
@@ -163,9 +144,8 @@ class _BaseStructure:
                 np.sqrt(3 * np.inner(diff, diff) / diff.size),
                 np.sqrt(3 * np.inner(diff2, diff2) / diff2.size),
             )
-        else:
-            diff = (coor1 - coor2).ravel()
-            return np.sqrt(3 * np.inner(diff, diff) / diff.size)
+        diff = (coor1 - coor2).ravel()
+        return np.sqrt(3 * np.inner(diff, diff) / diff.size)
 
     def select(self, string, values=None, comparison="=="):
         if values is None:
@@ -176,7 +156,7 @@ class _BaseStructure:
         return selection
 
     def _simple_select(self, attr, values, comparison_str):
-        data = getattr(self, attr)
+        data = self.get_array(attr)
         comparison = self._COMPARISON_DICT[comparison_str]
         if not isinstance(values, Iterable) or isinstance(values, str):
             values = (values,)
@@ -197,8 +177,7 @@ class _BaseStructure:
             return self.to_pdb_file(fname, cryst)
         elif fname.endswith(".cif") or fname.endswith(".cif.gz"):
             return self.to_mmcif_file(fname, cryst)
-        else:
-            raise ValueError("Don't know how to write format for '{}'!".format(fname))
+        raise ValueError("Don't know how to write format for '{}'!".format(fname))
 
     def to_pdb_file(self, fname, cryst=None):
         if cryst != None:
@@ -213,3 +192,94 @@ class _BaseStructure:
     def translate(self, translation):
         """Translate atoms"""
         self.coor += translation
+
+    def get_array(self, key):
+        if self._selection is None:
+            return self.data[key].copy()
+        return self.data[key][self._selection]
+
+    def _set_array(self, key, value):
+        if self._selection is None:
+            self.data[key][:] = value
+        else:
+            self.data[key][self._selection] = value
+
+    @property
+    def record(self):
+        return self.get_array("record")
+
+    @property
+    def name(self):
+        return self.get_array("name")
+
+    @name.setter
+    def name(self, value):
+        self._set_array("name", value)
+
+    @property
+    def b(self):
+        return self.get_array("b")
+
+    @b.setter
+    def b(self, value):
+        self._set_array("b", value)
+
+    @property
+    def q(self):
+        return self.get_array("q")
+
+    @q.setter
+    def q(self, value):
+        self._set_array("q", value)
+
+    @property
+    def coor(self):
+        return self.get_array("coor")
+
+    @coor.setter
+    def coor(self, value):
+        self._set_array("coor", value)
+
+    @property
+    def resn(self):
+        return self.get_array("resn")
+
+    @property
+    def resi(self):
+        return self.get_array("resi")
+
+    @property
+    def icode(self):
+        return self.get_array("icode")
+
+    @property
+    def e(self):
+        return self.get_array("e")
+
+    @property
+    def charge(self):
+        return self.get_array("charge")
+
+    @property
+    def chain(self):
+        return self.get_array("chain")
+
+    @property
+    def altloc(self):
+        return self.get_array("altloc")
+
+    @altloc.setter
+    def altloc(self, value):
+        self._set_array("altloc", value)
+
+    @property
+    def atomid(self):
+        return self.get_array("atomid")
+
+    @property
+    def active(self):
+        return self.get_array("active")
+
+    @active.setter
+    def active(self, value):
+        self._set_array("active", value)

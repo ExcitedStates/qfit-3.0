@@ -164,7 +164,7 @@ def getSpaceGroup(name):
     try:
         return SpaceGroup.from_symbol(name)
     except RuntimeError as e:
-        raise Sorry(f"{e}")
+        raise Sorry(f"{e}") from e
 
 
 # XXX unused, but preserving in case of future need

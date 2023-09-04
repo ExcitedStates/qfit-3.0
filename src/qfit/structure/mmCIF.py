@@ -11,7 +11,6 @@ included as a specialized version of the mmCIF parser.
 
 import re
 import copy
-import itertools
 
 ##
 ## DATA STRUCTURES FOR HOLDING CIF INFORMATION

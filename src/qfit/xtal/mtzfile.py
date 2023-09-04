@@ -4,11 +4,11 @@ from iotbx.file_reader import any_file
 
 
 class _Column:
-    def __init__(self, label, type, min, max, data, source=""):
+    def __init__(self, label, type_, min_, max_, data, source=""):
         self.label = label
-        self.type = type
-        self.min = min
-        self.max = max
+        self.type = type_
+        self.min = min_
+        self.max = max_
         self.data = data
         self.source = source
 
@@ -17,9 +17,9 @@ class _Column:
 
 
 class _DataSet:
-    def __init__(self, id, name):
+    def __init__(self, id_, name):
         self.name = name
-        self.id = id
+        self.id = id_
         self.columns = []
 
     def __repr__(self):

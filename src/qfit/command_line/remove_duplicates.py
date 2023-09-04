@@ -1,16 +1,10 @@
 """Delete duplicate atom entries"""
 import argparse
-import logging
 import os
-from string import ascii_uppercase
-import sys
-import time
 
 import numpy as np
 
 from qfit import Structure
-from qfit.structure import residue_type
-from qfit.structure.residue import _RotamerResidue
 from qfit.structure.rotamers import ROTAMERS
 
 

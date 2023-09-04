@@ -5,9 +5,8 @@ import itertools
 from .base_structure import _BaseStructure
 from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
 from .ligand import Ligand
-from .residue import _Residue, _RotamerResidue, residue_type
+from .residue import Residue, RotamerResidue, residue_type
 from .rotamers import ROTAMERS
-from .math import Rz
 from qfit.xtal.unitcell import UnitCell
 from qfit.utils.normalize_to_precision import normalize_to_precision
 
@@ -21,6 +20,7 @@ class Structure(_BaseStructure):
                 raise ValueError(
                     f"Not all attributes are given to " f"build the structure: {attr}"
                 )
+        self._dist2_matrix = None
         super().__init__(data, **kwargs)
         self._chains = []
 
@@ -76,7 +76,7 @@ class Structure(_BaseStructure):
     def fromstructurelike(structure_like):
         data = {}
         for attr in structure_like.data:
-            data[attr] = getattr(structure_like, attr)
+            data[attr] = structure_like.get_array(attr)
         return Structure(data)
 
     @classmethod
@@ -165,12 +165,12 @@ class Structure(_BaseStructure):
             chain = _Chain(self.data, selection=selection, parent=self, chainid=chainid)
             self._chains.append(chain)
 
-    def combine(self, structure):
+    def combine(self, other):
         """Combines two structures into one"""
         data = {}
         for attr in self.data:
-            array1 = getattr(self, attr)
-            array2 = getattr(structure, attr)
+            array1 = self.get_array(attr)
+            array2 = other.get_array(attr)
             combined = np.concatenate((array1, array2))
             data[attr] = combined
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
@@ -200,7 +200,7 @@ class Structure(_BaseStructure):
         )
 
         for attr in self.data:
-            array1 = getattr(self, attr)
+            array1 = self.get_array(attr)
             if attr == "altloc":
                 array1[mask2] = ""
             if attr == "q":
@@ -216,7 +216,7 @@ class Structure(_BaseStructure):
             self.data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
         )
         for attr in self.data:
-            array1 = getattr(self, attr)
+            array1 = self.get_array(attr)
             data[attr] = array1[~mask]
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
@@ -237,24 +237,12 @@ class Structure(_BaseStructure):
                 self.data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
             )
         for attr in self.data:
-            array1 = getattr(self, attr)
+            array1 = self.get_array(attr)
             if attr == "q":
                 array1[mask] = 0.0
                 array1[mask2] = 1.0
             data[attr] = array1
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
-
-    def register(self, attr, array):
-        """Register array attribute"""
-        if self.parent is not None:
-            msg = "This structure has a parent, registering a new array \
-                    is not allowed."
-            raise ValueError(msg)
-
-        self.data[attr] = array
-        hattr = "_" + attr
-        setattr(self, hattr, array)
-        setattr(self.__class__, attr, self._structure_property(hattr))
 
     def reorder(self):
         ordering = []
@@ -296,7 +284,7 @@ class Structure(_BaseStructure):
                                 residue_ordering.append(index)
                             except ValueError:
                                 continue
-                        residue_ordering = rg._selection[residue_ordering]
+                        residue_ordering = rg.selection[residue_ordering]
                     else:
                         atoms_per_altloc = []
                         zip_atoms = True
@@ -318,7 +306,7 @@ class Structure(_BaseStructure):
                                     residue_ordering.append(index)
                                 except ValueError:
                                     continue
-                            residue_ordering = altconf._selection[residue_ordering]
+                            residue_ordering = altconf.selection[residue_ordering]
                             residue_orderings.append(residue_ordering)
                         if (
                             zip_atoms
@@ -338,7 +326,7 @@ class Structure(_BaseStructure):
                     ordering.append(residue_ordering)
                     continue
                 for ag in rg.atom_groups:
-                    ordering.append(ag._selection)
+                    ordering.append(ag.selection)
         ordering = np.concatenate(ordering)
         data = {}
         for attr, value in self.data.items():
@@ -368,7 +356,7 @@ class Structure(_BaseStructure):
                         self.data["chain"] == residue.chain[0]
                     )
                     for attr in data:
-                        array = getattr(multiconformer, attr)
+                        array = multiconformer.get_array(attr)
                         if attr == "q":
                             array[mask] = 1.0
                         elif attr == "altloc":
@@ -384,7 +372,7 @@ class Structure(_BaseStructure):
                             & (self.data["altloc"] == "")
                         )
                         for attr in data:
-                            array = getattr(multiconformer, attr)
+                            array = multiconformer.get_array(attr)
                             if attr == "q":
                                 array[mask] = 1.0
                             elif attr == "altloc":
@@ -414,7 +402,7 @@ class Structure(_BaseStructure):
                             & (self.data["altloc"] == altlocs[i])
                         )
                         for attr in data:
-                            array = getattr(multiconformer, attr)
+                            array = multiconformer.get_array(attr)
                             if attr == "q":
                                 array[mask] = new_occ[i]
                             data[attr] = array
@@ -435,7 +423,7 @@ class Structure(_BaseStructure):
         )
 
         for attr in self.data:
-            array1 = getattr(self, attr)
+            array1 = self.get_array(attr)
             if attr == "q":
                 array1[mask] = array1[mask] + array1[mask2]
             data[attr] = array1[~mask2]
@@ -555,7 +543,7 @@ class Structure(_BaseStructure):
         Deactivated atoms are not taken into account.
         """
 
-        if not hasattr(self, "_dist2_matrix"):
+        if self._dist2_matrix is None:
             self._init_clash_detection()
         dm = self._dist2_matrix
         coor = self.coor
@@ -589,7 +577,7 @@ class Structure(_BaseStructure):
         # Copy the attributes of the masked atoms:
         data = {}
         for attr in neighbors.data:
-            array1 = getattr(neighbors, attr)
+            array1 = neighbors.get_array(attr)
             data[attr] = array1[mask]
 
         # Return the new object:
@@ -685,7 +673,7 @@ class _Chain(_BaseStructure):
             resi = int(resi)
             selection = self.select("resi", resi)
             selection = np.intersect1d(selection, self.select("icode", icode))
-            residue_group = _ResidueGroup(
+            residue_group = ResidueGroup(
                 self.data, selection=selection, parent=self, resi=resi, icode=icode
             )
             self._residue_groups.append(residue_group)
@@ -712,7 +700,7 @@ class _Chain(_BaseStructure):
             self._conformers.append(conformer)
 
 
-class _ResidueGroup(_BaseStructure):
+class ResidueGroup(_BaseStructure):
 
     """Guarantees a group with similar resi and icode."""
 
@@ -767,6 +755,7 @@ class _AtomGroup(_BaseStructure):
 class _Atom:
     def __init__(self, data, index):
         self.index = index
+        # FIXME
         for attr, array in data.items():
             hattr = "_" + attr
             setattr(self, hattr, array)
@@ -851,11 +840,11 @@ class _Conformer(_BaseStructure):
             residue = self.extract(selection)
             rtype = residue_type(residue)
             if rtype == "rotamer-residue":
-                C = _RotamerResidue
+                C = RotamerResidue
             elif rtype == "aa-residue":
-                C = _Residue
+                C = Residue
             elif rtype == "residue":
-                C = _Residue
+                C = Residue
             elif rtype == "ligand":
                 C = Ligand
             else:
@@ -908,7 +897,7 @@ class _Conformer(_BaseStructure):
 
         for segment in segments:
             if len(segment) > 1:
-                selections = [residue._selection for residue in segment]
+                selections = [residue.selection for residue in segment]
                 selection = np.concatenate(selections)
                 segment = Segment(
                     self.data, selection=selection, parent=self, residues=segment
@@ -938,7 +927,7 @@ class Segment(_BaseStructure):
             residues = self.residues[arg]
             selections = []
             for residue in residues:
-                selections.append(residue._selection)
+                selections.append(residue.selection)
             selection = np.concatenate(selections)
             return Segment(
                 self.data, selection=selection, parent=self.parent, residues=residues

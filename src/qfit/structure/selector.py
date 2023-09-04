@@ -93,10 +93,9 @@ class _Selector:
         if id(self.structure) == id(structure):
             return
         self.structure = structure
-        self.curr_sel = self.structure._selection
+        self.curr_sel = self.structure.selection
         if self.curr_sel is None:
-            # FIXME use a proper size attribute here
-            self.curr_sel = np.arange(self.structure.name.size, dtype=np.uintp)
+            self.curr_sel = np.arange(self.structure.total_length, dtype=np.uintp)
 
     def _push_first(self, strg, loc, toks):
         self.expr_stack.append(toks[0])
@@ -118,7 +117,7 @@ class _Selector:
             return np.setdiff1d(self.curr_sel, self._evaluate_stack(s), True)
         elif token == "resi":
             elements = s.pop()
-            resi = getattr(self.structure, token)
+            resi = self.structure.get_array(token)
             selections = []
             while elements:
                 if len(elements) > 1 and elements[-2] == "-":
@@ -133,7 +132,7 @@ class _Selector:
             selection = np.unique(np.concatenate(selections))
             return selection
         elif token in ("resn", "chain", "name", "altloc", "icode"):
-            data = getattr(self.structure, token)
+            data = self.structure.get_array(token)
             picks = set(s.pop())
             selections = []
             for value in picks:
@@ -146,8 +145,8 @@ class _Selector:
         elif token == "resseq":
             picks = set(s.pop())
             selections = []
-            resi_data = getattr(self.structure, "resi")
-            icode_data = getattr(self.structure, "icode")
+            resi_data = self.structure.get_array("resi")
+            icode_data = self.structure.get_array("icode")
             for value in picks:
                 try:
                     resi, icode = value.split(".")
@@ -162,7 +161,7 @@ class _Selector:
             selection = np.concatenate(selections)
             return selection
         elif token in ("q", "b"):
-            data = getattr(self.structure, token)
+            data = self.structure.get_array(token)
             operator_str = s.pop()
             float_number = float(s.pop())
             loper = self._get_operator(operator_str)
