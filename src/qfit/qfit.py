@@ -14,7 +14,7 @@ from .clash import ClashDetector
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver, SolverError
+from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
 from .structure import Structure, _Segment, calc_rmsd
 from .structure.residue import residue_type
 from .structure.ligand import BondOrder
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Create a namedtuple 'class' (struct) which carries info about an MIQP solution
 MIQPSolutionStats = namedtuple(
-    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
+    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective_value", "weights"]
 )
 
 
@@ -73,6 +73,8 @@ class QFitOptions:
         self.rmsd_cutoff = 0.01
 
         # MIQP options
+        self.qp_solver = None
+        self.miqp_solver = None
         self.cplex = True
         self.cardinality = 5
         self.threshold = 0.20
@@ -272,14 +274,15 @@ class _BaseQFit:
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
-        solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
-        solver.solve()
+        qp_solver_class = get_qp_solver_class(self.options.qp_solver)
+        solver = qp_solver_class(self._target, self._models)
+        solver.solve_qp()
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights
 
         # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-        return solver.obj_value
+        return solver.objective_value
 
     def _solve_miqp(
         self,
@@ -298,7 +301,8 @@ class _BaseQFit:
 
         # Create solver
         logger.info("Solving MIQP")
-        solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
+        miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
+        solver = miqp_solver_class(self._target, self._models)
 
         # Threshold selection by BIC:
         if do_BIC_selection:
@@ -306,8 +310,8 @@ class _BaseQFit:
             # to determine if the better fit (RSS) justifies the use of a more complex model (k)
             miqp_solutions = []
             for threshold in loop_range:
-                solver.solve(cardinality=None, threshold=threshold)
-                rss = solver.obj_value * self._voxel_volume
+                solver.solve_miqp(cardinality=None, threshold=threshold)
+                rss = solver.objective_value * self._voxel_volume
                 n = len(self._target)
 
                 natoms = self._coor_set[0].shape[0]
@@ -323,7 +327,7 @@ class _BaseQFit:
                     threshold=threshold,
                     BIC=BIC,
                     rss=rss,
-                    objective=solver.obj_value.copy(),
+                    objective_value=solver.objective_value.copy(),
                     weights=solver.weights.copy(),
                 )
                 miqp_solutions.append(solution)
@@ -333,17 +337,17 @@ class _BaseQFit:
             self._occupancies = miqp_solution_lowest_bic.weights
 
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-            return miqp_solution_lowest_bic.objective
+            return miqp_solution_lowest_bic.objective_value
 
         else:
             # Run solver with specified parameters
-            solver.solve(cardinality=cardinality, threshold=threshold)
+            solver.solve_miqp(cardinality=cardinality, threshold=threshold)
 
             # Update occupancies from solver weights
             self._occupancies = solver.weights
 
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-            return solver.obj_value
+            return solver.objective_value
 
     def sample_b(self):
         """Create copies of conformers that vary in B-factor.

@@ -12,6 +12,8 @@ from string import ascii_uppercase
 from . import MapScaler, Structure, XMap, _Ligand
 from .qfit import QFitLigand, QFitOptions
 from .logtools import setup_logging, log_run_info
+from .solvers import available_qp_solvers, available_miqp_solvers
+
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -247,6 +249,22 @@ def build_argparser():
         action=ToggleActionFlag,
         default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
+    )
+
+    # Solver options
+    p.add_argument(
+        "--qp-solver",
+        dest="qp_solver_choice",
+        choices=available_qp_solvers.keys(),
+        default=next(iter(available_qp_solvers.keys())),
+        help="Select the QP solver",
+    )
+    p.add_argument(
+        "--miqp-solver",
+        dest="miqp_solver_choice",
+        choices=available_miqp_solvers.keys(),
+        default=next(iter(available_miqp_solvers.keys())),
+        help="Select the MIQP solver",
     )
 
     # Output options

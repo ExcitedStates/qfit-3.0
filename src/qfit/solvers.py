@@ -1,231 +1,50 @@
 from __future__ import annotations
 
+import inspect
 import logging
+import sys
+from abc import ABC, abstractmethod
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
+from numpy.typing import NDArray
+
+from .utils.optional_lazy_import import lazy_load_module_if_available
 
 logger = logging.getLogger(__name__)
-SolverError = ImportError("Could not load a valid solver.")
+
+SolverError: tuple[type[Exception], ...] = (RuntimeError,)
+
+__all__ = [
+    "available_qp_solvers",
+    "available_miqp_solvers",
+    "get_qp_solver_class",
+    "get_miqp_solver_class",
+]
 
 
-# Try load solver sets
-try:
-    import cvxopt
-    import cplex
-except ImportError:
-    CPLEX = False
-    msg = (
-        "CPLEX or CVXOPT is not install. Please re-install these packages and qFit to run"
-          )
-    raise RuntimeError(msg)
-else:
-    CPLEX = True
-    SolverError = cplex.exceptions.CplexSolverError
+###############################
+# Define solver "interfaces" / Abstractions
+#   All solvers in this module must subclass either QPSolver or MIQPSolver, and conform to the interface.
+#   The functions in the "Helper Methods" section depend on the subclass membership of these ABCs.
+###############################
 
 
-# Only these classes should be "public"
-__all__ = ["QPSolver", "MIQPSolver", "SolverError"]
+class GenericSolver(ABC):
+    # Class variables
+    driver_pkg_name: str
+    driver: Optional[ModuleType]
+
+    # Instance variables
+    target: NDArray[np.float_]  # 1D array of shape (n_voxels,)
+    models: NDArray[np.float_]  # 2D array of shape (n_models, n_voxels,)
+
+    weights: Optional[NDArray[np.float_]] = None
+    objective_value: Optional[float] = None
 
 
-# Define the required functions for (MI)QP solver objects
-class _Base_QPSolver(object):
-    """Base class for Quadratic Programming solvers.
-
-    Declares required interface functions for child classes to overwrite.
-    """
-
-    def solve(self):
-        raise NotImplementedError
-
-
-# If we can load the CPLEX solver set,
-# provide class definitions for a QP and MIQP solver.
-if CPLEX:
-    cvxopt.solvers.options["show_progress"] = False
-    cvxopt.solvers.options["abstol"] = 1e-8
-    cvxopt.solvers.options["reltol"] = 1e-7
-    cvxopt.solvers.options["feastol"] = 1e-8
-
-    class CPLEX_QPSolver(_Base_QPSolver):
-        """Quadratic Programming solver based on CPLEX."""
-
-        def __init__(self, target, models):
-            self._target = target
-            self._models = models
-            self._nconformers = models.shape[0]
-
-            self._solution = None
-            self.weights = None
-
-        def solve(self):
-            # Set up the matrices and restraints
-            logger.debug(
-                f"Building cvxopt matrix, size: ({self._nconformers},{self._nconformers})"
-            )
-
-            # minimize 0.5 x.T P x + q.T x
-            #   where P = self._quad_obj      =   ρ_model.T ρ_model
-            #         q = self._lin_obj       = - ρ_model.T ρ_obs
-            self._quad_obj = cvxopt.matrix(np.inner(self._models, self._models), tc="d")
-            self._lin_obj = cvxopt.matrix(-np.inner(self._models, self._target), tc="d")
-
-            # subject to:
-            #   G x ≤ h
-            #   where G = self._le_constraints
-            #         h = self._le_bounds
-            #
-            #   Each weight x falls in the closed interval [0..1], and the sum of all weights is <= 1.
-            #   This corresponds to 2 * nconformers bounds + 1 constraint.
-            #   We construct G with a sparse matrix.
-            #         constraint idx=[0..N)            constraint idx=[N..2N)                               constraint idx=2N
-            rowidxs = [*range(0, self._nconformers)] + [*range(self._nconformers, 2 * self._nconformers)] + (self._nconformers * [2 * self._nconformers])  # fmt:skip
-            #         -x_i ≤ 0                         x_i ≤ 1                                              Σ_i x_i ≤ 1
-            coeffs  = (self._nconformers * [-1.0])   + (self._nconformers * [1.0])                        + (self._nconformers * [1.0])  # fmt:skip
-            colidxs = [*range(0, self._nconformers)] + [*range(0, self._nconformers)]                     + [*range(0, self._nconformers)]  # fmt:skip
-            threshs = (self._nconformers * [0.0])    + (self._nconformers * [1.0])                        + [1.0]  # fmt:skip
-            self._le_constraints = cvxopt.spmatrix(coeffs, rowidxs, colidxs, tc="d")
-            self._le_bounds = cvxopt.matrix(threshs, tc="d")
-
-            # Solve
-            self._solution = cvxopt.solvers.qp(
-                self._quad_obj, self._lin_obj, self._le_constraints, self._le_bounds
-            )
-
-            # Store the density residual and the weights
-            self.obj_value = (
-                2 * self._solution["primal objective"] + 
-                np.inner(self._target, self._target)
-            )  # fmt:skip
-            self.weights = np.asarray(self._solution["x"]).ravel()
-
-    class CPLEX_MIQPSolver(_Base_QPSolver):
-        """Mixed-Integer Quadratic Programming solver based on CPLEX."""
-
-        def __init__(self, target, models, threads=1):
-            self.initialized = False
-            self._target = target
-            self._models = models
-            self._nconformers = models.shape[0]
-            self.threads = threads
-
-        def _initialize(self):
-            """Precompute the quadratic coefficients & objective (P, q).
-
-            These values don't depend on threshold/cardinality.
-            Having these objectives pre-computed saves a few cycles when MIQP
-            is evaluated for multiple values of threshold/cardinality.
-            """
-            # minimize 0.5 x.T P x + q.T x
-            #   where P = self._quad_obj =   ρ_model.T ρ_model
-            #         q = self._lin_obj  = - ρ_model.T ρ_obs
-            _quad_obj_coeffs = np.inner(self._models, self._models)
-            _lin_obj_coeffs = -np.inner(self._models, self._target)
-
-            # We have to unpack the arrays for CPLEX into CSR format (even though they're dense)
-            self._quad_obj: list[cplex.SparsePair] = []
-            for row in _quad_obj_coeffs:
-                idxs, vals = zip(*enumerate(row.tolist()))
-                self._quad_obj.append(cplex.SparsePair(ind=idxs, val=vals))
-
-            # CPLEX requires linear objectives as a list of (idx, val) tuples
-            self._lin_obj: list[tuple[int, float]]
-            self._lin_obj = list(enumerate(_lin_obj_coeffs))
-
-            self.initialized = True
-
-        def solve(self, cardinality=None, exact=False, threshold=None):
-            if not self.initialized:
-                self._initialize()
-
-            # Create and configure the cplex object
-            miqp = cplex.Cplex()
-            miqp.set_results_stream(None)
-            miqp.set_log_stream(None)
-            miqp.set_warning_stream(None)
-            miqp.set_error_stream(None)
-            if self.threads is not None:
-                miqp.parameters.threads.set(self.threads)
-
-            # Create variables and set linear constraints
-            # w_i ≤ 1
-            variable_names = [f"w{n}" for n in range(self._nconformers)]
-            upper_bounds = self._nconformers * [1.0]
-            miqp.variables.add(names=variable_names, ub=upper_bounds)
-
-            # Σ_i w_i ≤ 1
-            ind = range(self._nconformers)
-            val = self._nconformers * [1.0]
-            miqp.linear_constraints.add(
-                lin_expr=[cplex.SparsePair(ind=ind, val=val)],
-                senses=["L"],
-                rhs=[1.0],
-            )
-
-            # Setup quadratic objective of the MIQP
-            miqp.objective.set_quadratic(self._quad_obj)
-            miqp.objective.set_linear(self._lin_obj)
-            miqp.objective.set_sense(miqp.objective.sense.minimize)
-
-            # If cardinality or threshold is specified, the problem is a MIQP,
-            # so we need to add binary integer variables z_i.
-            if cardinality not in (None, 0) or threshold not in (None, 0):
-                # z_i ∈ {0, 1}
-                integer_names = [f"z{n}" for n in range(self._nconformers)]
-                variable_types = self._nconformers * miqp.variables.type.binary
-                miqp.variables.add(names=integer_names, types=variable_types)
-
-                # Only count weights for which z_i is 1
-                # w_i - z_i ≤ 0
-                # (∵ z_i ∈ {0,1} and 0 ≤ w_i ≤ 1, this is only true when z_i = 1)
-                lin_expr = [
-                    cplex.SparsePair(ind=[f"w{n}", f"z{n}"], val=[1, -1])
-                    for n in range(self._nconformers)
-                ]
-                senses = self._nconformers * ["L"]
-                rhs = self._nconformers * [0.0]
-                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-            # Set the threshold constraint if applicable
-            if threshold not in (None, 0):
-                # tdmin z_i - w_i ≤ 0, i.e. w_i ≥ tdmin
-                lin_expr = [
-                    cplex.SparsePair(ind=[f"z{n}", f"w{n}"], val=[threshold, -1])
-                    for n in range(self._nconformers)
-                ]
-                senses = self._nconformers * ["L"]
-                rhs = self._nconformers * [0.0]
-                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-            # Set the cardinality constraint if applicable
-            if cardinality not in (None, 0):
-                # Σ z_i ≤ cardinality
-                ind = [f"z{n}" for n in range(self._nconformers)]
-                val = self._nconformers * [1]
-                lin_expr = [cplex.SparsePair(ind=ind, val=val)]
-                if exact:
-                    senses = ["E"]
-                    rhs = [min(cardinality, self._nconformers)]
-                else:
-                    senses = ["L"]
-                    rhs = [cardinality]
-                miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-            # Solve
-            miqp.solve()
-
-            # Store the density residual and the weights
-            self.obj_value = (
-                2 * miqp.solution.get_objective_value()
-                + np.inner(self._target, self._target)
-            )  # fmt:skip
-            self.weights = np.array(miqp.solution.get_values()[: self._nconformers])
-
-            # Close the cplex object
-            miqp.end()
-
-
-# Create a "pseudo-class" to abstract the choice of solver.
-class QPSolver(object):
+class QPSolver(GenericSolver):
     """Finds the combination of conformer-occupancies that minimizes difference density.
 
     Problem statement
@@ -262,43 +81,12 @@ class QPSolver(object):
         0 ≤ ω_i ≤ 1
     """
 
-    def __new__(cls, *args, **kwargs):
-        """Return a constructor for the appropriate solver."""
-
-        # Default to using cplex if not specified.
-        use_cplex = kwargs.pop("use_cplex", True)
-
-        # Walk through solver decision tree.
-        if use_cplex:
-            if CPLEX:
-                return CPLEX_QPSolver(*args, **kwargs)
-            else:
-                raise ImportError(
-                    "qFit could not load modules for Quadratic Programming solver.\n"
-                    "Please install cvxopt & CPLEX."
-                )
-        else:
-            if CPLEX:
-                print(
-                    "WARNING: A different solver was requested, but only CPLEX solvers found.\n"
-                    "         Using CPLEX solver as fallback."
-                )
-                return CPLEX_QPSolver(*args, **kwargs)
-            else:
-                raise ImportError(
-                    "qFit could not load modules for Quadratic Programming solver.\n"
-                    "Please install cvxopt & CPLEX."
-                )
-
-    def __init__(self, *args, **kwargs):
-        # This pseudo-class does not generate class instances.
-        # As there are no instances of this class,
-        #   it does not need an instance initialiser.
-        raise NotImplementedError
+    @abstractmethod
+    def solve_qp(self) -> None:
+        ...
 
 
-# Create a "pseudo-class" to abstract the choice of solver.
-class MIQPSolver(object):
+class MIQPSolver(GenericSolver):
     """Finds the combination of conformer-occupancies that minimizes difference density.
 
     Problem statement
@@ -342,36 +130,318 @@ class MIQPSolver(object):
         t_min is the minimum-allowable threshold value for ω.
     """
 
-    def __new__(cls, *args, **kwargs):
-        """Construct an initialised instance of the appropriate solver."""
+    @abstractmethod
+    def solve_miqp(
+        self,
+        threshold: Optional[float] = None,
+        cardinality: Optional[int] = None,
+        exact: bool = False,
+    ) -> None:
+        ...
 
-        # Default to using cplex if not specified.
-        use_cplex = kwargs.pop("use_cplex", True)
 
-        # Walk through solver decision tree.
-        if use_cplex:
-            if CPLEX:
-                return CPLEX_MIQPSolver(*args, **kwargs)
+###############################
+# Define solver implementations
+###############################
+
+
+class CVXOPTSolver(QPSolver):
+    driver_pkg_name = "cvxopt"
+    driver = lazy_load_module_if_available(driver_pkg_name)
+    if TYPE_CHECKING:
+        import cvxopt
+
+    def __init__(self, target: NDArray[np.float_], models: NDArray[np.float_]) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.cvxopt
+            assert self.driver is not None
+
+        # Initialize variables
+        self.target = target
+        self.models = models
+
+        # self.quad_obj: self.driver.matrix
+        # self.lin_obj: self.driver.matrix
+        # self.le_constraints: self.driver.spmatrix
+        # self.le_bounds: self.driver.matrix
+
+        self.weights: Optional[NDArray[np.float_]] = None
+        self.objective_value: Optional[float] = None
+
+        self.solution: dict[str, Any]
+        self.nconformers = models.shape[0]
+
+        # Get the driver & set options
+        self.driver.solvers.options["show_progress"] = False
+        self.driver.solvers.options["abstol"] = 1e-8
+        self.driver.solvers.options["reltol"] = 1e-7
+        self.driver.solvers.options["feastol"] = 1e-8
+
+    def solve_qp(self) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.cvxopt
+            assert self.driver is not None
+
+        # Set up the matrices and restraints
+        logger.debug(
+            "Building cvxopt matrix, size: (%i,%i)",
+            self.nconformers,
+            self.nconformers,
+        )
+
+        # minimize 0.5 x.T P x + q.T x
+        #   where P = self.quad_obj        =   ρ_model.T ρ_model
+        #         q = self.lin_obj         = - ρ_model.T ρ_obs
+        self.quad_obj = self.driver.matrix(np.inner(self.models, self.models), tc="d")
+        self.lin_obj = self.driver.matrix(-np.inner(self.models, self.target), tc="d")
+
+        # subject to:
+        #   G x ≤ h
+        #   where G = self.le_constraints
+        #         h = self.le_bounds
+        #
+        #   Each weight x falls in the closed interval [0..1], and the sum of all weights is <= 1.
+        #   This corresponds to (2 * nconformers + 1) constraints, imposed on (nconformers) variables:
+        #     the lower bound accounts for (nconformers) constraints,
+        #     the upper bound accounts for (nconformers) constraints,
+        #     the summation constraint accounts for 1.
+        #   We construct G with a sparse matrix.
+        #         constraint idx=[0..N)           constraint idx=[N..2N)                             constraint idx=2N
+        rowidxs = [*range(0, self.nconformers)] + [*range(self.nconformers, 2 * self.nconformers)] + (self.nconformers * [2 * self.nconformers])  # fmt:skip
+        #         -x_i ≤ 0                        x_i ≤ 1                                            Σ_i x_i ≤ 1
+        coeffs  = (self.nconformers * [-1.0])   + (self.nconformers * [1.0])                       + (self.nconformers * [1.0])  # fmt:skip
+        colidxs = [*range(0, self.nconformers)] + [*range(0, self.nconformers)]                    + [*range(0, self.nconformers)]  # fmt:skip
+        threshs = (self.nconformers * [0.0])    + (self.nconformers * [1.0])                       + [1.0]  # fmt:skip
+        self.le_constraints = self.driver.spmatrix(coeffs, rowidxs, colidxs, tc="d")
+        self.le_bounds = self.driver.matrix(threshs, tc="d")
+
+        # Solve
+        self.solution = self.driver.solvers.qp(
+            self.quad_obj, self.lin_obj, self.le_constraints, self.le_bounds
+        )
+
+        # Store the density residual and the weights
+        self.objective_value = (
+            2 * self.solution["primal objective"] +
+            np.inner(self.target, self.target)
+        )  # fmt:skip
+        self.weights = np.asarray(self.solution["x"]).ravel()
+
+
+class CPLEXSolver(QPSolver, MIQPSolver):
+    driver_pkg_name = "cplex"
+    driver = lazy_load_module_if_available(driver_pkg_name)
+    if TYPE_CHECKING:
+        import cplex
+
+    def __init__(
+        self, target: NDArray[np.float_], models: NDArray[np.float_], nthreads: int = 1
+    ) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.cplex
+            assert self.driver is not None
+
+        # Initialize variables
+        self.target = target
+        self.models = models
+
+        self.quad_obj: list[object] = []
+        self.lin_obj: list[tuple[int, float]] = []
+
+        self.weights: Optional[NDArray[np.float_]] = None
+        self.objective_value: Optional[float] = None
+
+        self.nconformers = models.shape[0]
+        self.nthreads = nthreads
+
+        # Get the driver & append raisable Exceptions to SolverError class in module (global) scope
+        CplexSolverError: type[Exception] = self.driver.exceptions.CplexSolverError
+        global SolverError
+        SolverError += (CplexSolverError,)
+
+    def compute_quadratic_coeffs(self) -> None:
+        """Precompute the quadratic coefficients (P, q).
+
+        These values don't depend on threshold/cardinality.
+        Having these objectives pre-computed saves a few cycles when MIQP
+        is evaluated for multiple values of threshold/cardinality.
+        """
+        if TYPE_CHECKING:
+            self.driver = self.cplex
+            assert self.driver is not None
+
+        # minimize 0.5 x.T P x + q.T x
+        #   where P = self.quad_obj =   ρ_model.T ρ_model
+        #         q = self.lin_obj  = - ρ_model.T ρ_obs
+        quad_obj_coeffs = np.inner(self.models, self.models)
+        lin_obj_coeffs = -np.inner(self.models, self.target)
+
+        # We have to unpack the arrays for CPLEX into CSR format (even though they're dense)
+        self.quad_obj = []
+        for row in quad_obj_coeffs:
+            idxs, vals = zip(*enumerate(row.tolist()))
+            self.quad_obj.append(self.driver.SparsePair(ind=idxs, val=vals))
+
+        # CPLEX requires linear objectives as a list of (idx, val) tuples
+        self.lin_obj = list(enumerate(lin_obj_coeffs))
+
+    def solve_miqp(
+        self,
+        threshold: Optional[float] = None,
+        cardinality: Optional[int] = None,
+        exact: bool = False,
+    ) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.cplex
+            assert self.driver is not None
+
+        if not (self.quad_obj and self.lin_obj):
+            self.compute_quadratic_coeffs()
+
+        # Create and configure the cplex object
+        miqp = self.driver.Cplex()
+        miqp.set_results_stream(None)
+        miqp.set_log_stream(None)
+        miqp.set_warning_stream(None)
+        miqp.set_error_stream(None)
+        if self.nthreads is not None:
+            miqp.parameters.threads.set(self.nthreads)
+
+        # Create variables and set linear constraints
+        # w_i ≤ 1
+        variable_names = [f"w{n}" for n in range(self.nconformers)]
+        upper_bounds = self.nconformers * [1.0]
+        miqp.variables.add(names=variable_names, ub=upper_bounds)
+
+        # Σ_i w_i ≤ 1
+        ind = [f"w{n}" for n in range(self.nconformers)]
+        val = self.nconformers * [1.0]
+        miqp.linear_constraints.add(
+            lin_expr=[self.driver.SparsePair(ind=ind, val=val)],
+            senses=["L"],
+            rhs=[1.0],
+        )
+
+        # Setup quadratic objective of the MIQP
+        miqp.objective.set_quadratic(self.quad_obj)
+        miqp.objective.set_linear(self.lin_obj)
+        miqp.objective.set_sense(miqp.objective.sense.minimize)
+
+        # If cardinality or threshold is specified, the problem is a MIQP,
+        # so we need to add binary integer variables z_i.
+        if cardinality not in (None, 0) or threshold not in (None, 0):
+            # z_i ∈ {0, 1}
+            integer_names = [f"z{n}" for n in range(self.nconformers)]
+            variable_types = self.nconformers * miqp.variables.type.binary
+            miqp.variables.add(names=integer_names, types=variable_types)
+
+            # Only count weights for which z_i is 1
+            # w_i - z_i ≤ 0
+            # (∵ z_i ∈ {0,1} and 0 ≤ w_i ≤ 1, this is only true when z_i = 1)
+            lin_expr = [
+                self.driver.SparsePair(ind=[f"w{n}", f"z{n}"], val=[1, -1])
+                for n in range(self.nconformers)
+            ]
+            senses = self.nconformers * ["L"]
+            rhs = self.nconformers * [0.0]
+            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
+
+        # Set the threshold constraint if applicable
+        if threshold not in (None, 0):
+            # tdmin z_i - w_i ≤ 0, i.e. w_i ≥ tdmin
+            lin_expr = [
+                self.driver.SparsePair(ind=[f"z{n}", f"w{n}"], val=[threshold, -1])
+                for n in range(self.nconformers)
+            ]
+            senses = self.nconformers * ["L"]
+            rhs = self.nconformers * [0.0]
+            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
+
+        # Set the cardinality constraint if applicable
+        if cardinality not in (None, 0):
+            # Σ z_i ≤ cardinality
+            cardinality = cast(int, cardinality)  # typing noop
+            ind = [f"z{n}" for n in range(self.nconformers)]
+            val = self.nconformers * [1.0]
+            lin_expr = [self.driver.SparsePair(ind=ind, val=val)]
+            if exact:
+                senses = ["E"]
+                rhs = [min(cardinality, self.nconformers)]
             else:
-                raise ImportError(
-                    "qFit could not load modules for Quadratic Programming solver.\n"
-                    "Please install cvxopt & CPLEX."
-                )
-        else:
-            if CPLEX:
-                print(
-                    "WARNING: A different solver was requested, but only CPLEX solvers found.\n"
-                    "         Using CPLEX solver as fallback."
-                )
-                return CPLEX_MIQPSolver(*args, **kwargs)
-            else:
-                raise ImportError(
-                    "qFit could not load modules for Quadratic Programming solver.\n"
-                    "Please install cvxopt & CPLEX."
-                )
+                senses = ["L"]
+                rhs = [cardinality]
+            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
 
-    def __init__(self, *args, **kwargs):
-        # This pseudo-class does not generate class instances.
-        # As there are no instances of this class,
-        #   it does not need an instance initialiser.
-        raise NotImplementedError
+        # Solve
+        miqp.solve()
+
+        # Store the density residual and the weights
+        self.objective_value = (
+            2 * miqp.solution.get_objective_value()
+            + np.inner(self.target, self.target)
+        )  # fmt:skip
+        self.weights = np.array(miqp.solution.get_values()[: self.nconformers])
+
+        # Close the cplex object
+        miqp.end()
+
+    def solve_qp(self) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.cplex
+            assert self.driver is not None
+
+        # We can re-use the MIQP code above, provided no cardinality or threshold.
+        self.solve_miqp(threshold=None, cardinality=None, exact=False)
+
+
+###############################
+# Helper methods
+###############################
+
+
+def _available_qp_solvers() -> dict[str, type]:
+    """List all available QP solver classes in this module."""
+    available_solvers = {}
+
+    # Get all classes defined in this module
+    #   use module.__dict__ because it preserves order
+    #     (unlike dir(module) or inspect.getmembers(module))
+    for name, obj in sys.modules[__name__].__dict__.items():
+        if inspect.isclass(obj) and obj.__module__ == __name__:
+            # Check the class implements QPSolver
+            if obj in QPSolver.__subclasses__():
+                # Check the driver module is loadable
+                if obj.driver is not None:
+                    available_solvers[name] = obj
+    return available_solvers
+
+
+def _available_miqp_solvers() -> dict[str, type]:
+    """List all available MIQP solver classes in this module."""
+    available_solvers = {}
+
+    # Get all classes defined in this module
+    #   use module.__dict__ because it preserves order
+    #     (unlike dir(module) or inspect.getmembers(module))
+    for name, obj in sys.modules[__name__].__dict__.items():
+        if inspect.isclass(obj) and obj.__module__ == __name__:
+            # Check the class implements MIQPSolver
+            if obj in MIQPSolver.__subclasses__():
+                # Check the driver module is loadable
+                if obj.driver is not None:
+                    available_solvers[name] = obj
+    return available_solvers
+
+
+available_qp_solvers = _available_qp_solvers()
+available_miqp_solvers = _available_miqp_solvers()
+
+
+def get_qp_solver_class(solver_type: str) -> type[QPSolver]:
+    """Return the class of the requested solver type, or raise a KeyError."""
+    return available_qp_solvers[solver_type]
+
+
+def get_miqp_solver_class(solver_type: str) -> type[MIQPSolver]:
+    """Return the class of the requested solver type, or raise a KeyError."""
+    return available_miqp_solvers[solver_type]

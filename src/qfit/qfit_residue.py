@@ -17,7 +17,9 @@ from .logtools import setup_logging, log_run_info
 from . import MapScaler, Structure, XMap
 from .qfit import QFitOptions
 from . import QFitRotamericResidue
+from .solvers import available_qp_solvers, available_miqp_solvers
 from .structure import residue_type
+
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -319,6 +321,22 @@ def build_argparser():
         action=ToggleActionFlag,
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold",
+    )
+
+    # Solver options
+    p.add_argument(
+        "--qp-solver",
+        dest="qp_solver_choice",
+        choices=available_qp_solvers.keys(),
+        default=next(iter(available_qp_solvers.keys())),
+        help="Select the QP solver",
+    )
+    p.add_argument(
+        "--miqp-solver",
+        dest="miqp_solver_choice",
+        choices=available_miqp_solvers.keys(),
+        default=next(iter(available_miqp_solvers.keys())),
+        help="Select the MIQP solver",
     )
 
     # Output options
