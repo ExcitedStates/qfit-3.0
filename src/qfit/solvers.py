@@ -435,6 +435,24 @@ def _available_miqp_solvers() -> dict[str, type]:
 
 available_qp_solvers = _available_qp_solvers()
 available_miqp_solvers = _available_miqp_solvers()
+if not available_qp_solvers:
+    msg = (
+        "Could not find any QP solver engines.\n"
+        + "Please ensure that at least one of:\n  "
+        + str([solver.driver_pkg_name for solver in QPSolver.__subclasses__()])
+        + "\n"
+        + "is installed."
+    )
+    raise ImportError(msg)
+if not available_miqp_solvers:
+    msg = (
+        "Could not find any MIQP solver engines.\n"
+        + "Please ensure that at least one of:\n  "
+        + str([solver.driver_pkg_name for solver in MIQPSolver.__subclasses__()])
+        + "\n"
+        + "is installed."
+    )
+    raise ImportError(msg)
 
 
 def get_qp_solver_class(solver_type: str) -> type[QPSolver]:
