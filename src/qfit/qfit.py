@@ -75,7 +75,6 @@ class QFitOptions:
         # MIQP options
         self.qp_solver = None
         self.miqp_solver = None
-        self.cplex = True
         self.cardinality = 5
         self.threshold = 0.20
         self.bic_threshold = True
