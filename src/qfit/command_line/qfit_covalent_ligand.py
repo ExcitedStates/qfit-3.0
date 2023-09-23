@@ -170,9 +170,7 @@ def main(argv=sys.argv):
     chainid, resi = args.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
-        residue_id = (int(resi), icode)
     else:
-        residue_id = int(resi)
         icode = ""
 
     # Extract the ligand:

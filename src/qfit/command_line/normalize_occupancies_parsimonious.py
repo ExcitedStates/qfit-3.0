@@ -173,6 +173,7 @@ def main():
                 conf = residue.extract("altloc", altlocs)
                 natoms = len(residue.extract("altloc", altlocs[-1]).name)
                 factor = natoms / np.sum(conf.q)
-                residue._q[conf.selection] *= factor
+                new_occ = conf.q * factor
+                residue.set_occupancies(new_occ, conf.selection)
     structure.tofile(output_file)
     print(len(to_remove))

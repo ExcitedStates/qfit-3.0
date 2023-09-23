@@ -3,11 +3,11 @@ from itertools import product
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
-from .base_structure import _BaseStructure
+from .base_structure import BaseStructure
 from .mmCIF import mmCIFDictionary
 
 
-class Ligand(_BaseStructure):
+class Ligand(BaseStructure):
 
     """Ligand class automatically generates a topology on the structure."""
 
@@ -407,7 +407,7 @@ class BondOrder(object):
             self._bondorder(n, depth)
 
 
-class CovalentLigand(_BaseStructure):
+class CovalentLigand(BaseStructure):
     """Covalent Ligand class"""
 
     def __init__(self, *args, **kwargs):
@@ -566,7 +566,6 @@ class CovalentLigand(_BaseStructure):
         conn = self.connectivity
         rings = self.ring_paths()
         clusters = []
-        proc_queue = []
         clustered = np.zeros(self.natoms, dtype=int)
 
         for root in range(self.natoms):

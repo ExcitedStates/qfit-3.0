@@ -117,7 +117,7 @@ class Table:
         numColumns = len(self.columns)
         while token.type is L_VALUE:
             row = []
-            for i in range(numColumns):
+            for _ in range(numColumns):
                 if token.type is not L_VALUE:
                     raise CIFSyntaxError(
                         token.line, "expected value and got %s" % token.type

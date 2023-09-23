@@ -41,9 +41,7 @@ def main():
     chainid, resi = args.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
-        residue_id = (int(resi), icode)
     else:
-        residue_id = int(resi)
         icode = ""
     structure_resi = structure.extract(f"resi {resi} and chain {chainid}")
     if icode:

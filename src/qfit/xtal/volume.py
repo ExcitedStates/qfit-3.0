@@ -196,7 +196,6 @@ class XMap(_BaseVolume):
         # NOTE CCTBX handles axis conventions internally, so we always run
         # this swap here (without needing to check the map file header again)
         density = np.swapaxes(map_io.data.as_numpy_array(), 0, 2)
-        cell_shape = tuple(reversed(shape))
         voxelspacing = tuple(length / n for length, n in zip(abc, shape))
         offset = map_io.data.accessor().origin()
         grid_parameters = GridParameters(voxelspacing, offset)

@@ -3,6 +3,7 @@ Test protein residue sampling methods in qfit.qfit.QFitRotamericResidue
 """
 
 import numpy as np
+import pytest
 
 from qfit.qfit import QFitRotamericResidue, QFitOptions
 from qfit.structure import Structure
@@ -87,6 +88,7 @@ class TestQfitResidueSampling(SyntheticMapRunner):
                 rmsd = _get_residue_rmsd(conf1, conf2)
                 assert rmsd > rmsd_min_other_conf
 
+    @pytest.mark.fast
     def test_sample_sidechain_3mer_ser_p21(self):
         self._run_sample_sidechain_3mer_and_validate(
             peptide_name="ASA",
@@ -101,6 +103,7 @@ class TestQfitResidueSampling(SyntheticMapRunner):
             rmsd_max_same_conf=0.6,  # this seems quite high
             rmsd_min_other_conf=5)
 
+    @pytest.mark.fast
     def test_sample_sidechain_3mer_phe_p21(self):
         result, multi = self._run_setup_and_sample_sidechain_3mer("AFA", 1.5)
         new_confs = result.get_conformers()
@@ -111,6 +114,7 @@ class TestQfitResidueSampling(SyntheticMapRunner):
         pairs, rmsds = _get_best_rmsds(reference_confs, new_confs, 0.6)
         assert len(pairs) == 2
 
+    @pytest.mark.slow
     def test_sample_sidechain_serine_space_group_symops(self):
         """
         Search for rotamers of an isolated two-conformer Ser residue, iterating

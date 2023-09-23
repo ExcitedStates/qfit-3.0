@@ -140,7 +140,6 @@ class BaseTestRunner(unittest.TestCase):
         return output_pdb_file
 
     def _iterate_symmetry_mate_models(self, pdb_file):
-        d_min = 1.2
         pdb_in = any_file(pdb_file)
         base = op.splitext(op.basename(pdb_file))[0]
         pdbh = pdb_in.file_object.hierarchy

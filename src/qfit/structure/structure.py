@@ -2,7 +2,7 @@ import numpy as np
 import copy
 import itertools
 
-from .base_structure import _BaseStructure
+from .base_structure import BaseStructure
 from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
 from .ligand import Ligand
 from .residue import Residue, RotamerResidue, residue_type
@@ -11,7 +11,7 @@ from qfit.xtal.unitcell import UnitCell
 from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
-class Structure(_BaseStructure):
+class Structure(BaseStructure):
     """Class with access to underlying PDB hierarchy."""
 
     def __init__(self, data, **kwargs):
@@ -48,7 +48,6 @@ class Structure(_BaseStructure):
             anisou = np.zeros((natoms, 6), float)
             anisou_atomid = pdb_in.anisou["atomid"]
             n = 0
-            us = ["u00", "u11", "u22", "u01", "u02", "u12"]
             nanisou = len(anisou_atomid)
             for i, atomid in enumerate(pdb_in.coor["atomid"]):
                 if n < nanisou and atomid == anisou_atomid[n]:
@@ -599,7 +598,7 @@ class Structure(_BaseStructure):
         )
 
 
-class _Chain(_BaseStructure):
+class _Chain(BaseStructure):
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
         self.id = kwargs["chainid"]
@@ -700,7 +699,7 @@ class _Chain(_BaseStructure):
             self._conformers.append(conformer)
 
 
-class ResidueGroup(_BaseStructure):
+class ResidueGroup(BaseStructure):
 
     """Guarantees a group with similar resi and icode."""
 
@@ -742,7 +741,7 @@ class ResidueGroup(_BaseStructure):
         return string
 
 
-class _AtomGroup(_BaseStructure):
+class _AtomGroup(BaseStructure):
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
         self.id = (kwargs["resn"], kwargs["altloc"])
@@ -775,7 +774,7 @@ class _Atom:
         return f"Atom: {self.index}"
 
 
-class _Conformer(_BaseStructure):
+class _Conformer(BaseStructure):
 
     """Guarantees a single consistent conformer."""
 
@@ -875,9 +874,9 @@ class _Conformer(_BaseStructure):
                     if res.type in ("rotamer-residue", "aa-residue"):
                         # Check for nearness
                         sel = prev.select("name", "C")
-                        C = prev._coor[sel]
+                        C = prev.get_xyz(sel)
                         sel = res.select("name", "N")
-                        N = res._coor[sel]
+                        N = res.get_xyz(sel)
                         bond_length = np.linalg.norm(N - C)
                     elif res.type == "residue":
                         # Check if RNA / DNA segment
@@ -905,7 +904,7 @@ class _Conformer(_BaseStructure):
                 self._segments.append(segment)
 
 
-class Segment(_BaseStructure):
+class Segment(BaseStructure):
 
     """Class that guarantees connected residues and allows
     backbone rotations."""

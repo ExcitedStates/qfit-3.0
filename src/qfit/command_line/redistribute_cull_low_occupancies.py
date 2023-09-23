@@ -62,7 +62,6 @@ def remove_redistribute_conformer(residue, remove, keep):
             np.unique(residue_out.extract("q", 1.0, "!=").altloc)
         )  # number of altlocs left
         occ_redist = round(total_occ_redist / naltlocs, 2)
-        add_occ_redist = 0
 
         if (
             (occ_redist * naltlocs)
@@ -146,21 +145,21 @@ def redistribute_occupancies_by_atom(residue, cutoff):
             )
 
             # Redistribute occupancy
+            # FIXME no private member access!
             if len(confs_high) == 1:
-                residue._q[confs_high[0].atomidx] = 1.0
-                residue._altloc[confs_high[0].atomidx] = ""
+                residue._q[confs_high[0].atomidx] = 1.0  # pylint: disable=protected-access
+                residue._altloc[confs_high[0].atomidx] = ""  # pylint: disable=protected-access
             else:
                 sum_q_high = sum(atom.q for atom in confs_high)
                 for atom_high in confs_high:
                     q_high = atom_high.q
                     for atom_low in confs_low:
                         q_low = atom_low.q
-                        residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high
+                        residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high  # pylint: disable=protected-access
 
             # Describe occupancy redistribution results
-            print(
-                f"  ==> {[(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]}"
-            )
+            results = [(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]  # pylint: disable=protected-access
+            print(f"  ==> {results}")
 
 
 def redistribute_occupancies_by_residue(residue, cutoff):
@@ -232,12 +231,6 @@ def main():
     for chain in structure:
         for residue in chain:
             if np.any(residue.q < args.occ_cutoff):
-                # How many occupancy-values can we find in each altconf?
-                occs_per_alt = [
-                    np.unique(agroup.q).size
-                    for agroup in residue.atom_groups
-                    if agroup.id[1] != ""
-                ]
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
 
     # Create structure without low occupancy confs (culling)

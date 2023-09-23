@@ -86,9 +86,7 @@ def prepare_qfit_ligand(options):
     chainid, resi = options.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
-        residue_id = (int(resi), icode)
     else:
-        residue_id = int(resi)
         icode = ""
 
     # Extract the ligand:
@@ -194,7 +192,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
+    qfit_ligand, _, _, icode, receptor = prepare_qfit_ligand(options=options)
 
     time0 = time.time()
     qfit_ligand.run()

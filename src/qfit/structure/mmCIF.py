@@ -644,7 +644,7 @@ class mmCIFFileParser(object):
             tblx, colx, strx, tokx = next(token_iter)
             if tokx is None:
                 continue
-            rword, name = self.split_token(tokx)
+            rword, _ = self.split_token(tokx)
             if rword is not None:
                 break
 
@@ -656,7 +656,7 @@ class mmCIFFileParser(object):
                 state = "RD_SINGLE"
 
             elif tokx is not None:
-                rword, name = self.split_token(tokx)
+                rword, _ = self.split_token(tokx)
 
                 if rword == "loop":
                     state = "RD_LOOP"
@@ -713,13 +713,13 @@ class mmCIFFileParser(object):
 
                 ## get the next token from the file, it should be the data
                 ## keyed by the previous token
-                tx, cx, strx, tokx = next(token_iter)
+                tx, _, strx, tokx = next(token_iter)
                 if tx is not None or (strx is None and tokx is None):
                     self.syntax_error("missing data for _%s.%s" % (tblx, colx))
 
                 if tokx is not None:
                     ## check token for reserved words
-                    rword, name = self.split_token(tokx)
+                    rword, _ = self.split_token(tokx)
                     if rword is not None:
                         if rword == "stop":
                             return
@@ -782,7 +782,7 @@ class mmCIFFileParser(object):
                 ## before starting to read data, check tokx for any control
                 ## tokens
                 if tokx is not None:
-                    rword, name = self.split_token(tokx)
+                    rword, _ = self.split_token(tokx)
                     if rword is not None:
                         if rword == "stop":
                             return
@@ -810,7 +810,7 @@ class mmCIFFileParser(object):
 
                     ## condition #2: a reserved word is encountered
                     if tokx is not None:
-                        rword, name = self.split_token(tokx)
+                        rword, _ = self.split_token(tokx)
                         if rword is not None:
                             break
 

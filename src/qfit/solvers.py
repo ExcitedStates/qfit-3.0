@@ -189,9 +189,9 @@ if CPLEX:
             )
             self.weights = np.asarray(miqp.solution.get_values()[: self._nconformers])
             miqp.end()
-            q = self._lin_obj.reshape(-1, 1)
-            P = self._quad_obj
-            w = self.weights.reshape(-1, 1)
+            #q = self._lin_obj.reshape(-1, 1)
+            #P = self._quad_obj
+            #w = self.weights.reshape(-1, 1)
 
             # print("CPLEX MIQP")
             # print('P:', P)

@@ -6,6 +6,7 @@ import subprocess
 import string
 
 from iotbx.file_reader import any_file
+import pytest
 
 from qfit.structure.math import dihedral_angle
 
@@ -66,6 +67,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             dihedrals.append(angle)
         return dihedrals
 
+    @pytest.mark.fast
     def test_qfit_ligand_ppi_p1(self):
         """
         Build alternate conformers for a propanoic acid (PPI) molecule in

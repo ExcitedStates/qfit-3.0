@@ -23,7 +23,6 @@ class ClashDetector:
         self.grid = defaultdict(list)
         self.radius = defaultdict(list)
         receptor_coor = receptor.coor
-        ligand_coor = ligand.coor
         keys = (receptor.coor / self.voxelspacing + 0.5).astype(int)
         translations = list(itertools.product([-1, 0, 1], repeat=3))
         for key, coor, radius in zip(keys, receptor_coor, receptor_radius):
@@ -62,7 +61,7 @@ class ClashDetector:
             if self.exclude is not None:
                 for ligand_ind, rcoor in self.exclude:
                     # Check if this is the coordinate we are interested in
-                    if np.allclose(coor, self.ligand._coor[ligand_ind]):
+                    if np.allclose(coor, self.ligand.get_xyz(ligand_ind)):
                         # Now check if it is clashing with the excluded receptor atom
                         if rcoor in neighbors[clash_mask]:
                             nclashes -= 1

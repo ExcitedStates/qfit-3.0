@@ -1,6 +1,5 @@
 # we should keep adding to this as we identify things to fix from pylint-warn
-# TODO enable W0212, W0612
-PYLINT_ERROR_WARNINGS = W0611
+PYLINT_ERROR_WARNINGS = W0212,W0611,W0612
 
 install:
 	pip3 install .
@@ -10,6 +9,9 @@ test-unit:
 
 test-int:
 	py.test --verbose -n 4 --durations=20 tests/test_*.py
+
+test-int-quick:
+	py.test --verbose -n 4 --durations=20 -m fast tests/test_*.py
 
 test: test-unit test-int
 

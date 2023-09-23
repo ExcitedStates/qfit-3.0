@@ -2,7 +2,7 @@ import argparse
 import logging
 from math import sqrt
 import os
-import time
+#import time
 
 import numpy as np
 
@@ -114,15 +114,10 @@ class _BaseConvertMap:
         for chain in self.structure:
             for residue in chain:
                 for ind in range(len(residue.name)):
-                    atom, element, charge, coor, icode, record, occ, resi = (
-                        residue.name[ind],
+                    element, charge, coor = (
                         residue.e[ind],
                         residue.charge[ind],
                         residue.coor[ind],
-                        residue.icode[ind],
-                        residue.record[ind],
-                        residue.q[ind],
-                        residue.resi[ind],
                     )
 
                     grid = np.dot(coor, self.cartesian_to_grid).astype(
@@ -254,7 +249,6 @@ class _BaseConvertMap:
     def print_stats(self):
         # Note that values of the offset are based on C,R,S - these are not always ordered like x,y,z
         offset = self.xmap.offset
-        voxelspacing = self.xmap.voxelspacing  # These ARE ordered (x,y,z)
         print(
             "Unit cell shape:", self.xmap.unit_cell.shape
         )  # These are ordered (z,y,x)
@@ -309,7 +303,7 @@ def parse_args():
 def main():
     args = parse_args()
     os.makedirs(args.directory, exist_ok=True)
-    time0 = time.time()  # Useful variable for profiling run times.
+    #time0 = time.time()  # Useful variable for profiling run times.
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
     structure = structure.extract("altloc", ("", "A", "B", "C", "D", "E"))
@@ -318,5 +312,5 @@ def main():
     options.apply_command_args(args)
     converter = ConvertMap(structure, xmap, options)
     converter()
-    passed = time.time() - time0
+#    passed = time.time() - time0
 #    print(f"Time passed: {passed}s")

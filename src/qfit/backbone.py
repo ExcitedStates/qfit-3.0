@@ -21,7 +21,7 @@ def adp_ellipsoid_axes(U_ij):
     # U_ij = U_ij * 1e-4
 
     # Eigendecompose U_ij matrix with lower-triangle eigh
-    eigvals, eigvecs = np.linalg.eigh(U_ij)
+    eigvals, eigvecs = np.linalg.eigh(U_ij)  # pylint: disable=unused-variable
 
     # Scale unit eigenvectors by associated eigenvalues to return principal axes
     #   TODO: Should we? This would mean -bba/-bbs would not behave as expected.
@@ -124,7 +124,7 @@ class AtomMoveFunctional:
         self.endpoint = endpoint
 
     def target(self):
-        current = self.segment._coor[self._atom_index]
+        current = self.segment.get_xyz(self._atom_index)
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         return energy
@@ -132,12 +132,12 @@ class AtomMoveFunctional:
     def gradient(self):
         """Return the gradient on the CB atom."""
 
-        current = self.segment._coor[self._atom_index]
+        current = self.segment.get_xyz(self._atom_index)
         diff = current - self.endpoint
         return 2 * diff
 
     def target_and_gradient(self):
-        current = self.segment._coor[self._atom_index]
+        current = self.segment.get_xyz(self._atom_index)
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         gradient = 2 * diff
@@ -149,7 +149,7 @@ class AtomMoveFunctional:
         target, gradient = self.target_and_gradient()
         normal = gradient / np.linalg.norm(gradient)
         gradients = np.zeros((len(self.segment) * 2, 3), float)
-        current = self.segment._coor[self._atom_index]
+        current = self.segment.get_xyz(self._atom_index)
         for n, residue in enumerate(self.segment.residues):
             # Residues after the selected CB residue have no impact on the CB
             # position. The backbone torsion gradients will be zero.
@@ -223,7 +223,7 @@ class NullSpaceOptimizer:
             gradients[n] = (fp - fn) / (2 * delta)
             tmp[n] += delta
 
-        bb_coor = self.segment._coor[self._bb_selection]
+        bb_coor = self.segment.get_xyz(self._bb_selection)
         jacobian = compute_jacobian(bb_coor)
         null_space = sp.linalg.null_space(jacobian)
         projector = null_space @ null_space.T

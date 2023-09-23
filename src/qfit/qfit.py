@@ -489,7 +489,7 @@ class _BaseQFit:
         index = segment.find(partner_id)
 
         def _get_norm(idx1, idx2):
-            return np.linalg.norm(residue._coor[idx1] - segment._coor[idx2])
+            return np.linalg.norm(residue.get_xyz(idx1) - segment.get_xyz(idx2))
 
         exclude = []
         if index > 0:
@@ -497,14 +497,14 @@ class _BaseQFit:
             N_neighbor = segment.residues[index - 1]
             neighbor_C_index = N_neighbor.select("name", "C")[0]
             if _get_norm(N_index, neighbor_C_index) < 2:
-                coor = N_neighbor._coor[neighbor_C_index]
+                coor = N_neighbor.get_xyz(neighbor_C_index)
                 exclude.append((N_index, coor))
         if index < len(segment.residues) - 1:
             C_index = residue.select("name", "C")[0]
             C_neighbor = segment.residues[index + 1]
             neighbor_N_index = C_neighbor.select("name", "N")[0]
             if _get_norm(C_index, neighbor_N_index) < 2:
-                coor = C_neighbor._coor[neighbor_N_index]
+                coor = C_neighbor.get_xyz(neighbor_N_index)
                 exclude.append((C_index, coor))
         return exclude
 
@@ -580,7 +580,7 @@ class QFitRotamericResidue(_BaseQFit):
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
 
         if options.phenix_aniso:
-            prv_resi = structure.resi[(residue._selection[0] - 1)]
+            prv_resi = structure.resi[(residue.selection[0] - 1)]
             new_pdb, new_mtz = run_phenix_aniso(
                 structure,
                 chain_id=self.chain,
@@ -700,7 +700,7 @@ class QFitRotamericResidue(_BaseQFit):
             if rtype == "rotamer-residue":
                 self.segment = Segment(
                     self.structure.data,
-                    selection=self.residue._selection,
+                    selection=self.residue.selection,
                     parent=self.structure,
                     residues=[self.residue],
                 )
@@ -870,7 +870,6 @@ class QFitRotamericResidue(_BaseQFit):
                     return
 
         # Retrieve the amplitudes and stepsizes from options.
-        sigma = self.options.sample_backbone_sigma
         bba, bbs = (
             self.options.sample_backbone_amplitude,
             self.options.sample_backbone_step,
@@ -936,8 +935,8 @@ class QFitRotamericResidue(_BaseQFit):
         # Limit active atoms
         active_names = ("N", "CA", "C", "O", "CB", "H", "HA", "CG", "HB2", "HB3")
         selection = self.residue.select("name", active_names)
-        self.residue.active = False
-        self.residue._active[selection] = True
+        self.residue.clear_active()
+        self.residue.set_active(selection)
         self.residue.update_clash_mask()
         active_mask = self.residue.active
 
@@ -977,14 +976,6 @@ class QFitRotamericResidue(_BaseQFit):
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
-        if self.residue.resn[0] != "PRO":
-            sampling_window = np.arange(
-                -opt.rotamer_neighborhood,
-                opt.rotamer_neighborhood + opt.dihedral_stepsize,
-                opt.dihedral_stepsize,
-            )
-        else:
-            sampling_window = [0]
 
         rotamers = self.residue.rotamers
         rotamers.append(
@@ -1013,8 +1004,8 @@ class QFitRotamericResidue(_BaseQFit):
                     current = self.residue.get_residue_info("chi-rotate")[chi_index]
                     deactivate = self.residue.get_residue_info("chi-rotate")[chi_index + 1]
                     selection = self.residue.select("name", deactivate)
-                    self.residue._active[selection] = False
-                    bs_atoms = list(set(current) - set(deactivate))
+                    self.residue.set_active(selection, False)
+                    bs_atoms = list(set(current) - set(deactivate))  # pylint: disable=unused-variable
                 else:
                     bs_atoms = self.residue.get_residue_info("chi-rotate")[chi_index]
 
@@ -1408,7 +1399,6 @@ class QFitLigand(_BaseQFit):
         self.receptor = receptor
         self.xmap = xmap
         self.options = options
-        csf = self.options.clash_scaling_factor
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
@@ -1486,8 +1476,7 @@ class QFitLigand(_BaseQFit):
 
         # Set occupancies of rigid cluster and its direct neighboring atoms to
         # 1 for clash detection and MIQP
-        selection = self.ligand._selection
-        self.ligand.active = True
+        self.ligand.set_active()
         center = self.ligand.coor[self._cluster].mean(axis=0)
         new_coor_set = []
         new_bs = []
@@ -1519,12 +1508,11 @@ class QFitLigand(_BaseQFit):
                             new_bs.append(b)
 
         self.ligand.active = False
-        # FIXME this logic should not use internal variables
-        selection = self.ligand._selection[self._cluster]
-        self.ligand._active[selection] = True
+        selection = self.ligand.selection[self._cluster]
+        self.ligand.set_active(selection)
         for atom in self._cluster:
-            atom_sel = self.ligand._selection[self.ligand.connectivity[atom]]
-            self.ligand._active[atom_sel] = True
+            atom_sel = self.ligand.selection[self.ligand.connectivity[atom]]
+            self.ligand.set_active(atom_sel)
         self.conformer = self.ligand
         self._coor_set = new_coor_set
         self._bs = new_bs
@@ -1549,7 +1537,6 @@ class QFitLigand(_BaseQFit):
         opt = self.options
         bond_order = BondOrder(self.ligand, self._cluster[0])
         bonds = bond_order.order
-        depths = bond_order.depth
         nbonds = len(bonds)
 
         starting_bond_index = 0
@@ -1557,7 +1544,6 @@ class QFitLigand(_BaseQFit):
         sel_str = f"chain {self.ligand.chain[0]} and resi {self.ligand.resi[0]}"
         if self.ligand.icode[0]:
             sel_str = f"{sel_str} and icode {self.ligand.icode[0]}"
-        selection = self.ligand._selection
         iteration = 1
         while True:
             if (
@@ -1588,9 +1574,9 @@ class QFitLigand(_BaseQFit):
                         new_coor = rotator(angle)
                         if opt.remove_conformers_below_cutoff:
                             values = self.xmap.interpolate(
-                                new_coor[self.ligand._active[selection]]
+                                new_coor[self.ligand.active]
                             )
-                            mask = self.ligand.e[self.ligand._active[selection]] != "H"
+                            mask = self.ligand.e[self.ligand.active] != "H"
                             if np.min(values[mask]) < self.options.density_cutoff:
                                 continue
 
@@ -1853,8 +1839,8 @@ class QFitCovalentLigand(_BaseQFit):
         """Sample residue along the N-CA-CB angle."""
         active_names = ("N", "CA", "C", "O", "CB", "H", "HA")
         selection = self.covalent_residue.select("name", active_names)
-        self.covalent_residue._active = False
-        self.covalent_residue._active[selection] = True
+        self.covalent_residue.clear_active()
+        self.covalent_residue.set_active(selection)
         self.covalent_residue.update_clash_mask()
         active = self.covalent_residue.active
         angles = np.arange(
@@ -1908,7 +1894,6 @@ class QFitCovalentLigand(_BaseQFit):
             end_chi_index = min(
                 start_chi_index + chis_to_sample, self.covalent_residue.nchi + 1
             )
-            iter_coor_set = []
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1919,9 +1904,8 @@ class QFitCovalentLigand(_BaseQFit):
                     current = rs[chi_index]
                     deactivate = rs[chi_index + 1]
                     selection = self.covalent_residue.select("name", deactivate)
-                    self.covalent_residue._active[selection] = False
-                    # FIXME 'current' is undefined here
-                    bs_atoms = list(set(current) - set(deactivate))
+                    self.covalent_residue.set_active(selection, False)
+                    bs_atoms = list(set(current) - set(deactivate))  # pylint: disable=unused-variable
                 else:
                     bs_atoms = self.covalent_residue.get_residue_info("chi-rotate")[chi_index]
                 if self.options.sample_ligand:
@@ -1936,7 +1920,7 @@ class QFitCovalentLigand(_BaseQFit):
                     selection = self.covalent_residue.select(sel_str)
                     tmp = copy.deepcopy(self.covalent_residue.active)
                     tmp[partner_length:] = False
-                    self.covalent_residue._active[selection] = tmp
+                    self.covalent_residue.set_active(selection, tmp)
 
                 active = self.covalent_residue.active
                 self.covalent_residue.update_clash_mask()
@@ -1975,7 +1959,7 @@ class QFitCovalentLigand(_BaseQFit):
                             chi_rotator(angle)
                             atoms = self.covalent_residue.name
                             atom_selection = self.covalent_residue.select("name", atoms)
-                            coor = self.covalent_residue._coor[atom_selection]
+                            coor = self.covalent_residue.get_xyz(atom_selection)
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
                                 mask = self.covalent_residue.e[active] != "H"
@@ -2028,15 +2012,14 @@ class QFitCovalentLigand(_BaseQFit):
             iteration += 1
 
     def _sample_covalent_bond(self):
-        opt = self.options
         atoms = self.covalent_bond
         partner_length = self.covalent_partner.name.shape[0]
         sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
         if self.covalent_residue.icode[0]:
             sel_str = f"{sel_str} and icode {self.covalent_residue.icode[0]}"
         selection = self.covalent_residue.select(sel_str)
-        self.covalent_residue._active[selection] = True
-        self.covalent_ligand._active[selection] = True
+        self.covalent_residue.set_active(selection)
+        self.covalent_ligand.set_active(selection)
         new_coor_set = []
         new_bs = []
         n = 0
@@ -2094,7 +2077,6 @@ class QFitCovalentLigand(_BaseQFit):
         # was determined by the tree hierarchy starting at the root bond.
         bonds = self.covalent_ligand.bond_list
         partner_length = self.covalent_partner.name.shape[0]
-        root = self.covalent_ligand.root
 
         sel_str = f"chain {self.covalent_residue.chain[0]} and resi {self.covalent_residue.resi[0]}"
         if self.covalent_residue.icode[0]:
@@ -2116,12 +2098,11 @@ class QFitCovalentLigand(_BaseQFit):
             #             active[partner_length:][cluster] = True
             #             for atom in cluster:
             #                 active[partner_length:][self.covalent_ligand.connectivity[atom]] = True
-            self.covalent_residue._active[selection] = active
-            self.covalent_ligand._active[selection] = active
+            self.covalent_residue.set_active(selection, active)
+            self.covalent_ligand.set_active(selection, active)
             self.covalent_residue.update_clash_mask()
 
             # Sample each of the bonds in the bond range
-            n = 0
             for bond_index in range(starting_bond_index, end_bond_index):
                 sampled_bond = bonds[bond_index]
                 atoms = [

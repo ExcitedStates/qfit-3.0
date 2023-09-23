@@ -1,6 +1,7 @@
 import os.path as op
 
 import numpy as np
+import pytest
 
 from qfit.structure import Structure
 from qfit.xtal.transformer import FFTTransformer
@@ -31,17 +32,21 @@ class TestTransformer(SyntheticMapRunner):
         fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
         self._run_transformer(pdb_multi, fmodel_mtz, corr_min)
 
+    @pytest.mark.fast
     def test_transformer_water_p1(self):
         pdb_file = self._get_water_pdb()
         fmodel_mtz = self._create_fmodel(pdb_file, high_resolution=2.0)
         self._run_transformer(pdb_file, fmodel_mtz)
 
+    @pytest.mark.fast
     def test_transformer_3mer_ser_p21(self):
         self._run_all("ASA", 1.5)
 
+    @pytest.mark.fast
     def test_transformer_3mer_lys_p21(self):
         self._run_all("AKA", 1.2)
 
+    @pytest.mark.fast
     def test_transformer_3mer_trp_3conf_p21(self):
         pdb_multi = self._get_file_path("AWA_2conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")

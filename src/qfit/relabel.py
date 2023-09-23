@@ -49,7 +49,6 @@ class Relabeller:
 
     def initNodes(self):
         node = 0
-        segment = []
         for chain in self.structure:
             for residue in chain:
                 resInd = []
@@ -130,14 +129,14 @@ class Relabeller:
 
     def SimulatedAnnealing(self, permutation):
         energyList = []
-        NumOfClusters = len(max(permutation, key=len))
-        energies = np.zeros(NumOfClusters)
-        clusters = [[] for x in range(NumOfClusters)]
+        numOfClusters = len(max(permutation, key=len))
+        energies = np.zeros(numOfClusters)
+        clusters = [[] for x in range(numOfClusters)]
 
         # Use the permutation to identify the clusters:
-        for i, elem in enumerate(permutation):
-            for j in range(len(elem)):
-                clusters[j].append(elem[j])
+        for elems in permutation:
+            for j, elem in enumerate(elems):
+                clusters[j].append(elem)
 
         # Calculate the energy of each cluster:
         for i, cluster in enumerate(clusters):
@@ -197,9 +196,9 @@ class Relabeller:
 
             # Calculate the new clusters:
             tmpCluster = [[] for x in clusters]
-            for ii, value in enumerate(tmpPerm):
-                for j in range(len(value)):
-                    tmpCluster[j].append(value[j])
+            for values in tmpPerm:
+                for j, value in enumerate(values):
+                    tmpCluster[j].append(value)
 
             # Calculate the energy across all clusters
             tmpEnergies = np.zeros_like(energies)
@@ -225,9 +224,11 @@ class Relabeller:
         perm = []
         energyList = []
 
-        for i in tqdm.trange(
-            self.nChains, unit="runs", desc="SA macrocycle", unit_scale=True, leave=True
-        ):
+        for i in tqdm.trange(self.nChains,  # pylint: disable=unused-variable
+                             unit="runs",
+                             desc="SA macrocycle",
+                             unit_scale=True,
+                             leave=True):
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)

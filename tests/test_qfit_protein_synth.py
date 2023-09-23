@@ -106,6 +106,7 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         return self._run_and_validate_identical_rotamers(
             pdb_multi, pdb_single, d_min=1.5, chi_radius=5)
 
+    @pytest.mark.fast
     def test_qfit_protein_ser_p1(self):
         """A single two-conformer Ser residue in an irregular triclinic cell"""
         self._run_serine_monomer("P1")

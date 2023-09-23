@@ -8,12 +8,12 @@ from molmass.elements import ELEMENTS
 
 from .math import dihedral_angle
 from .pdbfile import write_pdb, write_mmcif
-from .selector import _Selector
+from .selector import AtomSelector
 
 logger = logging.getLogger(__name__)
 
 
-class _BaseStructure(ABC):
+class BaseStructure(ABC):
     REQUIRED_ATTRIBUTES = [
         "record",
         "name",
@@ -30,7 +30,7 @@ class _BaseStructure(ABC):
     ]
     OTHER_ATTRIBUTES = ["link_data", "crystal_symmetry", "unit_cell", "file_format"]
     _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
-    _selector = _Selector()
+    _selector = AtomSelector()
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
@@ -43,13 +43,7 @@ class _BaseStructure(ABC):
         self.crystal_symmetry = kwargs.get("crystal_symmetry", None)
         self.unit_cell = kwargs.get("unit_cell", None)
         self.file_format = kwargs.get("file_format", None)
-        # FIXME
-        self._coor = data["coor"]
-        self._name = data["name"]
-        self._active = data["active"]
-        self._b = data["b"]
-        self._q = data["q"]
-        self.total_length = self._coor.shape[0]
+        self.total_length = data["coor"].shape[0]
         if selection is None:
             self.natoms = self.total_length
         else:
@@ -198,11 +192,28 @@ class _BaseStructure(ABC):
             return self.data[key].copy()
         return self.data[key][self._selection]
 
-    def _set_array(self, key, value):
-        if self._selection is None:
+    def _set_array(self, key, value, selection=None):
+        if selection is None:
+            selection = self._selection
+        if selection is None:
             self.data[key][:] = value
         else:
-            self.data[key][self._selection] = value
+            self.data[key][selection] = value
+
+    def set_occupancies(self, values, selection=None):
+        self._set_array("q", values, selection)
+
+    def set_xyz(self, values, selection=None):
+        self._set_array("coor", values, selection)
+
+    def get_xyz(self, selection):
+        return self.data["coor"][selection]
+
+    def set_altloc(self, values, selection=None):
+        self._set_array("altloc", values, selection)
+
+    def get_name(self, selection):
+        return self.data["name"][selection]
 
     @property
     def record(self):
@@ -283,3 +294,12 @@ class _BaseStructure(ABC):
     @active.setter
     def active(self, value):
         self._set_array("active", value)
+
+    def clear_active(self):
+        self.data["active"][:] = False
+
+    def set_active(self, selection=None, value=True):
+        if selection is None:
+            self.data["active"][:] = value
+        else:
+            self.data["active"][selection] = value

@@ -72,7 +72,6 @@ class FFTTransformer:
         self.asf_range = 6
         self.em = em
         if self.em == True:
-            scattering = "electron"
             self.asf_range = 5
         if hkl is None:
             hkl = self.xmap.hkl
@@ -278,7 +277,7 @@ class Transformer:
         density = np.zeros_like(r2)
         for i in range(self.asf_range):
             try:
-                exp_factor = bw[i] * r2
+                #exp_factor = bw[i] * r2
                 density += aw[i] * np.exp(bw[i] * r2)
             except FloatingPointError:
                 pass
@@ -291,7 +290,7 @@ class Transformer:
         for n, x in enumerate(r):
             asf = self._asf[element.capitalize()]
             args = (x, asf, bfactor, self.em)
-            integrand, err = fixed_quad(
+            integrand, _ = fixed_quad(
                 self._scattering_integrand, self.smin, self.smax, args=args, n=50
             )
             density[n] = integrand

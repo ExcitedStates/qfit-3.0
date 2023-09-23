@@ -3,7 +3,7 @@
 import argparse
 import logging
 import os
-import time
+#import time
 
 import numpy as np
 
@@ -116,13 +116,11 @@ class _BaseEDIA:
         for chain in self.structure:
             for residue in chain:
                 for ind in range(len(residue.name)):
-                    atom, element, charge, coor, icode, record, occ, resi = (
+                    atom, element, charge, coor, occ, resi = (
                         residue.name[ind],
                         residue.e[ind],
                         residue.charge[ind],
                         residue.coor[ind],
-                        residue.icode[ind],
-                        residue.record[ind],
                         residue.q[ind],
                         residue.resi[ind],
                     )
@@ -245,7 +243,6 @@ class _BaseEDIA:
     def print_stats(self):
         # Note that values of the offset are based on C,R,S - these are not always ordered like x,y,z
         offset = self.xmap.offset
-        voxelspacing = self.xmap.voxelspacing  # These ARE ordered (x,y,z)
         print(
             "Unit cell shape:", self.xmap.unit_cell.shape
         )  # These are ordered (z,y,x)
@@ -374,16 +371,13 @@ class _BaseEDIA:
         edia = np.zeros(len(residue.name))
         edia_plus = np.zeros(len(residue.name))
         edia_minus = np.zeros(len(residue.name))
-        prev_altloc = residue.altloc[0]
         # For each atom in the residue:
         for ind in range(len(residue.name)):
-            atom, element, charge, coor, icode, record, occ = (
+            atom, element, charge, coor, occ = (
                 residue.name[ind],
                 residue.e[ind],
                 residue.charge[ind],
                 residue.coor[ind],
-                residue.icode[ind],
-                residue.record[ind],
                 residue.q[ind],
             )
             # By default, Hydrogens are excluded from the calculation!
@@ -409,7 +403,6 @@ class _BaseEDIA:
         for key in ediasum:
             if length[key] > 0:
                 if key != "" and "" in ediasum:
-                    flag = 1
                     ediasum[key] += ediasum[""]
                     length[key] += length[""]
                 EDIAm = (ediasum[key] / length[key]) ** (-0.5) - 0.1
@@ -493,7 +486,7 @@ class ediaResidue(_BaseEDIA):
     def __call__(self):
         # self.print_stats()
         # self.print_density(2.5)
-        EDIAm, OPIA = self.calc_edia_residue(self.residue)
+        EDIAm, OPIA = self.calc_edia_residue(self.residue)  # pylint: disable=unused-variable
 
 
 class ediaProtein(_BaseEDIA):
@@ -546,7 +539,7 @@ def parse_args():
 def main():
     args = parse_args()
     os.makedirs(args.directory, exist_ok=True)
-    time0 = time.time()  # Useful variable for profiling run times.
+    #time0 = time.time()  # Useful variable for profiling run times.
     # Read structure in:
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
@@ -571,4 +564,3 @@ def main():
     else:
         edia = ediaResidue(residue, structure, xmap, options)
     edia()
-    passed = time.time() - time0

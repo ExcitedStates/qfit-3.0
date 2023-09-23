@@ -5,7 +5,7 @@ import numpy as np
 import pyparsing as pp
 
 
-class _Selector:
+class AtomSelector:
 
     """
     Parse and evaluate selection syntax.

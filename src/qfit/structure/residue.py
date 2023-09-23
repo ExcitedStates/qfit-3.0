@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 
-from .base_structure import _BaseStructure
+from .base_structure import BaseStructure
 from .math import *
 from .rotamers import ROTAMERS
 
@@ -46,7 +46,7 @@ def residue_type(residue):
     return "ligand"
 
 
-class _BaseResidue(_BaseStructure):
+class _BaseResidue(BaseStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = (kwargs["resi"], kwargs["icode"])
@@ -184,10 +184,10 @@ class RotamerResidue(_BaseResidue):
         ordered_sel = []
         for atom in atoms:
             for sel in selection:
-                if atom == self._name[sel]:
+                if atom == self.data["name"][sel]:
                     ordered_sel.append(sel)
                     break
-        coor = self._coor[ordered_sel]
+        coor = self.data["coor"][ordered_sel]
         angle = dihedral_angle(coor)
         return angle
 
@@ -196,7 +196,7 @@ class RotamerResidue(_BaseResidue):
         selection = self.select("name", atoms)
 
         # Translate coordinates to center on coor[1]
-        coor = self._coor[selection]
+        coor = self.data["coor"][selection]
         origin = coor[1].copy()
         coor -= origin
 
@@ -220,11 +220,11 @@ class RotamerResidue(_BaseResidue):
         R = forward @ rotation @ backward
 
         # Apply transformation
-        coor_to_rotate = self._coor[selection]
+        coor_to_rotate = self.data["coor"][selection]
         coor_to_rotate -= origin
         coor_to_rotate = np.dot(coor_to_rotate, R.T)
         coor_to_rotate += origin
-        self._coor[selection] = coor_to_rotate
+        self.data["coor"][selection] = coor_to_rotate
 
     def print_residue(self):
         for atom, coor, element, b, q in zip(
@@ -253,8 +253,7 @@ class RotamerResidue(_BaseResidue):
             )
             raise RuntimeError(msg)
 
-        for atom, position in zip(self._residue_info["atoms"],
-                                  self._residue_info["positions"]):
+        for atom in self._residue_info["atoms"]:
             # Found a missing atom!
             if atom not in self.name:
                 self.complete_residue_recursive(atom)
@@ -479,8 +478,6 @@ class RotamerResidue(_BaseResidue):
         #
         #       x . v = C1
 
-        C1 = np.linalg.norm(v) * L * np.cos(theta)
-
         # If v is normalized
         norm_v = v / np.linalg.norm(v)
         norm_C1 = L * np.cos(theta)
@@ -509,7 +506,6 @@ class RotamerResidue(_BaseResidue):
         #                               x . w = C2
 
         w = np.cross(u, v)
-        C2 = np.linalg.norm(np.cross(u, v)) * L * np.sin(theta) * np.sin(chi)
 
         # Normalizing this vector
         norm_w = w / np.linalg.norm(w)

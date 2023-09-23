@@ -62,12 +62,12 @@ class BackboneRotator:
         for torsion, origin, aligner, atoms_to_rotate in iterator:
             if torsion == 0.0:
                 continue
-            coor = self.segment._coor[atoms_to_rotate]
+            coor = self.segment.get_xyz(atoms_to_rotate)
             coor -= origin
             R = aligner.forward_rotation @ Rz(torsion) @ aligner.backward_rotation
             coor = np.dot(coor, R.T)
             coor += origin
-            self.segment._coor[atoms_to_rotate] = coor
+            self.segment.set_xyz(coor, atoms_to_rotate)
 
 
 class Translator:
@@ -108,7 +108,7 @@ class CBAngleRotator:
 
         # Define rotation unit vector
         self._origin = self.residue.extract("name", "CB").coor[0]
-        self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
+        self._coor_to_rotate = self.residue.get_xyz(self.atoms_to_rotate)
         self._coor_to_rotate -= self._origin
         axis_coor = self.residue.extract("name", ("CA", "CG")).coor
         axis_coor -= self._origin
@@ -129,10 +129,9 @@ class CBAngleRotator:
         # Since the axis of rotation is already aligned with the z-axis, we can
         # freely rotate the coordinates and perform the inverse operation to realign the
         # axis to the real world frame.
-        R = self._forward @ Rz(np.deg2rad(angle))
-        self.residue._coor[self.atoms_to_rotate] = (
-            R @ self._coor_to_rotate.T
-        ).T + self._origin
+        rot_mat = self._forward @ Rz(np.deg2rad(angle))
+        new_coor = (rot_mat @ self._coor_to_rotate.T).T + self._origin
+        self.residue.set_xyz(new_coor, self.atoms_to_rotate)
 
 
 class GlobalRotator:
@@ -245,14 +244,13 @@ class ChiRotator:
         new_selection = []
         for atom in torsion_atoms:
             for sel in selection:
-                if atom == self.residue._name[sel]:
+                if atom == self.residue.get_name(sel):
                     new_selection.append(sel)
                     break
         selection = new_selection
 
         # Translate coordinates to center on coor[1]
-        norm = np.linalg.norm
-        coor = self.residue._coor[selection]
+        coor = self.residue.get_xyz(selection)
         self._origin = coor[1].copy()
         coor -= self._origin
 
@@ -272,7 +270,7 @@ class ChiRotator:
             tmp += list(atom_selection2)
             self._atom_selection = np.array(tmp, dtype=int)
         self._coor_to_rotate = np.dot(
-            self.residue._coor[self._atom_selection] - self._origin, self._backward.T
+            self.residue.get_xyz(self._atom_selection) - self._origin, self._backward.T
         )
         self._tmp = np.zeros_like(self._coor_to_rotate)
 
@@ -280,7 +278,7 @@ class ChiRotator:
         R = self._forward @ Rz(np.deg2rad(angle))
         np.dot(self._coor_to_rotate, R.T, self._tmp)
         self._tmp += self._origin
-        self.residue._coor[self._atom_selection] = self._tmp
+        self.residue.set_xyz(self._tmp, self._atom_selection)
 
 
 class CovalentBondRotator:

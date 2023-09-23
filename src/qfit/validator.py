@@ -47,9 +47,9 @@ class Validator:
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         # Transform to Fisher z-score
         if self.resolution.high is not None:
-            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
+            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)  # pylint: disable=unused-variable
         else:
-            sigma = 1.0 / np.sqrt(mv - 3)
+            sigma = 1.0 / np.sqrt(mv - 3)  # pylint: disable=unused-variable
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 
