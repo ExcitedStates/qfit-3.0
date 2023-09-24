@@ -2,6 +2,8 @@ import os
 import logging
 import tempfile
 
+import pytest
+
 from qfit.command_line.qfit_protein import (
     QFitOptions,
     build_argparser,
@@ -83,6 +85,7 @@ class TestQFitProtein(BaseTestRunner):
         assert mconformer_resn.count("SER") >= 1
         # assert len(mconformer_list) > 5  # Expect: 3*Ser99, 2*Phe113
 
+    @pytest.mark.slow
     def test_run_qfit_residue_parallel(self):
         self._run_mock_qfit_residue_parallel("pdb")
 

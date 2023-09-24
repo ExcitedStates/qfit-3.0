@@ -1,6 +1,8 @@
 import os
 import logging
 
+import pytest
+
 from qfit.command_line.qfit_ligand import (
     QFitOptions,
     prepare_qfit_ligand,
@@ -51,6 +53,7 @@ class TestQFitLigand(BaseTestRunner):
 
         return qfit_ligand
 
+    @pytest.mark.slow
     def test_run_qfit_ligand(self):
         qfit_ligand = self.mock_main()
         # Run qfit object

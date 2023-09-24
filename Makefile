@@ -11,7 +11,7 @@ test-int:
 	py.test --verbose -n 4 --durations=20 tests/test_*.py
 
 test-int-quick:
-	py.test --verbose -n 4 --durations=20 -m fast tests/test_*.py
+	py.test --verbose -n 4 --durations=20 -m "not slow" tests/test_*.py
 
 test: test-unit test-int
 

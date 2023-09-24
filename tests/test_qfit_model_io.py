@@ -3,6 +3,7 @@ import os
 import logging
 
 import numpy as np
+import pytest
 
 from qfit.command_line.qfit_protein import (
     QFitOptions,
@@ -59,6 +60,7 @@ class TestQFitModelIO(BaseTestRunner):
         # Build a QFitProtein job
         return prepare_qfit_protein(options)
 
+    @pytest.mark.slow
     def test_qfit_model_io(self):
         # Prepare args
         args = [
@@ -90,6 +92,7 @@ class TestQFitModelIO(BaseTestRunner):
         qfit.structure = qfit.structure.extract("resi", (-3, -2), "==")
         assert (len(list(qfit.structure.single_conformer_residues))) == 2
 
+    @pytest.mark.slow
     def test_four_digit_residues(self):
         """Check if 4 digit residues are read correctly"""
         args = [

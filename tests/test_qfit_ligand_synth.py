@@ -90,6 +90,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         assert n_angles[0] > 0 and n_angles[1] > 0 and sum(n_angles) == n_confs
         self._validate_new_fmodel(fmodel_in, d_min, expected_correlation=0.99)
 
+    @pytest.mark.slow
     def test_qfit_ligand_trs_p21(self):
         """
         Build alternate conformers for a tris (TRS) molecule in a P21 cell.
