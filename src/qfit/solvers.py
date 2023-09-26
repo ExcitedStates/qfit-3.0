@@ -8,6 +8,8 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
+import scipy as sci
+import scipy.sparse
 from numpy.typing import NDArray
 
 from .utils.optional_lazy_import import lazy_load_module_if_available
@@ -392,6 +394,207 @@ class CPLEXSolver(QPSolver, MIQPSolver):
 
         # We can re-use the MIQP code above, provided no cardinality or threshold.
         self.solve_miqp(threshold=None, cardinality=None, exact=False)
+
+
+class OSQPSolver(QPSolver):
+    driver_pkg_name = "osqp"
+    driver = lazy_load_module_if_available(driver_pkg_name)
+    if TYPE_CHECKING:
+        import osqp
+
+    OSQP_SETTINGS = {
+        "eps_abs": 1e-06,
+        "eps_rel": 1e-06,
+        "eps_prim_inf": 1e-07,
+        "verbose": False,
+    }
+
+    def __init__(self, target: NDArray[np.float_], models: NDArray[np.float_]) -> None:
+        self.target = target
+        self.models = models
+
+        self.nconformers = models.shape[0]
+
+        self.weights: Optional[NDArray[np.float_]] = None
+        self.objective_value: Optional[float] = None
+
+    def _setup_Pq(self) -> None:
+        P = np.zeros((self.nconformers, self.nconformers), np.float64)
+        q = np.zeros(self.nconformers, np.float64)
+        for i in range(self.nconformers):
+            for j in range(i, self.nconformers):
+                P[i, j] = np.inner(self.models[i], self.models[j])
+            q[i] = -np.inner(self.models[i], self.target)
+
+        # OSQP requires quadratic objectives in a scipy CSC sparse matrix
+        self.P = sci.sparse.csc_matrix(P)
+        self.q = q
+
+    def _setup_constraints(self) -> None:
+        self.l = np.zeros(self.nconformers + 1)
+        self.u = np.ones(self.nconformers + 1)
+
+        data = np.ones(2 * self.nconformers)
+        row_ind = (
+            list(range(self.nconformers)) + [self.nconformers] * self.nconformers
+        )
+        col_ind = list(range(self.nconformers)) * 2
+        shape = (self.nconformers + 1, self.nconformers)
+        self.A = sci.sparse.csc_matrix((data, (row_ind, col_ind)), shape=shape)
+
+    def solve_qp(self) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.osqp
+            assert self.driver is not None
+
+        self._setup_Pq()
+        self._setup_constraints()
+
+        qp = self.driver.OSQP()
+        qp.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, **self.OSQP_SETTINGS)
+        result = qp.solve()
+
+        self.weights = np.array(result.x).ravel()
+        self.objective_value = 2 * result.info.obj_val + np.inner(self.target, self.target)
+
+
+class MIOSQPSolver(MIQPSolver):
+    driver_pkg_name = "miosqp"
+    driver = lazy_load_module_if_available(driver_pkg_name)
+    if TYPE_CHECKING:
+        import miosqp
+
+    MIOSQP_SETTINGS = {
+        # integer feasibility tolerance
+        "eps_int_feas": 1e-06,
+        # maximum number of iterations
+        "max_iter_bb": 10000,
+        # tree exploration rule
+        #   [0] depth first
+        #   [1] two-phase: depth first until first incumbent and then best bound
+        "tree_explor_rule": 0,
+        # branching rule
+        #   [0] max fractional part
+        "branching_rule": 0,
+        "verbose": False,
+        "print_interval": 1,
+    }
+
+    OSQP_SETTINGS = {
+        "eps_abs": 1e-06,
+        "eps_rel": 1e-06,
+        "eps_prim_inf": 1e-07,
+        "verbose": False,
+    }
+
+    def __init__(self, target: NDArray[np.float_], models: NDArray[np.float_]) -> None:
+        self.target = target
+        self.models = models
+
+        self.nconformers = models.shape[0]
+
+        self.weights: Optional[NDArray[np.float_]] = None
+        self.objective_value: Optional[float] = None
+
+        # Append raisable Exceptions to SolverError class in module (global) scope
+        global SolverError
+        SolverError += (ValueError,)
+
+    def _setup_Pq(self) -> None:
+        shape = (2 * self.nconformers, 2 * self.nconformers)
+        data = []
+        row_idx = []
+        col_idx = []
+        q = np.zeros(2 * self.nconformers, np.float64)
+        for i in range(self.nconformers):
+            model_i = self.models[i]
+            q[i] = -np.inner(model_i, self.target)
+            value = np.inner(model_i, model_i)
+            data.append(value)
+            row_idx.append(i)
+            col_idx.append(i)
+            for j in range(i + 1, self.nconformers):
+                value = np.inner(model_i, self.models[j])
+                data.append(value)
+                row_idx.append(i)
+                col_idx.append(j)
+                data.append(value)
+                row_idx.append(j)
+                col_idx.append(i)
+        self.P = sci.sparse.csc_matrix((data, (row_idx, col_idx)), shape=shape)
+        self.q = q
+
+    def solve_miqp(
+        self,
+        threshold: Optional[float] = None,
+        cardinality: Optional[int] = None,
+        exact: bool = False,
+    ) -> None:
+        if TYPE_CHECKING:
+            self.driver = self.miosqp
+            assert self.driver is not None
+
+        if cardinality is threshold is None:
+            raise ValueError("Set either cardinality or threshold.")
+
+        self._setup_Pq()
+
+        # The number of restraints are the upper and lower boundaries on
+        # each variable plus one for the sum(w_i) <= 1, plus nconformers to
+        # set a threshold constraint plus 1 for a cardinality constraint
+        # We set first the weights upper and lower bounds, then the sum
+        # constraint, then the binary variables upper and lower boundary
+        # and then the coupling restraints followed by the threshold
+        # contraints and finally a cardinality constraint.
+        # A_row effectively contains the constraint indices
+        # A_col holds which variables are involved in the constraint
+        A_data = [1.0] * (2 * self.nconformers)
+        A_row = list(range(self.nconformers)) + [self.nconformers] * self.nconformers
+        A_col = list(range(self.nconformers)) * 2
+        nconstraints = self.nconformers + 1
+
+        i_l = np.zeros(self.nconformers, np.int32)
+        i_u = np.ones(self.nconformers, np.int32)
+        i_idx = np.arange(self.nconformers, 2 * self.nconformers, dtype=np.int32)
+
+        # Introduce an implicit cardinality constraint
+        # 0 <= zi - wi <= 1
+        A_data += [-1.0] * self.nconformers + [1.0] * self.nconformers
+        # The wi and zi indices
+        start_row = self.nconformers + 1
+        A_row += list(range(start_row, start_row + self.nconformers)) * 2
+        A_col += list(range(2 * self.nconformers))
+        nconstraints += self.nconformers
+        if threshold is not None:
+            # Introduce threshold constraint
+            # 0 <= wi - t * zi <= 1
+            A_data += [1.0] * self.nconformers + [-threshold] * self.nconformers
+            start_row += self.nconformers
+            A_row += list(range(start_row, start_row + self.nconformers)) * 2
+            A_col += list(range(2 * self.nconformers))
+            nconstraints += self.nconformers
+
+        if cardinality is not None:
+            # Introduce explicit cardinality constraint
+            # 0 <= sum(zi) <= cardinality
+            A_data += [1] * self.nconformers
+            A_row += [nconstraints] * self.nconformers
+            A_col += list(range(self.nconformers, self.nconformers * 2))
+            nconstraints += 1
+
+        l = np.zeros(nconstraints)
+        u = np.ones(nconstraints)
+        if cardinality is not None:
+            u[-1] = cardinality
+        A = sci.sparse.csc_matrix((A_data, (A_row, A_col)))
+
+        miqp = self.driver.MIOSQP()
+        miqp.setup(self.P, self.q, A, l, u, i_idx, i_l, i_u,
+                   self.MIOSQP_SETTINGS, self.OSQP_SETTINGS)  # fmt:skip
+        result = miqp.solve()
+
+        self.weights = np.asarray(result.x[0 : self.nconformers])
+        self.objective_value = 2 * result.upper_glob + np.inner(self.target, self.target)
 
 
 ###############################
