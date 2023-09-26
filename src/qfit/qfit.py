@@ -73,7 +73,7 @@ class QFitOptions:
         self.clash_scaling_factor = 0.75
         self.external_clash = False
         self.dofs_per_iteration = 1 
-        self.dihedral_stepsize = 10
+        self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = 0.01
 
@@ -102,7 +102,7 @@ class QFitOptions:
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60  # Was 80 in QFitCovalentLigandOptions
+        self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
