@@ -415,47 +415,78 @@ class OSQPSolver(QPSolver):
 
         self.nconformers = models.shape[0]
 
+        self.quad_obj: sci.sparse.csc_matrix
+        self.lin_obj: NDArray[np.float_]
+        self.constraints: sci.sparse.csc_matrix
+        self.lower_bounds: NDArray[np.float_]
+        self.upper_bounds: NDArray[np.float_]
+
         self.weights: Optional[NDArray[np.float_]] = None
         self.objective_value: Optional[float] = None
 
-    def _setup_Pq(self) -> None:
-        P = np.zeros((self.nconformers, self.nconformers), np.float64)
-        q = np.zeros(self.nconformers, np.float64)
-        for i in range(self.nconformers):
-            for j in range(i, self.nconformers):
-                P[i, j] = np.inner(self.models[i], self.models[j])
-            q[i] = -np.inner(self.models[i], self.target)
+    def compute_quadratic_coeffs(self) -> None:
+        # minimize 0.5 x.T P x + q.T x
+        #   where P = self.quad_obj =   ρ_model.T ρ_model
+        #         q = self.lin_obj  = - ρ_model.T ρ_obs
+        quad_obj_coeffs = np.inner(self.models, self.models)
+        lin_obj_coeffs = -np.inner(self.models, self.target)
 
         # OSQP requires quadratic objectives in a scipy CSC sparse matrix
-        self.P = sci.sparse.csc_matrix(P)
-        self.q = q
+        self.quad_obj = sci.sparse.csc_matrix(quad_obj_coeffs)
+        self.lin_obj = lin_obj_coeffs
 
-    def _setup_constraints(self) -> None:
-        self.l = np.zeros(self.nconformers + 1)
-        self.u = np.ones(self.nconformers + 1)
-
-        data = np.ones(2 * self.nconformers)
-        row_ind = (
-            list(range(self.nconformers)) + [self.nconformers] * self.nconformers
-        )
-        col_ind = list(range(self.nconformers)) * 2
+    def compute_constraints(self) -> None:
+        # subject to:
+        #   l ≤ A x ≤ u
+        #   where l = self.lower_bounds
+        #         A = self.constraints
+        #         u = self.upper_bounds
+        #
+        #   Each weight x falls in the closed interval [0..1], and the sum of all weights is <= 1.
+        #   This corresponds to (1 * nconformers + 1) constraints, imposed on (nconformers) variables:
+        #     the lower and upper bounds account for (nconformers) constraints,
+        #     the summation constraint accounts for 1.
         shape = (self.nconformers + 1, self.nconformers)
-        self.A = sci.sparse.csc_matrix((data, (row_ind, col_ind)), shape=shape)
+        #   We construct A with a sparse matrix.
+        #         constraint idx=[0..N)           constraint idx=N
+        rowidxs = [*range(0, self.nconformers)] + (self.nconformers * [self.nconformers])  # fmt:skip
+        #         0 ≤ x_i ≤ 1                     0 ≤ Σ_i x_i ≤ 1
+        coeffs  = (self.nconformers * [1.0])    + (self.nconformers * [1.0])  # fmt:skip
+        colidxs = [*range(0, self.nconformers)] + [*range(0, self.nconformers)]  # fmt:skip
+        lowers  = (self.nconformers * [0.0])    + [0.0]  # fmt:skip
+        uppers  = (self.nconformers * [1.0])    + [1.0]  # fmt:skip
+
+        self.constraints = sci.sparse.csc_matrix(
+            (coeffs, (rowidxs, colidxs)),
+            shape=shape,
+        )
+        self.lower_bounds = np.array(lowers)
+        self.upper_bounds = np.array(uppers)
 
     def solve_qp(self) -> None:
         if TYPE_CHECKING:
             self.driver = self.osqp
             assert self.driver is not None
 
-        self._setup_Pq()
-        self._setup_constraints()
+        self.compute_quadratic_coeffs()
+        self.compute_constraints()
 
         qp = self.driver.OSQP()
-        qp.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, **self.OSQP_SETTINGS)
+        qp.setup(
+            P=self.quad_obj,
+            q=self.lin_obj,
+            A=self.constraints,
+            l=self.lower_bounds,
+            u=self.upper_bounds,
+            **self.OSQP_SETTINGS,
+        )
         result = qp.solve()
 
         self.weights = np.array(result.x).ravel()
-        self.objective_value = 2 * result.info.obj_val + np.inner(self.target, self.target)
+        self.objective_value = (
+            2 * result.info.obj_val
+            + np.inner(self.target, self.target)
+        )  # fmt:skip
 
 
 class MIOSQPSolver(MIQPSolver):
@@ -493,6 +524,15 @@ class MIOSQPSolver(MIQPSolver):
 
         self.nconformers = models.shape[0]
 
+        self.quad_obj: Optional[sci.sparse.csc_matrix] = None
+        self.lin_obj: Optional[NDArray[np.float_]] = None
+        self.constraints: sci.sparse.csc_matrix
+        self.lower_bounds: NDArray[np.float_]
+        self.upper_bounds: NDArray[np.float_]
+        self.binary_vars: NDArray[np.int_]
+        self.lower_ints: NDArray[np.int_]
+        self.upper_ints: NDArray[np.int_]
+
         self.weights: Optional[NDArray[np.float_]] = None
         self.objective_value: Optional[float] = None
 
@@ -500,29 +540,142 @@ class MIOSQPSolver(MIQPSolver):
         global SolverError
         SolverError += (ValueError,)
 
-    def _setup_Pq(self) -> None:
-        shape = (2 * self.nconformers, 2 * self.nconformers)
-        data = []
-        row_idx = []
-        col_idx = []
-        q = np.zeros(2 * self.nconformers, np.float64)
-        for i in range(self.nconformers):
-            model_i = self.models[i]
-            q[i] = -np.inner(model_i, self.target)
-            value = np.inner(model_i, model_i)
-            data.append(value)
-            row_idx.append(i)
-            col_idx.append(i)
-            for j in range(i + 1, self.nconformers):
-                value = np.inner(model_i, self.models[j])
-                data.append(value)
-                row_idx.append(i)
-                col_idx.append(j)
-                data.append(value)
-                row_idx.append(j)
-                col_idx.append(i)
-        self.P = sci.sparse.csc_matrix((data, (row_idx, col_idx)), shape=shape)
-        self.q = q
+    def compute_quadratic_coeffs(self) -> None:
+        """Precompute the quadratic coefficients (P, q).
+
+        These values don't depend on threshold/cardinality.
+        Having these objectives pre-computed saves a few cycles when MIQP
+        is evaluated for multiple values of threshold/cardinality.
+        """
+        # Since this is an MIQP problem, the objective function f(x)
+        # takes the vector x = [w_0 .. w_i, z_0 .. z_i],
+        #   where w_i are the weights,
+        #         z_i are the integer selections.
+
+        # We wish to minimize 0.5 x.T P x + q.T x
+        #   where P = self.quad_obj =   ρ_model.T ρ_model
+        #         q = self.lin_obj  = - ρ_model.T ρ_obs
+        quad_obj_coeffs = np.inner(self.models, self.models)
+        lin_obj_coeffs = -np.inner(self.models, self.target)
+
+        # This is sufficient for the non-integer weights,
+        #   but we must extend our matrix so that
+        #     P is of shape (2*nconfs, 2*nconfs), and
+        #     q is of len (2*nconfs),
+        #   to match the dimensions of vector x.
+        P_shape = (2 * self.nconformers, 2 * self.nconformers)
+
+        # MIOSQP requires quadratic objectives in a scipy CSC sparse matrix
+        # Get an index into the dense _quad_obj_coeffs array,
+        #   and construct P with csc_array((data, (row_ind, col_ind)), [shape=(M, N)]).
+        rowidx, colidx = np.indices(quad_obj_coeffs.shape)
+        self.quad_obj = sci.sparse.csc_matrix(
+            (quad_obj_coeffs.ravel(), (rowidx.ravel(), colidx.ravel())),
+            shape=P_shape,
+        )
+        # Extend q to appropriate shape
+        self.lin_obj = np.append(lin_obj_coeffs, np.zeros((self.nconformers,)))
+
+    def compute_mixed_int_constraints(
+        self,
+        threshold: Optional[float],
+        cardinality: Optional[int],
+    ) -> None:
+        # subject to:
+        #   l ≤ A x ≤ u
+        #   x[i] ∈ Z, for i in i_idx
+        #   il[i] <= x[i] <= iu[i], for i in i_idx
+        #   where l = self.lower_bounds
+        #         A = self.constraints
+        #         u = self.upper_bounds
+        #         i_idx = self.binary_vars: a vector of indices of which variables are integer
+        #         il = self.lower_ints: the lower bounds on the integer variables
+        #         iu = self.upper_ints: the upper bounds on the integer variables.
+
+        # We will construct A with a sparse matrix.
+
+        # Presently, we have no constraints.
+        n_constraints = 0
+        # Our constraints will be applied over the variables [w_0 .. w_i, z_0 .. z_i],
+        #   where w_i are the weights,
+        #         z_i are the integer selections.
+        n_vars = 2 * self.nconformers
+
+        # Since cardinality or threshold will be specified, the problem is a MIQP,
+        # so we need to add binary integer variables z_i.
+        #     z_i ∈ {0, 1}
+        self.binary_vars = np.arange(self.nconformers, 2 * self.nconformers)
+        self.lower_ints = np.array(self.nconformers * [0])
+        self.upper_ints = np.array(self.nconformers * [1])
+
+        # fmt:off
+
+        #   Each weight w_i falls in the closed interval [0..1], and the sum of all weights is <= 1.
+        #   This corresponds to (1 * nconformers + 1) constraints, imposed on (nconformers) variables:
+        #     the lower and upper bounds account for (nconformers) constraints,
+        #     the summation constraint accounts for 1.
+        #        constraint idx=[0..N)           constraint idx=N
+        rowidx = [*range(0, self.nconformers)] + (self.nconformers * [self.nconformers])
+        #        0 ≤ w_i ≤ 1                     0 ≤ Σ_i w_i ≤ 1
+        coeffs = (self.nconformers * [1.0])    + (self.nconformers * [1.0])
+        colidx = [*range(0, self.nconformers)] + [*range(0, self.nconformers)]
+        lowers = (self.nconformers * [0.0])    + [0.0]
+        uppers = (self.nconformers * [1.0])    + [1.0]
+        n_constraints += self.nconformers + 1
+
+        # Introduce an implicit cardinality constraint
+        # Only count weights for which z_i is 1
+        #     0 <= z_i - w_i <= 1
+        #     (∵ z_i ∈ {0,1} and 0 ≤ w_i ≤ 1, this is only true when z_i = 1)
+        # constraint idx=[N+1..2N+1)
+        rowidx += (
+            [*range(n_constraints, n_constraints + self.nconformers)] +
+            [*range(n_constraints, n_constraints + self.nconformers)]
+        )
+        #    0 <= -w_i                           + z_i <= 1
+        coeffs += ((self.nconformers * [-1.0])   + (self.nconformers * [1.0]))
+        colidx += ([*range(0, self.nconformers)] + [*range(self.nconformers, 2 * self.nconformers)])
+        lowers += self.nconformers * [0.0]
+        uppers += self.nconformers * [1.0]
+        n_constraints += self.nconformers
+
+        # Set the threshold constraint if applicable
+        #     tdmin z_i - w_i ≤ 0, i.e. w_i ≥ tdmin
+        if threshold is not None:
+            # constraint idx=[2N+1..3N+1)
+            rowidx += (
+                [*range(n_constraints, n_constraints + self.nconformers)] +
+                [*range(n_constraints, n_constraints + self.nconformers)]
+            )
+            #    0 <= wi                            - t * zi <= 1
+            coeffs += (self.nconformers * [1.0])    + (self.nconformers * [-threshold])
+            colidx += [*range(0, self.nconformers)] + [*range(self.nconformers, 2 * self.nconformers)]
+            lowers += (self.nconformers * [0.0])
+            uppers += (self.nconformers * [1.0])
+            n_constraints += self.nconformers
+
+        # fmt:on
+
+        # Set the cardinality constraint if applicable
+        #     Σ z_i ≤ cardinality
+        if cardinality is not None:
+            # constraint idx=2N+2, if no threshold constraint; or
+            # constraint idx=3N+2, if a threshold constraint was applied
+            rowidx += self.nconformers * [n_constraints]
+            #    0 <= Σ z_i <= cardinality
+            coeffs += self.nconformers * [1]
+            colidx += [*range(self.nconformers, 2 * self.nconformers)]
+            lowers += [0]
+            uppers += [cardinality]
+            n_constraints += 1
+
+        # MIOSQP requires constraints as a sparse matrix
+        self.constraints = sci.sparse.csc_matrix(
+            (coeffs, (rowidx, colidx)),
+            shape=(n_constraints, n_vars),
+        )
+        self.lower_bounds = np.array(lowers)
+        self.upper_bounds = np.array(uppers)
 
     def solve_miqp(
         self,
@@ -537,64 +690,32 @@ class MIOSQPSolver(MIQPSolver):
         if cardinality is threshold is None:
             raise ValueError("Set either cardinality or threshold.")
 
-        self._setup_Pq()
+        if not (self.quad_obj and self.lin_obj):
+            self.compute_quadratic_coeffs()
+        self.compute_mixed_int_constraints(threshold, cardinality)
 
-        # The number of restraints are the upper and lower boundaries on
-        # each variable plus one for the sum(w_i) <= 1, plus nconformers to
-        # set a threshold constraint plus 1 for a cardinality constraint
-        # We set first the weights upper and lower bounds, then the sum
-        # constraint, then the binary variables upper and lower boundary
-        # and then the coupling restraints followed by the threshold
-        # contraints and finally a cardinality constraint.
-        # A_row effectively contains the constraint indices
-        # A_col holds which variables are involved in the constraint
-        A_data = [1.0] * (2 * self.nconformers)
-        A_row = list(range(self.nconformers)) + [self.nconformers] * self.nconformers
-        A_col = list(range(self.nconformers)) * 2
-        nconstraints = self.nconformers + 1
-
-        i_l = np.zeros(self.nconformers, np.int32)
-        i_u = np.ones(self.nconformers, np.int32)
-        i_idx = np.arange(self.nconformers, 2 * self.nconformers, dtype=np.int32)
-
-        # Introduce an implicit cardinality constraint
-        # 0 <= zi - wi <= 1
-        A_data += [-1.0] * self.nconformers + [1.0] * self.nconformers
-        # The wi and zi indices
-        start_row = self.nconformers + 1
-        A_row += list(range(start_row, start_row + self.nconformers)) * 2
-        A_col += list(range(2 * self.nconformers))
-        nconstraints += self.nconformers
-        if threshold is not None:
-            # Introduce threshold constraint
-            # 0 <= wi - t * zi <= 1
-            A_data += [1.0] * self.nconformers + [-threshold] * self.nconformers
-            start_row += self.nconformers
-            A_row += list(range(start_row, start_row + self.nconformers)) * 2
-            A_col += list(range(2 * self.nconformers))
-            nconstraints += self.nconformers
-
-        if cardinality is not None:
-            # Introduce explicit cardinality constraint
-            # 0 <= sum(zi) <= cardinality
-            A_data += [1] * self.nconformers
-            A_row += [nconstraints] * self.nconformers
-            A_col += list(range(self.nconformers, self.nconformers * 2))
-            nconstraints += 1
-
-        l = np.zeros(nconstraints)
-        u = np.ones(nconstraints)
-        if cardinality is not None:
-            u[-1] = cardinality
-        A = sci.sparse.csc_matrix((A_data, (A_row, A_col)))
-
+        # Construct the MIOSQP solver & solve!
         miqp = self.driver.MIOSQP()
-        miqp.setup(self.P, self.q, A, l, u, i_idx, i_l, i_u,
-                   self.MIOSQP_SETTINGS, self.OSQP_SETTINGS)  # fmt:skip
+        miqp.setup(
+            P=self.quad_obj,
+            q=self.lin_obj,
+            A=self.constraints,
+            l=self.lower_bounds,
+            u=self.upper_bounds,
+            i_idx=self.binary_vars,
+            i_l=self.lower_ints,
+            i_u=self.upper_ints,
+            settings=self.MIOSQP_SETTINGS,
+            qp_settings=self.OSQP_SETTINGS,
+        )
         result = miqp.solve()
 
-        self.weights = np.asarray(result.x[0 : self.nconformers])
-        self.objective_value = 2 * result.upper_glob + np.inner(self.target, self.target)
+        # Destructure results
+        self.weights = np.array(result.x[0 : self.nconformers])
+        self.objective_value = (
+            2 * result.upper_glob
+            + np.inner(self.target, self.target)
+        )  # fmt:skip
 
 
 ###############################
