@@ -1176,7 +1176,7 @@ class QFitSegment(_BaseQFit):
         residue_groups = self.segment.extract("record", "ATOM").residue_groups
         residue_groups_pbar = tqdm.tqdm(
             residue_groups,
-            total=self.segment.n_residues,
+            total=self.segment.n_residues(),
             desc="Building segments",
             unit="res",
             leave=True,

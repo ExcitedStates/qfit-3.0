@@ -87,9 +87,6 @@ class BaseStructure(ABC):
             data[attr] = self.get_array(attr).copy()
         return self.__class__(data, parent=None, selection=None, **self._kwargs)
 
-    def get_dihedral_angle(self, coor):
-        return dihedral_angle(coor)
-
     def extract(self, *args):
         if not isinstance(args[0], str):
             selection = args[0]

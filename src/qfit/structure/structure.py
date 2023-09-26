@@ -87,7 +87,7 @@ class Structure(BaseStructure):
 
     def __getitem__(self, key):
         if not self._chains:
-            self.build_hierarchy()
+            self._build_hierarchy()
         if isinstance(key, int):
             nchains = len(self._chains)
             if key < 0:
@@ -106,7 +106,7 @@ class Structure(BaseStructure):
 
     def __repr__(self):
         if not self._chains:
-            self.build_hierarchy()
+            self._build_hierarchy()
         return f"Structure: {self.natoms} atoms"
 
     @property
@@ -120,7 +120,7 @@ class Structure(BaseStructure):
     @property
     def chains(self):
         if not self._chains:
-            self.build_hierarchy()
+            self._build_hierarchy()
         return self._chains
 
     @property
@@ -138,15 +138,15 @@ class Structure(BaseStructure):
 
     @property
     def single_conformer_residues(self):
-        Dict = {}
+        residues_d = {}
         for chain in self.chains:
-            if chain.chain[0] not in Dict:
-                Dict[chain.chain[0]] = {}
+            if chain.chain[0] not in residues_d:
+                residues_d[chain.chain[0]] = {}
             for conformer in chain.conformers:
                 for residue in conformer.residues:
-                    if residue.resi[0] not in Dict[chain.chain[0]]:
+                    if residue.resi[0] not in residues_d[chain.chain[0]]:
                         yield residue
-                        Dict[chain.chain[0]][residue.resi[0]] = 1
+                        residues_d[chain.chain[0]][residue.resi[0]] = 1
 
     @property
     def segments(self):
@@ -155,7 +155,7 @@ class Structure(BaseStructure):
                 for segment in conformer.segments:
                     yield segment
 
-    def build_hierarchy(self):
+    def _build_hierarchy(self):
         # Build up hierarchy starting from chains
         chainids = np.unique(self.chain).tolist()
         self._chains = []
@@ -179,19 +179,17 @@ class Structure(BaseStructure):
         data = {}
         # determine altloc to keep
         sel_str = f"resi {resid} and chain {chainid}"
-        conformers = [self.extract(sel_str)]
-        altlocs = []
-        for i in range(0, len(conformers)):
-            altlocs = np.append(altlocs, conformers[i].altloc[0])
-        altloc_keep = np.unique(altlocs)[0]
-        altlocs_remove = np.unique(altlocs)[1:]
-        mask = (
+        conformers = self.extract(sel_str)
+        altlocs = sorted(list(set(conformers.altloc)))
+        altloc_keep = altlocs[0]
+        altlocs_remove = altlocs[1:]
+        remove_mask = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O", "H", "HA"])
             & np.isin(self.data["altloc"], altlocs_remove)
         )
-        mask2 = (
+        keep_mask = (
             (self.data["resi"] == resid)
             & (self.data["chain"] == chainid)
             & np.isin(self.data["name"], ["CA", "C", "N", "O"])
@@ -199,24 +197,13 @@ class Structure(BaseStructure):
         )
 
         for attr in self.data:
-            array1 = self.get_array(attr)
+            array = self.data[attr].copy()
             if attr == "altloc":
-                array1[mask2] = ""
+                array[keep_mask] = ""
             if attr == "q":
-                array1[mask2] = 1.0
-            data[attr] = array1[~mask]
+                array[keep_mask] = 1.0
+            data[attr] = array[~remove_mask]
 
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
-
-    def get_backbone(self):
-        """Return the backbone atoms of a given residue"""
-        data = {}
-        mask = (self.data["resi"] == self.resi[0]) & np.isin(
-            self.data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
-        )
-        for attr in self.data:
-            array1 = self.get_array(attr)
-            data[attr] = array1[~mask]
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def set_backbone_occ(self):
@@ -235,6 +222,9 @@ class Structure(BaseStructure):
             mask2 = np.isin(
                 self.data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
             )
+        if self._selection is not None:
+            mask = mask[self._selection]
+            mask2 = mask2[self._selection]
         for attr in self.data:
             array1 = self.get_array(attr)
             if attr == "q":
@@ -408,24 +398,24 @@ class Structure(BaseStructure):
                         multiconformer = Structure(data)
         return Structure(data)
 
-    def remove_conformer(self, resi, chain, altloc1, altloc2):
+    def _remove_conformer(self, resi, chain, altloc_keep, altloc_remove):
         data = {}
-        mask = (
+        keep_mask = (
             (self.data["resi"] == resi)
             & (self.data["chain"] == chain)
-            & (self.data["altloc"] == altloc1)
+            & (self.data["altloc"] == altloc_keep)
         )
-        mask2 = (
+        remove_mask = (
             (self.data["resi"] == resi)
             & (self.data["chain"] == chain)
-            & (self.data["altloc"] == altloc2)
+            & (self.data["altloc"] == altloc_remove)
         )
 
         for attr in self.data:
-            array1 = self.get_array(attr)
+            array = self.get_array(attr)
             if attr == "q":
-                array1[mask] = array1[mask] + array1[mask2]
-            data[attr] = array1[~mask2]
+                array[keep_mask] = array[keep_mask] + array[remove_mask]
+            data[attr] = array[~remove_mask]
 
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
@@ -463,13 +453,7 @@ class Structure(BaseStructure):
                                 removed_conformers.append(conf_b.altloc[0])
         return multiconformer
 
-    @property
-    def n_residue_conformers(self):
-        """Total of conformers over all residues in the structure (exclude heteroatoms).
-
-        Returns:
-            int
-        """
+    def _n_residue_conformers(self):
         total_altlocs = 0
         for rg in self.extract("record", "ATOM").residue_groups:
             altlocs = set(rg.altloc)
@@ -478,7 +462,6 @@ class Structure(BaseStructure):
             total_altlocs += len(altlocs)
         return total_altlocs
 
-    @property
     def n_residues(self):
         """Number of residues in the structure (exclude heteroatoms).
 
@@ -487,6 +470,7 @@ class Structure(BaseStructure):
         Returns:
             int
         """
+        # FIXME this is very inefficient
         residue_groups = self.extract("record", "ATOM").residue_groups
         return sum(1 for _ in residue_groups)
 
@@ -496,7 +480,7 @@ class Structure(BaseStructure):
         Returns:
             float
         """
-        return self.n_residue_conformers / self.n_residues
+        return self._n_residue_conformers() / self.n_residues()
 
     def _init_clash_detection(self):
         # Setup the condensed distance based arrays for clash detection and
@@ -609,7 +593,7 @@ class _Chain(BaseStructure):
     def __getitem__(self, key):
         if isinstance(key, (int, slice)):
             if not self._residue_groups:
-                self.build_hierarchy()
+                self._build_hierarchy()
         nresidues = len(self._residue_groups)
         if isinstance(key, int):
             if key < 0:
@@ -628,7 +612,7 @@ class _Chain(BaseStructure):
             return self._residue_groups[start:end]
         elif isinstance(key, str):
             if not self._conformers:
-                self.build_conformers()
+                self._build_conformers()
             for conformer in self._conformers:
                 if conformer.id == key:
                     return conformer
@@ -642,16 +626,16 @@ class _Chain(BaseStructure):
     @property
     def conformers(self):
         if not self._conformers:
-            self.build_conformers()
+            self._build_conformers()
         return self._conformers
 
     @property
     def residue_groups(self):
         if not self._residue_groups:
-            self.build_hierarchy()
+            self._build_hierarchy()
         return self._residue_groups
 
-    def build_hierarchy(self):
+    def _build_hierarchy(self):
         resi = self.resi
         # order = np.argsort(resi)
         # resi = resi[order]
@@ -678,7 +662,7 @@ class _Chain(BaseStructure):
             self._residue_groups.append(residue_group)
             self._residue_group_ids.append((resi, icode))
 
-    def build_conformers(self):
+    def _build_conformers(self):
         altlocs = np.unique(self.altloc)
         self._conformers = []
         if altlocs.size > 1 or altlocs[0] != "":
@@ -711,10 +695,10 @@ class ResidueGroup(BaseStructure):
     @property
     def atom_groups(self):
         if not self._atom_groups:
-            self.build_hierarchy()
+            self._build_hierarchy()
         return self._atom_groups
 
-    def build_hierarchy(self):
+    def _build_hierarchy(self):
         # An atom group is a collection of entries that have a unique
         # chain, resi, icode, resn and altloc
         cadd = np.char.add
@@ -786,7 +770,7 @@ class _Conformer(BaseStructure):
 
     def __getitem__(self, arg):
         if not self._residues:
-            self.build_residues()
+            self._build_residues()
         if isinstance(arg, int):
             key = (arg, "")
         elif isinstance(arg, tuple):
@@ -802,23 +786,23 @@ class _Conformer(BaseStructure):
     @property
     def ligands(self):
         if not self._residues:
-            self.build_residues()
+            self._build_residues()
         _ligands = [l for l in self._residues if isinstance(l, Ligand) and l.natoms > 3]
         return _ligands
 
     @property
     def residues(self):
         if not self._residues:
-            self.build_residues()
+            self._build_residues()
         return self._residues
 
     @property
     def segments(self):
         if not self._segments:
-            self.build_segments()
+            self._build_segments()
         return self._segments
 
-    def build_residues(self):
+    def _build_residues(self):
         # A residue group is a collection of entries that have a unique
         # chain, resi, and icode
         # Do all these order tricks in order to keep the resid ordering correct
@@ -858,9 +842,9 @@ class _Conformer(BaseStructure):
             )
             self._residues.append(residue)
 
-    def build_segments(self):
+    def _build_segments(self):
         if not self._residues:
-            self.build_residues()
+            self._build_residues()
 
         segments = []
         segment = []
@@ -941,9 +925,13 @@ class Segment(BaseStructure):
         return "Segment: length {}".format(len(self.residues))
 
     def find(self, residue_id):
+        """
+        Return the index in self.residues of the residue with the specified
+        ID (either resseq or resseq+icode)
+        """
         if isinstance(residue_id, int):
             residue_id = (residue_id, "")
-        for n, residue in enumerate(self.residues):
+        for i_res, residue in enumerate(self.residues):
             if residue.id == residue_id:
-                return n
+                return i_res
         raise ValueError("Residue is not part of segment.")

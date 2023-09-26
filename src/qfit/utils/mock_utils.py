@@ -185,14 +185,17 @@ class BaseTestRunner(unittest.TestCase):
                 print(e)
         return rotamers
 
+    def _write_tmp_pdb(self, pdb_str, suffix=""):
+        pdb_tmp = tempfile.NamedTemporaryFile(suffix=f"{suffix}.pdb").name
+        with open(pdb_tmp, "wt") as pdb_out:
+            pdb_out.write(pdb_str)
+        return pdb_tmp
+
     def _get_water_pdb(self):
         """
         Write a temporary PDB file containing water in a P1 box.
         """
-        pdb_tmp = tempfile.NamedTemporaryFile(suffix="-water.pdb").name
-        with open(pdb_tmp, "wt") as pdb_out:
-            pdb_out.write(WATER)
-        return pdb_tmp
+        return self._write_tmp_pdb(WATER, "-water")
 
     def _get_serine_monomer_inputs(self, crystal_symmetry=None):
         """
