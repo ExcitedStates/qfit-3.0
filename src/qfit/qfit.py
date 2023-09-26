@@ -72,7 +72,7 @@ class QFitOptions:
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-        self.dofs_per_iteration = 2
+        self.dofs_per_iteration = 1 
         self.dihedral_stepsize = 10
         self.hydro = False
         self.rmsd_cutoff = 0.01
