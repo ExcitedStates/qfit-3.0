@@ -1,4 +1,4 @@
-import itertools
+import itertools 
 import logging
 import os
 from sys import argv
