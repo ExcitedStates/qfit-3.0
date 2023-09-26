@@ -13,6 +13,10 @@ try:
     import cplex
 except ImportError:
     CPLEX = False
+    msg = (
+        "CPLEX or CVXOPT is not install. Please re-install these packages and qFit to run"
+          )
+    raise RuntimeError(msg)
 else:
     CPLEX = True
     SolverError = cplex.exceptions.CplexSolverError
