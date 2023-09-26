@@ -3,7 +3,7 @@
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-qFit is a collection of programs for modeling multi-conformer protein structures.
+qFit is a collection of programs for modeling multi-conformer protein structures. 
 
 Electron density maps obtained from high-resolution X-ray diffraction data are a spatial and temporal average of all conformations within the crystal. qFit evaluates an extremely large number of combinations of sidechain conformers, backbone fragments and small-molecule ligands to locally explain the electron density.
 
