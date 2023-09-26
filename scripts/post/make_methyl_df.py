@@ -6,7 +6,7 @@ INPUT: PDB structure, pdb name
 OUTPUT: A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
 
 example:
-make_methyl_df.py {pdb}.pdb {pdb_name} 
+make_methyl_df.py {pdb}.pdb --pdb {pdb_name} 
 """
 
 import numpy as np
@@ -45,4 +45,4 @@ for chain in np.unique(structure.chain):
 methyl_df = pd.DataFrame(
     methyl, columns=["resi", "a1", "resi", "a2", "hold1", "hold2", "chain", "resn"]
 )
-methyl_df.to_csv(args.pdb + "_qFit_methyl.dat", sep=" ", index=False)
+methyl_df.to_csv(args.pdb + ".dat", sep=" ", index=False)
