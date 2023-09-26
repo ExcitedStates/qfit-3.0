@@ -4,6 +4,7 @@ channels:
   - conda-forge
   
 dependencies:
+  - python>=3.9
   - libblas[build=*mkl]
   - numpy==1.22
   - scipy>=1.0
