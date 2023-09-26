@@ -26,13 +26,13 @@ Once these are installed, you can:
 
 1. Create a new conda env & activate it
    ```bash
-   conda create --name qfit "python>=3.7,<3.9"
+   conda create --name qfit "python>=3.9"
    conda activate qfit
    ```
 
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl numpy=1.20
+   conda install -c anaconda mkl numpy=1.22
    conda install -c anaconda -c ibmdecisionoptimization \
                  cvxopt cplex
    ```
@@ -60,7 +60,7 @@ Instead of the first step in the above Installation section, use this:
 
 1. Create a new conda env & activate it
    ```bash
-   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.8"
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
    conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
    conda activate qfit
    ```
@@ -97,14 +97,14 @@ Before creating a commit, you will have to perform two actions:
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please refer below for a basic usage example. More specialized and advanced use case examples
-are shown in [TUTORIAL](example/TUTORIAL.md) in the [example](example/) directory.
+are shown in [TUTORIAL](example/README.md) in the [example](example/) directory.
 
 To remove single-conformer model bias, qFit should be used with a composite omit
 map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
-An example test case (3K0N) can be found in the [example/qfit_protein_example](example/qfit_protein_example/) directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
+An example test case (3K0N) can be found in the [qfit protein example](example/qfit_protein_example/) directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
 
 
 ### Recommended settings
@@ -135,7 +135,7 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 Additionally, the qFit_occupancy.params file must exist in the folder.
 
-(A pre-generated multiconformer_model2.pdb file is available in the [qfit_protein_example](example/qfit_protein_example/) folder)
+(A pre-generated multiconformer_model2.pdb file is available in the [qfit protein example](example/qfit_protein_example/) folder)
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
@@ -144,7 +144,7 @@ of the Phenix software suite. This script is currently written to work with vers
 To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
 the following command should be used:
 
-`qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] --qscore [QSCORE_TXT_FILE]`
+`qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
