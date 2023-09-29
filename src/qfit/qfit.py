@@ -11,7 +11,7 @@ import tqdm
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
-from .samplers import ChiRotator, CBAngleRotator, BondRotator
+from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, SolverError
@@ -963,27 +963,32 @@ class QFitRotamericResidue(_BaseQFit):
         for coor in self._coor_set:
             self.residue.coor = coor
             rotator = CBAngleRotator(self.residue)
-            for angle in angles:
-                rotator(angle)
-                coor = self.residue.coor
+            for perp_angle in angles:
+                rotator(perp_angle)
+                coor_rotated = self.residue.coor
+                new_rotator = BisectingAngleRotator(self.residue)
+                for bisec_angle in angles:
+                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
+                    new_rotator(bisec_angle)
+                    coor = self.residue.coor
 
-                # Move on if these coordinates are unsupported by density
-                if self.options.remove_conformers_below_cutoff:
-                    values = self.xmap.interpolate(coor[active_mask])
-                    mask = self.residue.e[active_mask] != "H"
-                    if np.min(values[mask]) < self.options.density_cutoff:
+                    # Move on if these coordinates are unsupported by density
+                    if self.options.remove_conformers_below_cutoff:
+                        values = self.xmap.interpolate(coor[active_mask])
+                        mask = self.residue.e[active_mask] != "H"
+                        if np.min(values[mask]) < self.options.density_cutoff:
+                            continue
+    
+                    # Move on if these coordinates cause a clash
+                    if self.options.external_clash:
+                        if self._cd() and self.residue.clashes():
+                            continue
+                    elif self.residue.clashes():
                         continue
-
-                # Move on if these coordinates cause a clash
-                if self.options.external_clash:
-                    if self._cd() and self.residue.clashes():
-                        continue
-                elif self.residue.clashes():
-                    continue
-
-                # Valid, non-clashing conformer found!
-                new_coor_set.append(self.residue.coor)
-                new_bs.append(self.conformer.b)
+    
+                    # Valid, non-clashing conformer found!
+                    new_coor_set.append(self.residue.coor)
+                    new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
