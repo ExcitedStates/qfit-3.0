@@ -209,7 +209,7 @@ def write_mmcif(fname, structure):
     Write a structure to an mmCIF file using the iotbx APIs
     """
     # FIXME this is really gross, just a quick hack to make mmCIF writable
-    atoms = _structure_to_iotbx_atoms(structure.data)
+    atoms = _structure_to_iotbx_atoms(structure._data)  # pylint: disable=protected-access
     atom_lines = [atom.format_atom_record_group() for atom in atoms]
     pdb_in = iotbx.pdb.pdb_input(source_info="qfit_structure", lines=atom_lines)
     hierarchy = pdb_in.construct_hierarchy()

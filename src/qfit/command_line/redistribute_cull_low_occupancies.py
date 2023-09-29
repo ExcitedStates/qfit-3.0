@@ -234,10 +234,7 @@ def main():
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
 
     # Create structure without low occupancy confs (culling)
-    data = {}
-    for attr in structure.data:
-        data[attr] = structure.get_array(attr).copy()[~mask]
-    structure = Structure(data).reorder()
+    structure = structure.get_selection(~mask).reorder()
 
     # add het atoms back in
     structure = structure.combine(hetatm)

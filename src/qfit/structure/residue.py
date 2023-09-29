@@ -82,7 +82,7 @@ class _BaseResidue(BaseStructure):
         after unpickling in a multiprocessing call.
         """
         return self.__class__(
-            self.data,
+            self._data,
             resi=self.id[0],
             icode=self.id[1],
             type=self.type,
@@ -184,10 +184,10 @@ class RotamerResidue(_BaseResidue):
         ordered_sel = []
         for atom in atoms:
             for sel in selection:
-                if atom == self.data["name"][sel]:
+                if atom == self._data["name"][sel]:
                     ordered_sel.append(sel)
                     break
-        coor = self.data["coor"][ordered_sel]
+        coor = self._data["coor"][ordered_sel]
         angle = dihedral_angle(coor)
         return angle
 
@@ -196,7 +196,7 @@ class RotamerResidue(_BaseResidue):
         selection = self.select("name", atoms)
 
         # Translate coordinates to center on coor[1]
-        coor = self.data["coor"][selection]
+        coor = self._data["coor"][selection]
         origin = coor[1].copy()
         coor -= origin
 
@@ -220,11 +220,11 @@ class RotamerResidue(_BaseResidue):
         R = forward @ rotation @ backward
 
         # Apply transformation
-        coor_to_rotate = self.data["coor"][selection]
+        coor_to_rotate = self._data["coor"][selection]
         coor_to_rotate -= origin
         coor_to_rotate = np.dot(coor_to_rotate, R.T)
         coor_to_rotate += origin
-        self.data["coor"][selection] = coor_to_rotate
+        self._data["coor"][selection] = coor_to_rotate
 
     def print_residue(self):
         for atom, coor, element, b, q in zip(
@@ -610,19 +610,19 @@ class RotamerResidue(_BaseResidue):
 
     def add_atom(self, name, element, coor):
         index = self._selection[-1]
-        if index < len(self.data["record"]):
-            index = len(self.data["record"]) - 1
-        for attr in self.data:
+        if index < len(self._data["record"]):
+            index = len(self._data["record"]) - 1
+        for attr in self._data:
             if attr == "e":
-                self.data[attr] = np.append(self.data[attr], element)
+                self._data[attr] = np.append(self._data[attr], element)
             elif attr == "atomid":
-                self.data[attr] = np.append(self.data[attr], index + 1)
+                self._data[attr] = np.append(self._data[attr], index + 1)
             elif attr == "name":
-                self.data["name"] = np.append(self.data["name"], name)
+                self._data["name"] = np.append(self._data["name"], name)
             elif attr == "coor":
-                self.data["coor"] = np.append(self.data["coor"], np.expand_dims(coor, axis=0))
+                self._data["coor"] = np.append(self._data["coor"], np.expand_dims(coor, axis=0))
             else:
-                self.data[attr] = np.append(self.data[attr], self.get_array(attr)[-1])
+                self._data[attr] = np.append(self._data[attr], self.get_array(attr)[-1])
         self._selection = np.append(self._selection, index + 1)
         self.natoms += 1
 

@@ -116,19 +116,7 @@ def prepare_qfit_ligand(options):
             structure_ligand = structure_ligand.extract(sel_str)
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file:
-        ligand = Ligand(
-            structure_ligand.data,
-            structure_ligand.selection,
-            link_data=structure_ligand.link_data,
-            cif_file=options.cif_file,
-        )
-    else:
-        ligand = Ligand(
-            structure_ligand.data,
-            structure_ligand.selection,
-            link_data=structure_ligand.link_data,
-        )
+    ligand = Ligand.from_structure(structure_ligand, options.cif_file)
     if ligand.natoms == 0:
         raise RuntimeError(
             "No atoms were selected for the ligand. Check " " the selection input."

@@ -149,10 +149,7 @@ def main():
     # Remove conformers in to_remove list:
     mask = structure.active
     mask[to_remove] = False
-    data = {}
-    for attr in structure.data:
-        data[attr] = structure.get_array(attr).copy()[mask]
-    structure = Structure(data).reorder()
+    structure = structure.copy().get_selection(mask).reorder()
     # for chain in structure:
     #   for residue in chain:
     #       print (residue.resi[0])

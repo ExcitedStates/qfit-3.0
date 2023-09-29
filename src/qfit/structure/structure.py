@@ -74,7 +74,7 @@ class Structure(BaseStructure):
     @staticmethod
     def fromstructurelike(structure_like):
         data = {}
-        for attr in structure_like.data:
+        for attr in structure_like._data:  # pylint: disable=protected-access
             data[attr] = structure_like.get_array(attr)
         return Structure(data)
 
@@ -115,7 +115,7 @@ class Structure(BaseStructure):
         if indices is None:
             indices = range(self.natoms)
         for index in indices:
-            yield _Atom(self.data, index)
+            yield _Atom(self._data, index)
 
     @property
     def chains(self):
@@ -161,13 +161,13 @@ class Structure(BaseStructure):
         self._chains = []
         for chainid in chainids:
             selection = self.select("chain", chainid)
-            chain = _Chain(self.data, selection=selection, parent=self, chainid=chainid)
+            chain = _Chain(self._data, selection=selection, parent=self, chainid=chainid)
             self._chains.append(chain)
 
     def combine(self, other):
         """Combines two structures into one"""
         data = {}
-        for attr in self.data:
+        for attr in self._data:
             array1 = self.get_array(attr)
             array2 = other.get_array(attr)
             combined = np.concatenate((array1, array2))
@@ -184,20 +184,20 @@ class Structure(BaseStructure):
         altloc_keep = altlocs[0]
         altlocs_remove = altlocs[1:]
         remove_mask = (
-            (self.data["resi"] == resid)
-            & (self.data["chain"] == chainid)
-            & np.isin(self.data["name"], ["CA", "C", "N", "O", "H", "HA"])
-            & np.isin(self.data["altloc"], altlocs_remove)
+            (self._data["resi"] == resid)
+            & (self._data["chain"] == chainid)
+            & np.isin(self._data["name"], ["CA", "C", "N", "O", "H", "HA"])
+            & np.isin(self._data["altloc"], altlocs_remove)
         )
         keep_mask = (
-            (self.data["resi"] == resid)
-            & (self.data["chain"] == chainid)
-            & np.isin(self.data["name"], ["CA", "C", "N", "O"])
-            & np.isin(self.data["altloc"], altloc_keep)
+            (self._data["resi"] == resid)
+            & (self._data["chain"] == chainid)
+            & np.isin(self._data["name"], ["CA", "C", "N", "O"])
+            & np.isin(self._data["altloc"], altloc_keep)
         )
 
-        for attr in self.data:
-            array = self.data[attr].copy()
+        for attr in self._data:
+            array = self._data[attr].copy()
             if attr == "altloc":
                 array[keep_mask] = ""
             if attr == "q":
@@ -212,20 +212,20 @@ class Structure(BaseStructure):
         data = {}
         if self.resn[0] == "GLY":
             # "Backbone" atoms for the residue:
-            mask = np.isin(self.data["name"], ["CA", "C", "N", "H", "HA"])
+            mask = np.isin(self._data["name"], ["CA", "C", "N", "H", "HA"])
             # Non-"backbone" atoms for the residue:
-            mask2 = np.isin(self.data["name"], ["CA", "C", "N", "H", "HA"], invert=True)
+            mask2 = np.isin(self._data["name"], ["CA", "C", "N", "H", "HA"], invert=True)
         else:
             # "Backbone" atoms for the residue:
-            mask = np.isin(self.data["name"], ["CA", "C", "N", "O", "H", "HA"])
+            mask = np.isin(self._data["name"], ["CA", "C", "N", "O", "H", "HA"])
             # Non-"backbone" atoms for the residue:
             mask2 = np.isin(
-                self.data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
+                self._data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
             )
         if self._selection is not None:
             mask = mask[self._selection]
             mask2 = mask2[self._selection]
-        for attr in self.data:
+        for attr in self._data:
             array1 = self.get_array(attr)
             if attr == "q":
                 array1[mask] = 0.0
@@ -234,91 +234,23 @@ class Structure(BaseStructure):
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
 
     def reorder(self):
+        """
+        Sort the atoms within each residue group, first by altloc, then by
+        the atom ordering defined in the rotamer library, with hydrogens at
+        the end of the list.
+        Returns a new copy of the structure with the reordered atoms.
+        """
         ordering = []
         for chain in self.chains:
             for rg in chain.residue_groups:
                 if rg.resn[0] in ROTAMERS:
-                    # There are some perverted cases apparently in the PDB that
-                    # have more than 1 resname in a specific residue 'slot'
-                    if len(set(rg.resn)) > 1:
-                        resi = rg.resi[0]
-                        icode = rg.icode[0]
-                        raise RuntimeError(
-                            f"Residue has more than 1 name. \
-                                             {resi}{icode}"
-                        )
-                    rotamer = ROTAMERS[rg.resn[0]]
-                    atom_order = rotamer["atoms"] + rotamer["hydrogens"]
-                    atomnames = list(rg.name)
-                    # Check if all atomnames are standard. We don't touch the
-                    # ordering if it isnt recognized.
-                    for atom in atomnames:
-                        if atom not in atom_order:
-                            break
-                    # Check if the residue has alternate conformers. If the
-                    # number of altlocs is equal to the whole residue, sort
-                    # it after one another. If its just a few, sort it like a
-                    # zipper.
-                    altlocs = sorted(list(set(rg.altloc)))
-                    try:
-                        altlocs.remove("")
-                    except ValueError:
-                        pass
-                    naltlocs = len(altlocs)
-                    if naltlocs < 2:
-                        residue_ordering = []
-                        for atom in atom_order:
-                            try:
-                                index = atomnames.index(atom)
-                                residue_ordering.append(index)
-                            except ValueError:
-                                continue
-                        residue_ordering = rg.selection[residue_ordering]
-                    else:
-                        atoms_per_altloc = []
-                        zip_atoms = True
-                        if rg.select("altloc", "").size == 0:
-                            for altloc in altlocs:
-                                nsel = rg.select("altloc", altloc).size
-                                atoms_per_altloc.append(nsel)
-                            zip_atoms = not all(
-                                a == atoms_per_altloc[0] for a in atoms_per_altloc
-                            )
-                        residue_orderings = []
-                        for altloc in altlocs:
-                            altconf = rg.extract("altloc", ("", altloc))
-                            residue_ordering = []
-                            atomnames = list(altconf.name)
-                            for atom in atom_order:
-                                try:
-                                    index = atomnames.index(atom)
-                                    residue_ordering.append(index)
-                                except ValueError:
-                                    continue
-                            residue_ordering = altconf.selection[residue_ordering]
-                            residue_orderings.append(residue_ordering)
-                        if (
-                            zip_atoms
-                            and len(list(set([len(x) for x in residue_orderings]))) == 1
-                        ):
-                            residue_ordering = list(zip(*residue_orderings))
-                            residue_ordering = np.concatenate(residue_ordering)
-                        else:
-                            residue_ordering = np.concatenate(residue_orderings)
-                        # Now remove duplicates while keeping order
-                        seen = set()
-                        residue_ordering = [
-                            x
-                            for x in residue_ordering
-                            if not (x in seen or seen.add(x))
-                        ]
-                    ordering.append(residue_ordering)
+                    ordering.append(_get_residue_group_atom_order(rg))
                     continue
                 for ag in rg.atom_groups:
                     ordering.append(ag.selection)
         ordering = np.concatenate(ordering)
         data = {}
-        for attr, value in self.data.items():
+        for attr, value in self._data.items():
             data[attr] = value[ordering]
         return Structure(
             data,
@@ -335,14 +267,14 @@ class Structure(BaseStructure):
         To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
         """
         multiconformer = copy.deepcopy(self)
-        data = self.data
+        data = self._data
         for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 mask = None
                 if len(altlocs) == 1:  # confirm occupancy = 1
-                    mask = (self.data["resi"] == residue.resi[0]) & (
-                        self.data["chain"] == residue.chain[0]
+                    mask = (self._data["resi"] == residue.resi[0]) & (
+                        self._data["chain"] == residue.chain[0]
                     )
                     for attr in data:
                         array = multiconformer.get_array(attr)
@@ -356,9 +288,9 @@ class Structure(BaseStructure):
                     new_occ = []
                     if "" in altlocs and len(altlocs) > 1:
                         mask = (
-                            (self.data["resi"] == residue.resi[0])
-                            & (self.data["chain"] == residue.chain[0])
-                            & (self.data["altloc"] == "")
+                            (self._data["resi"] == residue.resi[0])
+                            & (self._data["chain"] == residue.chain[0])
+                            & (self._data["altloc"] == "")
                         )
                         for attr in data:
                             array = multiconformer.get_array(attr)
@@ -386,9 +318,9 @@ class Structure(BaseStructure):
                         )  # deal with imprecision
                     for i in range(0, len(new_occ)):
                         mask = (
-                            (self.data["resi"] == residue.resi[0])
-                            & (self.data["chain"] == residue.chain[0])
-                            & (self.data["altloc"] == altlocs[i])
+                            (self._data["resi"] == residue.resi[0])
+                            & (self._data["chain"] == residue.chain[0])
+                            & (self._data["altloc"] == altlocs[i])
                         )
                         for attr in data:
                             array = multiconformer.get_array(attr)
@@ -401,17 +333,17 @@ class Structure(BaseStructure):
     def _remove_conformer(self, resi, chain, altloc_keep, altloc_remove):
         data = {}
         keep_mask = (
-            (self.data["resi"] == resi)
-            & (self.data["chain"] == chain)
-            & (self.data["altloc"] == altloc_keep)
+            (self._data["resi"] == resi)
+            & (self._data["chain"] == chain)
+            & (self._data["altloc"] == altloc_keep)
         )
         remove_mask = (
-            (self.data["resi"] == resi)
-            & (self.data["chain"] == chain)
-            & (self.data["altloc"] == altloc_remove)
+            (self._data["resi"] == resi)
+            & (self._data["chain"] == chain)
+            & (self._data["altloc"] == altloc_remove)
         )
 
-        for attr in self.data:
+        for attr in self._data:
             array = self.get_array(attr)
             if attr == "q":
                 array[keep_mask] = array[keep_mask] + array[remove_mask]
@@ -444,7 +376,7 @@ class Structure(BaseStructure):
                             if rmsd > rmsd_cutoff:
                                 continue
                             else:
-                                multiconformer = multiconformer.remove_conformer(
+                                multiconformer = multiconformer._remove_conformer(  # pylint: disable=protected-access
                                     residue.resi[0],
                                     residue.chain[0],
                                     conf_a.altloc[0],
@@ -559,12 +491,14 @@ class Structure(BaseStructure):
 
         # Copy the attributes of the masked atoms:
         data = {}
-        for attr in neighbors.data:
+        for attr in neighbors._data:  # pylint: disable=protected-access
             array1 = neighbors.get_array(attr)
             data[attr] = array1[mask]
 
         # Return the new object:
         return Structure(data, crystal_symmetry=self.crystal_symmetry)
+        #return neighbors.copy().get_selection(mask).with_symmetry(
+        #    self.crystal_symmetry)
 
     def reinitialize_object(self):
         """
@@ -575,7 +509,7 @@ class Structure(BaseStructure):
         if self.parent is not None:
             symm = self.parent.crystal_symmetry
         return Structure(
-            self.data,
+            self._data,
             selection=self._selection,
             parent=self.parent,
             crystal_symmetry=symm,
@@ -657,7 +591,7 @@ class _Chain(BaseStructure):
             selection = self.select("resi", resi)
             selection = np.intersect1d(selection, self.select("icode", icode))
             residue_group = ResidueGroup(
-                self.data, selection=selection, parent=self, resi=resi, icode=icode
+                self._data, selection=selection, parent=self, resi=resi, icode=icode
             )
             self._residue_groups.append(residue_group)
             self._residue_group_ids.append((resi, icode))
@@ -673,12 +607,12 @@ class _Chain(BaseStructure):
                 altloc_selection = self.select("altloc", altloc)
                 selection = np.union1d(main_selection, altloc_selection)
                 conformer = _Conformer(
-                    self.data, selection=selection, parent=self, altloc=altloc
+                    self._data, selection=selection, parent=self, altloc=altloc
                 )
                 self._conformers.append(conformer)
         else:
             conformer = _Conformer(
-                self.data, selection=self._selection, parent=self, altloc=""
+                self._data, selection=self._selection, parent=self, altloc=""
             )
             self._conformers.append(conformer)
 
@@ -713,7 +647,7 @@ class ResidueGroup(BaseStructure):
                     selection, altloc_selection, assume_unique=True
                 )
             atom_group = _AtomGroup(
-                self.data, selection=selection, parent=self, resn=resn, altloc=altloc
+                self._data, selection=selection, parent=self, resn=resn, altloc=altloc
             )
             self._atom_groups.append(atom_group)
 
@@ -833,7 +767,7 @@ class _Conformer(BaseStructure):
             else:
                 continue
             residue = C(
-                self.data,
+                self._data,
                 selection=selection,
                 parent=self,
                 resi=resi,
@@ -883,7 +817,7 @@ class _Conformer(BaseStructure):
                 selections = [residue.selection for residue in segment]
                 selection = np.concatenate(selections)
                 segment = Segment(
-                    self.data, selection=selection, parent=self, residues=segment
+                    self._data, selection=selection, parent=self, residues=segment
                 )
                 self._segments.append(segment)
 
@@ -913,7 +847,10 @@ class Segment(BaseStructure):
                 selections.append(residue.selection)
             selection = np.concatenate(selections)
             return Segment(
-                self.data, selection=selection, parent=self.parent, residues=residues
+                self._data,
+                selection=selection,
+                parent=self.parent,
+                residues=residues
             )
         else:
             raise TypeError
@@ -935,3 +872,85 @@ class Segment(BaseStructure):
             if residue.id == residue_id:
                 return i_res
         raise ValueError("Residue is not part of segment.")
+
+    @staticmethod
+    def from_structure(structure, selection, residues):
+        return Segment(structure._data,  # pylint: disable=protected-access
+                       selection=selection,
+                       parent=structure,
+                       residues=residues)
+
+
+def _get_residue_group_atom_order(rg):
+    # There are rare cases in the PDB (for example crambin) that have
+    # heterogeneous amino acids in the same residue group
+    if len(set(rg.resn)) > 1:
+        resi = rg.resi[0]
+        icode = rg.icode[0]
+        raise RuntimeError(
+            f"Heterogeneous residue group detected: {resi}{icode}")
+    rotamer = ROTAMERS[rg.resn[0]]
+    atom_order = rotamer["atoms"] + rotamer["hydrogens"]
+    atomnames = list(rg.name)
+    # Check if all atomnames are standard. We don't touch the
+    # ordering if it isnt recognized.
+    for atom in atomnames:
+        if atom not in atom_order:
+            break
+    # Check if the residue has alternate conformers. If the
+    # number of altlocs is equal to the whole residue, sort
+    # it after one another. If its just a few, sort it like a
+    # zipper.
+    altlocs = sorted(list(set(rg.altloc)))
+    try:
+        altlocs.remove("")
+    except ValueError:
+        pass
+    naltlocs = len(altlocs)
+    if naltlocs < 2:
+        residue_ordering = []
+        for atom in atom_order:
+            try:
+                index = atomnames.index(atom)
+                residue_ordering.append(index)
+            except ValueError:
+                continue
+        return rg.selection[residue_ordering]
+    else:
+        atoms_per_altloc = []
+        zip_atoms = True
+        if rg.select("altloc", "").size == 0:
+            for altloc in altlocs:
+                nsel = rg.select("altloc", altloc).size
+                atoms_per_altloc.append(nsel)
+            zip_atoms = not all(
+                a == atoms_per_altloc[0] for a in atoms_per_altloc
+            )
+        residue_orderings = []
+        for altloc in altlocs:
+            altconf = rg.extract("altloc", ("", altloc))
+            residue_ordering = []
+            atomnames = list(altconf.name)
+            for atom in atom_order:
+                try:
+                    index = atomnames.index(atom)
+                    residue_ordering.append(index)
+                except ValueError:
+                    continue
+            residue_ordering = altconf.selection[residue_ordering]
+            residue_orderings.append(residue_ordering)
+        if (
+            zip_atoms
+            and len(list(set([len(x) for x in residue_orderings]))) == 1
+        ):
+            residue_ordering = list(zip(*residue_orderings))
+            residue_ordering = np.concatenate(residue_ordering)
+        else:
+            residue_ordering = np.concatenate(residue_orderings)
+        # Now remove duplicates while keeping order
+        seen = set()
+        return [
+            x
+            for x in residue_ordering
+            if not (x in seen or seen.add(x))
+        ]

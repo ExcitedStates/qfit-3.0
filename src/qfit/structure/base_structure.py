@@ -6,7 +6,6 @@ from operator import eq, gt, ge, le, lt
 import numpy as np
 from molmass.elements import ELEMENTS
 
-from .math import dihedral_angle
 from .pdbfile import write_pdb, write_mmcif
 from .selector import AtomSelector
 
@@ -35,7 +34,7 @@ class BaseStructure(ABC):
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
         self.parent = parent
-        self.data = data
+        self._data = data
         self._selection = selection
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
@@ -70,8 +69,24 @@ class BaseStructure(ABC):
 
     def get_selected_data(self):
         if self._selection is None:
-            return self.data
-        return {k: v[self._selection] for k, v in self.data.items()}
+            return self._data
+        return {k: v[self._selection] for k, v in self._data.items()}
+
+    def get_selection(self, selection):
+        """
+        Return a copy of the same type, containing only the selected atoms.
+        'selection' should be a numpy boolean or uint array
+        """
+        data = {}
+        for attr in self._data:
+            array1 = self.get_array(attr)
+            data[attr] = array1[selection]
+        return self.__class__(data, parent=None, selection=None, **self._kwargs)
+
+    def with_symmetry(self, crystal_symmetry):
+        kwargs = dict(self._kwargs)
+        kwargs["crystal_symmetry"] = crystal_symmetry
+        return self.__class__(self._data, **kwargs)
 
     @property
     def covalent_radius(self):
@@ -83,7 +98,7 @@ class BaseStructure(ABC):
 
     def copy(self):
         data = {}
-        for attr in self.data:
+        for attr in self._data:
             data[attr] = self.get_array(attr).copy()
         return self.__class__(data, parent=None, selection=None, **self._kwargs)
 
@@ -93,7 +108,7 @@ class BaseStructure(ABC):
         else:
             selection = self.select(*args)
         return self.__class__(
-            self.data, selection=selection, parent=self, **self._kwargs
+            self._data, selection=selection, parent=self, **self._kwargs
         )
 
     def rotate(self, R):
@@ -186,16 +201,16 @@ class BaseStructure(ABC):
 
     def get_array(self, key):
         if self._selection is None:
-            return self.data[key].copy()
-        return self.data[key][self._selection]
+            return self._data[key].copy()
+        return self._data[key][self._selection]
 
     def _set_array(self, key, value, selection=None):
         if selection is None:
             selection = self._selection
         if selection is None:
-            self.data[key][:] = value
+            self._data[key][:] = value
         else:
-            self.data[key][selection] = value
+            self._data[key][selection] = value
 
     def set_occupancies(self, values, selection=None):
         self._set_array("q", values, selection)
@@ -204,13 +219,13 @@ class BaseStructure(ABC):
         self._set_array("coor", values, selection)
 
     def get_xyz(self, selection):
-        return self.data["coor"][selection]
+        return self._data["coor"][selection]
 
     def set_altloc(self, values, selection=None):
         self._set_array("altloc", values, selection)
 
     def get_name(self, selection):
-        return self.data["name"][selection]
+        return self._data["name"][selection]
 
     @property
     def record(self):
@@ -293,10 +308,10 @@ class BaseStructure(ABC):
         self._set_array("active", value)
 
     def clear_active(self):
-        self.data["active"][:] = False
+        self._data["active"][:] = False
 
     def set_active(self, selection=None, value=True):
         if selection is None:
-            self.data["active"][:] = value
+            self._data["active"][:] = value
         else:
-            self.data["active"][selection] = value
+            self._data["active"][selection] = value

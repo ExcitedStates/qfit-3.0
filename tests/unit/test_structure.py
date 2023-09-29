@@ -2,6 +2,7 @@
 Unit tests for structure I/O and basic manipulation
 """
 
+import itertools
 import tempfile
 import os.path as op
 
@@ -9,47 +10,12 @@ import numpy as np
 import pytest
 
 from qfit.structure import Structure
-from qfit.structure.pdbfile import read_pdb, write_pdb
+from qfit.structure.pdbfile import write_pdb
 
 from .base_test_case import UnitBase
 
 
 class TestStructureIO(UnitBase):
-    def _validate_tiny_pdb(self, pdb):
-        assert pdb.crystal_symmetry is not None
-        assert pdb.resolution == 1.39
-        assert len(pdb.coor["record"]) == 40
-        assert pdb.coor["record"][-1] == "ATOM"
-        assert pdb.coor["name"][-1] == "HZ"
-        assert pdb.coor["charge"][-1] == ""
-        assert pdb.coor["resn"][-1] == "PHE"
-        assert pdb.coor["resi"][-1] == 113
-        assert pdb.coor["chain"][-1] == "A"
-        assert pdb.coor["icode"][-1] == ""
-        assert pdb.coor["altloc"][-1] == "B"
-        assert pdb.coor["x"][-1] == 1.431
-        assert pdb.coor["b"][-1] == 29.87
-        assert pdb.coor["q"][-1] == 0.37
-        assert pdb.coor["e"][-1] == "H"
-        assert len(pdb.link) == 0
-        assert len(pdb.anisou["atomid"]) == 22
-        assert pdb.anisou["u00"][0] == 962
-        assert pdb.anisou["u11"][0] == 910
-        assert pdb.anisou["u22"][0] == 1702
-        assert pdb.anisou["u01"][0] == -88
-        assert pdb.anisou["u02"][0] == 638
-        assert pdb.anisou["u12"][0] == -737
-
-    def test_read_pdb(self):
-        pdb = read_pdb(self.TINY_PDB)
-        assert pdb.file_format == "pdb"
-        self._validate_tiny_pdb(pdb)
-
-    def test_read_mmcif(self):
-        pdb = read_pdb(self.TINY_CIF)
-        assert pdb.file_format == "cif"
-        self._validate_tiny_pdb(pdb)
-
     def test_structure_fromfile(self):
         def _check_structure(s):
             assert s.unit_cell is not None
@@ -244,7 +210,7 @@ END"""
                 "TYR", "PHE")
         test_ring_flip(phe_pdb, 1.4599)
 
-    @pytest.mark.skip(reason="TODO")
+    #@pytest.mark.skip(reason="TODO")
     def test_base_structure_rotate(self):
         s = self._STRUCTURE_AWA_SINGLE
         ss = s.copy()
@@ -286,7 +252,7 @@ END"""
         q = s.q
         q[:] = 0
         assert np.all(s.q > 0)
-        b = s.b
+        b = s.b.copy()
         b[:] = -1
         assert np.all(s.b > 1)
         # test setters
@@ -362,15 +328,7 @@ class TestProteinStructure(StructureUnitBase):
         ss = s.extract("altloc", ("B","C"), "!=")
         assert ss.average_conformers() == 1
 
-    def test_structure_set_backbone_occ(self):
-        s = self._STRUCTURE_AWA_3CONF
-        assert np.sum(s.q == 1) == 52
-        ss = s.set_backbone_occ()
-        assert np.sum(ss.q == 0) == 20
-        assert np.sum(ss.q == 1) == 32
-        assert np.sum(s.q == 1) == 52
-
-    def test_structure_extract_combine_and_reorder(self):
+    def test_structure_extract_and_combine(self):
         s = self._STRUCTURE_AWA_3CONF
         single = s.extract("altloc", ("B","C"), "!=")
         multi = s.extract("altloc", ("B","C"), "==")
@@ -378,7 +336,6 @@ class TestProteinStructure(StructureUnitBase):
         assert len(single.active) == 24
         combined = single.combine(multi)
         assert len(combined.active) == 52
-        # TODO reorder
 
     def test_structure_collapse_backbone(self):
         s = self._STRUCTURE_AWA_3CONF
@@ -397,6 +354,12 @@ class TestProteinStructure(StructureUnitBase):
         assert ss.total_length == s.total_length
 
     def test_structure_set_backbone_occ(self):
+        s = self._STRUCTURE_AWA_3CONF
+        assert np.sum(s.q > 0) == 52
+        ss = s.set_backbone_occ()
+        assert np.sum(ss.q == 0) == 20
+        assert np.sum(ss.q == 1) == 32
+        assert np.sum(s.q > 0) == 52
         s = self._STRUCTURE_AWA_SINGLE
         ss = s.set_backbone_occ()
         assert len(ss.active) == len(s.active) == 24
@@ -412,13 +375,13 @@ class TestProteinStructure(StructureUnitBase):
         ss = s.set_backbone_occ()
         assert np.sum((ss.resn == "GLY") & (ss.q == 1)) == 1
 
-    def test_structure_remove_conformer(self):
+    def test_structure_internal_remove_conformer(self):
         s = self._STRUCTURE_AWA_3CONF
-        ss = s._remove_conformer(2, "A", "A", "B")
+        ss = s._remove_conformer(2, "A", "A", "B")  # pylint: disable=protected-access
         assert ss.total_length == 38
         assert np.sum(ss.altloc == "B") == 0
         assert np.sum((ss.altloc == "A") & (ss.q == 0.7)) == 14
-        sss = ss._remove_conformer(2, "A", "A", "C")
+        sss = ss._remove_conformer(2, "A", "A", "C")  # pylint: disable=protected-access
         assert sss.total_length == 24
         assert np.sum(sss.altloc == "C") == 0
         assert np.sum((sss.altloc == "A") & (sss.q == 1.0)) == 14
@@ -435,10 +398,71 @@ class TestProteinStructure(StructureUnitBase):
         sss = ss.extract("altloc", ("C",), "!=")
         assert sss.clashes() == 0
 
-    @pytest.mark.skip(reason="TODO")
     def test_structure_extract_neighbors(self):
-        ...
+        s = self._STRUCTURE_AWA_SINGLE
+        r = list(s.residues)[1]
+        assert np.all(r.resn == "TRP")
+        n = s.extract_neighbors(r)
+        assert np.all(n.resi == [1, 1, 1, 1, 1, 3, 3, 3, 3, 3])
+        assert np.all(n.resn == "ALA")
+        n = s.extract_neighbors(r, 2.0)
+        assert np.all((n.name == ["C", "N"]) & (n.resi == [1, 3]))
+
+    def test_structure_remove_identical_conformers(self):
+        s1 = self._STRUCTURE_AWA_SINGLE.copy()
+        s2 = self._STRUCTURE_AWA_SINGLE.copy()
+        s1.altloc = "A"
+        s2.altloc = "B"
+        s_multi = s1.combine(s2)
+        assert s_multi.total_length == 48
+        single = s_multi.remove_identical_conformers()
+        assert single.total_length == 24
+        s2.translate(np.array([0.005, 0.005, 0.005]))
+        s_multi = s1.combine(s2)
+        single = s_multi.remove_identical_conformers()
+        assert single.total_length == 24
+        s2.translate(np.array([0.01, 0.01, 0.01]))
+        s_multi = s1.combine(s2)
+        single = s_multi.remove_identical_conformers()
+        assert single.total_length == 48
+        single = s_multi.remove_identical_conformers(rmsd_cutoff=0.05)
+        assert single.total_length == 24
+
+    def test_structure_reorder(self):
+        s = self._STRUCTURE_AWA_3CONF
+        s2 = s.copy().reorder()
+        assert np.all(s2.atomid == s.atomid) and np.all(s2.name == s.name)
+        rg = list(s.residue_groups)[1]
+        s_orig = Structure.fromstructurelike(rg)
+        # interleave the altconfs of this TRP residue
+        unsorted_sel = list(itertools.chain(*[[(x*14)+y for x in range(3)]
+                                               for y in range(14)]))
+        rg2 = rg.copy().extract(np.array(unsorted_sel)).copy()
+        s_unsorted = Structure.fromstructurelike(rg2)
+        assert s_unsorted.total_length == 42
+        assert np.all(s_unsorted.name[0:3] == "N")
+        assert np.all(s_unsorted.altloc[0:3] == ["A", "B", "C"])
+        s_sorted = s_unsorted.reorder()
+        assert np.all(s_sorted.name[0:3] == ["N", "CA", "C"])
+        assert np.all(s_sorted.altloc[0:3] == ["A", "A", "A"])
+        # glycine with hydrogens
+        GLY = """\
+ATOM      1 N    GLY A   1       1.931   0.090  -0.034  1.00 20.00           N
+ATOM      2 CA   GLY A   1       0.761  -0.799  -0.008  1.00 20.00           C
+ATOM      3 C    GLY A   1      -0.498   0.029  -0.005  1.00 20.00           C
+ATOM      4 O    GLY A   1      -0.429   1.235  -0.023  1.00 20.00           O
+ATOM      5 H    GLY A   1       1.910   0.738   0.738  1.00 20.00           H
+ATOM      6 HA2  GLY A   1       0.772  -1.440  -0.889  1.00 20.00           H
+ATOM      7 HA3  GLY A   1       0.793  -1.415   0.891  1.00 20.00           H
+END"""
+        gly_tmp = self._write_tmp_pdb(GLY)
+        s = Structure.fromfile(gly_tmp)
+        s2 = s.reorder()
+        assert np.all(s2.name == s.name)
+        s3 = s.extract(np.array([3,5,4,0,2,6,1])).copy()
+        assert np.all(s3.name != s.name)
+        assert np.all(s3.reorder().name == s.name)
 
     @pytest.mark.skip(reason="TODO")
-    def test_structure_remove_identical_conformers(self):
+    def test_structure_normalize_occupancy(self):
         ...

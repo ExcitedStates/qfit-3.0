@@ -192,19 +192,8 @@ def main(argv=sys.argv):
             sel_str = f"not ({sel_str})"
             structure_ligand = structure_ligand.extract(sel_str)
 
-    if args.cif_file:
-        covalent_ligand = CovalentLigand(
-            structure_ligand.data,
-            structure_ligand.selection,
-            link_data=structure_ligand.link_data,
-            cif_file=args.cif_file,
-        )
-    else:
-        covalent_ligand = CovalentLigand(
-            structure_ligand.data,
-            structure_ligand.selection,
-            link_data=structure_ligand.link_data,
-        )
+    covalent_ligand = CovalentLigand.from_structure(structure_ligand,
+                                                    args.cif_file)
     if covalent_ligand.natoms == 0:
         raise RuntimeError(
             "No atoms were selected for the ligand. Check the " "selection input."

@@ -450,12 +450,7 @@ class _BaseQFit:
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-
-            data = {}
-            for attr in self.conformer.data:
-                array1 = self.conformer.get_array(attr)
-                data[attr] = array1[self.conformer.active]
-            Structure(data).tofile(fname)
+            self.conformer.get_selection(self.conformer.active).tofile(fname)
 
     def _save_intermediate(self, prefix):
         if self.options.write_intermediate_conformers:
@@ -646,12 +641,8 @@ class QFitRotamericResidue(_BaseQFit):
             # Rebuild to include the new residue atoms
             index = len(self.structure.record)
             mask = self.residue.atomid >= index
-            data = {}
-            for attr in self.structure.data:
-                data[attr] = np.concatenate(
-                    (structure.get_array(attr), residue.get_array(attr)[mask])
-                )
-
+            new_atoms = residue.copy().get_selection(mask)
+            structure = structure.copy().combine(new_atoms)
             # Create a new Structure, and re-extract the current residue from it.
             #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
             # Then reinitialise _BaseQFit with these.
@@ -659,7 +650,6 @@ class QFitRotamericResidue(_BaseQFit):
             #     self._b, self._coor_set, etc.) come from the rebuilt data-structure.
             #     It is essential to have uniform dimensions on all data before
             #     we begin sampling.
-            structure = Structure(data)
             residue = structure[self.chain].conformers[0][residue.id]
             super().__init__(residue, structure, xmap, options)
             self.residue = residue
@@ -698,10 +688,9 @@ class QFitRotamericResidue(_BaseQFit):
         if self.segment is None:
             rtype = residue_type(self.residue)
             if rtype == "rotamer-residue":
-                self.segment = Segment(
-                    self.structure.data,
+                self.segment = Segment.from_structure(
+                    self.structure,
                     selection=self.residue.selection,
-                    parent=self.structure,
                     residues=[self.residue],
                 )
                 logger.warning(
@@ -1681,8 +1670,9 @@ class QFitCovalentLigand(_BaseQFit):
 
             # Alter the structure so that covalent ligand and residue are
             # treated as a single residue:
+            # FIXME This needs to be hidden in the structure package
             data = {}
-            for attr in receptor.data:
+            for attr in receptor._data:  # pylint: disable=protected-access
                 data[attr] = np.concatenate(
                     (receptor.get_array(attr), covalent_ligand.get_array(attr))
                 )

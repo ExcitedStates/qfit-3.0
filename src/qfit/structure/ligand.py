@@ -25,7 +25,7 @@ class Ligand(BaseStructure):
         except:
             pass
 
-        if "cif_file" in kwargs:
+        if kwargs.get("cif_file"):
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:
             self._get_connectivity()
@@ -33,6 +33,15 @@ class Ligand(BaseStructure):
         # self.root = np.argwhere(self.name == self.link_data['name1'][i])
         # self.order = self.rotation_order(self.root)
         # self.bond_list = self.convert_rotation_tree_to_list(self.order)
+
+    @staticmethod
+    def from_structure(structure_ligand, cif_file):
+        return Ligand(
+            structure_ligand._data,  # pylint: disable=protected-access
+            structure_ligand.selection,
+            link_data=structure_ligand.link_data,
+            cif_file=cif_file,
+        )
 
     def __repr__(self):
         string = "Ligand: {}. Number of atoms: {}.".format(self.resn[0], self.natoms)
@@ -455,6 +464,15 @@ class CovalentLigand(BaseStructure):
     def __repr__(self):
         string = f"Covalent Ligand: {self.resn[0]}." f" Number of atoms: {self.natoms}."
         return string
+
+    @staticmethod
+    def from_structure(structure_ligand, cif_file):
+        return CovalentLigand(
+            structure_ligand._data,  # pylint: disable=protected-access
+            structure_ligand.selection,
+            link_data=structure_ligand.link_data,
+            cif_file=cif_file,
+        )
 
     @property
     def _identifier_tuple(self):
