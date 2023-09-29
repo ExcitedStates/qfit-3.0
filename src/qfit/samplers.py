@@ -134,7 +134,60 @@ class CBAngleRotator:
             R @ self._coor_to_rotate.T
         ).T + self._origin
 
+class BisectingAngleRotator:
+    """"
+    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate about axis perpendicular to this angle. 
+    """
+    
+    def __init__(self, residue):
 
+        self.residue = residue
+
+        # These atoms define the angle
+        angle_selection = residue.select("name", ("CA", "CB", "CG"))
+        if angle_selection.size != 3:
+            raise RuntimeError("Residue does not have CA, CB and xG atom for rotation.")
+
+        # Only atoms after CB can be moved
+        self.atoms_to_rotate = residue.select(
+            "name", ("N", "CA", "C", "O", "CB", "H", "HA", "HB2", "HB3"), "!="
+        )
+
+        # Define rotation unit vector
+        self._origin = self.residue.extract("name", "CB").coor[0]
+        self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
+        self._coor_to_rotate -= self._origin
+        axis_coor = self.residue.extract("name", ("CA", "CG")).coor
+        axis_coor -= self._origin
+        axis = np.cross(axis_coor[0], axis_coor[1])
+        axis /= np.linalg.norm(axis)
+        self.axis = axis
+
+        
+        # Define a bisecting unit vector for further rotation
+        vec_CA = axis_coor[0]
+        vec_CG = axis_coor[1]
+        vec_CA /= np.linalg.norm(vec_CA)
+        vec_CG /= np.linalg.norm(vec_CG)
+            
+        new_axis = vec_CA + vec_CG
+        new_axis /= np.linalg.norm(new_axis)
+        self.new_axis = new_axis
+
+
+        # Align rotation unit vector to Z-axis
+        aligner = ZAxisAligner(new_axis)
+        self._forward = aligner.forward_rotation
+        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
+
+    def __call__(self, angle):
+        # Since the axis of rotation is already aligned with the z-axis, we can
+        # freely rotate the coordinates and perform the inverse operation to realign the
+        # axis to the real world frame.
+        R = self._forward @ Rz(np.deg2rad(angle))
+        self.residue._coor[self.atoms_to_rotate] = (
+            R @ self._coor_to_rotate.T
+        ).T + self._origin
 class GlobalRotator:
 
     """Rotate ligand around its center."""
