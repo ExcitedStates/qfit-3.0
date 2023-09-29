@@ -136,7 +136,7 @@ class CBAngleRotator:
 
 class BisectingAngleRotator:
     """"
-    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate about axis perpendicular to this angle. 
+    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate about axis bisecting this angle. 
     """
     
     def __init__(self, residue):
