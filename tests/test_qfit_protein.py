@@ -66,7 +66,7 @@ class TestQFitProtein(BaseTestRunner):
 
         # Reach into QFitProtein job,
         # simplify to only run on two residues (reduce computational load)
-        qfit.structure = qfit.structure.extract("resi", (99, 113), "==")
+        qfit.structure = qfit.structure.extract("resi", (99, 113), "==").copy()
         qfit.structure = qfit.structure.reorder()
         assert len(list(qfit.structure.single_conformer_residues)) == 2
         return qfit

@@ -1,8 +1,9 @@
-import numpy as np
 import copy
 import itertools
 
-from .base_structure import BaseStructure
+import numpy as np
+
+from .base_structure import BaseStructure, BaseMonomer
 from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
 from .ligand import Ligand
 from .residue import Residue, RotamerResidue, residue_type
@@ -73,17 +74,7 @@ class Structure(BaseStructure):
 
     @staticmethod
     def fromstructurelike(structure_like):
-        data = {}
-        for attr in structure_like._data:  # pylint: disable=protected-access
-            data[attr] = structure_like.get_array(attr)
-        return Structure(data)
-
-    @classmethod
-    def empty(self, cls):
-        data = {}
-        for attr in self.REQUIRED_ATTRIBUTES:
-            data[attr] = []
-        return cls(data)
+        return structure_like.copy_as(Structure)
 
     def __getitem__(self, key):
         if not self._chains:
@@ -164,19 +155,18 @@ class Structure(BaseStructure):
             chain = _Chain(self._data, selection=selection, parent=self, chainid=chainid)
             self._chains.append(chain)
 
-    def combine(self, other):
-        """Combines two structures into one"""
-        data = {}
-        for attr in self._data:
-            array1 = self.get_array(attr)
-            array2 = other.get_array(attr)
-            combined = np.concatenate((array1, array2))
-            data[attr] = combined
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
+    def merge_selected_residue(self, selection, resi, chain, resname):
+        """
+        Used to merge residues in qfit_covalent_ligand
+        """
+        self._data["resi"][selection] = resi
+        self._data["chain"][selection] = chain
+        self._data["resn"][selection] = resname
 
     def collapse_backbone(self, resid, chainid):
-        """Collapses the backbone atoms of a given residue"""
-        data = {}
+        """
+        Collapse the backbone atoms of a given residue and return a new copy
+        """
         # determine altloc to keep
         sel_str = f"resi {resid} and chain {chainid}"
         conformers = self.extract(sel_str)
@@ -195,43 +185,28 @@ class Structure(BaseStructure):
             & np.isin(self._data["name"], ["CA", "C", "N", "O"])
             & np.isin(self._data["altloc"], altloc_keep)
         )
-
-        for attr in self._data:
-            array = self._data[attr].copy()
-            if attr == "altloc":
-                array[keep_mask] = ""
-            if attr == "q":
-                array[keep_mask] = 1.0
-            data[attr] = array[~remove_mask]
-
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
+        keep_mask = keep_mask[~remove_mask]
+        new_structure = self.get_selected_structure(~remove_mask)
+        new_structure.set_altloc("", keep_mask)
+        new_structure.set_occupancies(1.0, keep_mask)
+        return new_structure
 
     def set_backbone_occ(self):
-        """Set the "backbone" occupancy to 0 and the occupancy of
-        other atoms to 1.0"""
-        data = {}
+        """
+        Return a copy of the structure with the "backbone" occupancy set to 0
+        and the occupancy of other atoms to set 1.0
+        """
+        BACKBONE_ATOMS = ["CA", "C", "N", "O", "H", "HA"]
+        BACKBONE_ATOMS_GLY = ["CA", "C", "N", "H", "HA"]
         if self.resn[0] == "GLY":
-            # "Backbone" atoms for the residue:
-            mask = np.isin(self._data["name"], ["CA", "C", "N", "H", "HA"])
-            # Non-"backbone" atoms for the residue:
-            mask2 = np.isin(self._data["name"], ["CA", "C", "N", "H", "HA"], invert=True)
+            mask_backbone = np.isin(self.name, BACKBONE_ATOMS_GLY)
         else:
-            # "Backbone" atoms for the residue:
-            mask = np.isin(self._data["name"], ["CA", "C", "N", "O", "H", "HA"])
-            # Non-"backbone" atoms for the residue:
-            mask2 = np.isin(
-                self._data["name"], ["CA", "C", "N", "O", "H", "HA"], invert=True
-            )
-        if self._selection is not None:
-            mask = mask[self._selection]
-            mask2 = mask2[self._selection]
-        for attr in self._data:
-            array1 = self.get_array(attr)
-            if attr == "q":
-                array1[mask] = 0.0
-                array1[mask2] = 1.0
-            data[attr] = array1
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
+            mask_backbone = np.isin(self.name, BACKBONE_ATOMS)
+        mask_nonbackbone = ~mask_backbone
+        new_structure = self.copy()
+        new_structure.set_occupancies(0.0, mask_backbone)
+        new_structure.set_occupancies(1.0, mask_nonbackbone)
+        return new_structure
 
     def reorder(self):
         """
@@ -240,6 +215,7 @@ class Structure(BaseStructure):
         the end of the list.
         Returns a new copy of the structure with the reordered atoms.
         """
+        assert self._selection is None, "Can't call reorder() on a sub-structure"
         ordering = []
         for chain in self.chains:
             for rg in chain.residue_groups:
@@ -248,26 +224,22 @@ class Structure(BaseStructure):
                     continue
                 for ag in rg.atom_groups:
                     ordering.append(ag.selection)
-        ordering = np.concatenate(ordering)
-        data = {}
-        for attr, value in self._data.items():
-            data[attr] = value[ordering]
-        return Structure(
-            data,
-            link_data=self.link_data,
-            crystal_symmetry=self.crystal_symmetry,
-            unit_cell=self.unit_cell,
-            file_format=self.file_format,
-        )
+        return self.get_selected_structure(np.concatenate(ordering))
 
     def normalize_occupancy(self):
-        """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all.
-        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX),
-        and scale each alt conf occupancy for the residue to sum to one.
-        To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
         """
+        This function will scale the occupancy of protein residues to make
+        the sum(occ) equal to 1 for all.  The goal of this function is to
+        determine if the sum(occ) of each residue coming out of qFit residue
+        or segment is < 1 (as it can be in CPLEX), and scale each alt conf
+        occupancy for the residue to sum to one.  To accomplish this, if
+        sum(occ) is less than 1, then we will divide each conformer
+        occupancy by sum(occ).
+
+        Returns a copy of the structure with normalized occupancies.
+        """
+        assert self._selection is None
         multiconformer = copy.deepcopy(self)
-        data = self._data
         for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
@@ -276,14 +248,8 @@ class Structure(BaseStructure):
                     mask = (self._data["resi"] == residue.resi[0]) & (
                         self._data["chain"] == residue.chain[0]
                     )
-                    for attr in data:
-                        array = multiconformer.get_array(attr)
-                        if attr == "q":
-                            array[mask] = 1.0
-                        elif attr == "altloc":
-                            array[mask] = ""
-                        data[attr] = array
-                    multiconformer = Structure(data)
+                    multiconformer.set_altloc("", mask)
+                    multiconformer.set_occupancies(1.0, mask)
                 else:
                     new_occ = []
                     if "" in altlocs and len(altlocs) > 1:
@@ -292,14 +258,8 @@ class Structure(BaseStructure):
                             & (self._data["chain"] == residue.chain[0])
                             & (self._data["altloc"] == "")
                         )
-                        for attr in data:
-                            array = multiconformer.get_array(attr)
-                            if attr == "q":
-                                array[mask] = 1.0
-                            elif attr == "altloc":
-                                array[mask] = ""
-                            data[attr] = array
-                        multiconformer = Structure(data)
+                        multiconformer.set_altloc("", mask)
+                        multiconformer.set_occupancies(1.0, mask)
                         altlocs.remove("")
                     sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
                     conformers = [self.extract(sel_str + x) for x in altlocs]
@@ -322,16 +282,10 @@ class Structure(BaseStructure):
                             & (self._data["chain"] == residue.chain[0])
                             & (self._data["altloc"] == altlocs[i])
                         )
-                        for attr in data:
-                            array = multiconformer.get_array(attr)
-                            if attr == "q":
-                                array[mask] = new_occ[i]
-                            data[attr] = array
-                        multiconformer = Structure(data)
-        return Structure(data)
+                        multiconformer.set_occupancies(new_occ[i], mask)
+        return multiconformer
 
     def _remove_conformer(self, resi, chain, altloc_keep, altloc_remove):
-        data = {}
         keep_mask = (
             (self._data["resi"] == resi)
             & (self._data["chain"] == chain)
@@ -342,14 +296,11 @@ class Structure(BaseStructure):
             & (self._data["chain"] == chain)
             & (self._data["altloc"] == altloc_remove)
         )
-
-        for attr in self._data:
-            array = self.get_array(attr)
-            if attr == "q":
-                array[keep_mask] = array[keep_mask] + array[remove_mask]
-            data[attr] = array[~remove_mask]
-
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
+        new_structure = self.copy()
+        occ = new_structure.q
+        new_structure.set_occupancies(occ[keep_mask] + occ[remove_mask],
+                                      keep_mask)
+        return new_structure.get_selected_structure(~remove_mask)
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
         multiconformer = copy.deepcopy(self)
@@ -488,17 +439,8 @@ class Structure(BaseStructure):
             diffs = neighbors.coor - np.array(coor)
             dists = np.linalg.norm(diffs, axis=1)
             mask = np.logical_or(mask, dists < distance)
-
-        # Copy the attributes of the masked atoms:
-        data = {}
-        for attr in neighbors._data:  # pylint: disable=protected-access
-            array1 = neighbors.get_array(attr)
-            data[attr] = array1[mask]
-
-        # Return the new object:
-        return Structure(data, crystal_symmetry=self.crystal_symmetry)
-        #return neighbors.copy().get_selection(mask).with_symmetry(
-        #    self.crystal_symmetry)
+        return neighbors.copy().get_selected_structure(mask).with_symmetry(
+            self.crystal_symmetry)
 
     def reinitialize_object(self):
         """
@@ -617,7 +559,7 @@ class _Chain(BaseStructure):
             self._conformers.append(conformer)
 
 
-class ResidueGroup(BaseStructure):
+class ResidueGroup(BaseMonomer):
 
     """Guarantees a group with similar resi and icode."""
 
@@ -757,16 +699,14 @@ class _Conformer(BaseStructure):
             residue = self.extract(selection)
             rtype = residue_type(residue)
             if rtype == "rotamer-residue":
-                C = RotamerResidue
-            elif rtype == "aa-residue":
-                C = Residue
-            elif rtype == "residue":
-                C = Residue
+                monomer_class = RotamerResidue
+            elif rtype in ["aa-residue", "residue"]:
+                monomer_class = Residue
             elif rtype == "ligand":
-                C = Ligand
+                monomer_class = Ligand
             else:
                 continue
-            residue = C(
+            residue = monomer_class(
                 self._data,
                 selection=selection,
                 parent=self,
@@ -889,7 +829,7 @@ def _get_residue_group_atom_order(rg):
         icode = rg.icode[0]
         raise RuntimeError(
             f"Heterogeneous residue group detected: {resi}{icode}")
-    rotamer = ROTAMERS[rg.resn[0]]
+    rotamer = ROTAMERS[rg.resname]
     atom_order = rotamer["atoms"] + rotamer["hydrogens"]
     atomnames = list(rg.name)
     # Check if all atomnames are standard. We don't touch the

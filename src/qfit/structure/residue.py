@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 
-from .base_structure import BaseStructure
+from .base_structure import BaseMonomer
 from .math import *
 from .rotamers import ROTAMERS
 
@@ -31,7 +31,7 @@ def residue_type(residue):
         ligand
             Other
     """
-
+    # FIXME this is being called with objects that may represent multimers
     # RNA and DNA backbone atoms
     if residue.resn[0] in ROTAMERS:
         return "rotamer-residue"
@@ -46,7 +46,7 @@ def residue_type(residue):
     return "ligand"
 
 
-class _BaseResidue(BaseStructure):
+class _BaseResidue(BaseMonomer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = (kwargs["resi"], kwargs["icode"])
@@ -64,7 +64,6 @@ class _BaseResidue(BaseStructure):
         """Returns (chain, resi, icode) to identify this residue."""
         chainid = self.chain[0]
         resi, icode = self.id
-
         return (chainid, resi, icode)
 
     @property
@@ -73,7 +72,6 @@ class _BaseResidue(BaseStructure):
         shortcode = f"{chainid}_{resi}"
         if icode:
             shortcode += f"_{icode}"
-
         return shortcode
 
     def reinitialize_object(self):
@@ -98,8 +96,7 @@ class Residue(_BaseResidue):
 class RotamerResidue(_BaseResidue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        resname = self.resn[0]
-        self._residue_info = ROTAMERS[resname]
+        self._residue_info = ROTAMERS[self.resname]
         self.nchi = self._residue_info["nchi"]
         self.rotamers = self._residue_info["rotamers"]
         self.nrotamers = len(self.rotamers)
@@ -226,24 +223,6 @@ class RotamerResidue(_BaseResidue):
         coor_to_rotate += origin
         self._data["coor"][selection] = coor_to_rotate
 
-    def print_residue(self):
-        for atom, coor, element, b, q in zip(
-            self.name, self.coor, self.e, self.b, self.q
-        ):
-            logger.info(f"{atom} {coor} {element} {b} {q}")
-
-    def _print_residue_shape(self):
-        """Prints shapes of all attributes in a residue.
-
-        NB: only of use for debugging.
-        """
-        logger.debug(f"[{self}]")
-        for attr_name in self.REQUIRED_ATTRIBUTES:
-            logger.debug(f"  {attr_name}.shape: {getattr(self, attr_name).shape}")
-            logger.debug(
-                f"  _{attr_name}.shape: {getattr(self, '_' + attr_name).shape}"
-            )
-
     def complete_residue(self):
         if residue_type(self) != "rotamer-residue":
             msg = (
@@ -256,9 +235,9 @@ class RotamerResidue(_BaseResidue):
         for atom in self._residue_info["atoms"]:
             # Found a missing atom!
             if atom not in self.name:
-                self.complete_residue_recursive(atom)
+                self._complete_residue_recursive(atom)
 
-    def complete_residue_recursive(self, atom):
+    def _complete_residue_recursive(self, atom):
         if atom in ["N", "C", "CA", "O"]:
             msg = (
                 f"{self} is missing backbone atom {atom}. "
@@ -270,7 +249,7 @@ class RotamerResidue(_BaseResidue):
 
         ref_atom = self._residue_info["connectivity"][atom][0]
         if ref_atom not in self.name:
-            self.complete_residue_recursive(ref_atom)
+            self._complete_residue_recursive(ref_atom)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
         bond_length, bond_length_sd = self._residue_info["bond_dist"][ref_atom][atom]
@@ -282,7 +261,7 @@ class RotamerResidue(_BaseResidue):
                 bond_angle_atom = angle[0][0]
                 bond_angle, bond_angle_sd = angle[1]
                 if bond_angle_atom not in self.name:
-                    self.complete_residue_recursive(bond_angle_atom)
+                    self._complete_residue_recursive(bond_angle_atom)
                 bond_angle_coor = self.coor[
                     np.argwhere(self.name == bond_angle_atom)[0]
                 ]
@@ -311,12 +290,12 @@ class RotamerResidue(_BaseResidue):
                             if dihedral[1][0] in self._residue_info["atoms"]:
                                 other_dihedral_atom = dihedral[1][0]
                                 if dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(dihedral_atom)
+                                    self._complete_residue_recursive(dihedral_atom)
                                 dihedral_atom_coor = self.coor[
                                     np.argwhere(self.name == dihedral_atom)[0]
                                 ]
                                 if other_dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(other_dihedral_atom)
+                                    self._complete_residue_recursive(other_dihedral_atom)
                                 other_dihedral_atom_coor = self.coor[
                                     np.argwhere(self.name == other_dihedral_atom)[0]
                                 ]
@@ -349,7 +328,7 @@ class RotamerResidue(_BaseResidue):
                             break
                 if dihedral_atom is not None:
                     if dihedral_atom not in self.name:
-                        self.complete_residue_recursive(dihedral_atom)
+                        self._complete_residue_recursive(dihedral_atom)
                     dihedral_atom_coor = self.coor[
                         np.argwhere(self.name == dihedral_atom)[0]
                     ]

@@ -210,7 +210,6 @@ END"""
                 "TYR", "PHE")
         test_ring_flip(phe_pdb, 1.4599)
 
-    #@pytest.mark.skip(reason="TODO")
     def test_base_structure_rotate(self):
         s = self._STRUCTURE_AWA_SINGLE
         ss = s.copy()
@@ -284,6 +283,21 @@ END"""
         assert set(ss.name) == {"CA"}
         assert set(ss.e) == {"C"}
 
+    def test_get_adp_ellipsoid_axes(self):
+        s = Structure.fromfile(op.join(self.DATA, "phe113_fake_uc.pdb"))
+        ca_atom = s.extract("name", "CA").extract("altloc", "A")
+        assert len(ca_atom.name) == 1
+        anisous = ca_atom.extract_anisous()
+        assert len(anisous) == 1
+        assert anisous[0] == ((1465.0, -684.0, 354.0),
+                              (-684.0, 1150.0, -298.0),
+                              (354.0, -298.0, 1600.0))
+        np.testing.assert_array_almost_equal(
+            ca_atom.get_adp_ellipsoid_axes(),
+            [[0.61876973, 0.78542739, 0.01509452],
+             [-0.43646415,  0.32774904,  0.83790191],
+             [-0.65316389,  0.52505655, -0.54561209]])
+
 
 class TestProteinStructure(StructureUnitBase):
     """
@@ -308,6 +322,8 @@ class TestProteinStructure(StructureUnitBase):
         assert len(list(s.residues)) == 9
         r = chains[0].conformers[0].residues[0]
         assert len(r.active) == 5
+        assert r.resname == "ALA"
+        assert chains[0].conformers[0].residues[1].resname == "TRP"
         # these are associated with conformers
         segments = list(s.segments)
         assert len(segments) == 3
@@ -463,6 +479,39 @@ END"""
         assert np.all(s3.name != s.name)
         assert np.all(s3.reorder().name == s.name)
 
-    @pytest.mark.skip(reason="TODO")
     def test_structure_normalize_occupancy(self):
-        ...
+        s = self._STRUCTURE_AWA_3CONF.copy()
+        s2 = s.normalize_occupancy()
+        assert np.all(s2.q == s.q)
+        sel1 = s.q == 1.0
+        selA = s.altloc == "A"
+        selB = s.altloc == "B"
+        selC = s.altloc == "C"
+        ss = s.copy()
+        ss.q = s.q * 0.9
+        ss.set_occupancies(0.8, sel1)  # further scaling of single conf
+        assert np.all(ss.q != s.q)
+        ss2 = ss.normalize_occupancy()
+        assert np.all(ss2.q == s.q)
+        assert np.all(ss.q != s.q)  # modified structure is unchanged
+        assert np.all(ss2.q[sel1] == 1.0)
+        assert np.all(ss2.q[selA] == 0.4)
+        assert np.all(ss2.q[selB] == 0.3)
+        assert np.all(ss2.q[selC] == 0.3)
+        # sanity checks on single-conf structure
+        s = self._STRUCTURE_AWA_SINGLE.copy()
+        assert np.all(s.q == 1.0)
+        s2 = s.normalize_occupancy()
+        assert np.all(s2.q == 1.0)
+        ss = s.copy()
+        sel1 = s.resi == 1
+        sel2 = s.resi == 2
+        sel3 = s.resi == 3
+        q = ss.q
+        q[sel1] = 0.9
+        q[sel2] = 0.8
+        q[sel3] = 0.7
+        ss.q = q
+        assert np.all(ss.q != s.q)
+        ss2 = ss.normalize_occupancy()
+        assert np.all(ss2.q == 1.0)

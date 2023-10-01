@@ -8,7 +8,8 @@ from qfit.structure.math import (dihedral_angle,
                                  get_rotation_around_vector,
                                  Ry,
                                  Rz,
-                                 gram_schmidt_orthonormal_zx)
+                                 gram_schmidt_orthonormal_zx,
+                                 adp_ellipsoid_axes)
 
 
 def assert_matrix_approx_equals(actual, expected):
@@ -73,3 +74,13 @@ class TestStructureMath(unittest.TestCase):
                     [-0.40824829,  0.81649658, -0.40824829],
                     [ 0.57735027,  0.57735027,  0.57735027]]
         assert_matrix_approx_equals(m, expected)
+
+    def test_adp_ellipsoid_axes(self):
+        uij = [[1465.0, -684.0, 354.0],
+               [-684.0, 1150.0, -298.0],
+               [354.0, -298.0, 1600.0]]
+        direction = adp_ellipsoid_axes(uij)
+        np.testing.assert_array_almost_equal(direction,
+            [[0.61876973, 0.78542739, 0.01509452],
+             [-0.43646415,  0.32774904,  0.83790191],
+             [-0.65316389,  0.52505655, -0.54561209]])

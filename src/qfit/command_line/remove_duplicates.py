@@ -47,8 +47,7 @@ def find_unique_atoms(structure):
 
     # Identify duplicated atoms by comparing selected properties.
     for attr in ("resi", "resn", "altloc", "icode", "chain", "name"):
-        # FIXME
-        attrvec = structure._data[attr]  # pylint: disable=protected-access
+        attrvec = getattr(structure, attr)
         ident_prop = attrvec[:, np.newaxis] == attrvec[np.newaxis, :]
         identical_ij &= ident_prop
 
@@ -79,5 +78,5 @@ def main():
     os.makedirs(args.directory, exist_ok=True)
     structure = Structure.fromfile(args.structure).reorder()
     mask = find_unique_atoms(structure)
-    new_structure = structure.get_selection(mask)
-    new_structure.tofile(args.structure + ".fixed")
+    new_structure = structure.get_selected_structure(mask)
+    new_structure.tofile(args.structure + "_fixed.pdb")

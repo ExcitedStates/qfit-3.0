@@ -1,41 +1,79 @@
+from abc import abstractmethod
 from itertools import product
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
-from .base_structure import BaseStructure
+from .base_structure import BaseMonomer
 from .mmCIF import mmCIFDictionary
 
 
-class Ligand(BaseStructure):
+class BaseLigand(BaseMonomer):
+    """
+    Base functions shared by all ligand classes
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._connectivity = []
+        super().__init__(*args, **kwargs)
+        self.id = self.resi[0], self.icode[0]
+
+    @property
+    def ligand_name(self):
+        return self.resname
+
+    @staticmethod
+    @abstractmethod
+    def from_structure(structure_ligand, cif_file=None):
+        ...
+
+    @property
+    @abstractmethod
+    def shortcode(self) -> str:
+        ...
+
+    @property
+    def connectivity(self):
+        return self._connectivity
+
+    @abstractmethod
+    def clashes(self) -> bool:
+        ...
+
+    def get_bonds(self):
+        bonds = []
+        indices = np.nonzero(self.connectivity)
+        for a, b in zip(*indices):
+            bonds.append([self.name[a], self.name[b]])
+        return bonds
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.resname}. Number of atoms: {self.natoms}."
+
+    def _convert_rotation_tree_to_list(self, parent_tree):
+        bond_list = []
+        for bond, child_trees in parent_tree.items():
+            bond_list += [bond]
+            if child_trees:
+                bond_list += self._convert_rotation_tree_to_list(child_trees)
+        return bond_list
+
+
+class Ligand(BaseLigand):
 
     """Ligand class automatically generates a topology on the structure."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        try:
-            self.id = (kwargs["resi"], kwargs["icode"])
-        except KeyError:
-            self.id = (args[0]["resi"], args[0]["icode"])
-            self.ligand_name = self.resn[0]
         self.nbonds = None
-
-        try:
-            self.type = kwargs["type"]
-        except:
-            pass
-
+        self.type = kwargs.get("type", None)
         if kwargs.get("cif_file"):
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:
             self._get_connectivity()
 
-        # self.root = np.argwhere(self.name == self.link_data['name1'][i])
-        # self.order = self.rotation_order(self.root)
-        # self.bond_list = self.convert_rotation_tree_to_list(self.order)
-
     @staticmethod
-    def from_structure(structure_ligand, cif_file):
+    def from_structure(structure_ligand, cif_file=None):
         return Ligand(
             structure_ligand._data,  # pylint: disable=protected-access
             structure_ligand.selection,
@@ -43,17 +81,12 @@ class Ligand(BaseStructure):
             cif_file=cif_file,
         )
 
-    def __repr__(self):
-        string = "Ligand: {}. Number of atoms: {}.".format(self.resn[0], self.natoms)
-        return string
-
     @property
     def shortcode(self):
         resi, icode = self.id
         shortcode = f"{resi}"
         if icode:
             shortcode += f"_{icode}"
-
         return shortcode
 
     def _get_connectivity(self):
@@ -79,7 +112,7 @@ class Ligand(BaseStructure):
         connectivity_matrix = dist_matrix < cutoff_matrix
         # Atoms are not connected to themselves
         np.fill_diagonal(connectivity_matrix, False)
-        self.connectivity = connectivity_matrix
+        self._connectivity = connectivity_matrix
         self._cutoff_matrix = cutoff_matrix
 
     def _get_connectivity_from_cif(self, cif_file):
@@ -123,9 +156,9 @@ class Ligand(BaseStructure):
                                 self.bond_types[index2][index1] = cif_row["type"]
 
         self._cutoff_matrix = cutoff_matrix
-        self.connectivity = connectivity_matrix
+        self._connectivity = connectivity_matrix
 
-    def clashes(self):
+    def clashes(self) -> bool:
         """Checks if there are any internal clashes."""
         dist_matrix = squareform(pdist(self.coor))
         mask = np.logical_not(self.connectivity)
@@ -136,19 +169,6 @@ class Ligand(BaseStructure):
         if np.any(np.logical_and(clash_matrix, mask)):
             return True
         return False
-
-    def bonds(self):
-        """Print bonds"""
-        indices = np.nonzero(self.connectivity)
-        for a, b in zip(*indices):
-            print(self.name[a], self.name[b])
-
-    def get_bonds(self):
-        bonds = []
-        indices = np.nonzero(self.connectivity)
-        for a, b in zip(*indices):
-            bonds.append([self.name[a], self.name[b]])
-        return bonds
 
     def ring_paths(self):
         def ring_path(T, v1, v2):
@@ -304,8 +324,9 @@ class Ligand(BaseStructure):
                 self._find_neighbors_recursively(ln, neighbors)
         return neighbors
 
-    def rotation_order(self, root):
-        def _rotation_order(
+    # XXX unused here, can we delete it?
+    def _rotation_order(self, root):
+        def _rotation_order_recursive(
             clusters, checked_clusters, atom, bonds, checked_bonds, tree
         ):
             # Find cluster to which atom belongs to
@@ -342,7 +363,7 @@ class Ligand(BaseStructure):
                         continue
                     tree[bond] = {}
                     checked_bonds.append(bond)
-                    _rotation_order(
+                    _rotation_order_recursive(
                         clusters,
                         checked_clusters,
                         bond[1],
@@ -356,12 +377,12 @@ class Ligand(BaseStructure):
         bonds = self.rotatable_bonds()
         checked_clusters = []
         checked_bonds = []
-        _rotation_order(
+        _rotation_order_recursive(
             clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree
         )
         return rotation_tree
 
-    def convert_rotation_tree_to_list(self, parent_tree):
+    def _convert_rotation_tree_to_list(self, parent_tree):
         bond_list = []
         for bond, child_trees in parent_tree.items():
             bond_list += [bond]
@@ -416,13 +437,11 @@ class BondOrder(object):
             self._bondorder(n, depth)
 
 
-class CovalentLigand(BaseStructure):
+class CovalentLigand(BaseLigand):
     """Covalent Ligand class"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.id = (args[0]["resi"], args[0]["icode"])
-        self.ligand_name = self.resn[0]
         self.nbonds = None
         self.covalent_bonds = 0
         self.covalent_partners = []
@@ -457,16 +476,12 @@ class CovalentLigand(BaseStructure):
                     ]
                 )
                 self.root = np.argwhere(self.name == self.link_data["name1"][i])
-                self.order = self.rotation_order(self.root)
+                self.order = self._rotation_order(self.root)
                 self.bond_list = self.convert_rotation_tree_to_list(self.order)
         # self.type = args[0].data["type"]
 
-    def __repr__(self):
-        string = f"Covalent Ligand: {self.resn[0]}." f" Number of atoms: {self.natoms}."
-        return string
-
     @staticmethod
-    def from_structure(structure_ligand, cif_file):
+    def from_structure(structure_ligand, cif_file=None):
         return CovalentLigand(
             structure_ligand._data,  # pylint: disable=protected-access
             structure_ligand.selection,
@@ -475,20 +490,12 @@ class CovalentLigand(BaseStructure):
         )
 
     @property
-    def _identifier_tuple(self):
-        """Returns (chain, resi, icode) to identify this covalent ligand."""
+    def shortcode(self):
         chainid = self.chain[0]
         resi, icode = self.id
-
-        return (chainid, resi, icode)
-
-    @property
-    def shortcode(self):
-        (chainid, resi, icode) = self._identifier_tuple
         shortcode = f"{chainid}_{resi}"
         if icode:
             shortcode += f"_{icode}"
-
         return shortcode
 
     def _get_connectivity_from_cif(self, cif_file):
@@ -548,7 +555,7 @@ class CovalentLigand(BaseStructure):
         self.connectivity = connectivity_matrix
         self._cutoff_matrix = cutoff_matrix
 
-    def clashes(self):
+    def clashes(self) -> bool:
         """Checks if there are any internal clashes."""
         """ dist_matrix = squareform(pdist(self.coor))
         mask = np.logical_not(self.connectivity)
@@ -558,21 +565,8 @@ class CovalentLigand(BaseStructure):
         clash_matrix = dist_matrix < self._cutoff_matrix
         if np.any(np.logical_and(clash_matrix, mask)):
             return True
-        return False"""
-        pass
-
-    def bonds(self):
-        """Print bonds"""
-        indices = np.nonzero(self.connectivity)
-        for a, b in zip(*indices):
-            print(self.name[a], self.name[b])
-
-    def get_bonds(self):
-        bonds = []
-        indices = np.nonzero(self.connectivity)
-        for a, b in zip(*indices):
-            bonds.append([self.name[a], self.name[b]])
-        return bonds
+        """
+        return False
 
     def rigid_clusters(self):
         """
@@ -746,8 +740,8 @@ class CovalentLigand(BaseStructure):
                 self._find_neighbors_recursively(ln, neighbors)
         return neighbors
 
-    def rotation_order(self, root):
-        def _rotation_order(
+    def _rotation_order(self, root):
+        def _rotation_order_recursive(
             clusters, checked_clusters, atom, bonds, checked_bonds, tree
         ):
             # Find cluster to which atom belongs to
@@ -784,7 +778,7 @@ class CovalentLigand(BaseStructure):
                         continue
                     tree[bond] = {}
                     checked_bonds.append(bond)
-                    _rotation_order(
+                    _rotation_order_recursive(
                         clusters,
                         checked_clusters,
                         bond[1],
@@ -798,15 +792,7 @@ class CovalentLigand(BaseStructure):
         bonds = self.rotatable_bonds()
         checked_clusters = []
         checked_bonds = []
-        _rotation_order(
+        _rotation_order_recursive(
             clusters, checked_clusters, root, bonds, checked_bonds, rotation_tree
         )
         return rotation_tree
-
-    def convert_rotation_tree_to_list(self, parent_tree):
-        bond_list = []
-        for bond, child_trees in parent_tree.items():
-            bond_list += [bond]
-            if child_trees:
-                bond_list += self.convert_rotation_tree_to_list(child_trees)
-        return bond_list

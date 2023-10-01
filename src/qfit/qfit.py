@@ -8,7 +8,7 @@ from collections import namedtuple
 import numpy as np
 import tqdm
 
-from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
+from .backbone import NullSpaceOptimizer
 from .phenix_refine import run_phenix_aniso
 from .relabel import RelabellerOptions, Relabeller
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
@@ -450,7 +450,7 @@ class _BaseQFit:
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-            self.conformer.get_selection(self.conformer.active).tofile(fname)
+            self.conformer.get_selected_structure(self.conformer.active).tofile(fname)
 
     def _save_intermediate(self, prefix):
         if self.options.write_intermediate_conformers:
@@ -641,7 +641,7 @@ class QFitRotamericResidue(_BaseQFit):
             # Rebuild to include the new residue atoms
             index = len(self.structure.record)
             mask = self.residue.atomid >= index
-            new_atoms = residue.copy().get_selection(mask)
+            new_atoms = residue.copy().get_selected_structure(mask)
             structure = structure.copy().combine(new_atoms)
             # Create a new Structure, and re-extract the current residue from it.
             #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
@@ -826,21 +826,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-        try:
-            u_matrix = [
-                [atom.u00[0], atom.u01[0], atom.u02[0]],
-                [atom.u01[0], atom.u11[0], atom.u12[0]],
-                [atom.u02[0], atom.u12[0], atom.u22[0]],
-            ]
-            directions = adp_ellipsoid_axes(u_matrix)
-            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
-            logger.debug(f"[_sample_backbone] directions = {directions}")
-        except AttributeError:
-            logger.info(
-                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using x,y,z vectors."
-            )
-            # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
-            directions = np.identity(3)
+        directions = atom.get_adp_ellipsoid_axes()
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
@@ -1253,9 +1239,7 @@ class QFitSegment(_BaseQFit):
         #         multiconformers = multiconformers.remove_identical_conformers(
         #             self.options.rmsd_cutoff
         #         )
-        multiconformers = (
-            multiconformers.normalize_occupancy()
-        )  # ensure that sum(occupancy) of residues is equal to one.
+        multiconformers = multiconformers.normalize_occupancy()
         logger.info(
             f"Average number of conformers after removal of identical conformers: "
             f"{multiconformers.average_conformers():.2f}"
@@ -1670,19 +1654,15 @@ class QFitCovalentLigand(_BaseQFit):
 
             # Alter the structure so that covalent ligand and residue are
             # treated as a single residue:
-            # FIXME This needs to be hidden in the structure package
-            data = {}
-            for attr in receptor._data:  # pylint: disable=protected-access
-                data[attr] = np.concatenate(
-                    (receptor.get_array(attr), covalent_ligand.get_array(attr))
-                )
-            mask = (data["resi"] == covalent_ligand.resi[0]) & (
-                data["chain"] == covalent_ligand.chain[0]
+            combined = receptor.combine(covalent_ligand)
+            mask = (combined.resi == covalent_ligand.resi[0]) & (
+                    combined.chain == covalent_ligand.chain[0]
             )
-            data["resi"][mask] = self.covalent_partner.resi[0]
-            data["chain"][mask] = self.covalent_partner.chain[0]
-            data["resn"][mask] = self.covalent_partner.resn[0]
-            self.structure = Structure(data)
+            combined.merge_selected_residue(mask,
+                                            self.covalent_partner.resi[0],
+                                            self.covalent_partner.chain[0],
+                                            self.covalent_partner.resn[0])
+            self.structure = combined
 
             # Extract the covalent residue as a Residue object:
             combined_residue = self.structure.extract(sel_str)
@@ -1789,16 +1769,7 @@ class QFitCovalentLigand(_BaseQFit):
         if self.covalent_residue.resn[0] == "GLY":
             atom_name = "O"
         atom = self.covalent_residue.extract("name", atom_name)
-        try:
-            u_matrix = [
-                [atom.u00[0], atom.u01[0], atom.u02[0]],
-                [atom.u01[0], atom.u11[0], atom.u12[0]],
-                [atom.u02[0], atom.u12[0], atom.u22[0]],
-            ]
-            directions = adp_ellipsoid_axes(u_matrix)
-        except AttributeError:
-            directions = np.identity(3)
-
+        directions = atom.get_adp_ellipsoid_axes()
         optimizer = NullSpaceOptimizer(segment)
         start_coor = atom.coor[0]
         torsion_solutions = []

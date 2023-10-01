@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import logging
 from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
@@ -6,8 +6,9 @@ from operator import eq, gt, ge, le, lt
 import numpy as np
 from molmass.elements import ELEMENTS
 
-from .pdbfile import write_pdb, write_mmcif
+from .pdbfile import write_pdb, write_mmcif, ANISOU_FIELDS
 from .selector import AtomSelector
+from .math import adp_ellipsoid_axes
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,9 @@ class BaseStructure(ABC):
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
-        self.parent = parent
         self._data = data
         self._selection = selection
+        self.parent = parent
         # Save extra kwargs for general extraction and duplication methods.
         self._kwargs = kwargs
         self.link_data = kwargs.get("link_data", {})
@@ -67,12 +68,14 @@ class BaseStructure(ABC):
     def selection(self):
         return self._selection
 
-    def get_selected_data(self):
+    def get_selected_data(self, keys=None):
         if self._selection is None:
             return self._data
-        return {k: v[self._selection] for k, v in self._data.items()}
+        return {k: v[self._selection]
+                for k, v in self._data.items()
+                if (keys is None or k in keys)}
 
-    def get_selection(self, selection):
+    def get_selected_structure(self, selection):
         """
         Return a copy of the same type, containing only the selected atoms.
         'selection' should be a numpy boolean or uint array
@@ -81,12 +84,25 @@ class BaseStructure(ABC):
         for attr in self._data:
             array1 = self.get_array(attr)
             data[attr] = array1[selection]
-        return self.__class__(data, parent=None, selection=None, **self._kwargs)
+        return self.__class__(data,
+                              parent=None,
+                              selection=None,
+                              **self._kwargs)
 
     def with_symmetry(self, crystal_symmetry):
         kwargs = dict(self._kwargs)
         kwargs["crystal_symmetry"] = crystal_symmetry
         return self.__class__(self._data, **kwargs)
+
+    def combine(self, other):
+        """Combines two structures into one and returns the result"""
+        data = {}
+        for attr in self._data:
+            array1 = self.get_array(attr)
+            array2 = other.get_array(attr)
+            combined = np.concatenate((array1, array2))
+            data[attr] = combined
+        return self.__class__(data, crystal_symmetry=self.crystal_symmetry)
 
     @property
     def covalent_radius(self):
@@ -96,11 +112,19 @@ class BaseStructure(ABC):
     def vdw_radius(self):
         return self._get_element_property("vdwrad")
 
-    def copy(self):
+    def _copy(self, class_def=None):
+        if class_def is None:
+            class_def = self.__class__
         data = {}
         for attr in self._data:
             data[attr] = self.get_array(attr).copy()
-        return self.__class__(data, parent=None, selection=None, **self._kwargs)
+        return class_def(data, parent=None, selection=None, **self._kwargs)
+
+    def copy(self):
+        return self._copy()
+
+    def copy_as(self, class_def):
+        return self._copy(class_def)
 
     def extract(self, *args):
         if not isinstance(args[0], str):
@@ -112,10 +136,12 @@ class BaseStructure(ABC):
         )
 
     def rotate(self, R):
-        """Rotate structure"""
+        """Rotate structure in place"""
         coor = np.dot(self.coor, R.T)  # pylint: disable=access-member-before-definition
         self.coor = coor
 
+    # FIXME this is not used anywhere, but the logic to handle ring flips
+    # is something we should incorporate in the overall program
     def rmsd(self, structure):
         coor1 = self.coor
         coor2 = structure.coor
@@ -315,3 +341,42 @@ class BaseStructure(ABC):
             self._data["active"][:] = value
         else:
             self._data["active"][selection] = value
+
+    def extract_anisous(self):
+        data = self.get_selected_data(keys=set(ANISOU_FIELDS))
+        return [(
+            (data["u00"][x], data["u01"][x], data["u02"][x]),
+            (data["u01"][x], data["u11"][x], data["u12"][x]),
+            (data["u02"][x], data["u12"][x], data["u22"][x]),
+        ) for x in range(self.natoms)]
+
+    def get_adp_ellipsoid_axes(self):
+        """
+        Identify sampling directions based on the ellipsoid axes of the
+        refined ADPs.  Should only be used on single-atom structures.
+        """
+        data = self.get_selected_data(keys=set(ANISOU_FIELDS))
+        try:
+            u_matrix = self.extract_anisous()[0]
+            directions = adp_ellipsoid_axes(u_matrix)
+            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+            logger.debug(f"[_sample_backbone] directions = {directions}")
+            return directions
+        except KeyError as e:
+            logger.info(
+                f"Got KeyError for directions at Cβ. Treating as isotropic B, using x,y,z vectors."
+            )
+            # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
+            return np.identity(3)
+
+
+class BaseMonomer(BaseStructure):
+    """
+    Base class for any single 'residue', of any chemical type (amino acid,
+    nucleic acid, or ligand).  May be multi-conformer as long as the
+    composition is homogenous.
+    """
+
+    @property
+    def resname(self):
+        return self.resn[0]
