@@ -1,29 +1,30 @@
+import inspect
+
 import pytest
 
-from qfit.solvers import *
+import qfit.solvers
+from qfit.solvers import (
+    available_miqp_solvers,
+    available_qp_solvers,
+    get_miqp_solver_class,
+    get_qp_solver_class,
+)
 
 
-def setup_module(module):
-    import qfit.solvers
+def test_missing_solvers() -> None:
+    with pytest.raises(KeyError):
+        get_qp_solver_class("NotASolver")
+    with pytest.raises(KeyError):
+        get_miqp_solver_class("NotASolver")
 
-    # Manually set CPLEX to False
-    # in this module ONLY
-    qfit.solvers.CPLEX = False
+
+def test_get_qp_solver() -> None:
+    qp_solver_class = get_qp_solver_class(next(iter(available_qp_solvers.keys())))
+    assert inspect.isclass(qp_solver_class)
+    assert issubclass(qp_solver_class, qfit.solvers.QPSolver)
 
 
-class TestForcedNoSolvers:
-    # QPSolver.__new__ should raise ImportError
-    # when CPLEX flags are false
-    def test_QPSolvers_fail(self):
-        with pytest.raises(ImportError):
-            QPSolver(None, None, use_cplex=False)
-        with pytest.raises(ImportError):
-            QPSolver(None, None, use_cplex=True)
-
-    # MIQPSolver.__new__ should raise ImportError
-    # when CPLEX flags are false
-    def test_MIQPSolvers_fail(self):
-        with pytest.raises(ImportError):
-            MIQPSolver(None, None, use_cplex=False)
-        with pytest.raises(ImportError):
-            MIQPSolver(None, None, use_cplex=True)
+def test_get_miqp_solver() -> None:
+    miqp_solver_class = get_qp_solver_class(next(iter(available_miqp_solvers.keys())))
+    assert inspect.isclass(miqp_solver_class)
+    assert issubclass(miqp_solver_class, qfit.solvers.MIQPSolver)
