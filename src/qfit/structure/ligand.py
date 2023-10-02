@@ -387,7 +387,7 @@ class Ligand(BaseLigand):
         for bond, child_trees in parent_tree.items():
             bond_list += [bond]
             if child_trees:
-                bond_list += self.convert_rotation_tree_to_list(child_trees)
+                bond_list += self._convert_rotation_tree_to_list(child_trees)
         return bond_list
 
 
@@ -477,7 +477,7 @@ class CovalentLigand(BaseLigand):
                 )
                 self.root = np.argwhere(self.name == self.link_data["name1"][i])
                 self.order = self._rotation_order(self.root)
-                self.bond_list = self.convert_rotation_tree_to_list(self.order)
+                self.bond_list = self._convert_rotation_tree_to_list(self.order)
         # self.type = args[0].data["type"]
 
     @staticmethod

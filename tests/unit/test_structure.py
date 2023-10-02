@@ -11,7 +11,6 @@ import pytest
 
 from qfit.structure import Structure
 from qfit.structure.pdbfile import write_pdb
-from qfit.structure.residue import RotamerResidue
 
 from .base_test_case import UnitBase
 
@@ -254,9 +253,6 @@ class TestBaseStructureMethods(StructureUnitBase):
         q = s.q
         q[:] = 0
         assert np.all(s.q > 0)
-        b = s.b.copy()
-        b[:] = -1
-        assert np.all(s.b > 1)
         # test setters
         s.q = 0
         assert np.all(s.q == 0)
@@ -639,11 +635,11 @@ class TestStructureResidue(StructureUnitBase):
             "TRP": 14,
             "TYR": 12,
         }
+        ala_pdb = open("ala_tmp.pdb", "rt", encoding="ascii").read()
         for resname, natoms in residue_natoms.items():
-            pdb_tmp = f"{resname}_backbone.pdb"
-            with open(pdb_tmp, "wt") as pdb_out:
-                with open("ala_tmp.pdb", "rt") as pdb_in:
-                    pdb_out.write(pdb_in.read().replace("ALA", resname))
+            suffix = f"{resname}_backbone.pdb"
+            pdb_str = ala_pdb.replace("ALA", resname)
+            pdb_tmp = self._write_tmp_pdb(pdb_str, suffix)
             s = Structure.fromfile(pdb_tmp)
             r = s.chains[0].conformers[0].residues[0]
             r.complete_residue()

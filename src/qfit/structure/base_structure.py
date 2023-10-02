@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 import logging
 from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
@@ -360,14 +360,13 @@ class BaseStructure(ABC):
         Identify sampling directions based on the ellipsoid axes of the
         refined ADPs.  Should only be used on single-atom structures.
         """
-        data = self.get_selected_data(keys=set(ANISOU_FIELDS))
         try:
             u_matrix = self.extract_anisous()[0]
             directions = adp_ellipsoid_axes(u_matrix)
             logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
             logger.debug(f"[_sample_backbone] directions = {directions}")
             return directions
-        except KeyError as e:
+        except KeyError:
             logger.info(
                 f"Got KeyError for directions at Cβ. Treating as isotropic B, using x,y,z vectors."
             )
