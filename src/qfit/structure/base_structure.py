@@ -35,6 +35,8 @@ class BaseStructure(ABC):
 
     def __init__(self, data, selection=None, parent=None, **kwargs):
         self._data = data
+        if selection is not None and not isinstance(selection, np.ndarray):
+            selection = np.array(selection)
         self._selection = selection
         self.parent = parent
         # Save extra kwargs for general extraction and duplication methods.
@@ -78,7 +80,7 @@ class BaseStructure(ABC):
     def get_selected_structure(self, selection):
         """
         Return a copy of the same type, containing only the selected atoms.
-        'selection' should be a numpy boolean or uint array
+        'selection' should be a numpy boolean or uint array.
         """
         data = {}
         for attr in self._data:
@@ -95,7 +97,10 @@ class BaseStructure(ABC):
         return self.__class__(self._data, **kwargs)
 
     def combine(self, other):
-        """Combines two structures into one and returns the result"""
+        """
+        Combines two structures into one and returns the result (of the same
+        type as 'self').
+        """
         data = {}
         for attr in self._data:
             array1 = self.get_array(attr)
@@ -368,6 +373,35 @@ class BaseStructure(ABC):
             )
             # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             return np.identity(3)
+
+    def _add_atom(self, name, element, coor, **kwargs):
+        """
+        Append a single atom to the structure.  This is only used by the
+        RotamerResidue subclass, when building out an incomplete residue,
+        but the implementation lives here now to hide the details of the
+        internal data
+        """
+        index = self._selection[-1]
+        if index < len(self._data["record"]):
+            index = len(self._data["record"]) - 1
+        for attr in self._data:
+            if attr == "e":
+                self._data[attr] = np.append(self._data[attr], element)
+            elif attr == "atomid":
+                self._data[attr] = np.append(self._data[attr], index + 1)
+            elif attr == "name":
+                self._data["name"] = np.append(self._data["name"], name)
+            elif attr == "coor":
+                self._data["coor"] = np.append(self._data["coor"],
+                                               np.expand_dims(coor, axis=0),
+                                               axis=0)
+            elif attr in kwargs:
+                self._data[attr] = kwargs[attr]
+            else:
+                self._data[attr] = np.append(self._data[attr],
+                                             self.get_array(attr)[-1])
+        self._selection = np.append(self._selection, index + 1).astype(np.uint64)
+        self.natoms += 1
 
 
 class BaseMonomer(BaseStructure):

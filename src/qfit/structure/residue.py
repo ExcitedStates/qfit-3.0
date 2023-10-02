@@ -16,7 +16,7 @@ _NUCLEOTIDE_BACKBONE_ATOMS = ["P", "O5'", "C5'", "C4'", "C3'", "O3"]
 _SOLVENTS = ["HOH"]
 
 
-def residue_type(residue):
+def residue_type(residue) -> str:
     """Check residue type.
 
     The following types are recognized:
@@ -60,14 +60,14 @@ class _BaseResidue(BaseMonomer):
         return string
 
     @property
-    def identifier_tuple(self):
+    def identifier_tuple(self) -> tuple:
         """Returns (chain, resi, icode) to identify this residue."""
         chainid = self.chain[0]
         resi, icode = self.id
         return (chainid, resi, icode)
 
     @property
-    def shortcode(self):
+    def shortcode(self) -> str:
         (chainid, resi, icode) = self.identifier_tuple
         shortcode = f"{chainid}_{resi}"
         if icode:
@@ -101,7 +101,7 @@ class RotamerResidue(_BaseResidue):
         self.rotamers = self._residue_info["rotamers"]
         self.nrotamers = len(self.rotamers)
         self._init_clash_detection()
-        self.i = 0
+        #self.i = 0
 
     def get_residue_info(self, key):
         return self._residue_info[key]
@@ -153,7 +153,7 @@ class RotamerResidue(_BaseResidue):
             end = starting_index + self.natoms - i + 1
             self._active_mask[starting_index:end] = active
 
-    def clashes(self):
+    def clashes(self) -> int:
         """Checks if there are any internal clashes.
         Deactivated atoms are not taken into account.
         """
@@ -175,7 +175,7 @@ class RotamerResidue(_BaseResidue):
         nclashes = self._clashing.sum()
         return nclashes
 
-    def get_chi(self, chi_index):
+    def get_chi(self, chi_index) -> float:
         atoms = self._residue_info["chi"][chi_index]
         selection = self.select("name", atoms)
         ordered_sel = []
@@ -359,7 +359,7 @@ class RotamerResidue(_BaseResidue):
             raise RuntimeError(f"Unable to rebuild atom {atom}.") from e
         else:
             logger.info(f"Rebuilt {atom} at {new_coor}")
-        self.add_atom(atom, atom[0], new_coor)
+        self._add_atom(atom, atom[0], new_coor)
 
     @staticmethod
     def calc_coordinates(i, j, k, L, sig_L, theta, sig_theta, chi):
@@ -581,55 +581,7 @@ class RotamerResidue(_BaseResidue):
             )
             raise ValueError(f"Couldn't determine a matching chi.")
 
-        x = positions[correct_chi][
-            0
-        ]  # if discriminant~0, this has identical sols. Take the first.
+        # if discriminant~0, this has identical sols. Take the first.
+        x = positions[correct_chi][0]
         x += k
         return x
-
-    def add_atom(self, name, element, coor):
-        index = self._selection[-1]
-        if index < len(self._data["record"]):
-            index = len(self._data["record"]) - 1
-        for attr in self._data:
-            if attr == "e":
-                self._data[attr] = np.append(self._data[attr], element)
-            elif attr == "atomid":
-                self._data[attr] = np.append(self._data[attr], index + 1)
-            elif attr == "name":
-                self._data["name"] = np.append(self._data["name"], name)
-            elif attr == "coor":
-                self._data["coor"] = np.append(self._data["coor"], np.expand_dims(coor, axis=0))
-            else:
-                self._data[attr] = np.append(self._data[attr], self.get_array(attr)[-1])
-        self._selection = np.append(self._selection, index + 1)
-        self.natoms += 1
-
-    def reorder(self):
-        atoms = self._residue_info["atoms"] + self._residue_info["hydrogens"]
-        for idx, atom2 in enumerate(atoms):
-            if self.name[idx] != atom2:
-                idx2 = np.argwhere(self.name == atom2)[0]
-                index = np.ndarray((1,), dtype="int")
-                index[0,] = np.array(self.__dict__["_selection"][0], dtype="int")
-                for attr in [
-                    "record",
-                    "name",
-                    "b",
-                    "q",
-                    "coor",
-                    "resn",
-                    "resi",
-                    "icode",
-                    "e",
-                    "charge",
-                    "chain",
-                    "altloc",
-                ]:
-                    (
-                        self.__dict__["_" + attr][index + idx],
-                        self.__dict__["_" + attr][index + idx2],
-                    ) = (
-                        self.__dict__["_" + attr][index + idx2],
-                        self.__dict__["_" + attr][index + idx],
-                    )

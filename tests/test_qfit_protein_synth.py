@@ -345,6 +345,19 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         pdbh.write_pdb_file(pdb_multi_new, crystal_symmetry=symm)
         self._run_and_validate_identical_rotamers(pdb_multi_new, pdb_single, d_min)
 
+    @pytest.mark.skip(reason="FIXME restore rebuilding support")
+    @pytest.mark.slow
+    def test_qfit_protein_3mer_arg_rebuild(self):
+        d_min = 1.2
+        (pdb_multi_start, pdb_single) = self._get_start_models("ARA")
+        s = Structure.fromfile(pdb_single)
+        s = s.extract("name", ("NH2",), "!=").copy()
+        pdb_single_partial = "ara_single_partial.pdb"
+        s.tofile(pdb_single_partial)
+        self._run_and_validate_identical_rotamers(pdb_multi_start,
+                                                  pdb_single_partial,
+                                                  d_min)
+
     @pytest.mark.slow
     def test_qfit_protein_3mer_multiconformer(self):
         """

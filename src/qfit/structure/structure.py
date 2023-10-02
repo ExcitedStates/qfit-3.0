@@ -442,21 +442,6 @@ class Structure(BaseStructure):
         return neighbors.copy().get_selected_structure(mask).with_symmetry(
             self.crystal_symmetry)
 
-    def reinitialize_object(self):
-        """
-        Return a fresh object of the same class with the same data array,
-        after unpickling in a multiprocessing call.
-        """
-        symm = self.crystal_symmetry
-        if self.parent is not None:
-            symm = self.parent.crystal_symmetry
-        return Structure(
-            self._data,
-            selection=self._selection,
-            parent=self.parent,
-            crystal_symmetry=symm,
-        )
-
 
 class _Chain(BaseStructure):
     def __init__(self, data, **kwargs):

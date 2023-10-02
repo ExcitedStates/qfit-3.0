@@ -477,11 +477,6 @@ class QFitProtein:
         # Set up logger hierarchy in this subprocess
         poolworker_setup_logging(logqueue)
 
-        # reinitialize the Python objects after unpickling, workaround for
-        # how properties are set internally
-        structure = structure.reinitialize_object()
-        residue = residue.reinitialize_object()
-
         # Build the residue results directory
         residue_directory = os.path.join(options.directory, residue.shortcode)
         os.makedirs(residue_directory, exist_ok=True)

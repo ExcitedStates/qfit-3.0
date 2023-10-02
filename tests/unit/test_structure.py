@@ -11,6 +11,7 @@ import pytest
 
 from qfit.structure import Structure
 from qfit.structure.pdbfile import write_pdb
+from qfit.structure.residue import RotamerResidue
 
 from .base_test_case import UnitBase
 
@@ -135,6 +136,23 @@ class StructureUnitBase(UnitBase):
         self._STRUCTURE_AWA_SINGLE = Structure.fromfile(awa_single_file)
         gnnafns_multi_file = op.join(self.DATA, "GNNAFNS_multiconf.pdb")
         self._STRUCTURE_7MER_MULTI = Structure.fromfile(gnnafns_multi_file)
+        self._TYR_PDB_IN = """\
+ATOM      1  N   TYR    22       3.603   0.782   5.912  1.00  0.00           N
+ATOM      2  CA  TYR    22       5.028   0.899   5.616  1.00  0.00           C
+ATOM      3  C   TYR    22       5.857   0.191   6.660  1.00  0.00           C
+ATOM      4  O   TYR    22       5.343  -0.394   7.617  1.00  0.00           O
+ATOM      5  CB  TYR    22       5.468   2.392   5.585  1.00  0.00           C
+ATOM      6  CG  TYR    22       4.806   3.283   4.527  1.00  0.00           C
+ATOM      7  CD1 TYR    22       5.223   3.235   3.193  1.00  0.00           C
+ATOM      8  CD2 TYR    22       3.769   4.145   4.895  1.00  0.00           C
+ATOM      9  CE1 TYR    22       4.604   4.038   2.239  1.00  0.00           C
+ATOM     10  CE2 TYR    22       3.152   4.947   3.940  1.00  0.00           C
+ATOM     11  CZ  TYR    22       3.570   4.893   2.612  1.00  0.00           C
+ATOM     12  OH  TYR    22       2.964   5.677   1.672  1.00  0.00           O
+TER
+END"""
+        pdb_tmp = self._write_tmp_pdb(self._TYR_PDB_IN)
+        self._STRUCTURE_TYROSINE = Structure.fromfile(pdb_tmp)
 
 
 def _simple_rmsd(s1, s2):
@@ -179,8 +197,7 @@ class TestBaseStructureMethods(StructureUnitBase):
                 s.name = atom_names
             return s.reorder()
 
-        def test_ring_flip(pdb_str, simple_rmsd):
-            s = Structure.fromfile(self._write_tmp_pdb(pdb_str))
+        def test_ring_flip(s, simple_rmsd):
             ss = s.copy()
             assert s.rmsd(ss) == 0.0
             ss.translate(np.array([0.1, 0.0, 0.0]))
@@ -189,26 +206,12 @@ class TestBaseStructureMethods(StructureUnitBase):
             assert _simple_rmsd(ss, s) == pytest.approx(simple_rmsd, abs=0.001)
             assert s.rmsd(ss) == pytest.approx(0.1, abs=0.0000000001)
 
-        TYR_PDB_IN = """\
-ATOM      1  N   TYR    22       3.603   0.782   5.912  1.00  0.00           N
-ATOM      2  CA  TYR    22       5.028   0.899   5.616  1.00  0.00           C
-ATOM      3  C   TYR    22       5.857   0.191   6.660  1.00  0.00           C
-ATOM      4  O   TYR    22       5.343  -0.394   7.617  1.00  0.00           O
-ATOM      5  CB  TYR    22       5.468   2.392   5.585  1.00  0.00           C
-ATOM      6  CG  TYR    22       4.806   3.283   4.527  1.00  0.00           C
-ATOM      7  CD1 TYR    22       5.223   3.235   3.193  1.00  0.00           C
-ATOM      8  CD2 TYR    22       3.769   4.145   4.895  1.00  0.00           C
-ATOM      9  CE1 TYR    22       4.604   4.038   2.239  1.00  0.00           C
-ATOM     10  CE2 TYR    22       3.152   4.947   3.940  1.00  0.00           C
-ATOM     11  CZ  TYR    22       3.570   4.893   2.612  1.00  0.00           C
-ATOM     12  OH  TYR    22       2.964   5.677   1.672  1.00  0.00           O
-TER
-END"""
-        test_ring_flip(TYR_PDB_IN, 1.398)
+        test_ring_flip(self._STRUCTURE_TYROSINE, 1.398)
         phe_pdb = "\n".join(
-            [l for l in TYR_PDB_IN.split("\n") if not "OH" in l]).replace(
-                "TYR", "PHE")
-        test_ring_flip(phe_pdb, 1.4599)
+            [l for l in self._TYR_PDB_IN.split("\n") if not "OH" in l]
+        ).replace("TYR", "PHE")
+        phe_structure = Structure.fromfile(self._write_tmp_pdb(phe_pdb))
+        test_ring_flip(phe_structure, 1.4599)
 
     def test_base_structure_rotate(self):
         s = self._STRUCTURE_AWA_SINGLE
@@ -515,3 +518,134 @@ END"""
         assert np.all(ss.q != s.q)
         ss2 = ss.normalize_occupancy()
         assert np.all(ss2.q == 1.0)
+
+
+class TestStructureResidue(StructureUnitBase):
+
+    def setUp(self):
+        super().setUp()
+        ara_single_file = op.join(self.DATA, "ARA_single.pdb")
+        self._STRUCTURE_ARA_SINGLE = Structure.fromfile(ara_single_file)
+
+    def test_structure_residue_tyrosine_monomer(self):
+        s = self._STRUCTURE_TYROSINE.copy()
+        assert s.clashes() == 0
+        s2 = s.copy()
+        r = s.chains[0].conformers[0].residues[0]
+        assert r.get_chi(1) == pytest.approx(-61.755163, abs=0.000001)
+        assert r.get_chi(2) == pytest.approx(-78.113452, abs=0.000001)
+        r.set_chi(1, -65)
+        assert r.get_chi(1) == -65.0
+        assert r.get_chi(2) == pytest.approx(-78.113452, abs=0.000001)
+        assert s2.rmsd(s) == pytest.approx(0.144069, abs=0.000001)
+        r.set_chi(2, -71)
+        assert r.get_chi(1) == -65.0
+        assert r.get_chi(2) == -71.0
+        assert s2.rmsd(s) == pytest.approx(0.157135, abs=0.000001)
+        r.set_chi(1, 65)
+        assert s2.rmsd(s) == pytest.approx(4.429105, abs=0.000001)
+        assert s.clashes() == 0
+        mc = s.extract("name", ("C", "CA", "N", "O")).copy()
+        mc2 = s2.extract("name", ("C", "CA", "N", "O")).copy()
+        assert _simple_rmsd(mc, mc2) == 0
+        with pytest.raises(KeyError):
+            chi = r.get_chi(3)
+        with pytest.raises(KeyError):
+            r.set_chi(3, 120)
+        r.set_chi(1, -61.755163)
+        r.set_chi(2, -78.113452)
+        assert s2.rmsd(s) == pytest.approx(0, abs=1e-12)
+
+    def test_structure_residue_alanine(self):
+        s = self._STRUCTURE_ARA_SINGLE.copy()
+        r = s.chains[0].conformers[0].residues[0]
+        with pytest.raises(KeyError):
+            chi = r.get_chi(1)
+        assert r.clashes() == 0
+
+    def test_structure_residue_arginine(self):
+        s = self._STRUCTURE_ARA_SINGLE.copy()
+        s2 = s.copy()
+        r = s.chains[0].conformers[0].residues[1]
+        assert r.get_chi(1) == pytest.approx(-67.148831, abs=0.000001)
+        assert r.get_chi(2) == pytest.approx(-177.977424, abs=0.000001)
+        assert r.get_chi(3) == pytest.approx(-176.992967, abs=0.000001)
+        assert r.get_chi(4) == pytest.approx(173.942592, abs=0.000001)
+        assert r.clashes() == 0
+        with pytest.raises(KeyError):
+            chi = r.get_chi(5)
+        r.set_chi(1, 120)
+        r.set_chi(2, 0)
+        r.set_chi(3, -90)
+        assert r.clashes() == 1
+        assert s2.rmsd(s) == pytest.approx(4.183182, abs=0.000001)
+        r.set_chi(4, 60)
+        assert r.clashes() == 2
+        mc = s.extract("name", ("C", "CA", "N", "O")).copy()
+        mc2 = s2.extract("name", ("C", "CA", "N", "O")).copy()
+        assert _simple_rmsd(mc, mc2) == 0
+        r.set_chi(1, -67.148831)
+        r.set_chi(2, -177.977424)
+        r.set_chi(3, -176.992967)
+        r.set_chi(4, 173.942592)
+        # XXX we lose some precision here relative to Tyr with 2 chi angles
+        assert s2.rmsd(s) == pytest.approx(0, abs=1e-7)
+        # test sidechain completion
+        s2 = s2.extract("name", ('N', 'CA', 'C', 'O', 'CB')).copy()
+        s2.tofile("ara_backbone.pdb")
+        s2 = Structure.fromfile("ara_backbone.pdb")
+        assert s2.total_length == 15
+        r = s2.chains[0].conformers[0].residues[1]
+        assert np.all(r.name == ['N', 'CA', 'C', 'O', 'CB'])
+        r.complete_residue()
+        assert np.all(r.name == ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2'])
+        # check behavior when combined with existing selection
+        s2 = Structure.fromfile("ara_backbone.pdb")
+        rs = s2.extract("chain A and resi 2").copy()
+        r = rs.chains[0].conformers[0].residues[0]
+        r.complete_residue()
+        assert np.all(r.name == ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2'])
+        # save, reload, set chi angles, and compare to original sidechain
+        rs.tofile("arg_rebuilt.pdb")
+        s.extract("chain A and resi 2").copy().tofile("arg_start.pdb")
+        arg_rebuilt = Structure.fromfile("arg_rebuilt.pdb")
+        arg_start = Structure.fromfile("arg_start.pdb")
+        assert arg_rebuilt.total_length == arg_start.total_length
+        r = arg_rebuilt.chains[0].conformers[0].residues[0]
+        r.set_chi(1, -67.148831)
+        r.set_chi(2, -177.977424)
+        r.set_chi(3, -176.992967)
+        r.set_chi(4, 173.942592)
+        # need to allow for slight differences in geometry here
+        assert arg_rebuilt.rmsd(arg_start) == pytest.approx(0, abs=0.002)
+
+    def test_structure_residue_complete_residue_sidechains(self):
+        s_in = self._STRUCTURE_ARA_SINGLE.extract("resi", 1).copy()
+        s_in.tofile("ala_tmp.pdb")
+        residue_natoms = {
+            "ARG": 11,
+            "ASN": 8,
+            "ASP": 8,
+            "CYS": 6,
+            "GLU": 9,
+            "GLN": 9,
+            "HIS": 10,
+            "ILE": 8,
+            "LEU": 8,
+            "LYS": 9,
+            "MET": 8,
+            "PHE": 11,
+            "SER": 6,
+            "TRP": 14,
+            "TYR": 12,
+        }
+        for resname, natoms in residue_natoms.items():
+            pdb_tmp = f"{resname}_backbone.pdb"
+            with open(pdb_tmp, "wt") as pdb_out:
+                with open("ala_tmp.pdb", "rt") as pdb_in:
+                    pdb_out.write(pdb_in.read().replace("ALA", resname))
+            s = Structure.fromfile(pdb_tmp)
+            r = s.chains[0].conformers[0].residues[0]
+            r.complete_residue()
+            assert len(r.name) == natoms
+            # TODO some validation of geometry would be helpful
