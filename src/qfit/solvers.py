@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
 import scipy as sci
-import scipy.sparse
+import scipy.sparse  # pylint: disable=unused-import
 from numpy.typing import NDArray
 
 from .utils.optional_lazy_import import lazy_load_module_if_available
