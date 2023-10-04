@@ -33,11 +33,6 @@ MIQPSolutionStats = namedtuple(
     "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
 )
 
-# Create a namedtuple 'class' (struct) which carries info about an MIQP solution
-MIQPSolutionStats = namedtuple(
-    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
-)
-
 
 class QFitOptions:
     def __init__(self):
