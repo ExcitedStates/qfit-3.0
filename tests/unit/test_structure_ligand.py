@@ -17,18 +17,7 @@ class TestStructureLigand(UnitBase):
         trs_single_file = op.join(self.DATA, "TRS_single.pdb")
         self._STRUCTURE_TRS_SINGLE = Structure.fromfile(trs_single_file)
 
-    @pytest.mark.skip("TODO - need a good input example")
-    def test_ligand_from_cif(self):
-        PDB = op.join(self.DATA, "3ov1_ACT.pdb")
-        CIF = op.join(self.DATA, "ACT.cif")
-        structure = Structure.fromfile(PDB)
-        structure_ligand = structure.extract("resi 1 and chain B")
-        ligand = Ligand.from_structure(structure_ligand, CIF)
-        assert ligand.connectivity == []  # FIXME
-
-    def test_ligand_from_structure_ppi(self):
-        s = self._STRUCTURE_PPI_SINGLE
-        lig = Ligand.from_structure(s)
+    def _validate_ppi(self, lig):
         assert repr(lig) == "Ligand: PPI. Number of atoms: 5."
         assert lig.id == (1, "")
         assert lig.shortcode == "1"
@@ -38,6 +27,35 @@ class TestStructureLigand(UnitBase):
         assert lig.rigid_clusters() == [[0, 3, 4], [1, 2]]
         assert lig.ring_paths() == []
         assert lig.rotatable_bonds() == [(0, 1)]
+
+    def test_ligand_from_structure_with_chemical_components_cif_ppi(self):
+        CIF = op.join(self.DATA, "PPI.cif.gz")
+        s = self._STRUCTURE_PPI_SINGLE
+        lig = Ligand.from_structure(s, cif_file=CIF)
+        self._validate_ppi(lig)
+        assert lig.bond_types == {
+            0: {1: 'SING', 3: 'DOUB', 4: 'SING'},
+            1: {0: 'SING', 2: 'SING'},
+            3: {0: 'DOUB'}, 4: {0: 'SING'}, 2: {1: 'SING'}}
+        assert lig.is_single_bond(0, 1)
+        assert not lig.is_single_bond(0, 3)
+
+    def test_ligand_from_structure_with_refmac_cif_ppi(self):
+        CIF = op.join(self.DATA, "PPI_refmac.cif.gz")
+        s = self._STRUCTURE_PPI_SINGLE
+        lig = Ligand.from_structure(s, cif_file=CIF)
+        self._validate_ppi(lig)
+        assert lig.bond_types == {
+            0: {1: 'SINGLE', 3: 'DELOC', 4: 'DELOC'},
+            1: {0: 'SINGLE', 2: 'SINGLE'},
+            3: {0: 'DELOC'}, 4: {0: 'DELOC'}, 2: {1: 'SINGLE'}}
+        assert lig.is_single_bond(0, 1)
+        assert not lig.is_single_bond(0, 3)
+
+    def test_ligand_from_structure_ppi(self):
+        s = self._STRUCTURE_PPI_SINGLE
+        lig = Ligand.from_structure(s)
+        self._validate_ppi(lig)
 
     def test_ligand_from_structure_tris(self):
         s = self._STRUCTURE_TRS_SINGLE
@@ -51,10 +69,3 @@ class TestStructureLigand(UnitBase):
         assert lig.rigid_clusters() == [[1, 0], [2, 5], [3, 6], [4, 7]]
         assert lig.ring_paths() == []
         assert lig.rotatable_bonds() == [(1, 2), (1, 3), (1, 4)]
-
-
-class TestStructureCovalentLigand(UnitBase):
-
-    @pytest.mark.skip("TODO - need a good input example")
-    def test_structure_covalent_ligand(self):
-        ...

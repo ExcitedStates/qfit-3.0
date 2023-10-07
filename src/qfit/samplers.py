@@ -281,6 +281,7 @@ class ChiRotator:
         self.residue.set_xyz(self._tmp, self._atom_selection)
 
 
+# XXX unused, delete?
 class CovalentBondRotator:
 
     """Rotate ligand along the bond of two atoms."""

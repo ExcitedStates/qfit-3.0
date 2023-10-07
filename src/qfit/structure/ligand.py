@@ -1,11 +1,19 @@
 from abc import abstractmethod
 from itertools import product
+import logging
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
+from mmtbx.chemical_components import cif_parser
 
 from .base_structure import BaseMonomer
-from .mmCIF import mmCIFDictionary
+
+CIF_KEY_BOND = "_chem_comp_bond"
+BOND_TYPE_SINGLE = {"SING", "SINGLE"}
+
+
+class CIFParserError(ValueError):
+    ...
 
 
 class BaseLigand(BaseMonomer):
@@ -89,24 +97,18 @@ class Ligand(BaseLigand):
             shortcode += f"_{icode}"
         return shortcode
 
+    def _initialize_connectivity_matrices(self):
+        dist_matrix = squareform(pdist(self.coor))
+        covrad = self.covalent_radius
+        natoms = self.natoms
+        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
+        return (dist_matrix, cutoff_matrix)
+
     def _get_connectivity(self):
         """Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
         """
-        coor = self.coor
-        # dm_size = self.natoms * (self.natoms - 1) // 2
-        # dm = np.zeros(dm_size, np.float64)
-        # k = 0
-        # for i in range(0, self.natoms - 1):
-        #    u = coor[i]
-        #    for j in range(i + 1, self.natoms):
-        #        u_v = u - coor[j]
-        #        dm[k] = np.dot(u_v, u_v)
-        #        k += 1
-        dist_matrix = squareform(pdist(coor))
-        covrad = self.covalent_radius
-        natoms = self.natoms
-        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
+        dist_matrix, cutoff_matrix = self._initialize_connectivity_matrices()
         # Add 0.5 A to give covalently bound atoms more room
         cutoff_matrix = cutoff_matrix + cutoff_matrix.T + 0.5
         connectivity_matrix = dist_matrix < cutoff_matrix
@@ -116,44 +118,52 @@ class Ligand(BaseLigand):
         self._cutoff_matrix = cutoff_matrix
 
     def _get_connectivity_from_cif(self, cif_file):
-        """Determine connectivity matrix of ligand and associated distance
+        """
+        Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
         """
-        coor = self.coor
+        dist_matrix, cutoff_matrix = self._initialize_connectivity_matrices()
         self.bond_types = {}
-        dist_matrix = squareform(pdist(coor))
-        covrad = self.covalent_radius
-        natoms = self.natoms
-        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
         connectivity_matrix = np.zeros_like(dist_matrix, dtype=bool)
-        cif = mmCIFDictionary()
-        cif.load_file(cif_file)
-        for cif_data in cif:
-            if cif_data.name == f"comp_{self.ligand_name}":
-                for cif_table in cif_data:
-                    if cif_table.name == "chem_comp_bond":
-                        for cif_row in cif_table:
-                            a1 = cif_row["atom_id_1"]
-                            a2 = cif_row["atom_id_2"]
-                            index1 = np.argwhere(self.name == a1)
-                            index2 = np.argwhere(self.name == a2)
-                            try:
-                                connectivity_matrix[index1, index2] = True
-                                connectivity_matrix[index2, index1] = True
-                            except:
-                                pass
-                            else:
-                                try:
-                                    index1 = index1[0, 0]
-                                    index2 = index2[0, 0]
-                                except:
-                                    continue
-                                if index1 not in self.bond_types:
-                                    self.bond_types[index1] = {}
-                                if index2 not in self.bond_types:
-                                    self.bond_types[index2] = {}
-                                self.bond_types[index1][index2] = cif_row["type"]
-                                self.bond_types[index2][index1] = cif_row["type"]
+        cif = cif_parser.run(cif_file)
+        if not CIF_KEY_BOND in cif.keys():
+            raise CIFParserError(f"Can't find {CIF_KEY_BOND} in CIF file {cif_file}; only Chemical Components and/or Refmac Monomer Library CIF files are accepted")
+        for cif_bond in cif[CIF_KEY_BOND]:
+            if cif_bond.comp_id == self.ligand_name:
+                a1 = cif_bond.atom_id_1
+                a2 = cif_bond.atom_id_2
+                index1 = np.argwhere(self.name == a1)
+                index2 = np.argwhere(self.name == a2)
+                try:
+                    connectivity_matrix[index1, index2] = True
+                    connectivity_matrix[index2, index1] = True
+                except Exception as e:  # FIXME why?
+                    if not (a1.startswith("H") or a2.startswith("H")):
+                        logging.warning(f"Can't find atoms for {cif_bond}: {e}")
+                    continue
+                else:
+                    try:
+                        index1 = index1[0, 0]
+                        index2 = index2[0, 0]
+                    except Exception as e:
+                        logging.warning(f"Can't find atoms for {cif_bond}: {e}")
+                        continue
+                    if index1 not in self.bond_types:
+                        self.bond_types[index1] = {}
+                    if index2 not in self.bond_types:
+                        self.bond_types[index2] = {}
+                    # chemical components
+                    if "value_order" in cif_bond.__dict__.keys():
+                        bond_type = cif_bond.value_order.upper()
+                    # refmac monomer library
+                    elif "type" in cif_bond.__dict__.keys():
+                        bond_type = cif_bond.type.upper()
+                    # TODO what about Phenix?
+                    else:
+                        logging.warning(f"Can't determine bond type for {cif_bond}")
+                        bond_type = "SINGLE"
+                    self.bond_types[index1][index2] = bond_type
+                    self.bond_types[index2][index1] = bond_type
 
         self._cutoff_matrix = cutoff_matrix
         self._connectivity = connectivity_matrix
@@ -390,6 +400,14 @@ class Ligand(BaseLigand):
                 bond_list += self._convert_rotation_tree_to_list(child_trees)
         return bond_list
 
+    # Internal method, preserving some logic from the old CovalentLigand
+    # class that is only partially implemented here
+    def is_single_bond(self, id1, id2):
+        try:
+            return self.bond_types[id1][id2] in BOND_TYPE_SINGLE
+        except KeyError:
+            return True
+
 
 class BondOrder(object):
 
@@ -434,4 +452,3 @@ class BondOrder(object):
                         self.depth.append(depth)
                 except UnboundLocalError:
                     pass
-            self._bondorder(n, depth)
