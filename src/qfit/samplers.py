@@ -26,25 +26,13 @@ class BackboneRotator(_BaseSampler):
         self._aligners = []
         self._origins = []
         selections = []
-        for n, residue in enumerate(self.segment.residues[::-1]):
-            psi_sel = residue.select("name", ("O", "OXT"))
-            if n > 0:
-                psi_sel = np.concatenate(
-                    (psi_sel, self.segment.residues[-n]._selection)
-                )
-            phi_sel = residue.select("name", ("N", "CA", "O", "OXT", "H", "HA"), "!=")
+        for (psi_sel, psi_axis, psi_origin,
+             phi_sel, phi_axis, phi_origin) in segment.get_psi_phi_angles():
             selections += [psi_sel, phi_sel]
-
-            N = residue.extract("name", "N")
-            CA = residue.extract("name", "CA")
-            C = residue.extract("name", "C")
-            axis = C.coor[0] - CA.coor[0]
-            psi_aligner = ZAxisAligner(axis)
-            axis = CA.coor[0] - N.coor[0]
-            phi_aligner = ZAxisAligner(axis)
-
+            psi_aligner = ZAxisAligner(psi_axis)
+            phi_aligner = ZAxisAligner(phi_axis)
             self._aligners += [psi_aligner, phi_aligner]
-            self._origins += [C.coor[0], CA.coor[0]]
+            self._origins += [psi_origin, phi_origin]
 
         self._atoms_to_rotate = []
         for selection in selections:
@@ -160,84 +148,6 @@ class GlobalRotator(_BaseSampler):
         self.ligand.coor = self._intermediate
 
 
-# XXX unused, delete?
-class PrincipalAxisRotator(_BaseSampler):
-
-    """Rotate ligand along the principal axes."""
-
-    def __init__(self, ligand):
-        self.ligand = ligand
-        self._center = ligand.coor.mean(axis=0)
-        self._coor_to_rotate = self.ligand.coor - self._center
-        gyration_tensor = self._coor_to_rotate.T @ self._coor_to_rotate
-        eig_values, eig_vectors = np.linalg.eigh(gyration_tensor)
-        # Sort eigenvalues such that lx <= ly <= lz
-        sort_ind = np.argsort(eig_values)
-        self.principal_axes = np.asarray(eig_vectors[:, sort_ind].T)
-
-        self.aligners = [ZAxisAligner(axis) for axis in self.principal_axes]
-
-    def __call__(self, angle, axis=2):
-        aligner = self.aligners[axis]
-        R = aligner.forward_rotation @ Rz(angle) @ aligner.backward_rotation
-        self.ligand.coor[:] = (R @ self._coor_to_rotate.T).T + self._center
-
-
-# XXX unused, delete?
-class BondAngleRotator(_BaseSampler):
-
-    """Rotate ligand along a bond angle defined by three atoms."""
-
-    def __init__(self, ligand, a1, a2, a3, key="name"):
-        # Atoms connected to a1 will stay fixed.
-        self.ligand = ligand
-        self.atom1 = a1
-        self.atom2 = a2
-        self.atom3 = a3
-
-        # Determine which atoms will be moved by the rotation.
-        self._root = ligand.get_array(key).tolist().index(a2)
-        self._conn = ligand.connectivity
-        self.atoms_to_rotate = [self._root]
-        self._foundroot = 0
-        curr = ligand.get_array(key).tolist().index(a3)
-        self._find_neighbours_recursively(curr)
-        if self._foundroot > 1:
-            raise ValueError("Atoms are part of a ring. Bond angle cannot be rotated.")
-
-        # Find the rigid motion that aligns the axis of rotation onto the z-axis.
-        self._coor_to_rotate = self.ligand.coor[self.atoms_to_rotate]
-        # Move root to origin
-        self._t = self.ligand.coor[self._root]
-        self._coor_to_rotate -= self._t
-        # The rotation axis is the cross product between a1 and a3.
-        a1_coor = self.ligand.coor[ligand.get_array(key).tolist().index(a1)]
-        axis = np.cross(a1_coor - self._t, self._coor_to_rotate[1])
-
-        # Align the rotation axis to the z-axis for the coordinates
-        aligner = ZAxisAligner(axis)
-        self._forward = aligner.forward_rotation
-        self._coor_to_rotate = (aligner.backward_rotation @ self._coor_to_rotate.T).T
-
-    def _find_neighbours_recursively(self, curr):
-        self.atoms_to_rotate.append(curr)
-        bonds = np.flatnonzero(self._conn[curr])
-        for b in bonds:
-            if b == self._root:
-                self._foundroot += 1
-            if b not in self.atoms_to_rotate:
-                self._find_neighbours_recursively(b)
-
-    def __call__(self, angle):
-        # Since the axis of rotation is already aligned with the z-axis, we can
-        # freely rotate the coordinates and perform the inverse operation to realign the
-        # axis to the real world frame.
-        R = self._forward @ Rz(angle)
-        self.ligand.coor[self.atoms_to_rotate] = (
-            R @ self._coor_to_rotate.T
-        ).T + self._t
-
-
 class ChiRotator(_BaseSampler):
 
     """Rotate a residue around a chi-angle"""
@@ -293,7 +203,7 @@ class CovalentBondRotator(_BaseSampler):
 
     """Rotate ligand along the bond of two atoms."""
 
-    def __init__(self, covalent_residue, ligand, a1, a2, key="name"):
+    def __init__(self, covalent_residue, ligand, a1, a2):
         # Atoms connected to a1 will stay fixed.
         self.ligand = ligand
         self.residue = covalent_residue
@@ -301,7 +211,7 @@ class CovalentBondRotator(_BaseSampler):
         self.atom2 = a2
 
         # Determine which atoms will be moved by the rotation.
-        self._root = covalent_residue.get_array(key).tolist().index(a1)
+        self._root = covalent_residue.name.tolist().index(a1)
         self._conn = ligand.connectivity
         self.atoms_to_rotate = range(len(ligand.name))
 

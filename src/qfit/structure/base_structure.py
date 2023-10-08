@@ -147,17 +147,17 @@ class BaseStructure(ABC):
 
     # FIXME this is not used anywhere, but the logic to handle ring flips
     # is something we should incorporate in the overall program
-    def rmsd(self, structure):
+    def rmsd(self, other):
         coor1 = self.coor
-        coor2 = structure.coor
+        coor2 = other.coor
         if coor1.shape != coor2.shape:
             raise ValueError("Coordinate shapes are not equivalent")
         resnames = set(self.resn)
         if "TYR" in resnames:
-            idx_cd1 = structure.name.tolist().index("CD1")
-            idx_cd2 = structure.name.tolist().index("CD2")
-            idx_ce1 = structure.name.tolist().index("CE1")
-            idx_ce2 = structure.name.tolist().index("CE2")
+            idx_cd1 = other.name.tolist().index("CD1")
+            idx_cd2 = other.name.tolist().index("CD2")
+            idx_ce1 = other.name.tolist().index("CE1")
+            idx_ce2 = other.name.tolist().index("CE2")
             coor3 = np.copy(coor2)
             coor3[idx_cd1], coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
             coor3[idx_ce1], coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]
@@ -168,10 +168,10 @@ class BaseStructure(ABC):
                 np.sqrt(3 * np.inner(diff2, diff2) / diff2.size),
             )
         elif "PHE" in resnames:
-            idx_cd1 = structure.name.tolist().index("CD1")
-            idx_cd2 = structure.name.tolist().index("CD2")
-            idx_ce1 = structure.name.tolist().index("CE1")
-            idx_ce2 = structure.name.tolist().index("CE2")
+            idx_cd1 = other.name.tolist().index("CD1")
+            idx_cd2 = other.name.tolist().index("CD2")
+            idx_ce1 = other.name.tolist().index("CE1")
+            idx_ce2 = other.name.tolist().index("CE2")
             coor3 = np.copy(coor2)
             coor3[idx_cd1], coor3[idx_cd2] = coor2[idx_cd2], coor2[idx_cd1]
             coor3[idx_ce1], coor3[idx_ce2] = coor2[idx_ce2], coor2[idx_ce1]

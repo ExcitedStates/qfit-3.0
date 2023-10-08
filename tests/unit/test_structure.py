@@ -236,9 +236,20 @@ class TestBaseStructureMethods(StructureUnitBase):
         assert len(sel) == 42
         assert all([x == "TRP" for x in s.resn[sel]])
 
-    @pytest.mark.skip(reason="TODO")
     def test_base_structure_active_flag(self):
-        ...
+        s = self._STRUCTURE_AWA_SINGLE.copy()
+        assert np.all(s.active)
+        assert len(s.active) == len(s.q)
+        s.active = False
+        assert np.all(s.active == False)
+        s.active = True
+        assert np.all(s.active)
+        s.clear_active()
+        assert np.all(s.active == False)
+        s.set_active(1, True)
+        assert np.sum(s.active) == 1
+        s.set_active()
+        assert np.all(s.active)
 
     def test_base_structure_structure_properties(self):
         s = self._STRUCTURE_AWA_SINGLE.copy()  # make copy first

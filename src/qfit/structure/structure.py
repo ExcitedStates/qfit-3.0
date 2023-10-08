@@ -155,14 +155,6 @@ class Structure(BaseStructure):
             chain = _Chain(self._data, selection=selection, parent=self, chainid=chainid)
             self._chains.append(chain)
 
-    def merge_selected_residue(self, selection, resi, chain, resname):
-        """
-        Used to merge residues in qfit_covalent_ligand
-        """
-        self._data["resi"][selection] = resi
-        self._data["chain"][selection] = chain
-        self._data["resn"][selection] = resname
-
     def collapse_backbone(self, resid, chainid):
         """
         Collapse the backbone atoms of a given residue and return a new copy
@@ -804,6 +796,27 @@ class Segment(BaseStructure):
                        selection=selection,
                        parent=structure,
                        residues=residues)
+
+    def get_psi_phi_angles(self):
+        """
+        Iterate over residues in reverse order and extract the selection,
+        axis, and origin for psi and phi backbone angles.
+        Used in qfit.samplers.BackboneRotator
+        """
+        for n, residue in enumerate(self.residues[::-1]):
+            psi_sel = residue.select("name", ("O", "OXT"))
+            if n > 0:
+                psi_sel = np.concatenate((psi_sel, self.residues[-n].selection))
+            phi_sel = residue.select("name", ("N", "CA", "O", "OXT", "H", "HA"), "!=")
+            N = residue.extract("name", "N")
+            CA = residue.extract("name", "CA")
+            C = residue.extract("name", "C")
+            psi_axis = C.coor[0] - CA.coor[0]
+            phi_axis = CA.coor[0] - N.coor[0]
+            psi_origin = C.coor[0]
+            phi_origin = CA.coor[0]
+            yield (psi_sel, psi_axis, psi_origin,
+                   phi_sel, phi_axis, phi_origin)
 
 
 def _get_residue_group_atom_order(rg):

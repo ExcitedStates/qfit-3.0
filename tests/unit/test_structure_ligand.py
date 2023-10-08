@@ -1,7 +1,5 @@
 import os.path as op
 
-import pytest
-
 from qfit.structure import Structure
 from qfit.structure.ligand import Ligand
 

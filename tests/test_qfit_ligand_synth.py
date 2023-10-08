@@ -95,6 +95,8 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,1", d_min)
         self._validate_ppi(pdb_single, fmodel_in, d_min)
 
+    # not actually slow, just not helpful for quick testing
+    @pytest.mark.slow
     def test_qfit_ligand_ppi_p1_with_cif_chemcomp(self):
         """
         Identical to test_qfit_ligand_ppi_p1 except for the addition of a PDB
@@ -106,6 +108,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             extra_args=("--cif", op.join(self.DATA, "PPI.cif.gz")))
         self._validate_ppi(pdb_single, fmodel_in, d_min)
 
+    @pytest.mark.slow
     def test_qfit_ligand_ppi_p1_with_cif_monlib(self):
         """
         Identical to test_qfit_ligand_ppi_p1 except for the addition of a

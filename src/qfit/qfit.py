@@ -1,7 +1,7 @@
+from abc import ABC
 import itertools
 import logging
 import os
-import copy
 from string import ascii_uppercase
 from collections import namedtuple
 
@@ -12,7 +12,7 @@ from .backbone import NullSpaceOptimizer
 from .phenix_refine import run_phenix_aniso
 from .relabel import RelabellerOptions, Relabeller
 from .samplers import ChiRotator, CBAngleRotator, BondRotator
-from .samplers import CovalentBondRotator, GlobalRotator
+from .samplers import GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, SolverError
 from .structure import Structure, Segment, calc_rmsd
@@ -37,6 +37,8 @@ MIQPSolutionStats = namedtuple(
 )
 
 DEFAULT_RMSD_CUTOFF = 0.01
+MAX_CONFORMERS = 15000
+MIN_OCCUPANCY = 0.002
 
 class QFitOptions:
     def __init__(self):
@@ -136,23 +138,10 @@ class QFitOptions:
         return self
 
 
-class _BaseQFit:
+class _BaseQFit(ABC):
     def __init__(self, conformer, structure, xmap, options, reset_q=True):
-        self.structure = structure
-        self.conformer = conformer
-        if reset_q:
-            self.conformer.q = 1
-        self.xmap = xmap
         self.options = options
-        self.prng = np.random.default_rng(0)
-        self._coor_set = [self.conformer.coor]
-        self._occupancies = [self.conformer.q]
-        self._bs = [self.conformer.b]
-        self._smax = None
-        self._simple = True
-        self._rmask = 1.5
-        self._cd = lambda: NotImplemented
-
+        self._set_data(conformer, structure, xmap, reset_q=reset_q)
         if self.options.em == True:
             self.options.scattering = "electron"  # making sure electron SF are used
             self.options.bulk_solvent_level = (
@@ -162,11 +151,37 @@ class _BaseQFit:
                 3  # maximum of 3 conformers can be choosen per residue
             )
 
+    def _set_data(self, conformer, structure, xmap, reset_q=True):
+        """
+        Set the basic input data attributes
+        conformer: the structure entity being built
+        structure: the overall input structure
+        xmap: XMap object
+        """
+        self.conformer = conformer
+        self.structure = structure
+        self.xmap = xmap
+        self._initialize_properties(reset_q=reset_q)
+
+    def _initialize_properties(self, reset_q=True):
+        """
+        Set various internal attributes derived from the input data
+        """
+        if reset_q:
+            self.conformer.q = 1
+        self.prng = np.random.default_rng(0)
+        self._coor_set = [self.conformer.coor]
+        self._occupancies = [self.conformer.q]
+        self._bs = [self.conformer.b]
+        self._smax = None
+        self._simple = True
+        self._rmask = 1.5
+        self._cd = lambda: NotImplemented
         reso = None
         if self.xmap.resolution.high is not None:
             reso = self.xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
+        elif self.options.resolution is not None:
+            reso = self.options.resolution
 
         if reso is not None:
             self._smax = 1 / (2 * reso)
@@ -177,10 +192,10 @@ class _BaseQFit:
         if self.xmap.resolution.low is not None:
             self._smin = 1 / (2 * self.xmap.resolution.low)
         elif self.options.resolution_min is not None:
-            self._smin = 1 / (2 * options.resolution_min)
+            self._smin = 1 / (2 * self.options.resolution_min)
 
-        self._xmap_model = xmap.zeros_like(self.xmap)
-        self._xmap_model2 = xmap.zeros_like(self.xmap)
+        self._xmap_model = self.xmap.zeros_like(self.xmap)
+        self._xmap_model2 = self.xmap.zeros_like(self.xmap)
 
         # To speed up the density creation steps, reduce symmetry to P1
         self._xmap_model.set_space_group("P1")
@@ -329,7 +344,7 @@ class _BaseQFit:
                 rss = solver.obj_value * self._voxel_volume  # pylint: disable=no-member
                 n = len(self._target)
                 natoms = self._coor_set[0].shape[0]
-                nconfs = np.sum(solver.weights >= 0.002)  # pylint: disable=no-member
+                nconfs = np.sum(solver.weights >= MIN_OCCUPANCY)  # pylint: disable=no-member
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 # 0.95 hyperparameter in put in here since we are almost always
                 # over penalizing
@@ -425,7 +440,7 @@ class _BaseQFit:
         self._save_intermediate(prefix="cplex_remove")
         self._occupancies[idx_to_zero] = 0
 
-    def _update_conformers(self, cutoff=0.002):
+    def _update_conformers(self, cutoff=MIN_OCCUPANCY):
         """Removes conformers with occupancy lower than cutoff.
 
         Args:
@@ -573,103 +588,12 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-
         if options.phenix_aniso:
-            prv_resi = structure.resi[(residue.selection[0] - 1)]
-            new_pdb, new_mtz = run_phenix_aniso(
-                structure,
-                chain_id=self.chain,
-                resid=self.resi,
-                prev_resid=prv_resi,
-                high_resolution=xmap.resolution.high,
-                options=options)
-            # Reload structure and xmap as omit map:
-            structure = Structure.fromfile(new_pdb).reorder()
-            if not options.hydro:
-                structure = structure.extract("e", "H", "!=")
-            structure_resi = structure.extract(
-                f"resi {self.resi} and chain {self.chain}"
-            )
-            if residue.icode[0]:
-                structure_resi = structure_resi.extract("icode", residue.icode[0])
-            chain = structure_resi[self.chain]
-            conformer = chain.conformers[0]
-            if residue.icode[0]:
-                residue_id = (int(self.resi), residue.icode[0])
-                residue = conformer[residue_id]
-            else:
-                residue = conformer[int(self.resi)]
-
-            xmap = XMap.fromfile(
-                new_mtz,
-                resolution=None,
-                label=options.label,
-            )
-            xmap = xmap.canonical_unit_cell()
-            if options.scale:
-                # Prepare X-ray map
-                scaler = MapScaler(xmap, em=self.options.em)
-                sel_str = f"resi {self.resi} and chain {self.chain}"
-                sel_str = f"not ({sel_str})"
-                footprint = structure.extract(sel_str)
-                footprint = footprint.extract("record", "ATOM")
-                scaler.scale(footprint, radius=1)
-            xmap = xmap.extract(residue.coor, padding=options.padding)
-
-        # Check if residue has complete heavy atoms. If not, complete it.
-        expected_atoms = np.array(self.residue.get_residue_info("atoms"))
-        missing_atoms = np.isin(
-            expected_atoms, test_elements=self.residue.name, invert=True
-        )
-        if np.any(missing_atoms):
-            logger.info(
-                f"[{self.identifier}] {', '.join(expected_atoms[missing_atoms])} "
-                f"are not in structure. Rebuilding residue."
-            )
-            try:
-                self.residue.complete_residue()
-            except RuntimeError as e:
-                raise RuntimeError(
-                    f"[{self.identifier}] Unable to rebuild residue."
-                ) from e
-            else:
-                logger.debug(
-                    f"[{self.identifier}] Rebuilt. Now has {', '.join(self.residue.name)} atoms.\n"
-                    f"{self.residue.coor}"
-                )
-
-            # Rebuild to include the new residue atoms
-            index = len(self.structure.record)
-            mask = self.residue.atomid >= index
-            new_atoms = residue.copy().get_selected_structure(mask)
-            structure = structure.copy().combine(new_atoms)
-            # Create a new Structure, and re-extract the current residue from it.
-            #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
-            # Then reinitialise _BaseQFit with these.
-            #     This ensures _BaseQFit class attributes (self.residue, but also
-            #     self._b, self._coor_set, etc.) come from the rebuilt data-structure.
-            #     It is essential to have uniform dimensions on all data before
-            #     we begin sampling.
-            residue = structure[self.chain].conformers[0][residue.id]
-            super().__init__(residue, structure, xmap, options)
-            self.residue = residue
-            if self.options.debug:
-                # This should be output with debugging, and shouldn't
-                #   require the write_intermediate_conformers option.
-                fname = os.path.join(self.directory_name, "rebuilt_residue.pdb")
-                self.residue.tofile(fname)
-
+            self._run_phenix_refine_and_update()
+        self._rebuild_if_necessary()
         # If including hydrogens, report if any H are missing
         if options.hydro:
-            expected_h_atoms = np.array(self.residue.get_residue_info("hydrogens"))
-            missing_h_atoms = np.isin(
-                expected_h_atoms, test_elements=self.residue.name, invert=True
-            )
-            if np.any(missing_h_atoms):
-                logger.warning(
-                    f"[{self.identifier}] Missing hydrogens "
-                    f"{', '.join(expected_atoms[missing_h_atoms])}."
-                )
+            self._check_for_missing_hydrogens()
 
         # Ensure clash detection matrix is filled.
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
@@ -705,12 +629,126 @@ class QFitRotamericResidue(_BaseQFit):
             self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
 
+    def _run_phenix_refine_and_update(self):
+        """
+        Run phenix.refine anisotropic ADP refinement of the target residue,
+        and reload structure and xmap as omit map
+        """
+        residue = self.residue
+        prv_resi = self.structure.resi[(residue.selection[0] - 1)]
+        new_pdb, new_mtz = run_phenix_aniso(
+            self.structure,
+            chain_id=self.chain,
+            resid=self.resi,
+            prev_resid=prv_resi,
+            high_resolution=self.xmap.resolution.high,
+            options=self.options)
+        structure = Structure.fromfile(new_pdb).reorder()
+        if not self.options.hydro:
+            structure = structure.extract("e", "H", "!=")
+        structure_resi = structure.extract(
+            f"resi {self.resi} and chain {self.chain}"
+        )
+        if residue.icode[0]:
+            structure_resi = structure_resi.extract("icode", residue.icode[0])
+        chain = structure_resi[self.chain]
+        conformer = chain.conformers[0]
+        if residue.icode[0]:
+            residue_id = (int(self.resi), residue.icode[0])
+            residue = conformer[residue_id]
+        else:
+            residue = conformer[int(self.resi)]
+
+        xmap = XMap.fromfile(
+            new_mtz,
+            resolution=None,
+            label=self.options.label,
+        )
+        xmap = xmap.canonical_unit_cell()
+        if self.options.scale:
+            # Prepare X-ray map
+            scaler = MapScaler(xmap, em=self.options.em)
+            sel_str = f"resi {self.resi} and chain {self.chain}"
+            sel_str = f"not ({sel_str})"
+            footprint = structure.extract(sel_str)
+            footprint = footprint.extract("record", "ATOM")
+            scaler.scale(footprint, radius=1)
+        xmap = xmap.extract(residue.coor, padding=self.options.padding)
+        self._set_data(residue, structure, xmap)
+
+    def _rebuild_if_necessary(self):
+        # Check if residue has complete heavy atoms. If not, complete it.
+        expected_atoms = np.array(self.residue.get_residue_info("atoms"))
+        missing_atoms = np.isin(
+            expected_atoms, test_elements=self.residue.name, invert=True
+        )
+        if np.any(missing_atoms):
+            logger.info(
+                f"[{self.identifier}] {', '.join(expected_atoms[missing_atoms])} "
+                f"are not in structure. Rebuilding residue."
+            )
+            self._rebuild_and_update()
+
+    def _rebuild_and_update(self):
+        """
+        Rebuild an incomplete residue and update the starting conditions
+        for conformer searches.
+        """
+        try:
+            self.residue.complete_residue()
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"[{self.identifier}] Unable to rebuild residue."
+            ) from e
+        else:
+            logger.info(
+                f"[{self.identifier}] Rebuilt. Now has {', '.join(self.residue.name)} atoms.\n"
+                f"{self.residue.coor}"
+            )
+
+        # Rebuild to include the new residue atoms
+        index = len(self.structure.record)
+        mask = self.residue.atomid >= index
+        new_atoms = self.residue.copy().get_selected_structure(mask)
+        structure = self.structure.copy().combine(new_atoms)
+        # Create a new Structure, and re-extract the current residue from it.
+        #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
+        # Then reinitialise _BaseQFit with these.
+        #     This ensures _BaseQFit class attributes (self.residue, but also
+        #     self._b, self._coor_set, etc.) come from the rebuilt data-structure.
+        #     It is essential to have uniform dimensions on all data before
+        #     we begin sampling.
+        self.residue = structure[self.chain].conformers[0][self.residue.id]
+        self._set_data(self.residue, structure, self.xmap)
+        if self.options.debug:
+            # This should be output with debugging, and shouldn't
+            #   require the write_intermediate_conformers option.
+            fname = os.path.join(self.directory_name, "rebuilt_residue.pdb")
+            self.residue.tofile(fname)
+
+    # XXX this seems kind of pointless
+    def _check_for_missing_hydrogens(self):
+        """
+        Warn if any hydrogen atoms are missing.
+        """
+        expected_atoms = np.array(self.residue.get_residue_info("atoms"))
+        expected_h_atoms = np.array(self.residue.get_residue_info("hydrogens"))
+        missing_h_atoms = np.isin(
+            expected_h_atoms, test_elements=self.residue.name, invert=True
+        )
+        if np.any(missing_h_atoms):
+            logger.warning(
+                f"[{self.identifier}] Missing hydrogens "
+                f"{', '.join(expected_atoms[missing_h_atoms])}."
+            )
+
     @property
     def primary_entity(self):
         return self.residue
 
     def reset_residue(self, residue):
         self.conformer = residue.copy()
+        self.residue = residue
         self._occupancies = [residue.q]
         self._coor_set = [residue.coor]
         self._bs = [residue.b]
@@ -761,6 +799,9 @@ class QFitRotamericResidue(_BaseQFit):
         )
 
     def run(self):
+        """
+        Main sampling routine
+        """
         if self.options.sample_backbone:
             self._sample_backbone()
 
@@ -1044,7 +1085,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-            if len(self._coor_set) > 15000:
+            if len(self._coor_set) > MAX_CONFORMERS:
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
                     f"Reverting to a previous iteration of degrees of freedom: item 0. "
@@ -1297,7 +1338,7 @@ class QFitSegment(_BaseQFit):
                 while True:
                     # Update conformers
                     fragments = np.array(fragments)
-                    mask = self._occupancies >= 0.002
+                    mask = self._occupancies >= MIN_OCCUPANCY
 
                     # Drop conformers below cutoff
                     _resi_list = list(fragments[0].residues)
@@ -1330,7 +1371,7 @@ class QFitSegment(_BaseQFit):
                         break
 
                 # Update conformers for the last time
-                mask = self._occupancies >= 0.002
+                mask = self._occupancies >= MIN_OCCUPANCY
 
                 # Drop conformers below cutoff
                 _resi_list = list(fragments[0].residues)
@@ -1370,8 +1411,6 @@ class QFitLigand(_BaseQFit):
         # Populate useful attributes:
         self.ligand = ligand
         self.receptor = receptor
-        self.xmap = xmap
-        self.options = options
         self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
