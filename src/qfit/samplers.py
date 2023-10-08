@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import os.path
 
 import numpy as np
@@ -6,7 +7,13 @@ import copy
 from .structure.math import Rz, Ry, gram_schmidt_orthonormal_zx
 
 
-class BackboneRotator:
+class _BaseSampler(ABC):
+    @abstractmethod
+    def __call__(self, *args, **kwds):
+        ...
+
+
+class BackboneRotator(_BaseSampler):
 
     """Rotate around phi, psi angles."""
 
@@ -70,7 +77,7 @@ class BackboneRotator:
             self.segment.set_xyz(coor, atoms_to_rotate)
 
 
-class Translator:
+class Translator(_BaseSampler):
     def __init__(self, ligand):
         self.ligand = ligand
         self.coor_to_translate = self.ligand.coor
@@ -79,7 +86,7 @@ class Translator:
         self.ligand.coor = self.coor_to_translate + np.asarray(trans)
 
 
-class CBAngleRotator:
+class CBAngleRotator(_BaseSampler):
     """Deflects a residue's sidechain by bending the CA-CB-CG angle.
 
     Attributes:
@@ -134,7 +141,7 @@ class CBAngleRotator:
         self.residue.set_xyz(new_coor, self.atoms_to_rotate)
 
 
-class GlobalRotator:
+class GlobalRotator(_BaseSampler):
 
     """Rotate ligand around its center."""
 
@@ -153,7 +160,8 @@ class GlobalRotator:
         self.ligand.coor = self._intermediate
 
 
-class PrincipalAxisRotator:
+# XXX unused, delete?
+class PrincipalAxisRotator(_BaseSampler):
 
     """Rotate ligand along the principal axes."""
 
@@ -175,9 +183,8 @@ class PrincipalAxisRotator:
         self.ligand.coor[:] = (R @ self._coor_to_rotate.T).T + self._center
 
 
-# TODO Make a super class combining the BondRotator with the AngleRotator or at
-# refactorize code.
-class BondAngleRotator:
+# XXX unused, delete?
+class BondAngleRotator(_BaseSampler):
 
     """Rotate ligand along a bond angle defined by three atoms."""
 
@@ -231,7 +238,7 @@ class BondAngleRotator:
         ).T + self._t
 
 
-class ChiRotator:
+class ChiRotator(_BaseSampler):
 
     """Rotate a residue around a chi-angle"""
 
@@ -282,7 +289,7 @@ class ChiRotator:
 
 
 # XXX unused, delete?
-class CovalentBondRotator:
+class CovalentBondRotator(_BaseSampler):
 
     """Rotate ligand along the bond of two atoms."""
 
@@ -322,7 +329,7 @@ class CovalentBondRotator:
         return coor
 
 
-class BondRotator:
+class BondRotator(_BaseSampler):
 
     """Rotate ligand along the bond of two atoms."""
 
@@ -364,6 +371,7 @@ class BondRotator:
             if b not in self.atoms_to_rotate:
                 self._find_neighbours_recursively(b)
 
+    # XXX why does this return the new coordinates instead of setting them?
     def __call__(self, angle):
         # print(self.ligand.coor)
         # Since the axis of rotation is already aligned with the z-axis, we can
