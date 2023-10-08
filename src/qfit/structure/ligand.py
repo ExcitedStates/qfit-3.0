@@ -122,9 +122,13 @@ class Ligand(BaseLigand):
         Determine connectivity matrix of ligand and associated distance
         cutoff matrix for later clash detection.
         """
-        dist_matrix, cutoff_matrix = self._initialize_connectivity_matrices()
-        self.bond_types = {}
+        coor = self.coor
+        dist_matrix = squareform(pdist(coor))
+        covrad = self.covalent_radius
+        natoms = self.natoms
+        cutoff_matrix = np.repeat(covrad, natoms).reshape(natoms, natoms)
         connectivity_matrix = np.zeros_like(dist_matrix, dtype=bool)
+        self.bond_types = {}
         cif = cif_parser.run(cif_file)
         if not CIF_KEY_BOND in cif.keys():
             raise CIFParserError(f"Can't find {CIF_KEY_BOND} in CIF file {cif_file}; only Chemical Components and/or Refmac Monomer Library CIF files are accepted")
