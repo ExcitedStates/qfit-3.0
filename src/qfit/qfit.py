@@ -11,7 +11,7 @@ import tqdm
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
-from .samplers import ChiRotator, CBAngleRotator, BondRotator
+from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
 from .samplers import CovalentBondRotator, GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import QPSolver, MIQPSolver, SolverError
@@ -73,7 +73,7 @@ class QFitOptions:
         self.clash_scaling_factor = 0.75
         self.external_clash = False
         self.dofs_per_iteration = 1 
-        self.dihedral_stepsize = 10
+        self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = 0.01
 
@@ -102,7 +102,7 @@ class QFitOptions:
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60  # Was 80 in QFitCovalentLigandOptions
+        self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
@@ -922,7 +922,7 @@ class QFitRotamericResidue(_BaseQFit):
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -962,28 +962,37 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            rotator = CBAngleRotator(self.residue)
-            for angle in angles:
-                rotator(angle)
-                coor = self.residue.coor
+            # Initialize rotator 
+            perp_rotator = CBAngleRotator(self.residue)
+            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
+            for perp_angle in angles:
+                perp_rotator(perp_angle)
+                coor_rotated = self.residue.coor
+                # Initialize rotator
+                bisec_rotator = BisectingAngleRotator(self.residue)
+                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
+                for bisec_angle in angles:
+                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
+                    bisec_rotator(bisec_angle)
+                    coor = self.residue.coor
 
-                # Move on if these coordinates are unsupported by density
-                if self.options.remove_conformers_below_cutoff:
-                    values = self.xmap.interpolate(coor[active_mask])
-                    mask = self.residue.e[active_mask] != "H"
-                    if np.min(values[mask]) < self.options.density_cutoff:
+                    # Move on if these coordinates are unsupported by density
+                    if self.options.remove_conformers_below_cutoff:
+                        values = self.xmap.interpolate(coor[active_mask])
+                        mask = self.residue.e[active_mask] != "H"
+                        if np.min(values[mask]) < self.options.density_cutoff:
+                            continue
+    
+                    # Move on if these coordinates cause a clash
+                    if self.options.external_clash:
+                        if self._cd() and self.residue.clashes():
+                            continue
+                    elif self.residue.clashes():
                         continue
-
-                # Move on if these coordinates cause a clash
-                if self.options.external_clash:
-                    if self._cd() and self.residue.clashes():
-                        continue
-                elif self.residue.clashes():
-                    continue
-
-                # Valid, non-clashing conformer found!
-                new_coor_set.append(self.residue.coor)
-                new_bs.append(self.conformer.b)
+    
+                    # Valid, non-clashing conformer found!
+                    new_coor_set.append(self.residue.coor)
+                    new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
