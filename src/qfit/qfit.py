@@ -922,7 +922,7 @@ class QFitRotamericResidue(_BaseQFit):
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -962,14 +962,18 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            rotator = CBAngleRotator(self.residue)
+            # Initialize rotator 
+            perp_rotator = CBAngleRotator(self.residue)
+            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
             for perp_angle in angles:
-                rotator(perp_angle)
+                perp_rotator(perp_angle)
                 coor_rotated = self.residue.coor
-                new_rotator = BisectingAngleRotator(self.residue)
+                # Initialize rotator
+                bisec_rotator = BisectingAngleRotator(self.residue)
+                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
                 for bisec_angle in angles:
                     self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
-                    new_rotator(bisec_angle)
+                    bisec_rotator(bisec_angle)
                     coor = self.residue.coor
 
                     # Move on if these coordinates are unsupported by density
