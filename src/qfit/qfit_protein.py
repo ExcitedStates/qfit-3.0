@@ -225,7 +225,7 @@ def build_argparser():
     p.add_argument(
         "-b",
         "--dofs-per-iteration",
-        default=2,
+        default=1,
         metavar="<int>",
         type=int,
         help="Number of internal degrees that are sampled/built per iteration",
@@ -233,7 +233,7 @@ def build_argparser():
     p.add_argument(
         "-s",
         "--dihedral-stepsize",
-        default=10,
+        default=6,
         metavar="<float>",
         type=float,
         help="Stepsize for dihedral angle sampling in degrees",
@@ -241,7 +241,7 @@ def build_argparser():
     p.add_argument(
         "-rn",
         "--rotamer-neighborhood",
-        default=60,
+        default=24,
         metavar="<float>",
         type=float,
         help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]",
