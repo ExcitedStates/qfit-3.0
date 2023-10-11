@@ -44,6 +44,10 @@ def main():
         ext_modules=ext_modules,
         setup_requires=setup_requires,
         install_requires=install_requires,
+        extra_dependencies={
+            "cplex": ["cvxopt", "cplex"],
+            "osqp": ["osqp", "miosqp @ git+https://github.com/osqp/miosqp.git@ac672338b0593d865dd15b7a76434f25e24244a9#egg=miosqp"],
+        },
         zip_safe=False,
         python_requires=">=3.9",
         entry_points={

@@ -26,6 +26,7 @@ from .logtools import (
     QueueListener,
 )
 from . import MapScaler, Structure, XMap
+from .solvers import available_qp_solvers, available_miqp_solvers
 from .structure.rotamers import ROTAMERS
 
 
@@ -323,6 +324,22 @@ def build_argparser():
         default=1,
         metavar="<int>",
         help="Number of processors to use",
+    )
+
+    # Solver options
+    p.add_argument(
+        "--qp-solver",
+        dest="qp_solver",
+        choices=available_qp_solvers.keys(),
+        default=next(iter(available_qp_solvers.keys())),
+        help="Select the QP solver",
+    )
+    p.add_argument(
+        "--miqp-solver",
+        dest="miqp_solver",
+        choices=available_miqp_solvers.keys(),
+        default=next(iter(available_miqp_solvers.keys())),
+        help="Select the MIQP solver",
     )
 
     # qFit Segment options

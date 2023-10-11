@@ -10,6 +10,10 @@ from qfit.logtools import (
     setup_logging,
     log_run_info,
 )
+from qfit.solvers import (
+    available_qp_solvers,
+    available_miqp_solvers,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +44,8 @@ class TestQFitLigand:
         options = QFitOptions()
         options.apply_command_args(args)
         options.debug = True  # For debugging in tests
+        options.qp_solver = next(iter(available_qp_solvers.keys()))
+        options.miqp_solver = next(iter(available_miqp_solvers.keys()))
 
         # Setup logger
         setup_logging(options=options, filename="qfit_ligand.log")
