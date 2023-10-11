@@ -287,13 +287,13 @@ class _BaseQFit:
         self,
         cardinality,
         threshold,
-        loop_range=[0.5, 0.4, 0.33, 0.3, 0.25, 0.2],
+        loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
         segment=None,
     ):
         # set loop range differently for EM
         if self.options.em:
-            loop_range = [0.5, 0.33, 0.25]
+            loop_range = [1.0, 0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
@@ -317,8 +317,8 @@ class _BaseQFit:
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
-                    model_params_per_atom * natoms * nconfs * 0.95
-                )  # 0.95 hyperparameter in put in here since we are almost always over penalizing
+                    model_params_per_atom * natoms * nconfs * 1.5
+                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
