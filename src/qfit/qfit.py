@@ -83,7 +83,6 @@ class QFitOptions:
         self.threshold = 0.20
         self.bic_threshold = True
         self.seg_bic_threshold = True
-        self.bic_number = 0.95
 
         ### From QFitRotamericResidueOptions, QFitCovalentLigandOptions
         # Backbone sampling
@@ -320,8 +319,8 @@ class _BaseQFit:
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
-                    model_params_per_atom * natoms * nconfs * self.options.BIC_num
-                )  # 0.95 hyperparameter in put in here since we are almost always over penalizing
+                    model_params_per_atom * natoms * nconfs * 1.5
+                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
