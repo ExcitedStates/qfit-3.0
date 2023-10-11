@@ -62,7 +62,6 @@ def build_argparser():
         help="Run qFit with EM options",
     )
     # Map options
-    )
     p.add_argument(
         "-l",
         "--label",
