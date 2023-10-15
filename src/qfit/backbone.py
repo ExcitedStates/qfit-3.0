@@ -99,7 +99,7 @@ class AtomMoveFunctional:
         self.endpoint = endpoint
 
     def target(self):
-        current = self.segment.get_xyz(self._atom_index)
+        current = self.segment.get_atom_xyz(self._atom_index)
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         return energy
@@ -107,12 +107,12 @@ class AtomMoveFunctional:
     def gradient(self):
         """Return the gradient on the CB atom."""
 
-        current = self.segment.get_xyz(self._atom_index)
+        current = self.segment.get_atom_xyz(self._atom_index)
         diff = current - self.endpoint
         return 2 * diff
 
     def target_and_gradient(self):
-        current = self.segment.get_xyz(self._atom_index)
+        current = self.segment.get_atom_xyz(self._atom_index)
         diff = current - self.endpoint
         energy = np.dot(diff, diff)
         gradient = 2 * diff
@@ -124,7 +124,7 @@ class AtomMoveFunctional:
         target, gradient = self.target_and_gradient()
         normal = gradient / np.linalg.norm(gradient)
         gradients = np.zeros((len(self.segment) * 2, 3), float)
-        current = self.segment.get_xyz(self._atom_index)
+        current = self.segment.get_atom_xyz(self._atom_index)
         for n, residue in enumerate(self.segment.residues):
             # Residues after the selected CB residue have no impact on the CB
             # position. The backbone torsion gradients will be zero.

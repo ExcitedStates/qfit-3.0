@@ -56,106 +56,43 @@ def _extract_mmcif_links(mmcif_inp):
     return link
 
 
-def _from_iotbx_pdb_hierarchy(
-    pdb_hierarchy, crystal_symmetry, resolution, link, file_format="pdb"
-):
+def get_pdb_hierarchy(pdb_inp):
+    """
+    Prepare an iotbx.pdb.hierarchy object from an iotbx.pdb.input object
+    """
+    pdb_hierarchy = pdb_inp.construct_hierarchy()
     if len(pdb_hierarchy.models()) > 1:
         raise NotImplementedError("Multi-model support is not implemented.")
     atoms = pdb_hierarchy.atoms()
-    coordinates = atoms.extract_xyz()
-    # FIXME this is just a bad idea, we should work with the IOTBX objects
-    # if possible
-    data = {
-        "record": _extract_record_type(atoms),
-        "atomid": atoms.extract_serial(),
-        "name": [a.name.strip() for a in atoms],
-        "x": [xyz[0] for xyz in coordinates],
-        "y": [xyz[1] for xyz in coordinates],
-        "z": [xyz[2] for xyz in coordinates],
-        "b": atoms.extract_b().as_numpy_array(),
-        "q": atoms.extract_occ().as_numpy_array(),
-        "resn": [a.parent().resname.strip() for a in atoms],
-        "resi": [a.parent().parent().resseq_as_int() for a in atoms],
-        "icode": [a.parent().parent().icode.strip() for a in atoms],
-        "e": [a.element.strip() for a in atoms],
-        "charge": ["" for a in atoms],
-        "chain": [a.chain().id.strip() for a in atoms],
-        "altloc": [a.parent().altloc.strip() for a in atoms],
-    }
-    anisou = defaultdict(list)
-    for atom in atoms:
-        if atom.uij != (-1, -1, -1, -1, -1, -1):
-            anisou["atomid"].append(atom.serial)
-            for key, uij_n_frac in zip(ANISOU_FIELDS, atom.uij):
-                uij_n_int = int(np.round(uij_n_frac * 10000))
-                anisou[key].append(uij_n_int)
-    fields = ["coor", "anisou", "link", "resolution", "crystal_symmetry",
-              "pdb_hierarchy", "file_format"]
-    PDBInput = namedtuple("PDBInput", fields)
-    return PDBInput(
-        coor=data,
-        anisou=anisou,
-        link=link,
-        resolution=resolution,
-        crystal_symmetry=crystal_symmetry,
-        pdb_hierarchy=pdb_hierarchy,
-        file_format=file_format,
-    )
+    atoms.reset_i_seq()
+    atoms.reset_serial()
+    atoms.reset_tmp()
+    atoms.set_chemical_element_simple_if_necessary()
+    return pdb_hierarchy
 
 
 def read_pdb_or_mmcif(fname):
     """
-    Parsed PDB or mmCIF file representation by section.
-
-    Attributes:
-        coor (dict[str, list): coordinate data
-        anisou (dict[str, list]): anisotropic displacement parameter data
-        link (dict[str, list]): link records
-        crystal_symmetry (cctbx.crystal.symmetry): CRYST1 (and implicitly SCALE)
-        resolution (Optional[float]): resolution of pdb file
-        unit_cell (Optional[UnitCell]): unit cell object
-        pdb_hierarchy (Optional[iotbx.pdb.hierarchy]): CCTBX PDB object
+    Parse a PDB or mmCIF file and return the iotbx.pdb object and associated
+    content.
     """
     iotbx_in = iotbx.pdb.pdb_input_from_any(
         file_name=fname, source_info=None, raise_sorry_if_format_error=True
     )
     pdb_inp = iotbx_in.file_content()
-    pdb_hierarchy = pdb_inp.construct_hierarchy()
-    link = {}
+    link_data = {}
     if iotbx_in.file_format == "pdb":
-        link = _extract_link_records(pdb_inp)
+        link_data = _extract_link_records(pdb_inp)
     else:
-        link = _extract_mmcif_links(pdb_inp)
-    return _from_iotbx_pdb_hierarchy(
-        pdb_hierarchy=pdb_hierarchy,
-        resolution=pdb_inp.resolution(),
-        crystal_symmetry=pdb_inp.crystal_symmetry(),
-        link=link,
-        file_format=iotbx_in.file_format,
-    )
+        link_data = _extract_mmcif_links(pdb_inp)
+    for attr, array in link_data.items():
+        link_data[attr] = np.asarray(array)
+    input_cls = namedtuple("PDBInput", ["pdb_in", "link_data", "file_format"])
+    return input_cls(pdb_inp, link_data, iotbx_in.file_format)
 
 
 def read_pdb(fname):
     return read_pdb_or_mmcif(fname)
-
-
-def _structure_to_iotbx_atoms(data):
-    for i_seq in range(len(data["record"])):
-        yield iotbx.pdb.make_atom_with_labels(
-            xyz=data["coor"][i_seq],
-            occ=data["q"][i_seq],
-            b=data["b"][i_seq],
-            hetero=data["record"][i_seq] == "HETATM",
-            serial=i_seq + 1,
-            name=data["name"][i_seq],
-            element=data["e"][i_seq],
-            charge=data["charge"][i_seq],
-            chain_id=data["chain"][i_seq],
-            resseq=str(data["resi"][i_seq]),
-            icode=data["icode"][i_seq],
-            altloc=data["altloc"][i_seq],
-            resname=data["resn"][i_seq],
-        )
 
 
 def write_pdb(fname, structure):
@@ -174,8 +111,9 @@ def write_pdb(fname, structure):
             )
         if structure.link_data:
             _write_pdb_link_data(f, structure)
-        for atom in _structure_to_iotbx_atoms(structure.get_selected_data()):
-            f.write("{}\n".format(atom.format_atom_record_group()))
+        for atom in structure.get_selected_atoms():
+            atom_labels = atom.fetch_labels()
+            f.write("{}\n".format(atom_labels.format_atom_record_group()))
         f.write("END")
 
 
@@ -204,14 +142,33 @@ def _to_mmcif_link_records(structure):
     return None
 
 
+def load_combined_atoms(*atom_lists):
+    """
+    Utility to take any number of atom arrays and combine them into a new
+    PDB hierarchy.  This is used to combine structures, but also to reorder
+    atoms within a new hierarchy (since the hierarchy won't take unsorted
+    selections).
+    """
+    atom_labels = []
+    for atoms in atom_lists:
+        atom_labels.extend([atom.fetch_labels() for atom in atoms])
+    return load_atoms_from_labels(atom_labels)
+
+
+def load_atoms_from_labels(atom_labels):
+    atom_lines = [atom.format_atom_record_group() for atom in atom_labels]
+    return iotbx.pdb.pdb_input(source_info="qfit_structure",
+                               lines=atom_lines)
+
+
 def write_mmcif(fname, structure):
     """
     Write a structure to an mmCIF file using the iotbx APIs
     """
-    # FIXME this is really gross, just a quick hack to make mmCIF writable
-    atoms = _structure_to_iotbx_atoms(structure._data)  # pylint: disable=protected-access
+    atoms = [atom.fetch_labels() for atom in structure.get_selected_atoms()]
     atom_lines = [atom.format_atom_record_group() for atom in atoms]
-    pdb_in = iotbx.pdb.pdb_input(source_info="qfit_structure", lines=atom_lines)
+    pdb_in = iotbx.pdb.pdb_input(source_info="qfit_structure",
+                                 lines=atom_lines)
     hierarchy = pdb_in.construct_hierarchy()
     cif_block = hierarchy.as_cif_block(crystal_symmetry=structure.crystal_symmetry)
     if structure.link_data:

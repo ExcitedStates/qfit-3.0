@@ -160,7 +160,8 @@ class BaseTestRunner(unittest.TestCase):
         array1 = fmodel_1.file_object.as_miller_arrays()[0].data()
         array2 = fmodel_2.file_object.as_miller_arrays()[0].data()
         lc = flex.linear_correlation(flex.abs(array1), flex.abs(array2))
-        assert lc.coefficient() >= expected_correlation
+        cc = lc.coefficient()
+        assert cc >= expected_correlation, f"Bad CC: {cc} < {expected_correlation}"
 
     def _get_rotamer(self, residue, chi_radius=CHI_RADIUS):
         # FIXME this is awful, we should replace it with something like

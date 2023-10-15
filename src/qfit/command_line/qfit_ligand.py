@@ -90,7 +90,7 @@ def prepare_qfit_ligand(options):
         icode = ""
 
     # Extract the ligand:
-    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
+    structure_ligand = structure.extract(f"chain {chainid} and resid {resi}")
 
     if icode:
         structure_ligand = structure_ligand.extract("icode", icode)

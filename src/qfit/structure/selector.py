@@ -117,7 +117,7 @@ class AtomSelector:
             return np.setdiff1d(self.curr_sel, self._evaluate_stack(s), True)
         elif token == "resi":
             elements = s.pop()
-            resi = self.structure.get_array(token)
+            resi = getattr(self.structure, token)
             selections = []
             while elements:
                 if len(elements) > 1 and elements[-2] == "-":
@@ -132,7 +132,7 @@ class AtomSelector:
             selection = np.unique(np.concatenate(selections))
             return selection
         elif token in ("resn", "chain", "name", "altloc", "icode"):
-            data = self.structure.get_array(token)
+            data = getattr(self.structure, token)
             picks = set(s.pop())
             selections = []
             for value in picks:
@@ -145,8 +145,8 @@ class AtomSelector:
         elif token == "resseq":
             picks = set(s.pop())
             selections = []
-            resi_data = self.structure.get_array("resi")
-            icode_data = self.structure.get_array("icode")
+            resi_data = self.structure.resi
+            icode_data = self.structure.icode
             for value in picks:
                 try:
                     resi, icode = value.split(".")
@@ -161,7 +161,7 @@ class AtomSelector:
             selection = np.concatenate(selections)
             return selection
         elif token in ("q", "b"):
-            data = self.structure.get_array(token)
+            data = getattr(self.structure, token)
             operator_str = s.pop()
             float_number = float(s.pop())
             loper = self._get_operator(operator_str)

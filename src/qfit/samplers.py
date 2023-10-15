@@ -93,7 +93,7 @@ class CBAngleRotator(_BaseSampler):
 
         # These atoms define the angle
         angle_selection = residue.select("name", ("CA", "CB", "CG"))
-        if angle_selection.size != 3:
+        if angle_selection.size() != 3:
             raise RuntimeError("Residue does not have CA, CB and xG atom for rotation.")
 
         # Only atoms after CB can be moved
@@ -157,14 +157,7 @@ class ChiRotator(_BaseSampler):
         self.chi_index = chi_index
         # Get the coordinates that define the torsion angle
         torsion_atoms = self.residue.get_residue_info("chi")[chi_index]
-        selection = self.residue.select("name", torsion_atoms)
-        new_selection = []
-        for atom in torsion_atoms:
-            for sel in selection:
-                if atom == self.residue.get_name(sel):
-                    new_selection.append(sel)
-                    break
-        selection = new_selection
+        selection = self.residue.get_named_atom_selection(torsion_atoms)
 
         # Translate coordinates to center on coor[1]
         coor = self.residue.get_xyz(selection)
@@ -243,18 +236,19 @@ class BondRotator(_BaseSampler):
 
     """Rotate ligand along the bond of two atoms."""
 
-    def __init__(self, ligand, a1, a2, key="name"):
+    def __init__(self, ligand, a1, a2):
         # Atoms connected to a1 will stay fixed.
         self.ligand = ligand
         self.atom1 = a1
         self.atom2 = a2
 
         # Determine which atoms will be moved by the rotation.
-        self._root = ligand.get_array(key).tolist().index(a1)
+        atom_names = ligand.name.tolist()
+        self._root = atom_names.index(a1)
         self._conn = ligand.connectivity
         self.atoms_to_rotate = [self._root]
         self._foundroot = 0
-        curr = ligand.get_array(key).tolist().index(a2)
+        curr = atom_names.index(a2)
         self._find_neighbours_recursively(curr)
         # if self._foundroot > 1:
         #    raise ValueError("Atoms are part of a ring. Bond cannot be rotated.")

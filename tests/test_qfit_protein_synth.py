@@ -12,6 +12,8 @@ from iotbx.file_reader import any_file
 import pytest
 
 from qfit.structure import Structure
+from qfit.xtal.volume import XMap
+from qfit.qfit import QFitOptions, QFitSegment
 from qfit.utils.mock_utils import BaseTestRunner
 
 DISABLE_SLOW = os.environ.get("QFIT_ENABLE_SLOW_TESTS", None) is None
@@ -29,7 +31,7 @@ class SyntheticMapRunner(BaseTestRunner):
         )
 
 
-class TestQfitProteinSyntheticData(SyntheticMapRunner):
+class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution):
         fmodel_mtz = self._create_fmodel(pdb_file_multi,
@@ -86,6 +88,9 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
             assert rotamers_in[resi] == rotamers_out[resi]
         return rotamers_out
 
+
+class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
+
     def _run_kmer_and_validate_identical_rotamers(
         self, peptide_name, d_min, chi_radius=SyntheticMapRunner.CHI_RADIUS
     ):
@@ -111,6 +116,21 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
     def test_qfit_protein_ser_p1(self):
         """A single two-conformer Ser residue in an irregular triclinic cell"""
         self._run_serine_monomer("P1")
+
+    @pytest.mark.fast
+    def test_qfit_segment_ser_p1(self):
+        """
+        Run just the segment sampling routine on a single two-conformer Ser
+        residue in an irregular triclinic cell
+        """
+        (pdb_multi, pdb_single) = self._get_serine_monomer_inputs()
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=1.5)
+        xmap = XMap.fromfile(fmodel_mtz, label="FWT,PHIFWT")
+        structure = Structure.fromfile(pdb_single)
+        assert structure.n_residues() == 1
+        assert len(list(structure.extract("record", "ATOM").residue_groups)) == 1
+        qfit = QFitSegment(structure, xmap, QFitOptions())
+        multiconf = qfit()
 
     @pytest.mark.slow
     def test_qfit_protein_ser_p21(self):
@@ -345,13 +365,13 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         pdbh.write_pdb_file(pdb_multi_new, crystal_symmetry=symm)
         self._run_and_validate_identical_rotamers(pdb_multi_new, pdb_single, d_min)
 
-    @pytest.mark.skip(reason="FIXME restore rebuilding support")
+    #@pytest.mark.skip(reason="FIXME restore rebuilding support")
     @pytest.mark.slow
     def test_qfit_protein_3mer_arg_rebuild(self):
         d_min = 1.2
         (pdb_multi_start, pdb_single) = self._get_start_models("ARA")
         s = Structure.fromfile(pdb_single)
-        s = s.extract("name", ("NH2",), "!=").copy()
+        s = s.extract("name", ("N", "CA", "CB", "C", "O")).copy()
         pdb_single_partial = "ara_single_partial.pdb"
         s.tofile(pdb_single_partial)
         self._run_and_validate_identical_rotamers(pdb_multi_start,
@@ -374,3 +394,144 @@ class TestQfitProteinSyntheticData(SyntheticMapRunner):
         assert len(rotamers[1]) == 2
         assert len(rotamers[2]) == 3
         assert len(rotamers[3]) == 2
+
+
+class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
+    """
+    Integration tests for qfit_protein with sidechain rebuilding, covering
+    all non-PRO/GLY/ALA residues
+    """
+
+    def _create_mock_multi_conf_3mer(self, resname, set_b_iso=10):
+        """
+        Create a tripeptide model AXA where the central residue is rebuilt
+        to have two conformations with the most distant rotamers possible,
+        as well as the sidechain-free single-conformer starting model.
+        """
+        ALA_3MER = open(self._get_file_path("AAA_single.pdb"), "rt").read()
+        pdb_str = ALA_3MER.replace("ALA A   2", f"{resname} A   2")
+        # this is the truncated-sidechain version; only the multi-conf pdb
+        # has complete sidechains
+        pdb_single = self._write_tmp_pdb(pdb_str, f"-{resname}-single")
+        s_single = Structure.fromfile(pdb_single)
+        res = s_single.copy().chains[0].conformers[0].residues[1]
+        res.complete_residue()
+        s = res.get_rebuilt_structure()
+        res = s.chains[0].conformers[0].residues[1]
+        best_rmsd = 0
+        best_pair = []
+        for i, angles1 in enumerate(res.rotamers[:-1]):
+            res1 = res.copy()
+            for k, chi in enumerate(angles1, start=1):
+                res1.set_chi(k, chi)
+            for j, angles2 in enumerate(res.rotamers[i+1:]):
+                res2 = res.copy()
+                for k, chi in enumerate(angles2, start=1):
+                    res2.set_chi(k, chi)
+                rmsd = res1.rmsd(res2)
+                if rmsd > best_rmsd:
+                    best_rmsd = rmsd
+                    best_pair = (res1, res2)
+        (res1, res2) = best_pair
+        res1.q = 0.5
+        res2.q = 0.5
+        res1.atoms[0].parent().altloc = "A"
+        res2.atoms[0].parent().altloc = "B"
+        first_res = s_single.extract("resi 1").copy()
+        last_res = s_single.extract("resi 3").copy()
+        s_multi = first_res.combine(res1).combine(res2).combine(last_res)
+        xrs = s_multi._pdb_hierarchy.extract_xray_structure()
+        s_multi = s_multi.with_symmetry(xrs.crystal_symmetry())
+        s_single = s_single.with_symmetry(xrs.crystal_symmetry())
+        # XXX it is very important that these be the same initial values!
+        s_multi.b = set_b_iso
+        s_single.b = set_b_iso
+        assert s_multi.natoms == 10 + 2 * len(res.name)
+        pdb_multi = pdb_single.replace(f"-{resname}-single.pdb",
+                                       f"-{resname}-multi.pdb")
+        s_multi.tofile(pdb_multi)
+        s_single.tofile(pdb_single)
+        print(f"RMSD is {best_rmsd}")
+        return (pdb_multi, pdb_single)
+
+    def _run_rebuilt_multi_conformer_tripeptide(
+            self,
+            resname,
+            d_min=1.5,
+            chi_radius=SyntheticMapRunner.CHI_RADIUS):
+        """
+        Create a fake two-conformer structure for an A*A peptide where the
+        central residue is the specified type, and a single-conformer starting
+        model with truncated sidechains
+        """
+        pdb_multi, pdb_single = self._create_mock_multi_conf_3mer(resname)
+        return self._run_and_validate_identical_rotamers(
+            pdb_multi, pdb_single, d_min, chi_radius)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_arg(self):
+        self._run_rebuilt_multi_conformer_tripeptide("ARG", d_min=1.4)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_asn(self):
+        self._run_rebuilt_multi_conformer_tripeptide("ASN")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_asp(self):
+        self._run_rebuilt_multi_conformer_tripeptide("ASP")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_cys(self):
+        self._run_rebuilt_multi_conformer_tripeptide("CYS")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_gln(self):
+        self._run_rebuilt_multi_conformer_tripeptide("GLN", d_min=1.4)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_glu(self):
+        self._run_rebuilt_multi_conformer_tripeptide("GLU", d_min=1.3)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_his(self):
+        self._run_rebuilt_multi_conformer_tripeptide("HIS")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_ile(self):
+        self._run_rebuilt_multi_conformer_tripeptide("ILE")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_leu(self):
+        self._run_rebuilt_multi_conformer_tripeptide("LEU")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_lys(self):
+        self._run_rebuilt_multi_conformer_tripeptide("LYS", d_min=1.4)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_met(self):
+        self._run_rebuilt_multi_conformer_tripeptide("MET")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_phe(self):
+        self._run_rebuilt_multi_conformer_tripeptide("PHE", d_min=1.3)
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_ser(self):
+        self._run_rebuilt_multi_conformer_tripeptide("SER")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_thr(self):
+        self._run_rebuilt_multi_conformer_tripeptide("THR")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_trp(self):
+        self._run_rebuilt_multi_conformer_tripeptide("TRP")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_tyr(self):
+        self._run_rebuilt_multi_conformer_tripeptide("TYR")
+
+    @pytest.mark.slow
+    def test_qfit_protein_rebuilt_tripeptide_val(self):
+        self._run_rebuilt_multi_conformer_tripeptide("VAL")

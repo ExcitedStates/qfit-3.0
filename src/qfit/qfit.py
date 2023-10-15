@@ -143,18 +143,16 @@ class _BaseQFit(ABC):
         self.options = options
         self._set_data(conformer, structure, xmap, reset_q=reset_q)
         if self.options.em == True:
-            self.options.scattering = "electron"  # making sure electron SF are used
-            self.options.bulk_solvent_level = (
-                0  # bulk solvent level is 0 for EM to work with electron SF
-            )
-            self.options.cardinality = (
-                3  # maximum of 3 conformers can be choosen per residue
-            )
+            self.options.scattering = "electron"
+            # bulk solvent level is 0 for EM to work with electron SF
+            self.options.bulk_solvent_level = 0
+            # maximum of 3 conformers can be choosen per residue
+            self.options.cardinality = 3
 
     def _set_data(self, conformer, structure, xmap, reset_q=True):
         """
         Set the basic input data attributes
-        conformer: the structure entity being built
+        conformer: the structure entity being built (e.g. residue)
         structure: the overall input structure
         xmap: XMap object
         """
@@ -230,10 +228,10 @@ class _BaseQFit(ABC):
             conformers.append(conformer)
         return conformers
 
-    def _update_transformer(self, structure):
-        self.conformer = structure
+    def _update_transformer(self, conformer):
+        self.conformer = conformer
         self._transformer = Transformer(
-            structure,
+            conformer,
             self._xmap_model,
             smax=self._smax,
             smin=self._smin,
@@ -499,7 +497,9 @@ class _BaseQFit(ABC):
         index = segment.find(partner_id)
 
         def _get_norm(idx1, idx2):
-            return np.linalg.norm(residue.get_xyz(idx1) - segment.get_xyz(idx2))
+            xyz1 = residue.get_xyz([idx1])[0]
+            xyz2 = segment.get_xyz([idx2])[0]
+            return np.linalg.norm(xyz1 - xyz2)
 
         exclude = []
         if index > 0:
@@ -707,17 +707,7 @@ class QFitRotamericResidue(_BaseQFit):
             )
 
         # Rebuild to include the new residue atoms
-        index = len(self.structure.record)
-        mask = self.residue.atomid >= index
-        new_atoms = self.residue.copy().get_selected_structure(mask)
-        structure = self.structure.copy().combine(new_atoms)
-        # Create a new Structure, and re-extract the current residue from it.
-        #     This ensures the object-tree (i.e. residue.parent, etc.) is correct.
-        # Then reinitialise _BaseQFit with these.
-        #     This ensures _BaseQFit class attributes (self.residue, but also
-        #     self._b, self._coor_set, etc.) come from the rebuilt data-structure.
-        #     It is essential to have uniform dimensions on all data before
-        #     we begin sampling.
+        structure = self.residue.get_rebuilt_structure()
         self.residue = structure[self.chain].conformers[0][self.residue.id]
         self._set_data(self.residue, structure, self.xmap)
         if self.options.debug:
@@ -746,8 +736,9 @@ class QFitRotamericResidue(_BaseQFit):
     def primary_entity(self):
         return self.residue
 
-    def reset_residue(self, residue):
+    def reset_residue(self, residue, structure):
         self.conformer = residue.copy()
+        self.structure = structure.copy()
         self.residue = residue
         self._occupancies = [residue.q]
         self._coor_set = [residue.coor]
@@ -1205,19 +1196,18 @@ class QFitSegment(_BaseQFit):
                 continue
             altlocs = np.unique(rg.altloc)
             naltlocs = len(altlocs)
-            multiconformer = []
-            CA_single = True
-            O_single = True
-            CA_pos = None
-            O_pos = None
+            input_conformers = []
+            is_single_calpha = True
+            is_single_oxygen = True
+            calpha_pos = None
+            oxygen_pos = None
             for altloc in altlocs:
                 if altloc == "" and naltlocs > 1:
                     continue
                 conformer = Structure.fromstructurelike(
                     rg.extract("altloc", (altloc, ""))
                 )
-                # Reproducing the code in idmulti.cpp:
-                if CA_single and O_single:
+                if is_single_calpha and is_single_oxygen:
                     mask = np.isin(conformer.name, ["CA", "O"])
                     if np.sum(mask) > 2:
                         logger.warning(
@@ -1226,50 +1216,56 @@ class QFitSegment(_BaseQFit):
                             f"for CA/O atoms."
                         )
                         mask = mask[:2]
-                    try:
-                        CA_single = np.linalg.norm(CA_pos - conformer.coor[mask][0])
-                        CA_single = CA_single <= 0.05
-                        O_single = np.linalg.norm(O_pos - conformer.coor[mask][1])
-                        O_single = O_single <= 0.05
-                    except TypeError:
-                        CA_pos, O_pos = list(conformer.coor[mask])
-                multiconformer.append(conformer)
+                    calpha_next, oxygen_next = list(conformer.coor[mask])
+                    if calpha_pos is None:
+                        calpha_pos, oxygen_pos = calpha_next, oxygen_next
+                    else:
+                        calpha_norm = np.linalg.norm(calpha_pos - calpha_next)
+                        is_single_calpha = calpha_norm <= 0.05
+                        oxy_norm = np.linalg.norm(oxygen_pos - oxygen_next)
+                        is_single_oxygen = oxy_norm <= 0.05
+                input_conformers.append(conformer)
 
             # Check to see if the residue has a single conformer:
             if naltlocs == 1:
+                print(f"Found single conformer for {self.segment}")
                 # Process the existing segment
                 if len(segment) > 0:
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
+                print(multiconformers.natoms)
                 segment = []
                 # Set the occupancy of all atoms of the residue to 1
                 rg.q = np.ones_like(rg.q)
                 # Add the single conformer residue to the
                 # existing multiconformer:
                 multiconformers = multiconformers.combine(rg)
+                print(f"Final {multiconformers.natoms}")
 
             # Check if we need to collapse the backbone
-            elif CA_single and O_single:
+            elif is_single_calpha and is_single_oxygen:
                 # Process the existing segment
                 if len(segment) > 0:
                     for path in self.find_paths(segment):
                         multiconformers = multiconformers.combine(path)
                 segment = []
-                collapsed = multiconformer[:]
+                collapsed = input_conformers[:]
                 for multi in collapsed:
                     multiconformers = multiconformers.combine(
                         multi.collapse_backbone(multi.resi[0], multi.chain[0])
                     )
 
             else:
-                segment.append(multiconformer)
+                segment.append(input_conformers)
 
         # Teardown progress bar
         residue_groups_pbar.close()
+        print(f"Now {multiconformers.natoms}")
 
         if len(segment) > 0:
             logger.debug(f"Running find_paths for segment of length {len(segment)}")
             for path in self.find_paths(segment):
+                print(f"combining {path}")
                 multiconformers = multiconformers.combine(path)
 
         logger.info(
@@ -1520,10 +1516,11 @@ class QFitLigand(_BaseQFit):
                             new_bs.append(b)
 
         self.ligand.active = False
-        selection = self.ligand.selection[self._cluster]
+        ligand_sel = self.ligand.selection.as_numpy_array()
+        selection = ligand_sel[self._cluster]
         self.ligand.set_active(selection)
         for atom in self._cluster:
-            atom_sel = self.ligand.selection[self.ligand.connectivity[atom]]
+            atom_sel = ligand_sel[self.ligand.connectivity[atom]]
             self.ligand.set_active(atom_sel)
         self.conformer = self.ligand
         self._coor_set = new_coor_set

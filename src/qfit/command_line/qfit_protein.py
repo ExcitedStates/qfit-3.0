@@ -227,9 +227,9 @@ class QFitProtein:
 
         # Extract non-protein atoms
         hetatms = self.structure.extract("record", "HETATM", "==")
-        waters = self.structure.extract("record", "ATOM", "==")
-        waters = waters.extract("resn", "HOH", "==")
-        hetatms = hetatms.combine(waters)
+        other_waters = self.structure.extract("record", "ATOM", "==")
+        other_waters = other_waters.extract("resn", "HOH", "==")
+        hetatms = hetatms.combine(other_waters)
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
@@ -520,8 +520,8 @@ class QFitProtein:
         resi_selstr = f"chain {chainid} and resi {resi}"
         if icode:
             resi_selstr += f" and icode {icode}"
-        structure_new = structure
-        structure_resi = structure.extract(resi_selstr)
+        structure_new = structure.copy()
+        structure_resi = structure_new.extract(resi_selstr)
         chain = structure_resi[chainid]
         conformer = chain.conformers[0]
         residue = conformer[residue.id]
@@ -551,7 +551,7 @@ class QFitProtein:
                 f"[{qfit.identifier}] This is a result of the following exception:\n"
                 f"{tb})"
             )
-            qfit.reset_residue(residue)
+            qfit.reset_residue(residue, structure)
 
         # Save multiconformer_residue
         qfit.tofile()

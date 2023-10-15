@@ -59,10 +59,11 @@ def find_unique_atoms(structure):
     identical_i = np.any(identical_ij, axis=0)
 
     # Name atoms which are not unique
-    print(
-        f"Atoms {tuple(*np.nonzero(identical_i))} had earlier, identical atoms.\n"
-        f"They are being removed."
-    )
+    if np.sum(identical_i) > 0:
+        indices = tuple(*np.nonzero(identical_i))
+        print(
+            f"Atoms {indices} had earlier, identical atoms.\nThey are being removed."
+        )
 
     # We are not concerned if amino acids have duplicate atoms
     is_amino_acid = np.frompyfunc(ROTAMERS.__contains__, 1, 1)

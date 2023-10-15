@@ -216,13 +216,12 @@ class Transformer:
 
     def initialize(self):
         self.radial_densities = []
-        for n in range(self.structure.natoms):
+        for atom in self.structure.atoms:
+            elem = atom.element.strip()
             if self.simple:
-                rdens = self.simple_radial_density(
-                    self.structure.e[n], self.structure.b[n]
-                )[1]
+                rdens = self.simple_radial_density(elem, atom.b)[1]
             else:
-                rdens = self.radial_density(self.structure.e[n], self.structure.b[n])[1]
+                rdens = self.radial_density(elem, atom.b)[1]
             self.radial_densities.append(rdens)
         self.radial_densities = np.ascontiguousarray(self.radial_densities)
         self._initialized = True

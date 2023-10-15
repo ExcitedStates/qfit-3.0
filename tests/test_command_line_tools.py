@@ -22,8 +22,8 @@ class TestCommandLineTools(BaseTestRunner):
         pdb_out = Structure.fromfile(pdb_single)
         assert len(list(pdb_out.residues)) == 1
         for atom in pdb_out.atoms:
-            assert atom.q == 1.0
-            assert atom.altloc == ""
+            assert atom.occ == 1.0
+            assert atom.parent().altloc == ""
 
     def test_qfit_tools_help(self):
         TOOLS = [

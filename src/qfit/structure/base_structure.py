@@ -3,40 +3,49 @@ import logging
 from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
 
+from scitbx.array_family import flex
 import numpy as np
 from molmass.elements import ELEMENTS
 
-from .pdbfile import write_pdb, write_mmcif, ANISOU_FIELDS
+from .pdbfile import write_pdb, write_mmcif, load_combined_atoms, get_pdb_hierarchy
 from .selector import AtomSelector
 from .math import adp_ellipsoid_axes
+from qfit.xtal.unitcell import UnitCell
 
 logger = logging.getLogger(__name__)
 
+ANISOU_SCALE = 10000
+
+def _as_size_t(selection):
+    """
+    Make sure an atom selection has the type scitbx.array_family.flex.size_t
+    """
+    if isinstance(selection, flex.size_t):
+        return selection
+    elif isinstance(selection, flex.bool):
+        return selection.iselection()
+    elif isinstance(selection, np.ndarray) and selection.dtype == bool:
+        return flex.bool(selection).iselection()
+    return flex.size_t(selection)
+
 
 class BaseStructure(ABC):
-    REQUIRED_ATTRIBUTES = [
-        "record",
-        "name",
-        "b",
-        "q",
-        "coor",
-        "resn",
-        "resi",
-        "icode",
-        "e",
-        "charge",
-        "chain",
-        "altloc",
-    ]
-    OTHER_ATTRIBUTES = ["link_data", "crystal_symmetry", "unit_cell", "file_format"]
-    _DTYPES = [str, str, float, float, float, str, int, str, str, str, str, float]
     _selector = AtomSelector()
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
-    def __init__(self, data, selection=None, parent=None, **kwargs):
-        self._data = data
-        if selection is not None and not isinstance(selection, np.ndarray):
-            selection = np.array(selection)
+    def __init__(self,
+                 atoms,
+                 pdb_hierarchy,
+                 selection=None,
+                 parent=None,
+                 hierarchy_object=None,
+                 **kwargs):
+        self._atoms = atoms
+        self._pdb_hierarchy = pdb_hierarchy
+        self._hierarchy_object = hierarchy_object
+        self._selection_cache = pdb_hierarchy.atom_selection_cache()
+        if selection is not None:
+            selection = _as_size_t(selection)
         self._selection = selection
         self.parent = parent
         # Save extra kwargs for general extraction and duplication methods.
@@ -45,11 +54,17 @@ class BaseStructure(ABC):
         self.crystal_symmetry = kwargs.get("crystal_symmetry", None)
         self.unit_cell = kwargs.get("unit_cell", None)
         self.file_format = kwargs.get("file_format", None)
-        self.total_length = data["coor"].shape[0]
+        self.total_length = atoms.size()
         if selection is None:
             self.natoms = self.total_length
         else:
-            self.natoms = self._selection.size
+            self.natoms = self._selection.size()
+        self._active_flag = np.ones(self.total_length, dtype=bool)
+        if self.crystal_symmetry:
+            spg = self.crystal_symmetry.space_group_info()
+            uc = self.crystal_symmetry.unit_cell()
+            values = list(uc.parameters()) + [spg.type().lookup_symbol()]
+            self.unit_cell = UnitCell(*values)
 
     def _get_element_property(self, ptype):
         elements, ind = np.unique(self.e, return_inverse=True)
@@ -70,44 +85,60 @@ class BaseStructure(ABC):
     def selection(self):
         return self._selection
 
-    def get_selected_data(self, keys=None):
-        if self._selection is None:
-            return self._data
-        return {k: v[self._selection]
-                for k, v in self._data.items()
-                if (keys is None or k in keys)}
+    def get_selected_atoms(self, selection=None):
+        if selection is None:
+            selection = self._selection
+        if selection is None:
+            return self._atoms
+        else:
+            return self._atoms.select(_as_size_t(selection))
+
+    def get_selected_hierarchy(self, selection=None):
+        if selection is None:
+            selection = self._selection
+        if selection is None:
+            return self._pdb_hierarchy
+        else:
+            return self._pdb_hierarchy.select(_as_size_t(selection))
+
+    @property
+    def atoms(self):
+        return self.get_selected_atoms()
 
     def get_selected_structure(self, selection):
         """
         Return a copy of the same type, containing only the selected atoms.
         'selection' should be a numpy boolean or uint array.
         """
-        data = {}
-        for attr in self._data:
-            array1 = self.get_array(attr)
-            data[attr] = array1[selection]
-        return self.__class__(data,
-                              parent=None,
-                              selection=None,
+        new_pdb = load_combined_atoms(self.get_selected_atoms(selection))
+        hierarchy = get_pdb_hierarchy(new_pdb)
+        return self.__class__(hierarchy.atoms(),
+                              hierarchy,
                               **self._kwargs)
+
+    def get_atom_selection(self, selection_string):
+        selection = self._selection_cache.selection(selection_string)
+        if self._selection is not None:
+            base_sel = flex.bool(selection.size(), False)
+            base_sel.set_selected(self._selection, True)
+            selection = selection & base_sel
+        return selection
 
     def with_symmetry(self, crystal_symmetry):
         kwargs = dict(self._kwargs)
         kwargs["crystal_symmetry"] = crystal_symmetry
-        return self.__class__(self._data, **kwargs)
+        return self.__class__(self._atoms, self._pdb_hierarchy, **kwargs)
 
     def combine(self, other):
         """
         Combines two structures into one and returns the result (of the same
         type as 'self').
         """
-        data = {}
-        for attr in self._data:
-            array1 = self.get_array(attr)
-            array2 = other.get_array(attr)
-            combined = np.concatenate((array1, array2))
-            data[attr] = combined
-        return self.__class__(data, crystal_symmetry=self.crystal_symmetry)
+        pdb_in = load_combined_atoms(self.atoms, other.atoms)
+        pdb_hierarchy = get_pdb_hierarchy(pdb_in)
+        return self.__class__(pdb_hierarchy.atoms(),
+                              pdb_hierarchy,
+                              crystal_symmetry=self.crystal_symmetry)
 
     @property
     def covalent_radius(self):
@@ -120,10 +151,9 @@ class BaseStructure(ABC):
     def _copy(self, class_def=None):
         if class_def is None:
             class_def = self.__class__
-        data = {}
-        for attr in self._data:
-            data[attr] = self.get_array(attr).copy()
-        return class_def(data, parent=None, selection=None, **self._kwargs)
+        new_hierarchy = self.get_selected_hierarchy().deep_copy()
+        atoms = new_hierarchy.atoms()
+        return class_def(atoms, new_hierarchy, parent=None, selection=None, **self._kwargs)
 
     def copy(self):
         return self._copy()
@@ -137,7 +167,11 @@ class BaseStructure(ABC):
         else:
             selection = self.select(*args)
         return self.__class__(
-            self._data, selection=selection, parent=self, **self._kwargs
+            self._atoms,
+            self._pdb_hierarchy,
+            selection=selection,
+            parent=self,
+            **self._kwargs
         )
 
     def rotate(self, R):
@@ -186,14 +220,13 @@ class BaseStructure(ABC):
 
     def select(self, string, values=None, comparison="=="):
         if values is None:
-            self._selector.set_structure(self)
-            selection = self._selector(string)
+            selection = self.get_atom_selection(string)
         else:
             selection = self._simple_select(string, values, comparison)
         return selection
 
     def _simple_select(self, attr, values, comparison_str):
-        data = self.get_array(attr)
+        data = getattr(self, attr)
         comparison = self._COMPARISON_DICT[comparison_str]
         if not isinstance(values, Iterable) or isinstance(values, str):
             values = (values,)
@@ -206,7 +239,7 @@ class BaseStructure(ABC):
         if self._selection is None:
             selection = np.flatnonzero(mask)
         else:
-            selection = self._selection[mask]
+            selection = self._selection.select(flex.bool(mask))
         return selection
 
     def tofile(self, fname, cryst=None):
@@ -230,130 +263,147 @@ class BaseStructure(ABC):
         """Translate atoms"""
         self.coor += translation
 
-    def get_array(self, key):
-        if self._selection is None:
-            return self._data[key].copy()
-        return self._data[key][self._selection]
-
-    def _set_array(self, key, value, selection=None):
-        if selection is None:
-            selection = self._selection
-        if selection is None:
-            self._data[key][:] = value
-        else:
-            self._data[key][selection] = value
-
     def set_occupancies(self, values, selection=None):
-        self._set_array("q", values, selection)
+        atoms = self.get_selected_atoms(selection)
+        if isinstance(values, (int, float)):
+            values = flex.double([values for x in range(len(atoms))])
+        else:
+            values = flex.double(values)
+        atoms.set_occ(values)
 
     def set_xyz(self, values, selection=None):
-        self._set_array("coor", values, selection)
+        self.get_selected_atoms(selection).set_xyz(flex.vec3_double(values))
 
     def get_xyz(self, selection):
-        return self._data["coor"][selection]
+        return self.get_selected_atoms(selection).extract_xyz().as_numpy_array()
 
-    def set_altloc(self, values, selection=None):
-        self._set_array("altloc", values, selection)
+    def get_atom_xyz(self, i_seq):
+        """Return the coordinates of a single atom as a numpy array"""
+        return np.array(self._atoms[i_seq].xyz)
+
+    def set_altloc(self, value, selection=None):
+        for atom in self.get_selected_atoms(selection):
+            atom.parent().altloc = value
 
     def get_name(self, selection):
-        return self._data["name"][selection]
-
-    @property
-    def record(self):
-        return self.get_array("record")
+        return np.array([a.name.strip() for a in self.get_selected_atoms(selection)])
 
     @property
     def name(self):
-        return self.get_array("name")
+        return np.array([a.name.strip() for a in self.atoms])
 
     @name.setter
     def name(self, value):
-        self._set_array("name", value)
+        for atom in self.atoms:
+            atom.name = value
 
     @property
     def b(self):
-        return self.get_array("b")
+        return self.atoms.extract_b().as_numpy_array()
 
     @b.setter
     def b(self, value):
-        self._set_array("b", value)
+        if isinstance(value, (int, float)):
+            for atom in self.atoms:
+                atom.b = value
+        else:
+            return self.atoms.set_b(flex.double(value))
 
     @property
     def q(self):
-        return self.get_array("q")
+        return self.atoms.extract_occ().as_numpy_array()
 
     @q.setter
     def q(self, value):
-        self._set_array("q", value)
+        if isinstance(value, (int, float)):
+            for atom in self.atoms:
+                atom.occ = value
+        else:
+            return self.set_occupancies(value)
 
     @property
     def coor(self):
-        return self.get_array("coor")
+        return self.atoms.extract_xyz().as_numpy_array()
 
     @coor.setter
     def coor(self, value):
-        self._set_array("coor", value)
+        return self.atoms.set_xyz(flex.vec3_double(value))
 
     @property
     def resn(self):
-        return self.get_array("resn")
+        return np.array([a.parent().resname.strip() for a in self.atoms])
 
     @property
     def resi(self):
-        return self.get_array("resi")
+        return np.array([a.parent().parent().resseq_as_int() for a in self.atoms])
 
     @property
     def icode(self):
-        return self.get_array("icode")
+        return np.array([a.parent().parent().icode.strip() for a in self.atoms])
 
     @property
     def e(self):
-        return self.get_array("e")
+        return np.array(self.atoms.extract_element().strip())
 
     @property
     def charge(self):
-        return self.get_array("charge")
+        return np.array(["" for a in self.atoms])  # FIXME
 
     @property
     def chain(self):
-        return self.get_array("chain")
+        return np.array([a.chain().id.strip() for a in self.atoms])
 
     @property
     def altloc(self):
-        return self.get_array("altloc")
+        return np.array([a.parent().altloc.strip() for a in self.atoms])
 
     @altloc.setter
     def altloc(self, value):
-        self._set_array("altloc", value)
+        if isinstance(value, str):
+            value = [value for x in range(self.natoms)]
+        for i, atom in enumerate(self.atoms):
+            atom.parent().altloc = value[i]
 
     @property
     def atomid(self):
-        return self.get_array("atomid")
+        return np.array(self.atoms.extract_serial())
+
+    # FIXME this needs to be handled differently
+    @property
+    def record(self):
+        def _rec_type(atom):
+            return "HETATM" if atom.hetero else "ATOM"
+        return np.array([_rec_type(a) for a in self.atoms])
 
     @property
     def active(self):
-        return self.get_array("active")
+        if self._selection is None:
+            return self._active_flag.copy()
+        else:
+            return self._active_flag[self._selection].copy()
 
     @active.setter
     def active(self, value):
-        self._set_array("active", value)
+        self.set_active(selection=self._selection, value=value)
 
     def clear_active(self):
-        self._data["active"][:] = False
+        self._active_flag[:] = False
 
     def set_active(self, selection=None, value=True):
         if selection is None:
-            self._data["active"][:] = value
-        else:
-            self._data["active"][selection] = value
+            self._active_flag[:] = value
+        elif isinstance(value, bool):
+            self._active_flag[selection] = value
+        else:  # assume a list or array
+            self._active_flag[selection] = value
 
     def extract_anisous(self):
-        data = self.get_selected_data(keys=set(ANISOU_FIELDS))
-        return [(
-            (data["u00"][x], data["u01"][x], data["u02"][x]),
-            (data["u01"][x], data["u11"][x], data["u12"][x]),
-            (data["u02"][x], data["u12"][x], data["u22"][x]),
-        ) for x in range(self.natoms)]
+        scaled_uij = np.array(self.atoms.extract_uij()) * ANISOU_SCALE
+        return np.array([(
+            (uij[0], uij[3], uij[4]),
+            (uij[3], uij[1], uij[5]),
+            (uij[4], uij[5], uij[2])
+        ) for uij in scaled_uij])
 
     def get_adp_ellipsoid_axes(self):
         """
@@ -373,35 +423,6 @@ class BaseStructure(ABC):
             # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             return np.identity(3)
 
-    def _add_atom(self, name, element, coor, **kwargs):
-        """
-        Append a single atom to the structure.  This is only used by the
-        RotamerResidue subclass, when building out an incomplete residue,
-        but the implementation lives here now to hide the details of the
-        internal data
-        """
-        index = self._selection[-1]
-        if index < len(self._data["record"]):
-            index = len(self._data["record"]) - 1
-        for attr in self._data:
-            if attr == "e":
-                self._data[attr] = np.append(self._data[attr], element)
-            elif attr == "atomid":
-                self._data[attr] = np.append(self._data[attr], index + 1)
-            elif attr == "name":
-                self._data["name"] = np.append(self._data["name"], name)
-            elif attr == "coor":
-                self._data["coor"] = np.append(self._data["coor"],
-                                               np.expand_dims(coor, axis=0),
-                                               axis=0)
-            elif attr in kwargs:
-                self._data[attr] = kwargs[attr]
-            else:
-                self._data[attr] = np.append(self._data[attr],
-                                             self.get_array(attr)[-1])
-        self._selection = np.append(self._selection, index + 1).astype(np.uint64)
-        self.natoms += 1
-
 
 class BaseMonomer(BaseStructure):
     """
@@ -412,4 +433,4 @@ class BaseMonomer(BaseStructure):
 
     @property
     def resname(self):
-        return self.resn[0]
+        return self.atoms[0].parent().resname.strip()

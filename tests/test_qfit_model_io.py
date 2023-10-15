@@ -1,3 +1,5 @@
+# XXX This is probably obsolete and redundant
+
 import os
 import logging
 
@@ -59,6 +61,7 @@ class TestQFitModelIO(BaseTestRunner):
         # Build a QFitProtein job
         return prepare_qfit_protein(options)
 
+    @pytest.mark.skip(reason="Slow and redundant with test_structure.py")
     @pytest.mark.slow
     def test_qfit_model_io(self):
         # Prepare args
@@ -91,6 +94,7 @@ class TestQFitModelIO(BaseTestRunner):
         qfit.structure = qfit.structure.extract("resi", (-3, -2), "==")
         assert (len(list(qfit.structure.single_conformer_residues))) == 2
 
+    @pytest.mark.skip(reason="Slow and redundant with test_structure.py")
     @pytest.mark.slow
     def test_four_digit_residues(self):
         """Check if 4 digit residues are read correctly"""
@@ -107,6 +111,9 @@ class TestQFitModelIO(BaseTestRunner):
         qfit.structure = qfit.structure.extract("resi", (1024, 1025), "==")
         assert (len(list(qfit.structure.single_conformer_residues))) == 2
 
+    # XXX unclear what this is actually testing
+    @pytest.mark.skip(reason="Slow and redundant with test_structure.py")
+    @pytest.mark.slow
     def test_hetatm_in_between_atoms(self):
         """Read PDB file with HETATM record appearing in between ATOM records"""
         args = [

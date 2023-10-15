@@ -1,75 +1,36 @@
-import copy
 import itertools
 
+from scitbx.array_family import flex
 import numpy as np
 
 from .base_structure import BaseStructure, BaseMonomer
-from .pdbfile import ANISOU_FIELDS, read_pdb_or_mmcif
+from .pdbfile import (read_pdb_or_mmcif,
+                      get_pdb_hierarchy,
+                      load_atoms_from_labels)
 from .ligand import Ligand
 from .residue import Residue, RotamerResidue, residue_type
 from .rotamers import ROTAMERS
-from qfit.xtal.unitcell import UnitCell
 from qfit.utils.normalize_to_precision import normalize_to_precision
 
 
 class Structure(BaseStructure):
     """Class with access to underlying PDB hierarchy."""
 
-    def __init__(self, data, **kwargs):
-        for attr in self.REQUIRED_ATTRIBUTES:
-            if attr not in data:
-                raise ValueError(
-                    f"Not all attributes are given to " f"build the structure: {attr}"
-                )
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
         self._dist2_matrix = None
-        super().__init__(data, **kwargs)
         self._chains = []
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
 
     @staticmethod
     def fromfile(fname):
-        pdb_in = read_pdb_or_mmcif(fname)
-        dd = pdb_in.coor
-        data = {}
-        for attr, array in dd.items():
-            if attr in "xyz":
-                continue
-            data[attr] = np.asarray(array)
-        coor = np.asarray(list(zip(dd["x"], dd["y"], dd["z"])), dtype=np.float64)
-
-        dl = pdb_in.link
-        link_data = {}
-        for attr, array in dl.items():
-            link_data[attr] = np.asarray(array)
-
-        data["coor"] = coor
-        # Add an active array, to check for collisions and density creation.
-        data["active"] = np.ones(len(dd["x"]), dtype=bool)
-        if pdb_in.anisou:
-            natoms = len(data["record"])
-            anisou = np.zeros((natoms, 6), float)
-            anisou_atomid = pdb_in.anisou["atomid"]
-            n = 0
-            nanisou = len(anisou_atomid)
-            for i, atomid in enumerate(pdb_in.coor["atomid"]):
-                if n < nanisou and atomid == anisou_atomid[n]:
-                    anisou[i] = [pdb_in.anisou[u][n] for u in ANISOU_FIELDS]
-                    n += 1
-            for n, key in enumerate(ANISOU_FIELDS):
-                data[key] = anisou[:, n]
-
-        unit_cell = None
-        if pdb_in.crystal_symmetry:
-            spg = pdb_in.crystal_symmetry.space_group_info()
-            uc = pdb_in.crystal_symmetry.unit_cell()
-            values = list(uc.parameters()) + [spg.type().lookup_symbol()]
-            unit_cell = UnitCell(*values)
-
+        pdb_inp, link_data, file_format = read_pdb_or_mmcif(fname)
+        pdb_hierarchy = get_pdb_hierarchy(pdb_inp)
         return Structure(
-            data,
+            pdb_hierarchy.atoms(),
+            pdb_hierarchy,
             link_data=link_data,
-            crystal_symmetry=pdb_in.crystal_symmetry,
-            unit_cell=unit_cell,
-            file_format=pdb_in.file_format,
+            crystal_symmetry=pdb_inp.crystal_symmetry(),
+            file_format=file_format,
         )
 
     @staticmethod
@@ -99,14 +60,6 @@ class Structure(BaseStructure):
         if not self._chains:
             self._build_hierarchy()
         return f"Structure: {self.natoms} atoms"
-
-    @property
-    def atoms(self):
-        indices = self._selection
-        if indices is None:
-            indices = range(self.natoms)
-        for index in indices:
-            yield _Atom(self._data, index)
 
     @property
     def chains(self):
@@ -152,7 +105,11 @@ class Structure(BaseStructure):
         self._chains = []
         for chainid in chainids:
             selection = self.select("chain", chainid)
-            chain = _Chain(self._data, selection=selection, parent=self, chainid=chainid)
+            chain = _Chain(self._atoms,
+                           self._pdb_hierarchy,
+                           selection=selection,
+                           parent=self,
+                           chainid=chainid)
             self._chains.append(chain)
 
     def collapse_backbone(self, resid, chainid):
@@ -165,23 +122,26 @@ class Structure(BaseStructure):
         altlocs = sorted(list(set(conformers.altloc)))
         altloc_keep = altlocs[0]
         altlocs_remove = altlocs[1:]
-        remove_mask = (
-            (self._data["resi"] == resid)
-            & (self._data["chain"] == chainid)
-            & np.isin(self._data["name"], ["CA", "C", "N", "O", "H", "HA"])
-            & np.isin(self._data["altloc"], altlocs_remove)
-        )
-        keep_mask = (
-            (self._data["resi"] == resid)
-            & (self._data["chain"] == chainid)
-            & np.isin(self._data["name"], ["CA", "C", "N", "O"])
-            & np.isin(self._data["altloc"], altloc_keep)
-        )
-        keep_mask = keep_mask[~remove_mask]
-        new_structure = self.get_selected_structure(~remove_mask)
-        new_structure.set_altloc("", keep_mask)
-        new_structure.set_occupancies(1.0, keep_mask)
-        return new_structure
+        if len(altlocs_remove) == 0:
+            return self.copy()
+        altlocs_sel_str = " or ".join([f"altloc {a}" for a in altlocs_remove])
+        remove_sel_str = f"{sel_str} and (name CA or name C or name O or name N or name H or name HA) and ({altlocs_sel_str})"
+        remove_mask = self._selection_cache.selection(remove_sel_str)
+        keep_sel_str = f"{sel_str} and (name CA or name C or name O or name N) and altloc '{altloc_keep}'"
+        keep_mask = self._selection_cache.selection(keep_sel_str)
+        keep_sel = keep_mask.select(~remove_mask).iselection()
+        atoms = self.get_selected_atoms((~remove_mask).iselection())
+        # FIXME This should manipulate the hierarchy directly instead of
+        # using the atom label objects
+        atom_labels = [a.fetch_labels() for a in atoms]
+        for i_seq in keep_sel:
+            atom_labels[i_seq].set_occ(1.0)
+            atom_labels[i_seq].altloc = ""
+        new_hierarchy = get_pdb_hierarchy(load_atoms_from_labels(atom_labels))
+        return Structure(new_hierarchy.atoms(),
+                         new_hierarchy,
+                         selection=None,
+                         **self._kwargs)
 
     def set_backbone_occ(self):
         """
@@ -191,13 +151,18 @@ class Structure(BaseStructure):
         BACKBONE_ATOMS = ["CA", "C", "N", "O", "H", "HA"]
         BACKBONE_ATOMS_GLY = ["CA", "C", "N", "H", "HA"]
         if self.resn[0] == "GLY":
-            mask_backbone = np.isin(self.name, BACKBONE_ATOMS_GLY)
+            atom_names = BACKBONE_ATOMS_GLY
         else:
-            mask_backbone = np.isin(self.name, BACKBONE_ATOMS)
+            atom_names = BACKBONE_ATOMS
+        backbone_sel_str = " or ".join([f"name {a}" for a in atom_names])
+        mask_backbone = self.get_atom_selection(backbone_sel_str)
         mask_nonbackbone = ~mask_backbone
+        if self._selection is not None:
+            mask_backbone = mask_backbone.select(self._selection)
+            mask_nonbackbone = mask_nonbackbone.select(self._selection)
         new_structure = self.copy()
-        new_structure.set_occupancies(0.0, mask_backbone)
-        new_structure.set_occupancies(1.0, mask_nonbackbone)
+        new_structure.set_occupancies(0.0, mask_backbone.iselection())
+        new_structure.set_occupancies(1.0, mask_nonbackbone.iselection())
         return new_structure
 
     def reorder(self):
@@ -231,30 +196,28 @@ class Structure(BaseStructure):
         Returns a copy of the structure with normalized occupancies.
         """
         assert self._selection is None
-        multiconformer = copy.deepcopy(self)
+        multiconformer = self.copy()
         for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
                 mask = None
+                base_sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]}"
                 if len(altlocs) == 1:  # confirm occupancy = 1
-                    mask = (self._data["resi"] == residue.resi[0]) & (
-                        self._data["chain"] == residue.chain[0]
-                    )
-                    multiconformer.set_altloc("", mask)
-                    multiconformer.set_occupancies(1.0, mask)
+                    mask = self.get_atom_selection(base_sel_str)
+                    multiconformer.set_altloc("", mask.iselection())
+                    multiconformer.set_occupancies(1.0, mask.iselection())
                 else:
                     new_occ = []
                     if "" in altlocs and len(altlocs) > 1:
-                        mask = (
-                            (self._data["resi"] == residue.resi[0])
-                            & (self._data["chain"] == residue.chain[0])
-                            & (self._data["altloc"] == "")
-                        )
-                        multiconformer.set_altloc("", mask)
-                        multiconformer.set_occupancies(1.0, mask)
+                        sel_str = f"{base_sel_str} and altloc ''"
+                        mask = self.get_atom_selection(sel_str)
+                        multiconformer.set_altloc("", mask.iselection())
+                        multiconformer.set_occupancies(1.0, mask.iselection())
                         altlocs.remove("")
-                    sel_str = f"resi {residue.resi[0]} and chain {residue.chain[0]} and altloc "
-                    conformers = [self.extract(sel_str + x) for x in altlocs]
+                    conformers = []
+                    for altloc in altlocs:
+                        sel_str = f"{base_sel_str} and altloc {altloc}"
+                        conformers.append(self.extract(sel_str))
                     alt_sum = 0
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
@@ -269,33 +232,25 @@ class Structure(BaseStructure):
                             np.array(new_occ), 2
                         )  # deal with imprecision
                     for i in range(0, len(new_occ)):
-                        mask = (
-                            (self._data["resi"] == residue.resi[0])
-                            & (self._data["chain"] == residue.chain[0])
-                            & (self._data["altloc"] == altlocs[i])
-                        )
-                        multiconformer.set_occupancies(new_occ[i], mask)
+                        sel_str = f"{base_sel_str} and altloc {altlocs[i]}"
+                        mask = self.get_atom_selection(sel_str)
+                        multiconformer.set_occupancies(new_occ[i], mask.iselection())
         return multiconformer
 
     def _remove_conformer(self, resi, chain, altloc_keep, altloc_remove):
-        keep_mask = (
-            (self._data["resi"] == resi)
-            & (self._data["chain"] == chain)
-            & (self._data["altloc"] == altloc_keep)
-        )
-        remove_mask = (
-            (self._data["resi"] == resi)
-            & (self._data["chain"] == chain)
-            & (self._data["altloc"] == altloc_remove)
-        )
+        keep_sel_str = f"resi {resi} and chain {chain} and altloc {altloc_keep}"
+        remove_sel_str = f"resi {resi} and chain {chain} and altloc {altloc_remove}"
+        keep_mask = self.get_atom_selection(keep_sel_str)
+        remove_mask = self.get_atom_selection(remove_sel_str)
         new_structure = self.copy()
         occ = new_structure.q
         new_structure.set_occupancies(occ[keep_mask] + occ[remove_mask],
-                                      keep_mask)
-        return new_structure.get_selected_structure(~remove_mask)
+                                      keep_mask.iselection())
+        final_sel = (~remove_mask).iselection()
+        return new_structure.get_selected_structure(final_sel)
 
     def remove_identical_conformers(self, rmsd_cutoff=0.01):
-        multiconformer = copy.deepcopy(self)
+        multiconformer = self.copy()
         for chain in multiconformer:
             for residue in chain:
                 altlocs = list(set(residue.altloc))
@@ -328,9 +283,17 @@ class Structure(BaseStructure):
                                 removed_conformers.append(conf_b.altloc[0])
         return multiconformer
 
+    def _get_non_hetero_structure(self):
+        atom_sel = self._selection_cache.selection("not hetero")
+        if self._selection is not None:
+            sel_mask = flex.bool(atom_sel.size(), False)
+            sel_mask.set_selected(self._selection, True)
+            atom_sel = atom_sel & sel_mask
+        return self.get_selected_structure(atom_sel.iselection())
+
     def _n_residue_conformers(self):
         total_altlocs = 0
-        for rg in self.extract("record", "ATOM").residue_groups:
+        for rg in self._get_non_hetero_structure().residue_groups:
             altlocs = set(rg.altloc)
             if "" in altlocs and len(altlocs) > 1:
                 altlocs.remove("")
@@ -346,7 +309,7 @@ class Structure(BaseStructure):
             int
         """
         # FIXME this is very inefficient
-        residue_groups = self.extract("record", "ATOM").residue_groups
+        residue_groups = self._get_non_hetero_structure().residue_groups
         return sum(1 for _ in residue_groups)
 
     def average_conformers(self):
@@ -393,7 +356,7 @@ class Structure(BaseStructure):
         self._dist2_matrix = np.empty(self._ndistances, float)
 
         # All atoms are active from the start
-        self.active = np.ones(self.natoms, bool)
+        self.set_active()
         self._active_mask = np.ones(self._ndistances, bool)
 
     def clashes(self):
@@ -431,13 +394,14 @@ class Structure(BaseStructure):
             diffs = neighbors.coor - np.array(coor)
             dists = np.linalg.norm(diffs, axis=1)
             mask = np.logical_or(mask, dists < distance)
-        return neighbors.copy().get_selected_structure(mask).with_symmetry(
+        sel = flex.bool(mask).iselection()
+        return neighbors.copy().get_selected_structure(sel).with_symmetry(
             self.crystal_symmetry)
 
 
 class _Chain(BaseStructure):
-    def __init__(self, data, **kwargs):
-        super().__init__(data, **kwargs)
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
         self.id = kwargs["chainid"]
         self._residue_groups = []
         self._conformers = []
@@ -510,7 +474,12 @@ class _Chain(BaseStructure):
             selection = self.select("resi", resi)
             selection = np.intersect1d(selection, self.select("icode", icode))
             residue_group = ResidueGroup(
-                self._data, selection=selection, parent=self, resi=resi, icode=icode
+                self._atoms,
+                self._pdb_hierarchy,
+                selection=selection,
+                parent=self,
+                resi=resi,
+                icode=icode
             )
             self._residue_groups.append(residue_group)
             self._residue_group_ids.append((resi, icode))
@@ -526,12 +495,16 @@ class _Chain(BaseStructure):
                 altloc_selection = self.select("altloc", altloc)
                 selection = np.union1d(main_selection, altloc_selection)
                 conformer = _Conformer(
-                    self._data, selection=selection, parent=self, altloc=altloc
+                    self._atoms,
+                    self._pdb_hierarchy,
+                    selection=selection, parent=self, altloc=altloc
                 )
                 self._conformers.append(conformer)
         else:
             conformer = _Conformer(
-                self._data, selection=self._selection, parent=self, altloc=""
+                self._atoms,
+                self._pdb_hierarchy,
+                selection=self._selection, parent=self, altloc=""
             )
             self._conformers.append(conformer)
 
@@ -540,8 +513,8 @@ class ResidueGroup(BaseMonomer):
 
     """Guarantees a group with similar resi and icode."""
 
-    def __init__(self, data, **kwargs):
-        super().__init__(data, **kwargs)
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
         self.id = (kwargs["resi"], kwargs["icode"])
         self._atom_groups = []
 
@@ -566,7 +539,9 @@ class ResidueGroup(BaseMonomer):
                     selection, altloc_selection, assume_unique=True
                 )
             atom_group = _AtomGroup(
-                self._data, selection=selection, parent=self, resn=resn, altloc=altloc
+                self._atoms,
+                self._pdb_hierarchy,
+                selection=selection, parent=self, resn=resn, altloc=altloc
             )
             self._atom_groups.append(atom_group)
 
@@ -579,8 +554,8 @@ class ResidueGroup(BaseMonomer):
 
 
 class _AtomGroup(BaseStructure):
-    def __init__(self, data, **kwargs):
-        super().__init__(data, **kwargs)
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
         self.id = (kwargs["resn"], kwargs["altloc"])
 
     def __repr__(self):
@@ -588,35 +563,12 @@ class _AtomGroup(BaseStructure):
         return string
 
 
-class _Atom:
-    def __init__(self, data, index):
-        self.index = index
-        # FIXME
-        for attr, array in data.items():
-            hattr = "_" + attr
-            setattr(self, hattr, array)
-            prop = self._atom_property(hattr)
-            setattr(_Atom, attr, prop)
-
-    def _atom_property(self, property_name, docstring=None):
-        def getter(self):
-            return self.__getattribute__(property_name)[self.index]
-
-        def setter(self, value):
-            getattr(self, property_name)[self.index] = value
-
-        return property(getter, setter, doc=docstring)
-
-    def __repr__(self):
-        return f"Atom: {self.index}"
-
-
 class _Conformer(BaseStructure):
 
     """Guarantees a single consistent conformer."""
 
-    def __init__(self, data, **kwargs):
-        super().__init__(data, **kwargs)
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
         self.id = kwargs["altloc"]
         self._residues = []
         self._segments = []
@@ -684,7 +636,8 @@ class _Conformer(BaseStructure):
             else:
                 continue
             residue = monomer_class(
-                self._data,
+                self._atoms,
+                self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
                 resi=resi,
@@ -734,7 +687,9 @@ class _Conformer(BaseStructure):
                 selections = [residue.selection for residue in segment]
                 selection = np.concatenate(selections)
                 segment = Segment(
-                    self._data, selection=selection, parent=self, residues=segment
+                    self._atoms,
+                    self._pdb_hierarchy,
+                    selection=selection, parent=self, residues=segment
                 )
                 self._segments.append(segment)
 
@@ -744,8 +699,8 @@ class Segment(BaseStructure):
     """Class that guarantees connected residues and allows
     backbone rotations."""
 
-    def __init__(self, data, **kwargs):
-        super().__init__(data, **kwargs)
+    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+        super().__init__(atoms, pdb_hierarchy, **kwargs)
         self.residues = kwargs["residues"]
 
     def __contains__(self, residue):
@@ -764,7 +719,8 @@ class Segment(BaseStructure):
                 selections.append(residue.selection)
             selection = np.concatenate(selections)
             return Segment(
-                self._data,
+                self._atoms,
+                self._pdb_hierarchy,
                 selection=selection,
                 parent=self.parent,
                 residues=residues
@@ -792,7 +748,8 @@ class Segment(BaseStructure):
 
     @staticmethod
     def from_structure(structure, selection, residues):
-        return Segment(structure._data,  # pylint: disable=protected-access
+        return Segment(structure._atoms,  # pylint: disable=protected-access
+                       structure._pdb_hierarchy,  # pylint: disable=protected-access
                        selection=selection,
                        parent=structure,
                        residues=residues)
@@ -853,7 +810,7 @@ def _get_residue_group_atom_order(rg):
                 residue_ordering.append(index)
             except ValueError:
                 continue
-        return rg.selection[residue_ordering]
+        return rg.selection.select(flex.size_t(residue_ordering))
     else:
         atoms_per_altloc = []
         zip_atoms = True
@@ -875,7 +832,7 @@ def _get_residue_group_atom_order(rg):
                     residue_ordering.append(index)
                 except ValueError:
                     continue
-            residue_ordering = altconf.selection[residue_ordering]
+            residue_ordering = altconf.selection.select(flex.size_t(residue_ordering))
             residue_orderings.append(residue_ordering)
         if (
             zip_atoms
