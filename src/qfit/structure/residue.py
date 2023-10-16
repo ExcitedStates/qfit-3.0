@@ -430,24 +430,19 @@ class RotamerResidue(_BaseResidue):
         Returns:
             np.ndarray[float, shape=(3,): coords of atom
         """
+        print(i, j, k, L, sig_L, theta, sig_theta, chi)
         # We will try these parameters
-        theta_options_larger = np.sum(
-            np.linspace(theta, theta + sig_theta, 5, endpoint=False, retstep=True)
-        )
-        theta_options_smaller = np.sum(
-            np.linspace(theta, theta - sig_theta, 5, endpoint=False, retstep=True)
-        )
+        step_size = sig_theta / 5
+        theta_options_larger = np.linspace(theta, theta + sig_theta, 5, endpoint=False) + step_size
+        theta_options_smaller = np.linspace(theta, theta - sig_theta, 5, endpoint=False) - step_size
         theta_options = [
             theta,
             *np.ravel(list(zip(theta_options_larger, theta_options_smaller))),
         ]
 
-        L_options_larger = np.sum(
-            np.linspace(L, L + sig_L, 5, endpoint=False, retstep=True)
-        )
-        L_options_smaller = np.sum(
-            np.linspace(L, L - sig_L, 5, endpoint=False, retstep=True)
-        )
+        L_step_size = sig_L / 5
+        L_options_larger = np.linspace(L, L + sig_L, 5, endpoint=False) + L_step_size
+        L_options_smaller = np.linspace(L, L - sig_L, 5, endpoint=False) - L_step_size
         L_options = [L, *np.ravel(list(zip(L_options_larger, L_options_smaller)))]
 
         tries = itl.product(theta_options, L_options)

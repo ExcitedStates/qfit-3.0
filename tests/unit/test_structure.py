@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from qfit.structure import Structure
+from qfit.structure.residue import RotamerResidue
 from qfit.structure.pdbfile import write_pdb
 
 from .base_test_case import UnitBase
@@ -594,6 +595,18 @@ class TestStructureResidue(StructureUnitBase):
         super().setUp()
         ara_single_file = op.join(self.DATA, "ARA_single.pdb")
         self._STRUCTURE_ARA_SINGLE = Structure.fromfile(ara_single_file)
+
+    def test_structure_residue_calc_coordinates(self):
+        i = np.array([1.829, 3.56,  3.636])
+        j = np.array([3.202, 3.355, 3.193])
+        k = np.array([3.316, 3.59,  1.694])
+        L = 1.52
+        sigL = 0.03
+        theta = 1.9914
+        sig_theta = 0.035
+        chi = 1.082
+        xyz = RotamerResidue.calc_coordinates(i, j, k, L, sigL, theta, sig_theta, chi)
+        np.testing.assert_array_almost_equal(xyz, [2.96822105, 5.00438571, 1.25930142])
 
     def test_structure_residue_tyrosine_monomer(self):
         s = self._STRUCTURE_TYROSINE.copy()
