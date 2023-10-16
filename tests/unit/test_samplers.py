@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from qfit.samplers import (BackboneRotator,
+                           BisectingAngleRotator,
                            BondRotator,
                            CBAngleRotator,
                            ChiRotator,
@@ -133,3 +134,12 @@ class TestSamplers(UnitBase):
         assert np.all((np.abs(s.coor - s_orig.coor) > 0.01)[2])  # C3 atom
         lig.coor = br(0)
         assert s.rmsd(s_orig) == pytest.approx(0, abs=1e-15)
+
+    def test_samplers_bisecting_angle_rotator(self):
+        s = self._STRUCTURE_AKA_SINGLE.copy()
+        s_orig = s.copy()
+        res = s.chains[0].conformers[0].segments[0].residues[1]
+        bar = BisectingAngleRotator(res)
+        bar(10)
+        res_orig = s_orig.chains[0].conformers[0].segments[0].residues[1]
+        assert res_orig.rmsd(res) == pytest.approx(0.39955, abs=0.00001)

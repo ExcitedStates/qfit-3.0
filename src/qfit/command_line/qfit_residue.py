@@ -15,6 +15,7 @@ from qfit.logtools import setup_logging, log_run_info
 from qfit.qfit import (QFitOptions, QFitRotamericResidue)
 from qfit.structure import residue_type
 
+
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 

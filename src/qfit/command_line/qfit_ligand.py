@@ -49,6 +49,22 @@ def build_argparser():
         help="Perform a local search",
     )
     p.add_argument(
+        "-b",
+        "--dofs-per-iteration",
+        default=2,
+        metavar="<int>",
+        type=int,
+        help="Number of internal degrees that are sampled/built per iteration",
+    )
+    p.add_argument(
+        "-s",
+        "--dihedral-stepsize",
+        default=10,
+        metavar="<float>",
+        type=float,
+        help="Stepsize for dihedral angle sampling in degrees",
+    )
+    p.add_argument(
         "-ic",
         "--intermediate-cardinality",
         default=5,

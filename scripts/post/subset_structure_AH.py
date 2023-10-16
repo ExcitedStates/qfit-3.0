@@ -62,7 +62,7 @@ def parse_args():
     return args
 
 
-class QFitMultiResOptions(QFitRotamericResidueOptions):
+class QFitMultiResOptions(QFitOptions):
     def __init__(self):
         super().__init__()
         self.ligand_start = None

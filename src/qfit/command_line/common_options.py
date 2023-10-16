@@ -9,6 +9,8 @@ from qfit.command_line.custom_argparsers import (
     ValidateMapFileArgument,
     ValidateStructureFileArgument,
 )
+from qfit.solvers import available_qp_solvers, available_miqp_solvers
+
 
 def get_base_argparser(description):
     p = argparse.ArgumentParser(
@@ -181,21 +183,21 @@ def get_base_argparser(description):
         type=float,
         help="RMSD cutoff for removal of identical conformers",
     )
+
+    # Solver options
     p.add_argument(
-        "-b",
-        "--dofs-per-iteration",
-        default=2,
-        metavar="<int>",
-        type=int,
-        help="Number of internal degrees that are sampled/built per iteration",
+        "--qp-solver",
+        dest="qp_solver",
+        choices=available_qp_solvers.keys(),
+        default=next(iter(available_qp_solvers.keys())),
+        help="Select the QP solver",
     )
     p.add_argument(
-        "-s",
-        "--dihedral-stepsize",
-        default=10,
-        metavar="<float>",
-        type=float,
-        help="Stepsize for dihedral angle sampling in degrees",
+        "--miqp-solver",
+        dest="miqp_solver",
+        choices=available_miqp_solvers.keys(),
+        default=next(iter(available_miqp_solvers.keys())),
+        help="Select the MIQP solver",
     )
 
     # Output options

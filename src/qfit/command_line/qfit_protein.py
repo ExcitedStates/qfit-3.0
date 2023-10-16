@@ -37,7 +37,6 @@ def build_argparser():
         dest="em",
         help="Run qFit with EM options",
     )
-
     p.add_argument(
         "-sb",
         "--no-sampling-b",
@@ -114,9 +113,25 @@ def build_argparser():
         help="Sample sidechain rotamers",
     )
     p.add_argument(
+        "-b",
+        "--dofs-per-iteration",
+        default=1,
+        metavar="<int>",
+        type=int,
+        help="Number of internal degrees that are sampled/built per iteration",
+    )
+    p.add_argument(
+        "-s",
+        "--dihedral-stepsize",
+        default=6,
+        metavar="<float>",
+        type=float,
+        help="Stepsize for dihedral angle sampling in degrees",
+    )
+    p.add_argument(
         "-rn",
         "--rotamer-neighborhood",
-        default=60,
+        default=24,
         metavar="<float>",
         type=float,
         help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]",

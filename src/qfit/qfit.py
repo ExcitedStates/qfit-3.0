@@ -11,10 +11,10 @@ import tqdm
 from .backbone import NullSpaceOptimizer
 from .phenix_refine import run_phenix_aniso
 from .relabel import RelabellerOptions, Relabeller
-from .samplers import ChiRotator, CBAngleRotator, BondRotator
+from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
 from .samplers import GlobalRotator
 from .samplers import RotationSets, Translator
-from .solvers import QPSolver, MIQPSolver, SolverError
+from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
 from .structure import Structure, Segment, calc_rmsd
 from .structure.clash import ClashDetector
 from .structure.ligand import BondOrder
@@ -29,11 +29,7 @@ from .xtal.volume import XMap
 logger = logging.getLogger(__name__)
 
 MIQPSolutionStats = namedtuple(
-    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
-)
-
-MIQPSolutionStats = namedtuple(
-    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective", "weights"]
+    "MIQPSolutionStats", ["threshold", "BIC", "rss", "objective_value", "weights"]
 )
 
 DEFAULT_RMSD_CUTOFF = 0.01
@@ -73,13 +69,14 @@ class QFitOptions:
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-        self.dofs_per_iteration = 2
-        self.dihedral_stepsize = 10
+        self.dofs_per_iteration = 1 
+        self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = DEFAULT_RMSD_CUTOFF
 
         # MIQP options
-        self.cplex = True
+        self.qp_solver = None
+        self.miqp_solver = None
         self.cardinality = 5
         self.threshold = 0.20
         self.bic_threshold = True
@@ -103,7 +100,7 @@ class QFitOptions:
 
         # Rotamer sampling
         self.sample_rotamers = True
-        self.rotamer_neighborhood = 60  # Was 80 in QFitCovalentLigandOptions
+        self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
 
         # Anisotropic refinement using phenix
@@ -140,6 +137,8 @@ class QFitOptions:
 
 class _BaseQFit(ABC):
     def __init__(self, conformer, structure, xmap, options, reset_q=True):
+        assert options.qp_solver is not None
+        assert options.miqp_solver is not None
         self.options = options
         self._set_data(conformer, structure, xmap, reset_q=reset_q)
         if self.options.em == True:
@@ -300,37 +299,35 @@ class _BaseQFit(ABC):
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
-        solver = QPSolver(self._target,
-                          self._models,
-                          use_cplex=self.options.cplex)
-        solver.solve()  # pylint: disable=no-member
+        qp_solver_class = get_qp_solver_class(self.options.qp_solver)
+        solver = qp_solver_class(self._target, self._models)
+        solver.solve_qp()
 
         # Update occupancies from solver weights
         self._occupancies = solver.weights  # pylint: disable=no-member
 
         # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-        return solver.obj_value  # pylint: disable=no-member
+        return solver.objective_value
 
     def _solve_miqp(
         self,
         cardinality,
         threshold,
-        loop_range=(0.5, 0.4, 0.33, 0.3, 0.25, 0.2),
+        loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
         segment=None,
     ):
         # set loop range differently for EM
         if self.options.em:
-            loop_range = [0.5, 0.33, 0.25]
+            loop_range = [1.0, 0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
 
         # Create solver
         logger.info("Solving MIQP")
-        solver = MIQPSolver(self._target,
-                            self._models,
-                            use_cplex=self.options.cplex)
+        miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
+        solver = miqp_solver_class(self._target, self._models)
 
         # Threshold selection by BIC:
         if do_BIC_selection:
@@ -338,15 +335,15 @@ class _BaseQFit(ABC):
             # to determine if the better fit (RSS) justifies the use of a more complex model (k)
             miqp_solutions = []
             for threshold in loop_range:
-                solver.solve(cardinality=None, threshold=threshold)  # pylint: disable=no-member
-                rss = solver.obj_value * self._voxel_volume  # pylint: disable=no-member
+                solver.solve_miqp(cardinality=None, threshold=threshold)
+                rss = solver.objective_value * self._voxel_volume
                 n = len(self._target)
                 natoms = self._coor_set[0].shape[0]
                 nconfs = np.sum(solver.weights >= MIN_OCCUPANCY)  # pylint: disable=no-member
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
-                # 0.95 hyperparameter in put in here since we are almost always
-                # over penalizing
-                k = model_params_per_atom * natoms * nconfs * 0.95
+                k = (
+                    model_params_per_atom * natoms * nconfs * 1.5
+                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
@@ -354,8 +351,8 @@ class _BaseQFit(ABC):
                     threshold=threshold,
                     BIC=BIC,
                     rss=rss,
-                    objective=solver.obj_value.copy(),  # pylint: disable=no-member
-                    weights=solver.weights.copy(),  # pylint: disable=no-member
+                    objective_value=solver.objective_value.copy(),
+                    weights=solver.weights.copy(),
                 )
                 miqp_solutions.append(solution)
 
@@ -363,15 +360,15 @@ class _BaseQFit(ABC):
             miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol.BIC)
             self._occupancies = miqp_solution_lowest_bic.weights  # pylint: disable=no-member
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-            return miqp_solution_lowest_bic.objective  # pylint: disable=no-member
+            return miqp_solution_lowest_bic.objective_value
 
         else:
             # Run solver with specified parameters
-            solver.solve(cardinality=cardinality, threshold=threshold)  # pylint: disable=no-member
+            solver.solve_miqp(cardinality=cardinality, threshold=threshold)
             # Update occupancies from solver weights
             self._occupancies = solver.weights  # pylint: disable=no-member
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-            return solver.obj_value  # pylint: disable=no-member
+            return solver.objective_value
 
     def sample_b(self):
         """Create copies of conformers that vary in B-factor.
@@ -919,7 +916,7 @@ class QFitRotamericResidue(_BaseQFit):
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -959,20 +956,29 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            rotator = CBAngleRotator(self.residue)
-            for angle in angles:
-                rotator(angle)
-                coor = self.residue.coor
+            # Initialize rotator 
+            perp_rotator = CBAngleRotator(self.residue)
+            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
+            for perp_angle in angles:
+                perp_rotator(perp_angle)
+                coor_rotated = self.residue.coor
+                # Initialize rotator
+                bisec_rotator = BisectingAngleRotator(self.residue)
+                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
+                for bisec_angle in angles:
+                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
+                    bisec_rotator(bisec_angle)
+                    coor = self.residue.coor
 
-                # Move on if these coordinates are unsupported by density, or
-                # if they cause a clash
-                if (self.is_conformer_below_cutoff(coor, active_mask) or
-                    self.is_clashing()):
-                    continue
+                    # Move on if these coordinates are unsupported by density,
+                    # or if they cause a clash
+                    if (self.is_conformer_below_cutoff(coor, active_mask) or
+                        self.is_clashing()):
+                        continue
 
-                # Valid, non-clashing conformer found!
-                new_coor_set.append(self.residue.coor)
-                new_bs.append(self.conformer.b)
+                    # Valid, non-clashing conformer found!
+                    new_coor_set.append(self.residue.coor)
+                    new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
@@ -989,10 +995,6 @@ class QFitRotamericResidue(_BaseQFit):
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
-        new_bs = []
-        for b in self._bs:
-            new_bs.append(b)
-        self._bs = new_bs
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):

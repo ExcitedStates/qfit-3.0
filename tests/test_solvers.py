@@ -1,29 +1,158 @@
+import inspect
+
+import numpy as np
 import pytest
+from numpy.typing import NDArray
 
-from qfit.solvers import (QPSolver, MIQPSolver)
+import qfit.solvers
+from qfit.solvers import (
+    available_miqp_solvers,
+    available_qp_solvers,
+    get_miqp_solver_class,
+    get_qp_solver_class,
+)
 
 
-def setup_module(module):  # pylint: disable=unused-argument
-    import qfit.solvers
+def test_missing_solvers() -> None:
+    with pytest.raises(KeyError):
+        get_qp_solver_class("NotASolver")
+    with pytest.raises(KeyError):
+        get_miqp_solver_class("NotASolver")
 
-    # Manually set CPLEX to False
-    # in this module ONLY
-    qfit.solvers.CPLEX = False
+
+def test_get_qp_solver() -> None:
+    qp_solver_class = get_qp_solver_class(next(iter(available_qp_solvers.keys())))
+    assert inspect.isclass(qp_solver_class)
+    assert issubclass(qp_solver_class, qfit.solvers.QPSolver)
 
 
-class TestForcedNoSolvers:
-    # QPSolver.__new__ should raise ImportError
-    # when CPLEX flags are false
-    def test_QPSolvers_fail(self):
-        with pytest.raises(ImportError):
-            QPSolver(None, None, use_cplex=False)
-        with pytest.raises(ImportError):
-            QPSolver(None, None, use_cplex=True)
+def test_get_miqp_solver() -> None:
+    miqp_solver_class = get_qp_solver_class(next(iter(available_miqp_solvers.keys())))
+    assert inspect.isclass(miqp_solver_class)
+    assert issubclass(miqp_solver_class, qfit.solvers.MIQPSolver)
 
-    # MIQPSolver.__new__ should raise ImportError
-    # when CPLEX flags are false
-    def test_MIQPSolvers_fail(self):
-        with pytest.raises(ImportError):
-            MIQPSolver(None, None, use_cplex=False)
-        with pytest.raises(ImportError):
-            MIQPSolver(None, None, use_cplex=True)
+
+@pytest.mark.parametrize("solver_class", available_qp_solvers.values())
+class TestQPSolver:
+    target = np.array([2.0, 3.0, 7.0])
+    models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+    def test_qp_solver(self, solver_class: type[qfit.solvers.QPSolver]) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_qp()
+
+        assert np.allclose(solver.weights, [1 / 3, 1 / 3, 1 / 3], atol=1e-3)
+        assert np.isclose(solver.objective_value, 0.0, atol=1e-6)
+
+
+@pytest.mark.parametrize("solver_class", available_miqp_solvers.values())
+class TestMIQPSolver:
+    target = np.array([2.0, 3.0, 7.0])
+    models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+    def expected_objective(self, expected_weights: NDArray[np.float_]) -> float:
+        return np.sum(np.square(np.inner(self.models, expected_weights) - self.target))
+
+    def test_miqp_solver_with_threshold(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(threshold=0.4)
+
+        expected_weights = np.array([0.0, 0.4, 0.4])
+        expected_objective = self.expected_objective(expected_weights)
+
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_cardinality_3(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(cardinality=3)
+
+        expected_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+        expected_objective = 0.0
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_cardinality_2(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(cardinality=2)
+
+        expected_weights = np.array([0.0, 1 / 3, 1 / 3])
+        expected_objective = self.expected_objective(expected_weights)
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_cardinality_1(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(cardinality=1)
+
+        expected_weights = np.array([0.0, 0.0, 1 / 3])
+        expected_objective = self.expected_objective(expected_weights)
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_threshold_and_cardinality_1(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(threshold=0.4, cardinality=1)
+
+        expected_weights = np.array([0.0, 0.0, 0.4])
+        expected_objective = self.expected_objective(expected_weights)
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+
+@pytest.mark.parametrize("solver_class", available_miqp_solvers.values())
+class TestMIQPSolverReuse:
+    target = np.array([2.0, 3.0, 7.0])
+    models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+    @pytest.fixture
+    def solver(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> qfit.solvers.MIQPSolver:
+        """Instantiate a solver within the scope of this class, to be re-used."""
+        return solver_class(self.target, self.models)
+
+    def expected_objective(self, expected_weights: NDArray[np.float_]) -> float:
+        return np.sum(np.square(np.inner(self.models, expected_weights) - self.target))
+
+    def test_miqp_solver_with_threshold_and_cardinality_1(
+        self, solver_class: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver = solver_class(self.target, self.models)
+        solver.solve_miqp(threshold=0.4, cardinality=1)
+
+        expected_weights = np.array([0.0, 0.0, 0.4])
+        expected_objective = self.expected_objective(expected_weights)
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_cardinality_1(
+        self, solver: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver.solve_miqp(cardinality=1)
+
+        expected_weights = np.array([0.0, 0.0, 1 / 3])
+        expected_objective = self.expected_objective(expected_weights)
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+
+    def test_miqp_solver_with_threshold(
+        self, solver: type[qfit.solvers.MIQPSolver]
+    ) -> None:
+        solver.solve_miqp(threshold=0.4)
+
+        expected_weights = np.array([0.0, 0.4, 0.4])
+        expected_objective = self.expected_objective(expected_weights)
+
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)

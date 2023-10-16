@@ -257,7 +257,7 @@ class RotamerResidue(_BaseResidue):
     def _complete_residue_recursive(self, next_atom_name):
         if next_atom_name in ["N", "C", "CA", "O"]:
             msg = (
-                f"{self} is missing backbone atom {atom_name}. "
+                f"{self} is missing backbone atom {next_atom_name}. "
                 f"qFit cannot complete missing backbone atoms. "
                 f"Please complete the missing backbone atoms of "
                 f"the residue before running qFit again!"
