@@ -601,12 +601,12 @@ class QFitProtein:
         # This output is not a final qFit output, so it might confuse users.
         if self.options.debug:
             fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-            if self.structure.scale or self.structure.cryst_info:
-                multiconformer_model.tofile(
-                    fname, self.structure.scale, self.structure.cryst_info
-                )
-            else:
-                multiconformer_model.tofile(fname)
+        if self.structure.scale or self.structure.cryst_info:
+            multiconformer_model.tofile(
+            fname, self.structure.scale, self.structure.cryst_info
+            )
+        else:
+            multiconformer_model.tofile(fname)
 
         return multiconformer_model
 
