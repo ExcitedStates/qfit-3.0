@@ -601,12 +601,12 @@ class QFitProtein:
         # This output is not a final qFit output, so it might confuse users.
         if self.options.debug:
             fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-            if self.structure.scale or self.structure.cryst_info:
-                multiconformer_model.tofile(
-                    fname, self.structure.scale, self.structure.cryst_info
-                )
-            else:
-                multiconformer_model.tofile(fname)
+        if self.options.scale or self.options.cryst_info:
+            multiconformer_model.tofile(
+            fname, self.options.scale_info, self.options.cryst_info
+            )
+        else:
+            multiconformer_model.tofile(fname)
 
         return multiconformer_model
 
@@ -630,9 +630,9 @@ class QFitProtein:
         fname = os.path.join(
             self.options.directory, self.pdb + "multiconformer_model2.pdb"
         )
-        if self.structure.scale or self.structure.cryst_info:
-            multiconformer.tofile(
-                fname, self.structure.scale, self.structure.cryst_info
+        if self.options.scale or self.options.cryst_info:
+            multiconformer_model.tofile(
+            fname, self.options.scale_info, self.options.cryst_info
             )
         else:
             multiconformer.tofile(fname)
@@ -842,6 +842,8 @@ def prepare_qfit_protein(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure).reorder()
+    options.scale_info = structure.scale
+    options.cryst_info = structure.cryst_info
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
