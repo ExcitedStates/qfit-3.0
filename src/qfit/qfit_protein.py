@@ -602,7 +602,7 @@ class QFitProtein:
         if self.options.debug:
             fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
         if self.options.scale or self.options.cryst_info:
-            multiconformer.tofile(
+            multiconformer_model.tofile(
             fname, self.options.scale_info, self.options.cryst_info
             )
         else:
