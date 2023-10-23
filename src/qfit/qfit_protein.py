@@ -420,7 +420,25 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-
+            
+        if self.options.residue is not None:
+            chainid, resi = self.options.residue.split(",")
+            if ":" in resi:
+                resi, icode = resi.split(":")
+                residue_id = (int(resi), icode)
+            elif "_" in resi.residue:
+                resi, icode = reis.split("_")
+                residue_id = (int(resi), icode)
+            else:
+                residue_id = int(resi)
+                icode = ""
+                
+            # Extract the residue:
+            self.structure = structure.extract(f"resi {resi} and chain {chainid}")
+            if icode:
+                self.structure = structure_resi.extract("icode", icode)
+            multiconformer = self._run_qfit_residue_parallel()
+            
         if self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             multiconformer = self._create_refine_restraints(multiconformer)
