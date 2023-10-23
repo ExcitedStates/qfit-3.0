@@ -446,7 +446,7 @@ class QFitProtein:
 
         # Extract non-protein atoms
         hetatms = self.structure.extract("record", "HETATM", "==")
-        waters = self.structure.extract("record", "ATOM", "==")
+        waters = self.structure.extract("record", "ATOM", "==") #incase waters are coded as atoms
         waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
 
@@ -797,8 +797,11 @@ class QFitProtein:
             except ValueError:
                 pass
             for altloc in altlocs[1:]:
+                print(altloc)
                 sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+                print(sel_str)
                 sel_str = f"not ({sel_str})"
+                print(sel_str)
                 structure_new = structure_new.extract(sel_str)
 
         # Exception handling in case qFit-residue fails:
