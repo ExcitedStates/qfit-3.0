@@ -426,7 +426,7 @@ class QFitProtein:
             if ":" in resi:
                 resi, icode = resi.split(":")
                 residue_id = (int(resi), icode)
-            elif "_" in resi.residue:
+            elif "_" in resi:
                 resi, icode = reis.split("_")
                 residue_id = (int(resi), icode)
             else:
