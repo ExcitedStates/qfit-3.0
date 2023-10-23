@@ -62,6 +62,14 @@ def build_argparser():
         dest="em",
         help="Run qFit with EM options",
     )
+    p.add_argument(
+        "--residue",
+        type=str,
+        help="If selected will run qFit Residue"
+        "Chain, residue id, and optionally insertion code for "
+        "residue in structure, e.g. A,105, or A,105:A.",
+    )
+    
     # Map options
     p.add_argument(
         "-l",
