@@ -44,6 +44,7 @@ class QFitOptions:
         self.label = None
         self.qscore = None
         self.map = None
+        self.residue = None
         self.structure = None
         self.em = False
         self.scale_info = None
