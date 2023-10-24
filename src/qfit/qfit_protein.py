@@ -608,8 +608,7 @@ class QFitProtein:
                     )
                     continue
                 residue_multiconformer = Structure.fromfile(fname)
-
-                fname = os.path.join(residue.shortcode, "_qFit_residue.pdb")
+                fname = f'{residue.shortcode}_qFit_residue.pdb'
                 residue_multiconformer.tofile(fname)
 
         if self.options.residue is None:
