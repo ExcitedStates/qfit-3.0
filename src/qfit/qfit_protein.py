@@ -421,25 +421,9 @@ class QFitProtein:
         else:
             self.pdb = ""
             
-        if self.options.residue is not None:
-            chainid, resi = self.options.residue.split(",")
-            if ":" in resi:
-                resi, icode = resi.split(":")
-                residue_id = (int(resi), icode)
-            elif "_" in resi:
-                resi, icode = reis.split("_")
-                residue_id = (int(resi), icode)
-            else:
-                residue_id = int(resi)
-                icode = ""
-                
-            # Extract the residue:
-            self.structure = structure.extract(f"resi {resi} and chain {chainid}")
-            if icode:
-                self.structure = structure_resi.extract("icode", icode)
-            multiconformer = self._run_qfit_residue_parallel()
-            
-        if self.options.only_segment:
+        if self.options.residue is not None: #run qFit residue
+            multiconformer = self._run_qfit_residue_parallel()    
+        elif self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             multiconformer = self._create_refine_restraints(multiconformer)
         else:
@@ -480,11 +464,29 @@ class QFitProtein:
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
         #    And then as we re-combine HETATMs back into the multiconformer_model.
-        residues = list(
-            self.structure.extract("record", "HETATM", "!=")
+        if self.options.residue is not None:
+            chainid, resi = self.options.residue.split(",")
+            if ":" in resi:
+                resi, icode = resi.split(":")
+                residue_id = (int(resi), icode)
+            elif "_" in resi:
+                resi, icode = reis.split("_")
+                residue_id = (int(resi), icode)
+            else:
+                residue_id = int(resi)
+                icode = ""
+            # Extract the residue:
+            residues = list(self.structure.extract(f"resi {resi} and chain {chainid}")
             .extract("resn", "HOH", "!=")
             .single_conformer_residues
-        )
+            )
+            # Reattach the hetatms to the multiconformer_model
+        else:
+            residues = list(
+                self.structure.extract("record", "HETATM", "!=")
+                .extract("resn", "HOH", "!=")
+                .single_conformer_residues
+            )
 
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
