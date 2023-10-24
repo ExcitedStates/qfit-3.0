@@ -476,11 +476,12 @@ class QFitProtein:
                 residue_id = int(resi)
                 icode = ""
             # Extract the residue:
-            residues = list(self.structure.extract(f"resi {resi} and chain {chainid}")
-            .extract("resn", "HOH", "!=")
-            .single_conformer_residues
+            residues = list(
+                self.structure.extract(f"resi {resi} and chain {chainid}")
+                .extract("resn", "HOH", "!=")
+                .single_conformer_residues
             )
-            # Reattach the hetatms to the multiconformer_model
+            
         else:
             residues = list(
                 self.structure.extract("record", "HETATM", "!=")
@@ -592,7 +593,7 @@ class QFitProtein:
 
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
-        if self.options.residue is None:
+        if self.options.residue is not None:
             for residue in residues:
                 # Load the multiconformer_residue.pdb file
                 fname = os.path.join(
