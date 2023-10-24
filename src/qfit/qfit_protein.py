@@ -592,49 +592,67 @@ class QFitProtein:
 
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
-        for residue in residues:
-            # Check the residue is a rotameric residue,
-            # if not, we won't have a multiconformer_residue.pdb.
-            # Make sure to append it to the hetatms object so it stays in the final output.
-            if residue.resn[0] not in ROTAMERS:
-                hetatms = hetatms.combine(residue)
-                continue
-
-            # Load the multiconformer_residue.pdb file
-            fname = os.path.join(
-                self.options.directory,
-                residue.shortcode,
-                "multiconformer_residue.pdb",
-            )
-            if not os.path.exists(fname):
-                logger.warn(
-                    f"[{residue.shortcode}] Couldn't find {fname}! "
-                    "Will not be present in multiconformer_model.pdb!"
+        if self.options.residue is None:
+            for residue in residues:
+                # Load the multiconformer_residue.pdb file
+                fname = os.path.join(
+                    self.options.directory,
+                    residue.shortcode,
+                    "multiconformer_residue.pdb",
                 )
-                continue
-            residue_multiconformer = Structure.fromfile(fname)
+                if not os.path.exists(fname):
+                    logger.warn(
+                        f"[{residue.shortcode}] Couldn't find {fname}! "
+                        "Will not be present in multiconformer_model.pdb!"
+                    )
+                    continue
+                residue_multiconformer = Structure.fromfile(fname)
 
-            # Stitch them together
-            if multiconformer_model is None:
-                multiconformer_model = residue_multiconformer
-            else:
-                multiconformer_model = multiconformer_model.combine(
-                    residue_multiconformer
+                fname = os.path.join(self.options.directory, residue.shortcode, "_qFit_residue.pdb")
+                multiconformer_model.tofile(fname)
+
+        if self.options.residue is None:
+            for residue in residues:
+                # Check the residue is a rotameric residue,
+                # if not, we won't have a multiconformer_residue.pdb.
+                # Make sure to append it to the hetatms object so it stays in the final output.
+                if residue.resn[0] not in ROTAMERS:
+                    hetatms = hetatms.combine(residue)
+                    continue
+
+                # Load the multiconformer_residue.pdb file
+                fname = os.path.join(
+                    self.options.directory,
+                    residue.shortcode,
+                    "multiconformer_residue.pdb",
                 )
+                if not os.path.exists(fname):
+                    logger.warn(
+                        f"[{residue.shortcode}] Couldn't find {fname}! "
+                        "Will not be present in multiconformer_model.pdb!"
+                    )
+                    continue
+                residue_multiconformer = Structure.fromfile(fname)
 
-        # Reattach the hetatms to the multiconformer_model
-        multiconformer_model = multiconformer_model.combine(hetatms)
+                # Stitch them together
+                if multiconformer_model is None:
+                    multiconformer_model = residue_multiconformer
+                else:
+                    multiconformer_model = multiconformer_model.combine(
+                        residue_multiconformer
+                    )
 
-        # Write out multiconformer_model.pdb only if in debug mode.
-        # This output is not a final qFit output, so it might confuse users.
-        if self.options.debug:
-            fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-        if self.options.scale or self.options.cryst_info:
-            multiconformer_model.tofile(
-            fname, self.options.scale_info, self.options.cryst_info
-            )
-        else:
-            multiconformer_model.tofile(fname)
+
+            # Write out multiconformer_model.pdb only if in debug mode.
+            # This output is not a final qFit output, so it might confuse users.
+            if self.options.debug:
+                fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
+                if self.structure.scale or self.structure.cryst_info:
+                    multiconformer_model.tofile(
+                        fname, self.structure.scale, self.structure.cryst_info
+                    )
+                else:
+                    multiconformer_model.tofile(fname)
 
         return multiconformer_model
 
