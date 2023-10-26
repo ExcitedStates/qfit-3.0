@@ -104,8 +104,6 @@ class QFitOptions:
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
 
-        # Anisotropic refinement using phenix
-        self.phenix_aniso = False
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -480,125 +478,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
 
-        if options.phenix_aniso:
-            self.prv_resi = structure.resi[(residue._selection[0] - 1)]
-            # Identify which atoms to refine anisotropically:
-            if xmap.resolution.high < 1.45:
-                adp = "not (water or element H)"
-            else:
-                adp = f"chain {self.chain} and resid {self.resi}"
-
-            # Generate the parameter file for phenix refinement:
-            labels = options.label.split(",")
-            with open(f"chain_{self.chain}_res_{self.resi}_adp.params", "w") as params:
-                params.write(
-                    "refinement {\n"
-                    "  electron_density_maps {\n"
-                    "    map_coefficients {\n"
-                    f"      mtz_label_amplitudes = {labels[0]}\n"
-                    f"      mtz_label_phases = {labels[1]}\n"
-                    "      map_type = 2mFo-DFc\n"
-                    "    }\n"
-                    "  }\n"
-                    "  refine {\n"
-                    "    strategy = *individual_sites *individual_adp\n"
-                    "    adp {\n"
-                    "      individual {\n"
-                    f"        anisotropic = {adp}\n"
-                    "      }\n"
-                    "    }\n"
-                    "  }\n"
-                    "}\n"
-                )
-
-            # Set the occupancy of the side chain to zero for omit map calculation
-            out_root = f"out_{self.chain}_{self.resi}"
-            structure.tofile(f"{out_root}.pdb")
-            subprocess.run(
-                [
-                    "phenix.pdbtools",
-                    "modify.selection="
-                    f'"chain {self.chain} and '
-                    f"( resseq {self.resi} and not "
-                    f"( name n or name ca or name c or name o or name cb ) or "
-                    f'( resseq {self.prv_resi} and name n ) )"',
-                    "modify.occupancies.set=0",
-                    "stop_for_unknowns=False",
-                    f"{out_root}.pdb",
-                    f"output.file_name={out_root}_modified.pdb",
-                ]
-            )
-
-            # Add hydrogens to the structure:
-            with open(f"{out_root}_modified_H.pdb", "w") as out_mod_H:
-                subprocess.run(
-                    ["phenix.reduce", f"{out_root}_modified.pdb"], stdout=out_mod_H
-                )
-
-            # Generate CIF file of unknown ligands for refinement:
-            subprocess.run(["phenix.elbow", "--do_all", f"{out_root}_modified_H.pdb"])
-
-            # Run the refinement protocol:
-            if os.path.isfile(f"elbow.{out_root}_modified_H_pdb.all.001.cif"):
-                elbow = f"elbow.{out_root}_modified_H_pdb.all.001.cif"
-                subprocess.run(
-                    [
-                        "phenix.refine",
-                        f"{options.map}",
-                        f"{out_root}_modified_H.pdb",
-                        "--overwrite",
-                        f"chain_{self.chain}_res_{self.resi}_adp.params",
-                        f"refinement.input.xray_data.labels=F-obs",
-                        f"{elbow}",
-                    ]
-                )
-            else:
-                # Run the refinement protocol:
-                subprocess.run(
-                    [
-                        "phenix.refine",
-                        f"{options.map}",
-                        f"{out_root}_modified_H.pdb",
-                        "--overwrite",
-                        f"chain_{self.chain}_res_{self.resi}_adp.params",
-                        f"refinement.input.xray_data.labels=F-obs",
-                    ]
-                )
-
-            # Reload structure and xmap as omit map:
-            structure = Structure.fromfile(
-                f"{out_root}_modified_H_refine_001.pdb"
-            ).reorder()
-            if not options.hydro:
-                structure = structure.extract("e", "H", "!=")
-            structure_resi = structure.extract(
-                f"resi {self.resi} and chain {self.chain}"
-            )
-            if residue.icode[0]:
-                structure_resi = structure_resi.extract("icode", residue.icode[0])
-            chain = structure_resi[self.chain]
-            conformer = chain.conformers[0]
-            if residue.icode[0]:
-                residue_id = (int(self.resi), residue.icode[0])
-                residue = conformer[residue_id]
-            else:
-                residue = conformer[int(self.resi)]
-
-            xmap = XMap.fromfile(
-                f"{out_root}_modified_H_refine_001.mtz",
-                resolution=None,
-                label=options.label,
-            )
-            xmap = xmap.canonical_unit_cell()
-            if options.scale:
-                # Prepare X-ray map
-                scaler = MapScaler(xmap, em=self.options.em)
-                sel_str = f"resi {self.resi} and chain {self.chain}"
-                sel_str = f"not ({sel_str})"
-                footprint = structure.extract(sel_str)
-                footprint = footprint.extract("record", "ATOM")
-                scaler.scale(footprint, radius=1)
-            xmap = xmap.extract(residue.coor, padding=options.padding)
 
         # Check if residue has complete heavy atoms. If not, complete it.
         expected_atoms = np.array(self.residue._rotamers["atoms"])
