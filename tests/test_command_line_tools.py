@@ -29,7 +29,6 @@ class TestCommandLineTools(BaseTestRunner):
         TOOLS = [
             "qfit_protein",
             "qfit_ligand",
-            "qfit_residue",
             "qfit_density",
             "remove_altconfs"
         ]

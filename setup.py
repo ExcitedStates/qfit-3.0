@@ -54,7 +54,6 @@ def main():
         entry_points={
             "console_scripts": [
                 "qfit_protein = qfit.command_line.qfit_protein:main",
-                "qfit_residue = qfit.command_line.qfit_residue:main",
                 "qfit_ligand  = qfit.command_line.qfit_ligand:main",
                 "qfit_covalent_ligand = qfit.command_line.qfit_covalent_ligand:main",
                 "qfit_prep_map = qfit.command_line.qfit_prep_map:main",

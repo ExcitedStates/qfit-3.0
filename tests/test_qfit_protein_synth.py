@@ -209,7 +209,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         pdb_multi = self._get_file_path("AWA_3conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
         rotamers = self._run_and_validate_identical_rotamers(
-            pdb_multi, pdb_single, d_min=0.8
+            pdb_multi, pdb_single, d_min=0.8, expected_correlation=0.987
         )
         assert len(rotamers[2]) == 3
         s = Structure.fromfile("multiconformer_model2.pdb")
@@ -248,7 +248,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         s = Structure.fromfile(pdb_single)
         s.tofile(cif_single)
         fmodel_in = self._run_qfit_cli(pdb_multi, cif_single, high_resolution=d_min)
-        self._validate_phe_3mer_confs(pdb_multi, "multiconformer_model.cif")
+        self._validate_phe_3mer_confs(pdb_multi, "multiconformer_model2.cif")
         self._validate_new_fmodel(
             fmodel_in=fmodel_in,
             high_resolution=d_min, model_name="multiconformer_model.cif"

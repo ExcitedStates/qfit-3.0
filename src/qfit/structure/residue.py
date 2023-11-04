@@ -127,6 +127,14 @@ class RotamerResidue(_BaseResidue):
     def get_rotamers(self, key):
         return self._residue_info[key]
 
+    def get_missing_atoms(self):
+        """Return a list of missing non-hydrogen atom names"""
+        expected_atoms = np.array(self.get_residue_info("atoms"))
+        missing_sel = np.isin(
+            expected_atoms, test_elements=self.name, invert=True
+        )
+        return expected_atoms[missing_sel]
+
     def _init_clash_detection(self, scaling_factor=0.75, covalent_bonds=None):
         # Setup the condensed distance based arrays for clash detection and fill them
         self._ndistances = self.natoms * (self.natoms - 1) // 2

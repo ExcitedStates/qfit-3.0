@@ -588,6 +588,7 @@ class QFitRotamericResidue(_BaseQFit):
         # If including hydrogens, report if any H are missing
         if options.hydro:
             self._check_for_missing_hydrogens()
+        self._rebuild_if_necessary()
 
         # Ensure clash detection matrix is filled.
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
@@ -625,13 +626,10 @@ class QFitRotamericResidue(_BaseQFit):
 
     def _rebuild_if_necessary(self):
         # Check if residue has complete heavy atoms. If not, complete it.
-        expected_atoms = np.array(self.residue.get_residue_info("atoms"))
-        missing_atoms = np.isin(
-            expected_atoms, test_elements=self.residue.name, invert=True
-        )
-        if np.any(missing_atoms):
+        missing_atoms = self.residue.get_missing_atoms()
+        if len(missing_atoms) > 0:
             logger.info(
-                f"[{self.identifier}] {', '.join(expected_atoms[missing_atoms])} "
+                f"[{self.identifier}] {', '.join(missing_atoms)} "
                 f"are not in structure. Rebuilding residue."
             )
             self._rebuild_and_update()
