@@ -38,6 +38,13 @@ def build_argparser():
         help="Run qFit with EM options",
     )
     p.add_argument(
+        "--residue",
+        type=str,
+        help="If selected will run qFit Residue"
+        "Chain, residue id, and optionally insertion code for "
+        "residue in structure, e.g. A,105, or A,105:A.",
+    )
+    p.add_argument(
         "-sb",
         "--no-sampling-b",
         action="store_false",
@@ -201,8 +208,10 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-
-        if self.options.only_segment:
+            
+        if self.options.residue is not None: #run qFit residue
+            multiconformer = self._run_qfit_residue_parallel()    
+        elif self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             self._create_refine_restraints(multiconformer)
         else:
@@ -250,11 +259,30 @@ class QFitProtein:
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
         #    And then as we re-combine HETATMs back into the multiconformer_model.
-        residues = list(
-            self.structure.extract("record", "HETATM", "!=")
-            .extract("resn", "HOH", "!=")
-            .single_conformer_residues
-        )
+        if self.options.residue is not None:
+            chainid, resi = self.options.residue.split(",")
+            if ":" in resi:
+                resi, icode = resi.split(":")
+                residue_id = (int(resi), icode)
+            elif "_" in resi:
+                resi, icode = reis.split("_")
+                residue_id = (int(resi), icode)
+            else:
+                residue_id = int(resi)
+                icode = ""
+            # Extract the residue:
+            residues = list(
+                self.structure.extract(f"resi {resi} and chain {chainid}")
+                .extract("resn", "HOH", "!=")
+                .single_conformer_residues
+            )
+            
+        else:
+            residues = list(
+                self.structure.extract("record", "HETATM", "!=")
+                .extract("resn", "HOH", "!=")
+                .single_conformer_residues
+            )
 
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
@@ -360,46 +388,65 @@ class QFitProtein:
 
         # Combine all multiconformer residues into one structure, multiconformer_model
         multiconformer_model = None
-        for residue in residues:
-            # Check the residue is a rotameric residue,
-            # if not, we won't have a multiconformer_residue.pdb.
-            # Make sure to append it to the hetatms object so it stays in the final output.
-            if residue.resn[0] not in ROTAMERS:
-                hetatms = hetatms.combine(residue)
-                continue
-
-            # Load the multiconformer_residue.pdb file
-            fname = os.path.join(
-                self.options.directory,
-                residue.shortcode,
-                "multiconformer_residue.pdb",
-            )
-            if not os.path.exists(fname):
-                logger.warning(
-                    f"[{residue.shortcode}] Couldn't find {fname}! "
-                    "Will not be present in multiconformer_model.pdb!"
+        if self.options.residue is not None:
+            for residue in residues:
+                # Load the multiconformer_residue.pdb file
+                fname = os.path.join(
+                    self.options.directory,
+                    residue.shortcode,
+                    "multiconformer_residue.pdb",
                 )
-                continue
-            residue_multiconformer = Structure.fromfile(fname)
+                if not os.path.exists(fname):
+                    logger.warn(
+                        f"[{residue.shortcode}] Couldn't find {fname}! "
+                        "Will not be present in multiconformer_model.pdb!"
+                    )
+                    continue
+                residue_multiconformer = Structure.fromfile(fname)
+                fname = f'{residue.shortcode}_qFit_residue.pdb'
+                residue_multiconformer.tofile(fname)
 
-            # Stitch them together
-            if multiconformer_model is None:
-                multiconformer_model = residue_multiconformer
-            else:
-                multiconformer_model = multiconformer_model.combine(
-                    residue_multiconformer
+        if self.options.residue is None:
+            for residue in residues:
+                # Check the residue is a rotameric residue,
+                # if not, we won't have a multiconformer_residue.pdb.
+                # Make sure to append it to the hetatms object so it stays in the final output.
+                if residue.resn[0] not in ROTAMERS:
+                    hetatms = hetatms.combine(residue)
+                    continue
+
+                # Load the multiconformer_residue.pdb file
+                fname = os.path.join(
+                    self.options.directory,
+                    residue.shortcode,
+                    "multiconformer_residue.pdb",
                 )
+                if not os.path.exists(fname):
+                    logger.warn(
+                        f"[{residue.shortcode}] Couldn't find {fname}! "
+                        "Will not be present in multiconformer_model.pdb!"
+                    )
+                    continue
+                residue_multiconformer = Structure.fromfile(fname)
 
-        # Reattach the hetatms to the multiconformer_model
-        multiconformer_model = multiconformer_model.combine(hetatms)
+                # Stitch them together
+                if multiconformer_model is None:
+                    multiconformer_model = residue_multiconformer
+                else:
+                    multiconformer_model = multiconformer_model.combine(
+                        residue_multiconformer
+                    )
 
-        # Write out multiconformer_model.pdb only if in debug mode.
-        # This output is not a final qFit output, so it might confuse users.
-        if self.options.debug:
-            fname = os.path.join(
-                self.options.directory, f"multiconformer_model.{self.file_ext}"
-            )
-            multiconformer_model.tofile(fname, self.structure.crystal_symmetry)
+            # Write out multiconformer_model.pdb only if in debug mode.
+            # This output is not a final qFit output, so it might confuse users.
+            if self.options.debug:
+                fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
+                if self.structure.scale or self.structure.cryst_info:
+                    multiconformer_model.tofile(
+                        fname, self.structure.scale, self.structure.cryst_info
+                    )
+                else:
+                    multiconformer_model.tofile(fname)
 
         return multiconformer_model
 
@@ -423,7 +470,12 @@ class QFitProtein:
         fname = os.path.join(
             self.options.directory, f"{self.pdb}multiconformer_model2.{self.file_ext}"
         )
-        multiconformer.tofile(fname, self.structure.crystal_symmetry)
+        if self.options.scale or self.options.cryst_info:
+            multiconformer_model.tofile(
+            fname, self.options.scale_info, self.options.cryst_info
+            )
+        else:
+            multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
     def _create_refine_restraints(self, multiconformer):
@@ -589,6 +641,8 @@ def prepare_qfit_protein(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure).reorder()
+    options.scale_info = structure.scale
+    options.cryst_info = structure.cryst_info
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 

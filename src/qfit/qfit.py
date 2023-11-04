@@ -9,7 +9,6 @@ import numpy as np
 import tqdm
 
 from .backbone import NullSpaceOptimizer
-from .phenix_refine import run_phenix_aniso
 from .relabel import RelabellerOptions, Relabeller
 from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
 from .samplers import GlobalRotator
@@ -46,8 +45,11 @@ class QFitOptions:
         self.label = None
         self.qscore = None
         self.map = None
+        self.residue = None
         self.structure = None
         self.em = False
+        self.scale_info = None
+        self.cryst_info = None
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -103,8 +105,6 @@ class QFitOptions:
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
 
-        # Anisotropic refinement using phenix
-        self.phenix_aniso = False
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -585,9 +585,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-        if options.phenix_aniso:
-            self._run_phenix_refine_and_update()
-        self._rebuild_if_necessary()
         # If including hydrogens, report if any H are missing
         if options.hydro:
             self._check_for_missing_hydrogens()
@@ -625,53 +622,6 @@ class QFitRotamericResidue(_BaseQFit):
         if options.subtract:
             self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
-
-    def _run_phenix_refine_and_update(self):
-        """
-        Run phenix.refine anisotropic ADP refinement of the target residue,
-        and reload structure and xmap as omit map
-        """
-        residue = self.residue
-        prv_resi = self.structure.resi[(residue.selection[0] - 1)]
-        new_pdb, new_mtz = run_phenix_aniso(
-            self.structure,
-            chain_id=self.chain,
-            resid=self.resi,
-            prev_resid=prv_resi,
-            high_resolution=self.xmap.resolution.high,
-            options=self.options)
-        structure = Structure.fromfile(new_pdb).reorder()
-        if not self.options.hydro:
-            structure = structure.extract("e", "H", "!=")
-        structure_resi = structure.extract(
-            f"resi {self.resi} and chain {self.chain}"
-        )
-        if residue.icode[0]:
-            structure_resi = structure_resi.extract("icode", residue.icode[0])
-        chain = structure_resi[self.chain]
-        conformer = chain.conformers[0]
-        if residue.icode[0]:
-            residue_id = (int(self.resi), residue.icode[0])
-            residue = conformer[residue_id]
-        else:
-            residue = conformer[int(self.resi)]
-
-        xmap = XMap.fromfile(
-            new_mtz,
-            resolution=None,
-            label=self.options.label,
-        )
-        xmap = xmap.canonical_unit_cell()
-        if self.options.scale:
-            # Prepare X-ray map
-            scaler = MapScaler(xmap, em=self.options.em)
-            sel_str = f"resi {self.resi} and chain {self.chain}"
-            sel_str = f"not ({sel_str})"
-            footprint = structure.extract(sel_str)
-            footprint = footprint.extract("record", "ATOM")
-            scaler.scale(footprint, radius=1)
-        xmap = xmap.extract(residue.coor, padding=self.options.padding)
-        self._set_data(residue, structure, xmap)
 
     def _rebuild_if_necessary(self):
         # Check if residue has complete heavy atoms. If not, complete it.
