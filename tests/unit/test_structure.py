@@ -330,6 +330,39 @@ class TestProteinStructure(StructureUnitBase):
     """
 
     def test_structure_hierarchy(self):
+        s = Structure.fromfile(op.join(self.DATA, "pdb_hierarchy_test.pdb"))
+        assert s.n_residues() == 7
+        assert s.average_conformers() == pytest.approx(1+1/7, abs=0.0000000001)
+        assert [c.id for c in s.chains] == ['A', 'B']
+        chainA, chainB = s.chains
+        assert [conf.id for conf in chainA.conformers] == ['']
+        assert chainA.conformers[0].residues[0].id == (1, '')
+        assert [c.id for c in chainB.conformers] == ['A', 'B']
+        assert np.sum(chainB.conformers[0].altloc == "A") == 4
+        assert np.sum(chainB.conformers[0].altloc == "") == 14
+        assert np.sum(chainB.conformers[1].altloc == "B") == 4
+        assert np.sum(chainB.conformers[1].altloc == "") == 14
+        assert np.sum(chainB.conformers[1].altloc == "A") == 0
+        assert str(chainA.residue_groups[0]) == "ResidueGroup: resi 1"
+        assert [r.resname for r in chainA.residue_groups] == ['GLY', 'GLY', 'GLY', 'MG', 'EDO', 'HOH']
+        assert str(chainA.conformers[0].residues[0]) == "Residue: 1"
+        assert [r.resname for r in chainA.conformers[0].residues] == ['GLY', 'GLY', 'GLY', 'MG', 'EDO']
+        for conf in chainB.conformers:
+            assert [r.resname for r in conf.residues] == ['GLY', 'GLY', 'GLY', 'GLY', 'MG']
+        assert list(chainB.conformers[0].selection) == [12, 13, 14, 15, 16, 17, 18, 19, 24, 25, 26, 27, 28, 29, 30, 31, 37, 39]
+        assert list(chainB.conformers[1].selection) == [12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 37, 39]
+        assert len(list(s.single_conformer_residues)) == 10
+        assert len(list(s.residues)) == 15
+        seg1 = chainA.conformers[0].segments
+        assert len(seg1) == 1 and len(seg1[0].residues) == 2
+        assert list(chainA.conformers[0].segments[0].selection) == [0, 1, 2, 3, 4, 5, 6, 7]
+        confA, confB = chainB.conformers
+        assert len(confA.segments) == 2
+        assert list(confA.segments[0].selection) == [12, 13, 14, 15, 16, 17, 18, 19]
+        assert list(confB.segments[0].selection) == [12, 13, 14, 15, 20, 21, 22, 23]
+        assert list(confB.segments[1].selection) == [24, 25, 26, 27, 28, 29, 30, 31]
+
+    def test_structure_hierarchy_3conf(self):
         s = self._STRUCTURE_AWA_3CONF
         assert s.total_length == 52
         assert s.selection is None
@@ -360,6 +393,42 @@ class TestProteinStructure(StructureUnitBase):
         s = self._STRUCTURE_AWA_SINGLE
         segments = list(s.segments)
         assert len(segments) == 1
+
+    @pytest.mark.skip(reason="SLOW")
+    def test_structure_hierarchy_5agk(self):
+        data = op.join(op.dirname(op.dirname(__file__)), "qfit_ligand_test")
+        s = Structure.fromfile(op.join(data, "5agk.pdb"))
+        assert [c.id for c in s.chains] == ['A', 'B']
+        c = s.chains[0]
+        assert c.natoms == 3612
+        assert sum(c.selection) == 7487331
+        assert len(c.conformers) == 2
+        rg = s.chains[0].residue_groups[0]
+        assert list(rg.selection) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        rg2 = s.chains[0].residue_groups[-1]
+        assert rg2.resname == "HOH"
+        assert list(rg2.selection) == [7048]
+        rr = s.chains[0].conformers[0].residues[0]
+        assert list(rr.selection) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # 'residues' includes ligands, but not waters
+        rr = s.chains[0].conformers[0].residues[-1]
+        assert list(rr.selection) == [6761, 6762, 6763, 6764]
+        segs = c.conformers[0].segments
+        assert len(segs) == 2
+        assert [len(seg.residues) for seg in segs] == [40, 368]
+        assert segs[0].residues[0].id == (299, '')
+        assert segs[0].residues[-1].id == (338, '')
+        assert segs[1].residues[0].id == (350, '')
+        assert segs[1].residues[-1].id == (717, '')
+        assert segs[0].natoms == 316
+        assert segs[1].natoms == 2998
+        assert list(segs[0].selection)[0] == 0
+        assert list(segs[0].selection)[-1] == 321
+        assert s.total_length == segs[1].total_length == 7265
+        segs = c.conformers[1].segments
+        assert len(segs) == 2
+        assert [len(seg.residues) for seg in segs] == [40, 368]
+        assert len(list(s.residues)) == 1656
 
     def test_structure_average_conformers(self):
         s = self._STRUCTURE_AWA_SINGLE

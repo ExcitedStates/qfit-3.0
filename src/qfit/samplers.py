@@ -79,7 +79,7 @@ class CBAngleRotator(_BaseSampler):
     about the axis perpendicular to CB-CA and CB-CG vectors.
 
     Attributes:
-        residue (qfit._BaseResidue): Residue being manipulated.
+        residue (qfit.Residue): Residue being manipulated.
         atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
             the flexion.
     """
@@ -88,7 +88,7 @@ class CBAngleRotator(_BaseSampler):
         """Inits a CBAngleRotator to flex the CA-CB-CG angle of a residue.
 
         Args:
-            residue (qfit._BaseResidue): Residue to manipulate.
+            residue (qfit.Residue): Residue to manipulate.
         """
         self.residue = residue
 
@@ -136,7 +136,7 @@ class BisectingAngleRotator:
     aromatic side chain about an axis bisecting this angle. 
 
     Attributes:
-        residue (qfit._BaseResidue): Residue being manipulated.
+        residue (qfit.Residue): Residue being manipulated.
         atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
             the flexion.
     """
@@ -147,7 +147,7 @@ class BisectingAngleRotator:
         bisecting the CA-CB-CG angle of a residue
         
         Args:
-            residue (qfit._BaseResidue): Residue to manipulate.
+            residue (qfit.Residue): Residue to manipulate.
         """
         self.residue = residue
 

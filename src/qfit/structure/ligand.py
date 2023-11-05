@@ -74,7 +74,6 @@ class Ligand(BaseLigand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.nbonds = None
-        self.type = kwargs.get("type", None)
         if kwargs.get("cif_file"):
             self._get_connectivity_from_cif(kwargs["cif_file"])
         else:

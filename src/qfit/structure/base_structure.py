@@ -38,11 +38,11 @@ class BaseStructure(ABC):
                  pdb_hierarchy,
                  selection=None,
                  parent=None,
-                 hierarchy_object=None,
+                 hierarchy_objects=None,
                  **kwargs):
         self._atoms = atoms
         self._pdb_hierarchy = pdb_hierarchy
-        self._hierarchy_object = hierarchy_object
+        self._hierarchy_objects = hierarchy_objects
         self._selection_cache = pdb_hierarchy.atom_selection_cache()
         if selection is not None:
             selection = _as_size_t(selection)
@@ -171,6 +171,7 @@ class BaseStructure(ABC):
             self._pdb_hierarchy,
             selection=selection,
             parent=self,
+            hierarchy_objects=self._hierarchy_objects,
             **self._kwargs
         )
 
@@ -431,6 +432,23 @@ class BaseMonomer(BaseStructure):
     composition is homogenous.
     """
 
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self._type = kwds.get("monomer_type", None)
+
+    @property
+    def type(self):
+        return self._type
+
     @property
     def resname(self):
         return self.atoms[0].parent().resname.strip()
+
+    def _is_next_polymer_residue(self, other):
+        return False
+
+    def is_next_residue(self, other):
+        """Return True if 'other' is the next residue in a polymer chain."""
+        if self.type == other.type:
+            return self._is_next_polymer_residue(other)
+        return False

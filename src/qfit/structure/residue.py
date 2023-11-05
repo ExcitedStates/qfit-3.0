@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 _PROTEIN_BACKBONE_ATOMS = ["N", "CA", "C"]
 _NUCLEOTIDE_BACKBONE_ATOMS = ["P", "O5'", "C5'", "C4'", "C3'", "O3"]
 _SOLVENTS = ["HOH"]
+_COVALENT_BOND_LENGTH = 1.5
 
 
 def residue_type(residue) -> str:
@@ -48,11 +49,10 @@ def residue_type(residue) -> str:
     return "ligand"
 
 
-class _BaseResidue(BaseMonomer):
+class Residue(BaseMonomer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = (kwargs["resi"], kwargs["icode"])
-        self.type = kwargs["type"]
 
     def __repr__(self):
         resi, icode = self.id
@@ -86,7 +86,7 @@ class _BaseResidue(BaseMonomer):
             self._hierarchy_object,
             resi=self.id[0],
             icode=self.id[1],
-            type=self.type,
+            monomer_type=self.type,
             selection=self._selection,
             parent=self.parent,
         )
@@ -105,12 +105,24 @@ class _BaseResidue(BaseMonomer):
                 raise KeyError(f"Can't find atom named '{atom_name}' in residue {self}")
         return flex.size_t(sel)
 
+    def _is_next_polymer_residue(self, other):
+        bond_length = np.finfo(float).max
+        if self.type in ("rotamer-residue", "aa-residue"):
+            # Check for nearness
+            sel = self.select("name", "C")
+            C = self.get_xyz(sel)
+            sel = other.select("name", "N")
+            N = other.get_xyz(sel)
+            bond_length = np.linalg.norm(N - C)
+        elif self.type == "residue":
+            # Check if RNA / DNA segment
+            O3 = self.extract("name O3'")
+            P = other.extract("name P")
+            bond_length = np.linalg.norm(O3.coor[0] - P.coor[0])
+        return bond_length < _COVALENT_BOND_LENGTH
 
-class Residue(_BaseResidue):
-    pass
 
-
-class RotamerResidue(_BaseResidue):
+class RotamerResidue(Residue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._residue_info = ROTAMERS[self.resname]

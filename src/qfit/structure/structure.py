@@ -1,3 +1,4 @@
+from collections import defaultdict
 import itertools
 
 from scitbx.array_family import flex
@@ -100,16 +101,26 @@ class Structure(BaseStructure):
                     yield segment
 
     def _build_hierarchy(self):
-        # Build up hierarchy starting from chains
-        chainids = np.unique(self.chain).tolist()
         self._chains = []
-        for chainid in chainids:
-            selection = self.select("chain", chainid)
+        self._atoms.reset_i_seq()
+        hierarchy = self.get_selected_hierarchy()
+        # FIXME this extra bit of logic is to preserve the pre-CCTBX behavior,
+        # where qfit groups all atoms by chain ID, so that ligands and other
+        # heteroatoms become part of the same _Chain object as the protein
+        # they are associated with.  since qfit actually handles protein and
+        # non-protein atoms separately, the internal grouping should be changed
+        # to reflect that as well
+        chains_d = defaultdict(list)
+        for iotbx_chain in hierarchy.only_model().chains():
+            chains_d[iotbx_chain.id].append(iotbx_chain)
+        sel_cache = hierarchy.atom_selection_cache()
+        for chain_id, chains in chains_d.items():
+            selection = sel_cache.selection(f"chain '{chain_id}'").iselection()
             chain = _Chain(self._atoms,
                            self._pdb_hierarchy,
                            selection=selection,
                            parent=self,
-                           chainid=chainid)
+                           hierarchy_objects=chains)
             self._chains.append(chain)
 
     def collapse_backbone(self, resid, chainid):
@@ -402,10 +413,13 @@ class Structure(BaseStructure):
 class _Chain(BaseStructure):
     def __init__(self, atoms, pdb_hierarchy, **kwargs):
         super().__init__(atoms, pdb_hierarchy, **kwargs)
-        self.id = kwargs["chainid"]
         self._residue_groups = []
         self._conformers = []
         self.conformer_ids = np.unique(self.altloc)
+
+    @property
+    def id(self):
+        return self._hierarchy_objects[0].id
 
     def __getitem__(self, key):
         if isinstance(key, (int, slice)):
@@ -453,58 +467,43 @@ class _Chain(BaseStructure):
         return self._residue_groups
 
     def _build_hierarchy(self):
-        resi = self.resi
-        # order = np.argsort(resi)
-        # resi = resi[order]
-        # icode = self.icode[order]
-        icode = self.icode
-        # A residue group is a collection of entries that have a unique
-        # chain, resi, and icode
-        # Do all these order tricks to keep the resid ordering correct
-        cadd = np.char.add
-        residue_group_ids = cadd(cadd(resi.astype(str), "_"), icode)
-        residue_group_ids, ind = np.unique(residue_group_ids, return_index=True)
-        order = np.argsort(ind)
-        residue_group_ids = residue_group_ids[order]
-        self._residue_groups = []
-        self._residue_group_ids = []
-        for residue_group_id in residue_group_ids:
-            resi, icode = residue_group_id.split("_")
-            resi = int(resi)
-            selection = self.select("resi", resi)
-            selection = np.intersect1d(selection, self.select("icode", icode))
-            residue_group = ResidueGroup(
+        for iotbx_chain in self._hierarchy_objects:
+            for iotbx_residue_group in iotbx_chain.residue_groups():
+                selection = iotbx_residue_group.atoms().extract_i_seq()
+                residue_group = ResidueGroup(
+                    self._atoms,
+                    self._pdb_hierarchy,
+                    selection=selection,
+                    parent=self,
+                    hierarchy_objects=(iotbx_residue_group,)
+                )
+                self._residue_groups.append(residue_group)
+
+    def _build_conformers(self):
+        self._conformers = []
+        # FIXME like the _Chain extraction, we need some extra logic to
+        # reproduce the pre-CCTBX behavior.  in the future we should just
+        # use IOTBX objects directly and keep non-protein atoms separate
+        confs_d = defaultdict(list)
+        for iotbx_chain in self._hierarchy_objects:
+            for iotbx_conformer in iotbx_chain.conformers():
+                confs_d[iotbx_conformer.altloc.strip()].append(iotbx_conformer)
+        blank_altconf = []
+        if len(confs_d) > 1 and "" in confs_d:
+            blank_altconf = confs_d[""]
+        for altloc, conformers in confs_d.items():
+            if altloc == "" and blank_altconf:
+                continue
+            conformers = conformers + blank_altconf
+            selection = conformers[0].atoms().extract_i_seq()
+            for conf in conformers[1:]:
+                selection.extend(conf.atoms().extract_i_seq())
+            conformer = _Conformer(
                 self._atoms,
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
-                resi=resi,
-                icode=icode
-            )
-            self._residue_groups.append(residue_group)
-            self._residue_group_ids.append((resi, icode))
-
-    def _build_conformers(self):
-        altlocs = np.unique(self.altloc)
-        self._conformers = []
-        if altlocs.size > 1 or altlocs[0] != "":
-            main_selection = self.select("altloc", "")
-            for altloc in altlocs:
-                if not altloc:
-                    continue
-                altloc_selection = self.select("altloc", altloc)
-                selection = np.union1d(main_selection, altloc_selection)
-                conformer = _Conformer(
-                    self._atoms,
-                    self._pdb_hierarchy,
-                    selection=selection, parent=self, altloc=altloc
-                )
-                self._conformers.append(conformer)
-        else:
-            conformer = _Conformer(
-                self._atoms,
-                self._pdb_hierarchy,
-                selection=self._selection, parent=self, altloc=""
+                hierarchy_objects=conformers
             )
             self._conformers.append(conformer)
 
@@ -515,8 +514,13 @@ class ResidueGroup(BaseMonomer):
 
     def __init__(self, atoms, pdb_hierarchy, **kwargs):
         super().__init__(atoms, pdb_hierarchy, **kwargs)
-        self.id = (kwargs["resi"], kwargs["icode"])
+        self._iotbx_residue_group = self._hierarchy_objects[0]
         self._atom_groups = []
+
+    @property
+    def id(self):
+        return (self._iotbx_residue_group.resseq_as_int(),
+                self._iotbx_residue_group.icode.strip())
 
     @property
     def atom_groups(self):
@@ -527,21 +531,14 @@ class ResidueGroup(BaseMonomer):
     def _build_hierarchy(self):
         # An atom group is a collection of entries that have a unique
         # chain, resi, icode, resn and altloc
-        cadd = np.char.add
-        self.atom_group_ids = np.unique(cadd(cadd(self.resn, "_"), self.altloc))
-        self._atom_groups = []
-        for atom_group_id in self.atom_group_ids:
-            resn, altloc = atom_group_id.split("_")
-            selection = self.select("resn", resn)
-            if altloc:
-                altloc_selection = self.select("altloc", altloc)
-                selection = np.intersect1d(
-                    selection, altloc_selection, assume_unique=True
-                )
+        for iotbx_atom_group in self._iotbx_residue_group.atom_groups():
+            selection = iotbx_atom_group.atoms().extract_i_seq()
             atom_group = _AtomGroup(
                 self._atoms,
                 self._pdb_hierarchy,
-                selection=selection, parent=self, resn=resn, altloc=altloc
+                selection=selection,
+                parent=self,
+                hierarchy_objects=(iotbx_atom_group,)
             )
             self._atom_groups.append(atom_group)
 
@@ -556,7 +553,11 @@ class ResidueGroup(BaseMonomer):
 class _AtomGroup(BaseStructure):
     def __init__(self, atoms, pdb_hierarchy, **kwargs):
         super().__init__(atoms, pdb_hierarchy, **kwargs)
-        self.id = (kwargs["resn"], kwargs["altloc"])
+        self._iotbx_atom_group = self._hierarchy_objects[0]
+
+    @property
+    def id(self):
+        return (self._iotbx_atom_group.resname, self._iotbx_atom_group.altloc)
 
     def __repr__(self):
         string = "AtomGroup: {} {}".format(*self.id)
@@ -569,9 +570,12 @@ class _Conformer(BaseStructure):
 
     def __init__(self, atoms, pdb_hierarchy, **kwargs):
         super().__init__(atoms, pdb_hierarchy, **kwargs)
-        self.id = kwargs["altloc"]
         self._residues = []
         self._segments = []
+
+    @property
+    def id(self):
+        return self._hierarchy_objects[0].altloc
 
     def __getitem__(self, arg):
         if not self._residues:
@@ -608,43 +612,29 @@ class _Conformer(BaseStructure):
         return self._segments
 
     def _build_residues(self):
-        # A residue group is a collection of entries that have a unique
-        # chain, resi, and icode
-        # Do all these order tricks in order to keep the resid ordering correct
-        resi = self.resi
-        icode = self.icode
-        cadd = np.char.add
-        residue_ids = cadd(cadd(resi.astype(str), "_"), icode)
-        residue_ids, ind = np.unique(residue_ids, return_index=True)
-        order = np.argsort(ind)
-        residue_ids = residue_ids[order]
-        self._residues = []
-        for residue_id in residue_ids:
-            resi, icode = residue_id.split("_")
-            resi = int(resi)
-            selection = self.select("resi", resi)
-            icode_selection = self.select("icode", icode)
-            selection = np.intersect1d(selection, icode_selection, assume_unique=True)
-            residue = self.extract(selection)
-            rtype = residue_type(residue)
-            if rtype == "rotamer-residue":
-                monomer_class = RotamerResidue
-            elif rtype in ["aa-residue", "residue"]:
-                monomer_class = Residue
-            elif rtype == "ligand":
-                monomer_class = Ligand
-            else:
-                continue
-            residue = monomer_class(
-                self._atoms,
-                self._pdb_hierarchy,
-                selection=selection,
-                parent=self,
-                resi=resi,
-                icode=icode,
-                type=rtype,
-            )
-            self._residues.append(residue)
+        for iotbx_conformer in self._hierarchy_objects:
+            for iotbx_residue in iotbx_conformer.residues():
+                selection = iotbx_residue.atoms().extract_i_seq()
+                residue = self.extract(selection)
+                rtype = residue_type(residue)
+                if rtype == "rotamer-residue":
+                    monomer_class = RotamerResidue
+                elif rtype in ["aa-residue", "residue"]:
+                    monomer_class = Residue
+                elif rtype == "ligand":
+                    monomer_class = Ligand
+                else:
+                    continue
+                residue = monomer_class(
+                    self._atoms,
+                    self._pdb_hierarchy,
+                    selection=selection,
+                    parent=self,
+                    resi=iotbx_residue.resseq_as_int(),
+                    icode=iotbx_residue.icode.strip(),
+                    monomer_type=rtype,
+                )
+                self._residues.append(residue)
 
     def _build_segments(self):
         if not self._residues:
@@ -657,29 +647,11 @@ class _Conformer(BaseStructure):
                 segment.append(res)
             else:
                 prev = segment[-1]
-                if prev.type == res.type:
-                    bond_length = 10
-                    if res.type in ("rotamer-residue", "aa-residue"):
-                        # Check for nearness
-                        sel = prev.select("name", "C")
-                        C = prev.get_xyz(sel)
-                        sel = res.select("name", "N")
-                        N = res.get_xyz(sel)
-                        bond_length = np.linalg.norm(N - C)
-                    elif res.type == "residue":
-                        # Check if RNA / DNA segment
-                        O3 = prev.extract("name O3'")
-                        P = res.extract("name P")
-                        bond_length = np.linalg.norm(O3.coor[0] - P.coor[0])
-                    if bond_length < 1.5:
-                        segment.append(res)
-                    else:
-                        segments.append(segment)
-                        segment = [res]
+                if prev.is_next_residue(res):
+                    segment.append(res)
                 else:
                     segments.append(segment)
                     segment = [res]
-
         segments.append(segment)
 
         for segment in segments:
@@ -689,7 +661,9 @@ class _Conformer(BaseStructure):
                 segment = Segment(
                     self._atoms,
                     self._pdb_hierarchy,
-                    selection=selection, parent=self, residues=segment
+                    selection=selection,
+                    parent=self,
+                    residues=segment
                 )
                 self._segments.append(segment)
 
