@@ -83,12 +83,13 @@ class Residue(BaseMonomer):
         """
         return self.__class__(
             self._atoms,
-            self._hierarchy_object,
+            self._pdb_hierarchy,
             resi=self.id[0],
             icode=self.id[1],
             monomer_type=self.type,
             selection=self._selection,
             parent=self.parent,
+            hierarchy_objects=self._hierarchy_objects,
         )
 
     def get_named_atom_selection(self, atom_names):
@@ -218,7 +219,7 @@ class RotamerResidue(Residue):
         ordered_sel = []
         for atom in atoms:
             for i_seq in selection:
-                if atom == self._atoms[i_seq].name.strip():
+                if atom == self._atoms[int(i_seq)].name.strip():
                     ordered_sel.append(i_seq)
                     break
         coor = self._atoms.extract_xyz().as_numpy_array()[ordered_sel]

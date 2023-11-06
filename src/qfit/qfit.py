@@ -20,9 +20,7 @@ from .structure.ligand import BondOrder
 from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
 from .validator import Validator
-from .xtal.scaler import MapScaler
 from .xtal.transformer import Transformer
-from .xtal.volume import XMap
 
 
 logger = logging.getLogger(__name__)

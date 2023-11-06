@@ -271,9 +271,9 @@ class QFitProtein:
             chainid, resi = self.options.residue.split(",")
             if ":" in resi:
                 resi, icode = resi.split(":")
-                residue_id = (int(resi), icode)
+                residue_id = (int(resi), icode)  # pylint: disable=unused-variable
             elif "_" in resi:
-                resi, icode = reis.split("_")
+                resi, icode = resi.split("_")
                 residue_id = (int(resi), icode)
             else:
                 residue_id = int(resi)
