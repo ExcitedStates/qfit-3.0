@@ -126,7 +126,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         Build alternate conformers for a tris (TRS) molecule in a P21 cell.
         The expected model has a second position for the O2 atom.
         """
-        d_min = 1.25
+        d_min = 1.2
         (pdb_multi, pdb_single) = self._get_start_models("TRS")
         fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,1", d_min)
         dihedrals = self._get_built_dihedrals(pdb_single, ["N", "C", "C2", "O2"])

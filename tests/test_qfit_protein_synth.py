@@ -510,10 +510,10 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
         self._run_rebuilt_multi_conformer_tripeptide("CYS")
 
     def test_qfit_protein_rebuilt_tripeptide_gln(self):
-        self._run_rebuilt_multi_conformer_tripeptide("GLN", d_min=1.4)
+        self._run_rebuilt_multi_conformer_tripeptide("GLN")
 
     def test_qfit_protein_rebuilt_tripeptide_glu(self):
-        self._run_rebuilt_multi_conformer_tripeptide("GLU", d_min=1.3)
+        self._run_rebuilt_multi_conformer_tripeptide("GLU", d_min=1.35)
 
     def test_qfit_protein_rebuilt_tripeptide_his(self):
         self._run_rebuilt_multi_conformer_tripeptide("HIS")

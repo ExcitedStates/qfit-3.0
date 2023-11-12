@@ -11,8 +11,9 @@ import iotbx.ccp4_map
 import iotbx.mrcfile
 from scitbx.array_family import flex
 
-from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.unitcell import UnitCell
+from qfit.xtal.spacegroups import SpaceGroup
+from qfit.xtal.transformer import SFTransformer
 from qfit._extensions import extend_to_p1  # pylint: disable=import-error,no-name-in-module
 
 
@@ -209,32 +210,36 @@ class XMap(_BaseVolume):
         )
 
     @staticmethod
-    def from_mtz(fname, resolution=None, label="FWT,PHWT"):
-        from .transformer import SFTransformer
-
+    def from_mtz(fname,
+                 resolution=None,
+                 label="FWT,PHWT",
+                 resolution_factor=1/4):
         mtz_in = any_reflection_file(fname)
         miller_arrays = {a.info().label_string(): a for a in mtz_in.as_miller_arrays()}
         map_coeffs = miller_arrays.get(label, None)
         if not map_coeffs:
             raise KeyError(f"Could not find columns '{label}' in MTZ file.")
-        hkl = np.asarray(list(map_coeffs.indices()), np.int32)
         unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
         space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        f = map_coeffs.amplitudes().data().as_numpy_array().copy()
-        phi = map_coeffs.phases().data().as_numpy_array().copy() * 180 / np.pi
-        fft = SFTransformer(hkl, f, phi, unit_cell)
+        fft = SFTransformer(map_coeffs)
         grid = fft()
-        abc = [getattr(unit_cell, x) for x in "a b c".split()]
+        abc = unit_cell.abc
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")
         grid_parameters = GridParameters(voxelspacing)
-        resolution = Resolution(high=map_coeffs.d_min(), low=map_coeffs.d_max_min()[0])
+        resolution = Resolution(high=map_coeffs.d_min(),
+                                low=map_coeffs.d_max_min()[0])
         logger.debug(f"MTZ Resolution: {map_coeffs.d_min()}")
         logger.debug(f"Map size: {grid.size}")
         logger.debug(f"Map Grid: {grid_parameters}")
+        hkl = np.asarray(list(map_coeffs.indices()), np.int32)
         return XMap(
-            grid, grid_parameters, unit_cell=unit_cell, resolution=resolution, hkl=hkl
+            grid,
+            grid_parameters,
+            unit_cell=unit_cell,
+            resolution=resolution,
+            hkl=hkl
         )
 
     @classmethod

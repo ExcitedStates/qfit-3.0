@@ -5,7 +5,7 @@ install:
 	pip3 install .
 
 test-unit:
-	py.test --durations=10 tests/unit/test_*.py
+	py.test --verbose -n 4 --durations=10 tests/unit/test_*.py
 
 test-int:
 	py.test --verbose -n 4 --durations=20 tests/test_*.py

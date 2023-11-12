@@ -98,7 +98,7 @@ class TestQfitResidueSampling(SyntheticMapRunner):
     def test_sample_sidechain_3mer_ser_p21(self):
         self._run_sample_sidechain_3mer_and_validate(
             peptide_name="ASA",
-            high_resolution=1.5,
+            high_resolution=1.6,
             rmsd_max_same_conf=0.15,
             rmsd_min_other_conf=2.15)
 

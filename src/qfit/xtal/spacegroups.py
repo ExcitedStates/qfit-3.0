@@ -1,6 +1,7 @@
 """Symmetry operations as functions on vectors or arrays."""
 
 import numpy as np
+from cctbx.sgtbx import space_group_info
 
 from libtbx.utils import Sorry
 
@@ -119,8 +120,6 @@ class SpaceGroup:
 
     @staticmethod
     def from_symbol(symbol):
-        from cctbx.sgtbx import space_group_info
-
         sg_info = space_group_info(symbol)
         return SpaceGroup.from_cctbx(sg_info)
 
@@ -151,10 +150,11 @@ class SpaceGroup:
             symop_list=symops,
         )
 
-    def as_cctbx_group(self):
-        from cctbx.sgtbx import space_group_info
+    def to_cctbx(self):
+        return space_group_info(self.number)
 
-        return space_group_info(self.number).group()
+    def as_cctbx_group(self):
+        return self.to_cctbx().group()
 
 
 def getSpaceGroup(name):

@@ -19,16 +19,17 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=4.000000, b=5.000000, c=6.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert xmap.array.size == 960
-            assert tuple(xmap.unit_cell_shape) == (8, 10, 12)
+            assert xmap.array.size == 1440
+            assert tuple(xmap.unit_cell_shape) == (8, 12, 15)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert xmap.array.shape == (12, 10, 8)  # TODO
+            assert xmap.array.shape == (15, 12, 8)
             # assert list(xmap.array[0:5]) == ""
             assert xmap.array[0][0][0] == pytest.approx(-0.719, abs=0.001)
-            assert xmap.array[6][5][4] == pytest.approx(7.32, abs=0.001)
+            assert xmap.array[6][5][4] == pytest.approx(4.3831, abs=0.001)
             assert tuple(xmap.offset) == (0, 0, 0)
 
         MTZ = self.make_water_fmodel_mtz(d_min)
+        print(f"MTZ: {MTZ}")
         xmap1 = XMap.fromfile(MTZ, label="FWT,PHIFWT")
         # print([str(x) for x in xmap1.unit_cell.space_group.symop_list])
         _validate_map(xmap1)
@@ -46,13 +47,13 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert xmap.array.size == 28160
-            assert tuple(xmap.unit_cell_shape) == (22, 32, 40)
+            assert xmap.array.size == 38880
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert xmap.array.shape == (40, 32, 22)
+            assert xmap.array.shape == (45, 36, 24)
             # assert list(xmap.array[0:5]) == ""
             assert xmap.array[0][0][0] == pytest.approx(-0.4325, abs=0.0001)
-            assert xmap.array[20][16][11] == pytest.approx(0.1438, abs=0.0001)
+            assert xmap.array[20][16][11] == pytest.approx(-0.56777, abs=0.0001)
             assert tuple(xmap.offset) == (0, 0, 0)
 
         MTZ = self.make_tiny_fmodel_mtz()
@@ -75,12 +76,12 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert tuple(xmap.unit_cell_shape) == (22, 32, 40)
-            assert xmap.array.size == 24024
-            assert xmap.array.shape == (33, 28, 26)
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
+            assert xmap.array.size == 31248
+            assert xmap.array.shape == (36, 31, 28)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert tuple(xmap.offset) == (-6, 10, 5)
-            assert xmap.array[0][0][0] == pytest.approx(1.6798, abs=0.00001)
+            assert tuple(xmap.offset) == (-7, 11, 6)
+            assert xmap.array[0][0][0] == pytest.approx(2.22256, abs=0.00001)
 
         coor = [[1.0, 7.0, 5.0], [4.0, 11.0, 11.0]]
         xmap3 = xmap1.extract(coor)
@@ -107,7 +108,7 @@ class TestVolumeXmapIO(UnitBase):
             assert np.all(density > 0.75)
             assert np.mean(density) > 3
             density = xmap.interpolate(xyz2)
-            assert density[0] == pytest.approx(5.86, abs=0.1)
+            assert density[0] == pytest.approx(6.11, abs=0.1)
             assert density[1] == pytest.approx(4.36, abs=0.1)
             assert density[2] == pytest.approx(5.01, abs=0.1)
 
@@ -115,7 +116,7 @@ class TestVolumeXmapIO(UnitBase):
         _validate_interpolation(xmap2)
         # interpolate in extracted map
         density = xmap3.interpolate(xyz2)
-        assert density[0] == pytest.approx(5.86, abs=0.1)
+        assert density[0] == pytest.approx(6.11, abs=0.1)
         assert density[1] == pytest.approx(4.36, abs=0.1)
         assert density[2] == pytest.approx(5.01, abs=0.1)
 
@@ -129,13 +130,13 @@ class TestVolumeXmapIO(UnitBase):
                 == "UnitCell(a=43.096001, b=52.591999, c=89.249001, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
             assert xmap.unit_cell.space_group.number == 19
-            assert xmap.array.size == 4580856
-            assert xmap.array.shape == (252, 149, 122)
+            assert xmap.array.size == 5356800
+            assert xmap.array.shape == (270, 160, 124)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
             assert tuple(xmap.offset) == (0, 0, 0)
             assert xmap.array[0][0][0] == pytest.approx(0.12935, abs=0.00001)
-            assert xmap.array[20][20][20] == pytest.approx(-0.0732, abs=0.00001)
-            assert xmap.array[-1][-1][-1] == pytest.approx(-0.33892, abs=0.00001)
+            assert xmap.array[20][20][20] == pytest.approx(0.28872, abs=0.00001)
+            assert xmap.array[-1][-1][-1] == pytest.approx(-0.30873, abs=0.00001)
 
         mtz_file = op.join(self.DATA_BIG, "3k0n_map.mtz")
         xmap1 = XMap.fromfile(mtz_file, label="2FOFCWT,PH2FOFCWT")

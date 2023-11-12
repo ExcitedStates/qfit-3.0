@@ -10,7 +10,7 @@ from molmass.elements import ELEMENTS
 from .pdbfile import write_pdb, write_mmcif, load_combined_atoms, get_pdb_hierarchy
 from .selector import AtomSelector
 from .math import adp_ellipsoid_axes
-from qfit.xtal.unitcell import UnitCell
+from qfit.xtal import UnitCell
 
 logger = logging.getLogger(__name__)
 

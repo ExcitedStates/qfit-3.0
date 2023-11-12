@@ -1,36 +1,41 @@
 import numpy as np
 from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
+from cctbx.maptbx import crystal_gridding
 
+from qfit.xtal.unitcell import UnitCell
+from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from qfit._extensions import dilate_points, mask_points  # pylint: disable=import-error,no-name-in-module
 
 
+def _get_shape_cctbx(unit_cell, space_group, d_min, resolution_factor=1/4):
+    cctbx_grid = crystal_gridding(
+        unit_cell=unit_cell.to_cctbx(),
+        d_min=d_min,
+        resolution_factor=resolution_factor,
+        space_group_info=space_group.to_cctbx())
+    return cctbx_grid.n_real()[::-1]
+
+
 class SFTransformer:
-    def __init__(self, hkl, f, phi, unit_cell):
-        self.hkl = hkl
-        self.f = f
-        self.phi = phi
-
-        self.unit_cell = unit_cell
-        self.space_group = unit_cell.space_group
-
-        abc = self.unit_cell.abc
-        hkl_max = np.abs(hkl).max(axis=0)
-        self._resolution = np.min(abc / hkl_max)
+    def __init__(self, map_coeffs):
+        self.hkl = np.asarray(list(map_coeffs.indices()), np.int32)
+        self.unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
+        self.space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
+        self.unit_cell.space_group = self.space_group
+        self.f = map_coeffs.amplitudes().data().as_numpy_array().copy()
+        self.phi = map_coeffs.phases().data().as_numpy_array().copy() * 180 / np.pi
+        self._resolution = map_coeffs.d_min()
 
     def __call__(self, nyquist=2):
         h, k, l = self.hkl.T
-
-        naive_voxelspacing = self._resolution / (2 * nyquist)
-        naive_shape = np.ceil(self.unit_cell.abc / naive_voxelspacing)
-        naive_shape = naive_shape[::-1].astype(int)
-        shape = naive_shape
-        # TODO make grid of unit cell a multiple of small primes
-        # efficient_multiples = [2, 3, 5, 7, 11, 13]
-        # shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
+        shape = _get_shape_cctbx(
+            self.unit_cell,
+            self.space_group,
+            d_min=self._resolution,
+            resolution_factor=1/(2*nyquist))
         fft_grid = np.zeros(shape, dtype=np.complex128)
-
         start_sf = self._f_phi_to_complex(self.f, self.phi)
         two_pi = 2 * np.pi
         hsym = np.zeros_like(h)
