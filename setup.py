@@ -31,6 +31,10 @@ def main():
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
     ]
+    extras_require = {
+        "osqp": ["osqp", "miosqp @ git+https://github.com/osqp/miosqp.git@ac672338b0593d865dd15b7a76434f25e24244a9#egg=miosqp"],
+        "cplex": ["cvxopt", "cplex"],
+    }
 
     setup(
         name="qfit",
@@ -43,11 +47,8 @@ def main():
         package_data=package_data,
         ext_modules=ext_modules,
         setup_requires=setup_requires,
-        install_requires=install_requires,
-        extra_dependencies={
-            "cplex": ["cvxopt", "cplex"],
-            "osqp": ["osqp", "miosqp @ git+https://github.com/osqp/miosqp.git@ac672338b0593d865dd15b7a76434f25e24244a9#egg=miosqp"],
-        },
+        install_requires=install_requires + extras_require["osqp"],
+        extras_require=extras_require,
         zip_safe=False,
         python_requires=">=3.9",
         entry_points={
