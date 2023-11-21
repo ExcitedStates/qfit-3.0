@@ -141,6 +141,16 @@ class MIQPSolver(GenericSolver):
     ) -> None:
         ...
 
+def is_none_or_empty(x):
+    if x is None:
+        return True
+    if isinstance(x, list) and not x:
+        return True
+    if isinstance(x, np.ndarray) and x.size == 0:
+        return True
+    if isinstance(x, scipy.sparse.spmatrix) and x.nnz == 0:
+        return True
+    return False
 
 ###############################
 # Define solver implementations
@@ -297,7 +307,7 @@ class CPLEXSolver(QPSolver, MIQPSolver):
             self.driver = self.cplex
             assert self.driver is not None
 
-        if self.quad_obj is None or (isinstance(self.quad_obj, np.ndarray) and self.quad_obj.size == 0) or (isinstance(self.quad_obj, list) and len(self.quad_obj) == 0) or (isinstance(self.quad_obj, scipy.sparse.spmatrix) and self.quad_obj.nnz == 0) or self.lin_obj is None or (isinstance(self.lin_obj, np.ndarray) and self.lin_obj.size == 0) or (isinstance(self.lin_obj, list) and len(self.lin_obj) == 0) or (isinstance(self.lin_obj, scipy.sparse.spmatrix) and self.lin_obj.nnz == 0):
+        if is_none_or_empty(self.quad_obj) or is_none_or_empty(self.lin_obj):
             self.compute_quadratic_coeffs()
 
         # Create and configure the cplex object
@@ -690,10 +700,9 @@ class MIOSQPSolver(MIQPSolver):
         if cardinality is threshold is None:
             raise ValueError("Set either cardinality or threshold.")
 
-        if self.quad_obj is None or (isinstance(self.quad_obj, np.ndarray) and self.quad_obj.size == 0) or (isinstance(self.quad_obj, list) and len(self.quad_obj) == 0) or (isinstance(self.quad_obj, scipy.sparse.spmatrix) and self.quad_obj.nnz == 0) or self.lin_obj is None or (isinstance(self.lin_obj, np.ndarray) and self.lin_obj.size == 0) or (isinstance(self.lin_obj, list) and len(self.lin_obj) == 0) or (isinstance(self.lin_obj, scipy.sparse.spmatrix) and self.lin_obj.nnz == 0):
+        if is_none_or_empty(self.quad_obj) or is_none_or_empty(self.lin_obj):
             self.compute_quadratic_coeffs()
-        self.compute_mixed_int_constraints(threshold, cardinality)
-
+        
         # Construct the MIOSQP solver & solve!
         miqp = self.driver.MIOSQP()
         miqp.setup(
