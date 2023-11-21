@@ -297,7 +297,7 @@ class CPLEXSolver(QPSolver, MIQPSolver):
             self.driver = self.cplex
             assert self.driver is not None
 
-        if self.quad_obj is None or self.lin_obj is None:
+        if self.quad_obj is None or self.quad_obj.size == 0 or self.lin_obj is None or self.lin_obj.size == 0:
             self.compute_quadratic_coeffs()
 
         # Create and configure the cplex object
@@ -690,7 +690,7 @@ class MIOSQPSolver(MIQPSolver):
         if cardinality is threshold is None:
             raise ValueError("Set either cardinality or threshold.")
 
-        if self.quad_obj is None or self.lin_obj is None:
+        if self.quad_obj is None or self.quad_obj.size == 0 or self.lin_obj is None or self.lin_obj.size == 0:
             self.compute_quadratic_coeffs()
         self.compute_mixed_int_constraints(threshold, cardinality)
 
