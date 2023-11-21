@@ -297,7 +297,7 @@ class CPLEXSolver(QPSolver, MIQPSolver):
             self.driver = self.cplex
             assert self.driver is not None
 
-        if self.quad_obj is None or not self.quad_obj or self.lin_obj is None or not self.lin_obj:
+        if self.quad_obj is None or (isinstance(self.quad_obj, np.ndarray) and self.quad_obj.size == 0) or (isinstance(self.quad_obj, list) and len(self.quad_obj) == 0) or (isinstance(self.quad_obj, scipy.sparse.spmatrix) and self.quad_obj.nnz == 0) or self.lin_obj is None or (isinstance(self.lin_obj, np.ndarray) and self.lin_obj.size == 0) or (isinstance(self.lin_obj, list) and len(self.lin_obj) == 0) or (isinstance(self.lin_obj, scipy.sparse.spmatrix) and self.lin_obj.nnz == 0):
             self.compute_quadratic_coeffs()
 
         # Create and configure the cplex object
@@ -690,7 +690,7 @@ class MIOSQPSolver(MIQPSolver):
         if cardinality is threshold is None:
             raise ValueError("Set either cardinality or threshold.")
 
-        if self.quad_obj is None or not self.quad_obj or self.lin_obj is None or not self.lin_obj:
+        if self.quad_obj is None or (isinstance(self.quad_obj, np.ndarray) and self.quad_obj.size == 0) or (isinstance(self.quad_obj, list) and len(self.quad_obj) == 0) or (isinstance(self.quad_obj, scipy.sparse.spmatrix) and self.quad_obj.nnz == 0) or self.lin_obj is None or (isinstance(self.lin_obj, np.ndarray) and self.lin_obj.size == 0) or (isinstance(self.lin_obj, list) and len(self.lin_obj) == 0) or (isinstance(self.lin_obj, scipy.sparse.spmatrix) and self.lin_obj.nnz == 0):
             self.compute_quadratic_coeffs()
         self.compute_mixed_int_constraints(threshold, cardinality)
 
