@@ -34,8 +34,6 @@ Once these are installed, you can:
 1. Install dependencies
    ```bash
    conda install -c anaconda mkl numpy=1.22
-   conda install -c anaconda -c ibmdecisionoptimization \
-                 cvxopt cplex
    ```
    For some of the post analysis scripts, you will also need sklean
    conda install -c anaconda scikit-learn
@@ -75,8 +73,7 @@ If you prefer to manage your environments using other methods, qFit has the foll
 * [Python 3.6+](https://python.org)
 * [numpy](https://numpy.org)
 * [scipy](https://scipy.org)
-* [cvxopt](https://cvxopt.org)
-* [IBM ILOG CPLEX Optimization Studio (Community Edition)](https://www.ibm.com/products/ilog-cplex-optimization-studio)
+* [OSQP](https://osqp.org/)
 
 Installation instructions using `pip` can be found in the `docs` folder.
 
@@ -84,6 +81,13 @@ Once dependencies are installed, you can clone the qFit source, and install to y
 
 (Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
+## qFit can also be run with IBM CPLEX (slightly faster, but closed source) 
+conda install -c anaconda -c ibmdecisionoptimization \
+               cvxopt cplex
+
+Managing in other environments: 
+* [cvxopt](https://cvxopt.org)
+* [IBM ILOG CPLEX Optimization Studio (Community Edition)](https://www.ibm.com/products/ilog-cplex-optimization-studio)
 
 ## Contributing
 
