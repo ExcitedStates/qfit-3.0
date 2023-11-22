@@ -264,6 +264,13 @@ def build_argparser():
         "at density values below <density-cutoff>",
     )
     p.add_argument(
+        "--num_atoms"
+        dest="num_atoms",
+        type=int,
+        default=10
+        help="",
+    )
+    p.add_argument(
         "-cf",
         "--clash-scaling-factor",
         default=0.75,
