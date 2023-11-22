@@ -1955,6 +1955,10 @@ class QFitCovalentLigand(_BaseQFit):
 
         self._coor_set = new_coor_set
         self._bs = new_bs
+        # QP score conformer occupancy
+        self._convert()
+        self._solve_qp()
+        self._update_conformers()
         # logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
 
     def _sample_sidechain(self):
