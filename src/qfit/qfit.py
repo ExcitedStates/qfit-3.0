@@ -968,7 +968,7 @@ class QFitRotamericResidue(_BaseQFit):
                             if opt.remove_conformers_below_cutoff:
                                 values = self.xmap.interpolate(coor[active])
                                 mask = self.residue.e[active] != "H"
-                                if np.min(values[mask]) < self.options.density_cutoff:
+                                if np.sum(values[mask]  < self.options.density_cutoff) < self.options.num_atoms:
                                     ex += 1
                                     continue
 
