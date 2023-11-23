@@ -140,16 +140,21 @@ class MIQPSolver(GenericSolver):
     ) -> None:
         ...
 
-def is_none_or_empty(x):
+
+def is_none_or_empty(
+    x: None | list[Any] | NDArray[Any] | scipy.sparse.spmatrix,
+) -> bool:
+    """Extend an emptiness test over other list-like types."""
     if x is None:
         return True
-    if isinstance(x, list) and not x:
+    elif isinstance(x, list) and not x:
         return True
-    if isinstance(x, np.ndarray) and x.size == 0:
+    elif isinstance(x, np.ndarray) and x.size == 0:
         return True
-    if isinstance(x, scipy.sparse.spmatrix) and x.nnz == 0:
+    elif isinstance(x, scipy.sparse.spmatrix) and x.nnz == 0:
         return True
     return False
+
 
 ###############################
 # Define solver implementations
@@ -701,7 +706,7 @@ class MIOSQPSolver(MIQPSolver):
 
         if is_none_or_empty(self.quad_obj) or is_none_or_empty(self.lin_obj):
             self.compute_quadratic_coeffs()
-        
+
         # Construct the MIOSQP solver & solve!
         miqp = self.driver.MIOSQP()
         miqp.setup(
