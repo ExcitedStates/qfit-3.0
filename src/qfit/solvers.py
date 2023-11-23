@@ -8,8 +8,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
-import scipy as sci
-import scipy.sparse  # pylint: disable=unused-import
+import scipy.sparse
 from numpy.typing import NDArray
 
 from .utils.optional_lazy_import import lazy_load_module_if_available
@@ -425,9 +424,9 @@ class OSQPSolver(QPSolver):
 
         self.nconformers = models.shape[0]
 
-        self.quad_obj: sci.sparse.csc_matrix
+        self.quad_obj: scipy.sparse.csc_matrix
         self.lin_obj: NDArray[np.float_]
-        self.constraints: sci.sparse.csc_matrix
+        self.constraints: scipy.sparse.csc_matrix
         self.lower_bounds: NDArray[np.float_]
         self.upper_bounds: NDArray[np.float_]
 
@@ -442,7 +441,7 @@ class OSQPSolver(QPSolver):
         lin_obj_coeffs = -np.inner(self.models, self.target)
 
         # OSQP requires quadratic objectives in a scipy CSC sparse matrix
-        self.quad_obj = sci.sparse.csc_matrix(quad_obj_coeffs)
+        self.quad_obj = scipy.sparse.csc_matrix(quad_obj_coeffs)
         self.lin_obj = lin_obj_coeffs
 
     def compute_constraints(self) -> None:
@@ -466,7 +465,7 @@ class OSQPSolver(QPSolver):
         lowers  = (self.nconformers * [0.0])    + [0.0]  # fmt:skip
         uppers  = (self.nconformers * [1.0])    + [1.0]  # fmt:skip
 
-        self.constraints = sci.sparse.csc_matrix(
+        self.constraints = scipy.sparse.csc_matrix(
             (coeffs, (rowidxs, colidxs)),
             shape=shape,
         )
@@ -534,9 +533,9 @@ class MIOSQPSolver(MIQPSolver):
 
         self.nconformers = models.shape[0]
 
-        self.quad_obj: Optional[sci.sparse.csc_matrix] = None
+        self.quad_obj: Optional[scipy.sparse.csc_matrix] = None
         self.lin_obj: Optional[NDArray[np.float_]] = None
-        self.constraints: sci.sparse.csc_matrix
+        self.constraints: scipy.sparse.csc_matrix
         self.lower_bounds: NDArray[np.float_]
         self.upper_bounds: NDArray[np.float_]
         self.binary_vars: NDArray[np.int_]
@@ -579,7 +578,7 @@ class MIOSQPSolver(MIQPSolver):
         # Get an index into the dense _quad_obj_coeffs array,
         #   and construct P with csc_array((data, (row_ind, col_ind)), [shape=(M, N)]).
         rowidx, colidx = np.indices(quad_obj_coeffs.shape)
-        self.quad_obj = sci.sparse.csc_matrix(
+        self.quad_obj = scipy.sparse.csc_matrix(
             (quad_obj_coeffs.ravel(), (rowidx.ravel(), colidx.ravel())),
             shape=P_shape,
         )
@@ -680,7 +679,7 @@ class MIOSQPSolver(MIQPSolver):
             n_constraints += 1
 
         # MIOSQP requires constraints as a sparse matrix
-        self.constraints = sci.sparse.csc_matrix(
+        self.constraints = scipy.sparse.csc_matrix(
             (coeffs, (rowidx, colidx)),
             shape=(n_constraints, n_vars),
         )
