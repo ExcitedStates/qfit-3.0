@@ -29,7 +29,7 @@ def test_get_qp_solver() -> None:
 
 
 def test_get_miqp_solver() -> None:
-    miqp_solver_class = get_qp_solver_class(next(iter(available_miqp_solvers.keys())))
+    miqp_solver_class = get_miqp_solver_class(next(iter(available_miqp_solvers.keys())))
     assert inspect.isclass(miqp_solver_class)
     assert issubclass(miqp_solver_class, qfit.solvers.MIQPSolver)
 
