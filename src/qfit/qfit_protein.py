@@ -264,7 +264,7 @@ def build_argparser():
         "at density values below <density-cutoff>",
     )
     p.add_argument(
-        "--num_atoms"
+        "--num_atoms",
         dest="num_atoms",
         type=int,
         default=10
