@@ -103,6 +103,7 @@ class QFitOptions:
         self.sample_rotamers = True
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
+        self.num_atoms = 1
 
 
         # General settings
