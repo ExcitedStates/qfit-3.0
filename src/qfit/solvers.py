@@ -703,6 +703,7 @@ class MIOSQPSolver(MIQPSolver):
 
         if cardinality is threshold is None:
             raise ValueError("Set either cardinality or threshold.")
+        self.compute_mixed_int_constraints(threshold=threshold, cardinality=cardinality)
 
         if is_none_or_empty(self.quad_obj) or is_none_or_empty(self.lin_obj):
             self.compute_quadratic_coeffs()
