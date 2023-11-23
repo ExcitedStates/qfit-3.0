@@ -2,6 +2,7 @@ import inspect
 
 import numpy as np
 import pytest
+import scipy.sparse
 from numpy.typing import NDArray
 
 import qfit.solvers
@@ -10,6 +11,7 @@ from qfit.solvers import (
     available_qp_solvers,
     get_miqp_solver_class,
     get_qp_solver_class,
+    is_none_or_empty,
 )
 
 
@@ -30,6 +32,37 @@ def test_get_miqp_solver() -> None:
     miqp_solver_class = get_qp_solver_class(next(iter(available_miqp_solvers.keys())))
     assert inspect.isclass(miqp_solver_class)
     assert issubclass(miqp_solver_class, qfit.solvers.MIQPSolver)
+
+
+def test_is_none_or_empty() -> None:
+    """If the array is empty, this function should return True."""
+    assert is_none_or_empty(None) is True
+
+    assert is_none_or_empty([]) is True
+    assert is_none_or_empty([False]) is False
+    assert is_none_or_empty([object()]) is False
+
+    assert is_none_or_empty(np.array([])) is True
+    assert is_none_or_empty(np.array([0.1])) is False
+
+    assert (
+        is_none_or_empty(
+            scipy.sparse.csc_matrix(
+                ([], ([], [])),
+                shape=(1, 0),
+            )
+        )
+        is True
+    )
+    assert (
+        is_none_or_empty(
+            scipy.sparse.csc_matrix(
+                ([1.0], ([0], [0])),
+                shape=(1, 1),
+            )
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize("solver_class", available_qp_solvers.values())
