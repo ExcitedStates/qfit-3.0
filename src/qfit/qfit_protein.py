@@ -267,7 +267,7 @@ def build_argparser():
         "--num_atoms",
         dest="num_atoms",
         type=int,
-        default=10
+        default=10,
         help="",
     )
     p.add_argument(
