@@ -8,7 +8,6 @@ import numpy as np
 from molmass.elements import ELEMENTS
 
 from .pdbfile import write_pdb, write_mmcif, load_combined_atoms, get_pdb_hierarchy
-from .selector import AtomSelector
 from .math import adp_ellipsoid_axes
 from qfit.xtal import UnitCell
 
@@ -30,7 +29,6 @@ def _as_size_t(selection):
 
 
 class BaseStructure(ABC):
-    _selector = AtomSelector()
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self,
