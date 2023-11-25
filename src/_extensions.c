@@ -15,96 +15,6 @@ static inline int modulo(int x, int N)
   return ret;
 }
 
-static PyObject *py_extend_to_p1(PyObject *dummy, PyObject *args)
-{
-  PyObject *py_grid_arg=NULL,
-           *py_offset_arg=NULL,
-           *py_symop_arg=NULL,
-           *py_out_arg=NULL;
-  PyArrayObject *py_grid=NULL,
-                *py_offset=NULL,
-                *py_symop=NULL,
-                *py_out=NULL;
-
-  if (!PyArg_ParseTuple(args, "OOOO",
-              &py_grid_arg,
-              &py_offset_arg,
-              &py_symop_arg,
-              &py_out_arg))
-    return NULL;
-
-  py_grid = (PyArrayObject *) PyArray_FROM_OTF(py_grid_arg, NPY_FLOAT64, NPY_ARRAY_IN_ARRAY);
-  if (py_grid == NULL)
-    goto fail;
-  py_offset = (PyArrayObject *) PyArray_FROM_OTF(py_offset_arg, NPY_INT32, NPY_ARRAY_IN_ARRAY);
-  if (py_offset == NULL)
-    goto fail;
-  py_symop = (PyArrayObject *) PyArray_FROM_OTF(py_symop_arg, NPY_FLOAT64, NPY_ARRAY_IN_ARRAY);
-  if (py_symop == NULL)
-    goto fail;
-  py_out = (PyArrayObject *) PyArray_FROM_OTF(py_out_arg, NPY_FLOAT64, NPY_ARRAY_INOUT_ARRAY2);
-  if (py_out == NULL)
-    goto fail;
-
-  // Get pointers to arrays and shape info.
-  double *grid = (double *) PyArray_DATA(py_grid);
-  int *offset = (int *) PyArray_DATA(py_offset);
-  double *symop = (double *) PyArray_DATA(py_symop);
-  double *out = (double *) PyArray_DATA(py_out);
-
-  npy_intp *grid_shape = PyArray_DIMS(py_grid);
-  npy_intp *out_shape = PyArray_DIMS(py_out);
-  int out_slice = out_shape[2] * out_shape[1];
-  int grid_slice = grid_shape[2] * grid_shape[1];
-
-  // Loop over all grid points and transform them to out points
-  int z;
-  for (z = 0; z < grid_shape[0]; ++z) {
-    int grid_z = z + offset[2];
-    int out_z_z = (int) (symop[11] + symop[10] * grid_z);
-    int out_y_z = (int) (symop[7]  + symop[6]  * grid_z);
-    int out_x_z = (int) (symop[3]  + symop[2]  * grid_z);
-    int grid_index_z = z * grid_slice;
-    int y;
-    for (y = 0; y < grid_shape[1]; ++y) {
-      int grid_y = y + offset[1];
-      int out_z_zy = (int) (out_z_z + symop[9] * grid_y);
-      int out_y_zy = (int) (out_y_z + symop[5] * grid_y);
-      int out_x_zy = (int) (out_x_z + symop[1] * grid_y);
-      int grid_index_zy = grid_index_z + y * grid_shape[2];
-      int x;
-      for (x = 0; x < grid_shape[2]; ++x) {
-        int grid_x = x + offset[0];
-        int out_z = (int) (out_z_zy + symop[8] * grid_x);
-        int out_y = (int) (out_y_zy + symop[4] * grid_x);
-        int out_x = (int) (out_x_zy + symop[0] * grid_x);
-        int out_index = modulo(out_z, out_shape[0]) * out_slice +
-                        modulo(out_y, out_shape[1]) * out_shape[2] +
-                        modulo(out_x, out_shape[2]);
-        int grid_index = grid_index_zy + x;
-        out[out_index] = grid[grid_index];
-      }
-    }
-  }
-  // Clean up objects
-  Py_DECREF(py_grid);
-  Py_DECREF(py_offset);
-  Py_DECREF(py_symop);
-  PyArray_ResolveWritebackIfCopy(py_out);
-  Py_DECREF(py_out);
-  Py_INCREF(Py_None);
-  return Py_None;
-
-fail:
-  // Clean up objects
-  Py_XDECREF(py_grid);
-  Py_XDECREF(py_offset);
-  Py_XDECREF(py_symop);
-  PyArray_DiscardWritebackIfCopy(py_out);
-  Py_XDECREF(py_out);
-  return NULL;
-}
-
 static PyObject *dilate_points(PyObject *dummy, PyObject *args)
 {
     // Parse arguments
@@ -436,7 +346,6 @@ fail:
 static PyMethodDef mymethods[] = {
     {"dilate_points", dilate_points, METH_VARARGS, ""},
     {"mask_points", mask_points, METH_VARARGS, ""},
-    {"extend_to_p1", py_extend_to_p1, METH_VARARGS, ""},
     //{"correlation_gradients", correlation_gradients, METH_VARARGS, ""},
     //{"solve_pep3", solve_pep3, METH_VARARGS, ""},
     {NULL, NULL, 0, NULL}

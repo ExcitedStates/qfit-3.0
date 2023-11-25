@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
-from cctbx.maptbx import crystal_gridding
+from cctbx.maptbx import crystal_gridding, use_space_group_symmetry
 
 from qfit.xtal.unitcell import UnitCell
 from qfit.xtal.spacegroups import SpaceGroup
@@ -18,7 +18,9 @@ def fft_map_coefficients(map_coeffs, nyquist=2):
     """
     Transform CCTBX map coefficients to a real map with swapped X and Z axes
     """
-    fft_map = map_coeffs.fft_map(resolution_factor=1/(2*nyquist))
+    fft_map = map_coeffs.fft_map(
+        resolution_factor=1/(2*nyquist),
+        symmetry_flags=use_space_group_symmetry)
     real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
     logger.info(f"FFT map dimensions before axis swap: {real_map.focus()}")
     return np.swapaxes(real_map.as_numpy_array(), 0, 2)

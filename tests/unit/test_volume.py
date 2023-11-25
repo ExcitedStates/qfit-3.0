@@ -4,6 +4,11 @@ import os.path as op
 import pytest
 import numpy as np
 from iotbx.file_reader import any_file
+import iotbx.ccp4_map
+from cctbx import maptbx
+from scitbx.array_family import flex
+import boost_adaptbx.boost.python as bp
+asu_map_ext = bp.import_ext("cctbx_asymmetric_map_ext")
 
 from qfit.xtal.volume import XMap
 
@@ -47,13 +52,13 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert xmap.array.size == 38880
-            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
+            assert xmap.array.size == 41472
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 48)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert xmap.array.shape == (45, 36, 24)
+            assert xmap.array.shape == (48, 36, 24)
             # assert list(xmap.array[0:5]) == ""
             assert xmap.array[0][0][0] == pytest.approx(-0.4325, abs=0.0001)
-            assert xmap.array[20][16][11] == pytest.approx(-0.56777, abs=0.0001)
+            assert xmap.array[20][16][11] == pytest.approx(-0.60875, abs=0.0001)
             assert tuple(xmap.offset) == (0, 0, 0)
 
         MTZ = self.make_tiny_fmodel_mtz()
@@ -76,12 +81,12 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
-            assert xmap.array.size == 31248
-            assert xmap.array.shape == (36, 31, 28)
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 48)
+            assert xmap.array.size == 33852
+            assert xmap.array.shape == (39, 31, 28)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
             assert tuple(xmap.offset) == (-7, 11, 6)
-            assert xmap.array[0][0][0] == pytest.approx(2.22256, abs=0.00001)
+            assert xmap.array[0][0][0] == pytest.approx(2.19792, abs=0.00001)
 
         coor = [[1.0, 7.0, 5.0], [4.0, 11.0, 11.0]]
         xmap3 = xmap1.extract(coor)
@@ -130,13 +135,13 @@ class TestVolumeXmapIO(UnitBase):
                 == "UnitCell(a=43.096001, b=52.591999, c=89.249001, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
             assert xmap.unit_cell.space_group.number == 19
-            assert xmap.array.size == 5400000
-            assert xmap.array.shape == (270, 160, 125)
+            assert xmap.array.size == 5529600
+            assert xmap.array.shape == (270, 160, 128)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
             assert tuple(xmap.offset) == (0, 0, 0)
             assert xmap.array[0][0][0] == pytest.approx(0.12935, abs=0.00001)
-            assert xmap.array[20][20][20] == pytest.approx(0.32987, abs=0.00001)
-            assert xmap.array[-1][-1][-1] == pytest.approx(-0.30731, abs=0.00001)
+            assert xmap.array[20][20][20] == pytest.approx(0.44267, abs=0.00001)
+            assert xmap.array[-1][-1][-1] == pytest.approx(-0.30319, abs=0.00001)
 
         mtz_file = op.join(self.DATA_BIG, "3k0n_map.mtz")
         xmap1 = XMap.fromfile(mtz_file, label="2FOFCWT,PH2FOFCWT")
@@ -244,13 +249,14 @@ class TestVolumeXmapIO(UnitBase):
         xmap6 = XMap.from_mapfile(map_tmp, resolution=d_min)
         _validate_extract_map(xmap6)
 
-    @pytest.mark.skip("TODO - test for CCTBX FFT behavior")
+    # XXX not sure this still adds much value...
     def test_cctbx_io_with_fft(self):
         MTZ = self.make_tiny_fmodel_mtz()
         miller_arrays = any_file(MTZ).file_object.as_miller_arrays()
         coeffs = miller_arrays[0]
-        print(coeffs.info().label_string())
-        fft_map = coeffs.fft_map(resolution_factor=0.25)
+        fft_map = coeffs.fft_map(
+            resolution_factor=0.25,
+            symmetry_flags=maptbx.use_space_group_symmetry)
         fft_map.apply_sigma_scaling()
         tmp_map = tempfile.NamedTemporaryFile(suffix="map.ccp4").name
         fft_map.as_ccp4_map(tmp_map)
@@ -262,15 +268,49 @@ class TestVolumeXmapIO(UnitBase):
                 == "UnitCell(a=8.000000, b=12.000000, c=15.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
             # These are parameters expected from CCTBX FFT gridding
-            assert xmap.array.size == 38880
-            assert tuple(xmap.unit_cell_shape) == (24, 36, 45)
+            assert xmap.array.size == 41472
+            assert tuple(xmap.unit_cell_shape) == (24, 36, 48)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert xmap.array.shape == (24, 36, 45)
+            assert xmap.array.shape == (48, 36, 24)
             # assert list(xmap.array[0:5]) == ""
             assert xmap.array[0][0][0] == pytest.approx(-0.4325, abs=0.0001)
-            assert xmap.array[12][18][22] == pytest.approx(0.1639, abs=0.0001)
+            assert xmap.array[12][18][22] == pytest.approx(-0.55146, abs=0.0001)
             assert tuple(xmap.offset) == (0, 0, 0)
         xmap1 = XMap.fromfile(tmp_map, resolution=coeffs.d_min())
         _validate_map(xmap1)
         xmap2 = XMap.fromfile(MTZ, label="FWT,PHIFWT")
         _validate_map(xmap2)
+
+    def test_canonical_unit_cell(self):
+        tmp_mtz = self.make_tiny_fmodel_mtz()
+        xmap_mtz = XMap.fromfile(tmp_mtz, label="FWT,PHIFWT")
+        assert xmap_mtz.shape == (48, 36, 24)
+        assert np.all(xmap_mtz.unit_cell_shape == (24, 36, 48))
+        coeffs = any_file(tmp_mtz).file_object.as_miller_arrays()[0]
+        fft_map = coeffs.fft_map(
+            resolution_factor=0.25,
+            symmetry_flags=maptbx.use_space_group_symmetry)
+        real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
+        # Create ASU version of map
+        asu_map = asu_map_ext.asymmetric_map(coeffs.space_group().type(),
+                                             real_map)
+        asu_rm = asu_map.data()
+        tmp_map = tempfile.NamedTemporaryFile(suffix="map.ccp4").name
+        iotbx.ccp4_map.write_ccp4_map(
+            file_name=tmp_map,
+            unit_cell=coeffs.unit_cell(),
+            space_group=coeffs.space_group(),
+            unit_cell_grid=real_map.focus(),
+            map_data=asu_rm,
+            labels=flex.std_string(["qfit-test"]))
+        # now load as a qFit map and expand to p1
+        xmap_asu = XMap.fromfile(tmp_map, resolution=coeffs.d_min())
+        assert xmap_asu.shape == (49, 19, 13)
+        assert np.all(xmap_asu.unit_cell_shape == [24, 36, 48])
+        assert not xmap_asu.is_canonical_unit_cell()
+        assert xmap_mtz.is_canonical_unit_cell()
+        xmap_p1 = xmap_asu.canonical_unit_cell()
+        assert xmap_p1.shape == xmap_mtz.shape
+        assert np.all(xmap_p1.unit_cell_shape == xmap_mtz.unit_cell_shape)
+        corr = np.corrcoef(xmap_p1.array.flatten(), xmap_mtz.array.flatten())
+        assert np.all(corr[0][1] >= 0.99999999999)

@@ -9,12 +9,14 @@ from scipy.ndimage import map_coordinates
 from iotbx.reflection_file_reader import any_reflection_file
 import iotbx.ccp4_map
 import iotbx.mrcfile
+from cctbx import maptbx
 from scitbx.array_family import flex
+import boost_adaptbx.boost.python as bp
+asu_map_ext = bp.import_ext("cctbx_asymmetric_map_ext")
 
 from qfit.xtal.unitcell import UnitCell
 from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.transformer import fft_map_coefficients
-from qfit._extensions import extend_to_p1  # pylint: disable=import-error,no-name-in-module
 
 
 logger = logging.getLogger(__name__)
@@ -191,16 +193,24 @@ class XMap(_BaseVolume):
         uc_params = map_io.unit_cell().parameters()
         origin = (0, 0, 0)  # map_io.nxstart_nystart_nzstart
         unit_cell = UnitCell(*uc_params, map_io.space_group_number)
-        abc = uc_params[0:3]
         shape = map_io.unit_cell_grid
+        return XMap.from_cctbx_map(map_io.data,
+                                   shape,
+                                   unit_cell,
+                                   resolution,
+                                   origin)
+
+    @staticmethod
+    def from_cctbx_map(map_data, shape, unit_cell, resolution, origin):
+        abc = unit_cell.abc
+        voxelspacing = tuple(length / n for length, n in zip(abc, shape))
+        offset = map_data.accessor().origin()
+        grid_parameters = GridParameters(voxelspacing, offset)
+        resolution = Resolution(high=resolution)
         # Reorder axis so that nx is fastest changing.
         # NOTE CCTBX handles axis conventions internally, so we always run
         # this swap here (without needing to check the map file header again)
-        density = np.swapaxes(map_io.data.as_numpy_array(), 0, 2)
-        voxelspacing = tuple(length / n for length, n in zip(abc, shape))
-        offset = map_io.data.accessor().origin()
-        grid_parameters = GridParameters(voxelspacing, offset)
-        resolution = Resolution(high=resolution)
+        density = np.swapaxes(map_data.as_numpy_array(), 0, 2)
         return XMap(
             density,
             grid_parameters,
@@ -268,6 +278,24 @@ class XMap(_BaseVolume):
         )
         return shape
 
+    def _expand_to_p1(self):
+        """
+        Use CCTBX's asymmetric map handling to expand to P1.
+        """
+        cctbx_map = self.as_cctbx_map()
+        asu_map = asu_map_ext.asymmetric_map(
+            self.unit_cell.space_group.as_cctbx_group().type(),
+            cctbx_map,
+            [int(x) for x in self.unit_cell_shape])
+        expanded = asu_map.symmetry_expanded_map()
+        maptbx.unpad_in_place(expanded)
+        return XMap.from_cctbx_map(
+            map_data=expanded,
+            shape=expanded.focus(),
+            unit_cell=self.unit_cell,
+            resolution=self.resolution,
+            origin=self.origin)
+
     def canonical_unit_cell(self):
         """
         Perform space group symmetry expansion to fill in density values for
@@ -275,24 +303,7 @@ class XMap(_BaseVolume):
         """
         if self.is_canonical_unit_cell():
             return self
-        shape = np.round(self.unit_cell.abc / self.grid_parameters.voxelspacing).astype(
-            int
-        )[::-1]
-        array = np.zeros(shape, np.float64)
-        grid_parameters = GridParameters(self.voxelspacing)
-        out = XMap(
-            array,
-            grid_parameters=grid_parameters,
-            unit_cell=self.unit_cell,
-            hkl=self.hkl,
-            resolution=self.resolution,
-        )
-        offset = np.asarray(self.offset, np.int32)
-        for symop in self.unit_cell.space_group.symop_list:
-            transform = np.hstack((symop.R, symop.t.reshape(3, -1)))
-            transform[:, -1] *= out.shape[::-1]
-            extend_to_p1(self.array, offset, transform, out.array)
-        return out
+        return self._expand_to_p1()
 
     def is_canonical_unit_cell(self):
         return np.allclose(self.shape, self.unit_cell_shape[::-1]) and np.allclose(
