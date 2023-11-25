@@ -19,13 +19,13 @@ class TestVolumeXmapIO(UnitBase):
                 str(xmap.unit_cell)
                 == "UnitCell(a=4.000000, b=5.000000, c=6.000000, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
-            assert xmap.array.size == 1440
-            assert tuple(xmap.unit_cell_shape) == (8, 12, 15)
+            assert xmap.array.size == 1620
+            assert tuple(xmap.unit_cell_shape) == (9, 12, 15)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
-            assert xmap.array.shape == (15, 12, 8)
+            assert xmap.array.shape == (15, 12, 9)
             # assert list(xmap.array[0:5]) == ""
             assert xmap.array[0][0][0] == pytest.approx(-0.719, abs=0.001)
-            assert xmap.array[6][5][4] == pytest.approx(4.3831, abs=0.001)
+            assert xmap.array[6][5][4] == pytest.approx(4.1893, abs=0.001)
             assert tuple(xmap.offset) == (0, 0, 0)
 
         MTZ = self.make_water_fmodel_mtz(d_min)
@@ -130,13 +130,13 @@ class TestVolumeXmapIO(UnitBase):
                 == "UnitCell(a=43.096001, b=52.591999, c=89.249001, alpha=90.000000, beta=90.000000, gamma=90.000000)"
             )
             assert xmap.unit_cell.space_group.number == 19
-            assert xmap.array.size == 5356800
-            assert xmap.array.shape == (270, 160, 124)
+            assert xmap.array.size == 5400000
+            assert xmap.array.shape == (270, 160, 125)
             assert tuple(xmap.origin) == (0.0, 0.0, 0.0)
             assert tuple(xmap.offset) == (0, 0, 0)
             assert xmap.array[0][0][0] == pytest.approx(0.12935, abs=0.00001)
-            assert xmap.array[20][20][20] == pytest.approx(0.28872, abs=0.00001)
-            assert xmap.array[-1][-1][-1] == pytest.approx(-0.30873, abs=0.00001)
+            assert xmap.array[20][20][20] == pytest.approx(0.32987, abs=0.00001)
+            assert xmap.array[-1][-1][-1] == pytest.approx(-0.30731, abs=0.00001)
 
         mtz_file = op.join(self.DATA_BIG, "3k0n_map.mtz")
         xmap1 = XMap.fromfile(mtz_file, label="2FOFCWT,PH2FOFCWT")

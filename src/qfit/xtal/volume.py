@@ -13,7 +13,7 @@ from scitbx.array_family import flex
 
 from qfit.xtal.unitcell import UnitCell
 from qfit.xtal.spacegroups import SpaceGroup
-from qfit.xtal.transformer import SFTransformer
+from qfit.xtal.transformer import fft_map_coefficients
 from qfit._extensions import extend_to_p1  # pylint: disable=import-error,no-name-in-module
 
 
@@ -222,8 +222,7 @@ class XMap(_BaseVolume):
         unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
         space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        fft = SFTransformer(map_coeffs)
-        grid = fft()
+        grid = fft_map_coefficients(map_coeffs)
         abc = unit_cell.abc
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")

@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
@@ -9,62 +11,17 @@ from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from qfit._extensions import dilate_points, mask_points  # pylint: disable=import-error,no-name-in-module
 
 
-def _get_shape_cctbx(unit_cell, space_group, d_min, resolution_factor=1/4):
-    cctbx_grid = crystal_gridding(
-        unit_cell=unit_cell.to_cctbx(),
-        d_min=d_min,
-        resolution_factor=resolution_factor,
-        space_group_info=space_group.to_cctbx())
-    return cctbx_grid.n_real()[::-1]
+logger = logging.getLogger(__name__)
 
 
-class SFTransformer:
-    def __init__(self, map_coeffs):
-        self.hkl = np.asarray(list(map_coeffs.indices()), np.int32)
-        self.unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
-        self.space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
-        self.unit_cell.space_group = self.space_group
-        self.f = map_coeffs.amplitudes().data().as_numpy_array().copy()
-        self.phi = map_coeffs.phases().data().as_numpy_array().copy() * 180 / np.pi
-        self._resolution = map_coeffs.d_min()
-
-    def __call__(self, nyquist=2):
-        h, k, l = self.hkl.T
-        shape = _get_shape_cctbx(
-            self.unit_cell,
-            self.space_group,
-            d_min=self._resolution,
-            resolution_factor=1/(2*nyquist))
-        fft_grid = np.zeros(shape, dtype=np.complex128)
-        start_sf = self._f_phi_to_complex(self.f, self.phi)
-        two_pi = 2 * np.pi
-        hsym = np.zeros_like(h)
-        ksym = np.zeros_like(k)
-        lsym = np.zeros_like(l)
-        for symop in self.space_group.iter_primitive_symops():
-            for n, msym in enumerate((hsym, ksym, lsym)):
-                msym.fill(0)
-                rot = np.asarray(symop.R.T)[n]
-                for r, m in zip(rot, (h, k, l)):
-                    if r != 0:
-                        msym += int(r) * m
-            if np.allclose(symop.t, 0):
-                sf = start_sf
-            else:
-                delta_phi = np.rad2deg(np.inner((-two_pi * symop.t), self.hkl))
-                delta_phi = np.asarray(delta_phi).ravel()
-                sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
-            fft_grid[lsym, ksym, hsym] = sf
-            fft_grid[-lsym, -ksym, -hsym] = sf.conj()
-        nx = shape[-1]
-        grid = np.fft.irfftn(fft_grid[:, :, : nx // 2 + 1])
-        grid -= grid.mean()
-        grid /= grid.std()
-        return grid
-
-    def _f_phi_to_complex(self, f, phi):
-        sf = np.nan_to_num((f * np.exp(-1j * np.deg2rad(phi))).astype(np.complex64))
-        return sf
+def fft_map_coefficients(map_coeffs, nyquist=2):
+    """
+    Transform CCTBX map coefficients to a real map with swapped X and Z axes
+    """
+    fft_map = map_coeffs.fft_map(resolution_factor=1/(2*nyquist))
+    real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
+    logger.info(f"FFT map dimensions before axis swap: {real_map.focus()}")
+    return np.swapaxes(real_map.as_numpy_array(), 0, 2)
 
 
 class FFTTransformer:
@@ -128,7 +85,7 @@ class FFTTransformer:
         self._transformer.density()
         fft_grid = rfftn(self.xmap.array)
         fft_grid[self._fft_mask] = 0
-        grid = irfftn(fft_grid)
+        grid = irfftn(fft_grid, self.xmap.shape)
         if self.b_add is not None:
             pass
         self.xmap.array[:] = grid.real
