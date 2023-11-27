@@ -67,15 +67,82 @@ def test_is_none_or_empty() -> None:
 
 @pytest.mark.parametrize("solver_class", available_qp_solvers.values())
 class TestQPSolver:
-    target = np.array([2.0, 3.0, 7.0])
-    models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+    @staticmethod
+    def expected_objective(
+        target: NDArray[np.float_],
+        models: NDArray[np.float_],
+        expected_weights: NDArray[np.float_],
+    ) -> float:
+        return np.sum(np.square(np.inner(models, expected_weights) - target))
 
-    def test_qp_solver(self, solver_class: type[qfit.solvers.QPSolver]) -> None:
-        solver = solver_class(self.target, self.models)
+    def test_qp_solver_solvable_sum_to_1(
+        self, solver_class: type[qfit.solvers.QPSolver]
+    ) -> None:
+        target = np.array([2.0, 3.0, 7.0])
+        models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+        solver = solver_class(target, models)
         solver.solve_qp()
 
         assert np.allclose(solver.weights, [1 / 3, 1 / 3, 1 / 3], atol=1e-3)
         assert np.isclose(solver.objective_value, 0.0, atol=1e-6)
+
+    def test_qp_solver_solvable_sum_to_1_non_square(
+        self, solver_class: type[qfit.solvers.QPSolver]
+    ) -> None:
+        target = np.array([9 / 3, 12 / 3, 14 / 3, 15 / 3])
+        models = np.array(
+            [[1.0, 5.0, 9.0, 13.0], [7.0, 5.0, 3.0, 1.0], [1.0, 2.0, 2.0, 1.0]]
+        )
+        expected_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+
+        solver = solver_class(target, models)
+        solver.solve_qp()
+
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, 0.0, atol=1e-6)
+
+    def test_qp_solver_solvable_sum_to_lt_1(
+        self, solver_class: type[qfit.solvers.QPSolver]
+    ) -> None:
+        target = np.array([2.0, 3.0, 4.0])
+        models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+        solver = solver_class(target, models)
+        solver.solve_qp()
+
+        assert np.allclose(solver.weights, [1 / 3, 1 / 3, 4 / 21], atol=1e-3)
+        assert np.isclose(solver.objective_value, 0.0, atol=1e-6)
+
+    def test_qp_solver_unsolvable_because_not_sum_bound(
+        self, solver_class: type[qfit.solvers.QPSolver]
+    ) -> None:
+        target = np.array([4.0, 4.0, 4.0])
+        models = np.array([[6.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 21.0]])
+
+        solver = solver_class(target, models)
+        solver.solve_qp()
+
+        expected_weights = np.array([0.4690, 0.3566, 0.1743])
+        expected_objective = self.expected_objective(target, models, expected_weights)
+        assert expected_objective > 0.0
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, rtol=1e-3)
+
+    def test_qp_solver_unsolvable_because_sum_bound(
+        self, solver_class: type[qfit.solvers.QPSolver]
+    ) -> None:
+        target = np.array([4.0, 4.0, 4.0])
+        models = np.array([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]])
+
+        solver = solver_class(target, models)
+        solver.solve_qp()
+
+        expected_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+        expected_objective = self.expected_objective(target, models, expected_weights)
+        assert expected_objective > 0.0
+        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.isclose(solver.objective_value, expected_objective, rtol=1e-3)
 
 
 @pytest.mark.parametrize("solver_class", available_miqp_solvers.values())
