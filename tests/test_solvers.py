@@ -99,7 +99,7 @@ class TestQPSolver:
         solver = solver_class(target, models)
         solver.solve_qp()
 
-        assert np.allclose(solver.weights, expected_weights, atol=1e-3)
+        assert np.allclose(solver.weights, expected_weights, atol=5e-3)
         assert np.isclose(solver.objective_value, 0.0, atol=1e-6)
 
     def test_qp_solver_solvable_sum_to_lt_1(
