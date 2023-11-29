@@ -504,10 +504,9 @@ class QFitWater:
 		def _solve_qp(self):
 			# Create and run solver
 			print("Solving QP")
-			print('Shape of models:', self._models.shape)
-			solver = QPSolver(self._target, self._models, use_cplex=self.options.cplex)
-			solver.solve()
-			#print(solver.weights)#[solver.weights > 0.05])
+        		qp_solver_class = get_qp_solver_class(self.options.qp_solver)
+        		solver = qp_solver_class(self._target, self._models)
+			solver.solve_qp()
 			print(solver.weights[solver.weights > 0.05])
 			# Update occupancies from solver weights
 			self._occupancies = solver.weights
@@ -527,8 +526,9 @@ class QFitWater:
 				do_BIC_selection = self.options.bic_threshold
 
 			# Create solver
-			logger.info("Solving MIQP")
-			solver = MIQPSolver(self._target, self._models, use_cplex=self.options.cplex)
+			print("Solving MIQP")
+			miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
+			solver = miqp_solver_class(self._target, self._models)
 
 			# Threshold selection by BIC:
 			if do_BIC_selection:
