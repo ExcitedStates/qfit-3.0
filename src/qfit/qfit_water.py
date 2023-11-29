@@ -32,8 +32,6 @@ from .structure.residue import _RotamerResidue
 from .transformer import Transformer
 from .solvers import QPSolver, MIQPSolver #, SolverError
 
-import gemmi
-
 dict_dist = {
 				'Cm' : 3.0,
 				'Nm' : 2.4,
@@ -319,28 +317,6 @@ class QFitWater:
 				if increase_chi:
 					start_chi_index += 1
 				iteration += 1
-
-
-		def write_map_to_file(data, filename):
-			# Create a new CCP4 map
-			ccp4_map = gemmi.Ccp4Map()
-
-			# Create a new FloatGrid
-			grid = gemmi.FloatGrid(*data.shape)
-
-			# Fill the grid with data from the numpy array
-			grid.spacegroup = gemmi.find_spacegroup_by_name('P 1')
-			for index, value in np.ndenumerate(data):
-				grid.set_value(index, value)
-
-			# Assign the grid to the ccp4_map
-			ccp4_map.grid = grid
-
-			# Set the map properties
-			ccp4_map.update_ccp4_header(2, True)
-
-			# Write the map to a file
-			ccp4_map.write_ccp4_map(filename)
 
 
 		def _run_water_sampling(self):
