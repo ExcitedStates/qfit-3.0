@@ -22,6 +22,7 @@ import pickle
 from string import ascii_uppercase
 from scipy.optimize import least_squares
 
+from .water_data_loader import load_water_rotamer_dict
 from .qfit import QFitRotamericResidue
 from .clash import ClashDetector
 from .logtools import setup_logging, log_run_info, poolworker_setup_logging, QueueListener
@@ -329,8 +330,7 @@ class QFitWater:
 				water_coor = []
 				self.n = 100 #placeholder -> get last residue of chain
 				# Read in dictionary from create_water_rotamer_dictionary
-				with open("water_data.pkl", "rb") as f:
-						water_rotamer_dict = pickle.load(f)
+				water_rotamer_dict = load_water_rotamer_dict()
 
 				#sampling residue
 				self._sample_sidechain()
