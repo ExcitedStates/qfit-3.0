@@ -21,7 +21,6 @@ from itertools import product
 import pickle
 from string import ascii_uppercase
 from scipy.optimize import least_squares
-from .water_dictionary import AminoAcid
 
 from .qfit import QFitRotamericResidue
 from .clash import ClashDetector
