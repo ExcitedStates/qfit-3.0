@@ -322,15 +322,14 @@ class QFitWater:
 		def _run_water_sampling(self):
 				"""Run qfit water on each residue."""
 				#r_pro._init_clash_detection() #look at clashes around the protein
-				print('coor')
 				self.base_residue = copy.deepcopy(self.residue)
 				new_coor_set = []
 				new_bs = []
-
+`
 				water_coor = []
 				self.n = 100 #placeholder -> get last residue of chain
 				# Read in dictionary from create_water_rotamer_dictionary
-				with open("/Users/stephaniewanko/Downloads/water_tracking/water_data.pkl", "rb") as f:
+				with open("water_data.pkl", "rb") as f:
 						water_rotamer_dict = pickle.load(f)
 
 				#sampling residue
