@@ -11,7 +11,8 @@ def main():
     package_data = {
         "qfit": [
             os.path.join("data", "*.npy"),
-        ]
+        ],
+        '': ['*.pkl'],
     }
 
     ext_modules = [
