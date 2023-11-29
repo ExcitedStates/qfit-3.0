@@ -853,12 +853,12 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
             logger.info(
-                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using x,y,z vectors."
+                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
             )
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             # Find coordinates of Cα, Cβ, N atoms
             pos_CA = self.residue.extract("name", "CA").coor[0]
-            pos_CB = self.residue.extract("name", atom_name).coor[0]
+            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
             pos_N = self.residue.extract("name", "N").coor[0]
             # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
             vec_x = pos_CB - pos_CA
@@ -869,7 +869,7 @@ class QFitRotamericResidue(_BaseQFit):
             vec_y /= np.linalg.norm(vec_y)
             vec_z /= np.linalg.norm(vec_z)
 
-            directions = np.array([vec_x, vec_y, vec_z])
+            directions = np.vstack([vec_x, vec_y, vec_z])
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
