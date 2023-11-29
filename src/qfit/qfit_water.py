@@ -326,7 +326,6 @@ class QFitWater:
 				self.base_residue = copy.deepcopy(self.residue)
 				new_coor_set = []
 				new_bs = []
-`
 				water_coor = []
 				self.n = 100 #placeholder -> get last residue of chain
 				# Read in dictionary from create_water_rotamer_dictionary
