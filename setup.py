@@ -67,6 +67,7 @@ def main():
                 "add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main",
                 "remove_duplicates = qfit.remove_duplicates:main",
                 "create_rotamer_library = qfit.create_rot_lib:main",
+                "qfit_water = qfit.run_qfit_water:main",
             ]
         },
         scripts=[
