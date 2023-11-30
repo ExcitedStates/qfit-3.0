@@ -34,13 +34,13 @@ from .transformer import Transformer
 from .solvers import QPSolver, MIQPSolver #, SolverError
 
 dict_dist = {
-				'Cm' : 3.0,
-				'Nm' : 2.4,
-				'Om' : 2.4,
-				'S' : 2.4,
-				'C' : 3.0,
-				'N' : 2.4,
-				'O' : 2.4}
+		'Cm' : 3.0,
+		'Nm' : 2.4,
+		'Om' : 2.4,
+		'S' : 2.4,
+		'C' : 3.0,
+		'N' : 2.4,
+		'O' : 2.4}
 
 # Create a namedtuple 'class' (struct) which carries info about an MIQP solution
 MIQPSolutionStats = namedtuple(
