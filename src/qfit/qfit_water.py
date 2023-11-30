@@ -505,7 +505,6 @@ class QFitWater:
 			# Create and run solver
 			print("Solving QP")
         		qp_solver_class = get_qp_solver_class(self.options.qp_solver)
-        		solver = qp_solver_class(self._target, self._models)
 			solver.solve_qp()
 			print(solver.weights[solver.weights > 0.05])
 			# Update occupancies from solver weights
