@@ -259,8 +259,11 @@ def main():
             .extract("resn", "HOH", "!=")
             .single_conformer_residues
         )
+    residues_to_sample = list(
+            itl.filterfalse(does_multiconformer_checkpoint_exist, residues)
+        )
 
-    for residue in residues:
+    for residue in residues_to_sample:
         print(residue)
         xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
         qfit = QFitWater(residue, full_occ, xmap_reduced, options)
