@@ -263,7 +263,11 @@ def main():
     for residue in residues:
         xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
         qfit = QFitWater(residue, full_occ, xmap_reduced, options)
-        qfit.run()
+        try:
+            qfit.run()
+        except RuntimeError:
+            print(f"RuntimeError occurred for residue {residue}, skipping to next residue.")
+            continue
         conformers = qfit.get_water_conformers()
         nconformers = len(conformers)
         altloc = ""
