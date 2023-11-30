@@ -253,7 +253,7 @@ def main():
         scaler.scale(footprint, radius=args.scale_rmask * radius)
     
     full_occ = structure.extract("resn", "HOH", "!=")
-
+    
     residues = list(
             structure.extract("record", "HETATM", "!=")
             .extract("resn", "HOH", "!=")
@@ -261,6 +261,7 @@ def main():
         )
 
     for residue in residues:
+        print(residue)
         xmap_reduced = xmap.extract(residue.coor, padding=options.padding)
         qfit = QFitWater(residue, full_occ, xmap_reduced, options)
         try:
