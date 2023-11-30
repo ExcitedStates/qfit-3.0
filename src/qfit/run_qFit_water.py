@@ -14,6 +14,7 @@ import numpy as np
 import time
 import math
 import copy
+import itertools as itl
 from string import ascii_uppercase
 from scipy.optimize import least_squares
 
