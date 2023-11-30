@@ -22,6 +22,7 @@ import pickle
 from string import ascii_uppercase
 from scipy.optimize import least_squares
 
+from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
 from .water_data_loader import load_water_rotamer_dict
 from .qfit import QFitRotamericResidue
 from .clash import ClashDetector
