@@ -236,7 +236,6 @@ class QFitWater:
 								# TTT+=1
 								# Change the condition to check if a certain number of values are below the density cutoff
 								if np.sum(values[mask] < 1) > 2:
-									print(values)
 									keep_coor_set = False
 									continue
 
@@ -360,7 +359,6 @@ class QFitWater:
 					#print(new_positions)
 					for r in range(1, len(new_positions)+1):
 						for water_position in itertools.combinations(new_positions, r):
-							print(water_position)
 							values = self.xmap.interpolate(np.vstack(water_position))
 							new_coor = np.vstack((coor, water_position))
 							#values = self.xmap.interpolate(new_coor)
@@ -466,6 +464,7 @@ class QFitWater:
 			n = 1
 			for coor in self._coor_set: #for every combination of water molecules
 				self.residue = copy.deepcopy(self.base_residue)
+				print(len(self.residue.coor))
 				diff = len(coor) - len(self.residue.coor)
 				if diff > 0:
 					for i in range(1, diff + 1):
@@ -473,7 +472,7 @@ class QFitWater:
 						self.residue.add_water_atom3({'chain': 'A','resi': 3, 'coor': last_item, 'q': 1.0,'b': 10.0, 'altloc':'', 'active':True})	
 				self._update_transformer(self.residue)
 				#The mask is a boolean array that indicates which voxels in the density map are within a certain radius (self._rmask) of the current conformer.
-				self._transformer.mask(0.5) #self._rmask
+				self._transformer.mask(0.3) #self._rmask
 			mask = (self._transformer.xmap.array > 0)
 			nvalues = mask.sum()
 			self._target = self.xmap.array[mask]
