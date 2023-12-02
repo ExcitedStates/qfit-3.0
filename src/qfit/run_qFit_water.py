@@ -287,6 +287,7 @@ def main():
             continue
         conformers = qfit.get_water_conformers()
         nconformers = len(conformers)
+        print(nconformers)
         altloc = ""
         for n, conformer in enumerate(conformers, start=0):
             if nconformers > 1:
