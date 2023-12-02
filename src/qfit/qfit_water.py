@@ -409,7 +409,8 @@ class QFitWater:
 				fname = os.path.join(f"{prefix}_{n}.pdb")
 				data = {}
 				for attr in self.residue.data:
-					data[attr] = self.residue.data[attr]
+					array1 = getattr(self.residue, attr)
+					data[attr] = array1[self.residue.active]
 				Structure(data).tofile(fname)
 
 		def rigid_transform_3D(self,A, B):
