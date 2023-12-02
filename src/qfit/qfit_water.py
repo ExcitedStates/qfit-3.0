@@ -512,7 +512,7 @@ class QFitWater:
 			# Update occupancies from solver weights
 			self._occupancies = solver.weights
 			# Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-			return solver.obj_value
+			return solver.objective_value
 		
 		def _solve_miqp(
 			self,
@@ -537,8 +537,8 @@ class QFitWater:
 				# to determine if the better fit (RSS) justifies the use of a more complex model (k)
 				miqp_solutions = []
 				for threshold in loop_range:
-					solver.solve(cardinality=None, threshold=threshold)
-					rss = solver.obj_value * self._voxel_volume
+					solver.solve_miqp(cardinality=None, threshold=threshold)
+					rss = solver.objective_value * self._voxel_volume
 					n = len(self._target)
 					n = len(self._models)
 
@@ -555,7 +555,7 @@ class QFitWater:
 						threshold=threshold,
 						BIC=BIC,
 						rss=rss,
-						objective=solver.obj_value.copy(),
+						objective=solver.objective_value.copy(),
 						weights=solver.weights.copy(),
 					)
 					miqp_solutions.append(solution)
