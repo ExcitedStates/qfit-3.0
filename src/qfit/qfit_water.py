@@ -87,7 +87,8 @@ class QFitWaterOptions:
 		self.rmsd_cutoff = 0.01
 
 		# MIQP options
-		self.cplex = True
+		self.qp_solver = None
+                self.miqp_solver = None
 		self.cardinality = 5
 		self.threshold = 0.20
 		self.bic_threshold = True
