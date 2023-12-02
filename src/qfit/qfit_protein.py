@@ -25,6 +25,7 @@ from .logtools import (
     poolworker_setup_logging,
     QueueListener,
 )
+from .solvers import available_qp_solvers, available_miqp_solvers
 from . import MapScaler, Structure, XMap
 from .solvers import available_qp_solvers, available_miqp_solvers
 from .structure.rotamers import ROTAMERS
