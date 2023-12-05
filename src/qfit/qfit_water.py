@@ -58,6 +58,30 @@ MIQPSolutionStats = namedtuple(
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
+import gemmi
+
+def write_mrc(data, filename):
+                            # Create a new CCP4 map
+                            ccp4_map = gemmi.Ccp4Map()
+                            # Reshape it into a 3D array
+                            print(data.shape)
+                            data = data.reshape((2, 2, 2))
+                            # Create a new FloatGrid
+                            grid = gemmi.FloatGrid(*data.shape)
+
+                            # Fill the grid with data from the numpy array
+                            for index, value in np.ndenumerate(data):
+                                    grid.set_value(index, value)
+
+                            # Assign the grid to the ccp4_map
+                            ccp4_map.grid = grid
+
+                            # Set the map properties
+                            ccp4_map.update_ccp4_header(2, True)
+
+                            # Write the map to a file
+                            ccp4_map.write_ccp4_map(filename)
+
 class QFitWaterOptions:
         def __init__(self):
                 super().__init__()
@@ -326,7 +350,14 @@ class QFitWater:
                 def _run_water_sampling(self):
                                 """Run qfit water on each residue."""
                                 #r_pro._init_clash_detection() #look at clashes around the protein
+                                self.residue.active = False
+                                selection = self.residue.select("resi", self.residue.resi[0])
+                                self.residue._active[selection] = True
                                 self.base_residue = copy.deepcopy(self.residue)
+                                #for resi, active in zip(self.residue.resi, self.residue.data['active']):
+                                #    if active:
+                                #        print(resi)
+                                #self.residue._active[selection] = False
                                 new_coor_set = []
                                 new_bs = []
                                 water_coor = []
@@ -335,7 +366,7 @@ class QFitWater:
                                 water_rotamer_dict = load_water_rotamer_dict()
 
                                 #sampling residue
-                                #self._sample_sidechain()
+                                self._sample_sidechain()
                                 print(len(self._coor_set))
                                 #self._write_intermediate_conformers(prefix="postsidechain")
 
@@ -381,7 +412,7 @@ class QFitWater:
                                 self._bs = new_bs
                                 #print('RESIDUE DATA:')
                                 #print(self.residue.data)
-                                self._write_intermediate_conformers(prefix="preqp")     
+                                #self._write_intermediate_conformers(prefix="preqp")     
                                 #self.residue.remove_water()
                                 self._update_transformer(self.residue)
                                 self._convert("preqp")
@@ -393,10 +424,22 @@ class QFitWater:
                                 self._solve_qp()
                                 print('postqp')
                                 self._update_conformers()
+                                if not self._coor_set:
+                                    msg = (
+                                      "No conformers could be generated. Check for initial "
+                                      "clashes and density support."
+                                    )
+                                    raise RuntimeError(msg)
                                 self._write_intermediate_conformers(prefix="postqp")    
                                 self._convert("postqp")
                                 self._solve_miqp(threshold=self.options.threshold, cardinality=self.options.cardinality)
                                 self._update_conformers()
+                                if not self._coor_set:
+                                    msg = (
+                                      "No conformers could be generated. Check for initial "
+                                      "clashes and density support."
+                                    )
+                                    raise RuntimeError(msg)
                                 print(self._occupancies)
                                 self._write_intermediate_conformers(prefix="miqp_solution")            
                 
@@ -407,7 +450,7 @@ class QFitWater:
                                 if diff > 0: 
                                         for i in range(1, diff + 1):
                                                 last_item = coor[-i]
-                                                self.conformer.add_water_atom3({'chain': 'A','resi': 3, 'coor': last_item, 'q': 1.0,'b': 30.0, 'altloc':'', 'active':True})       
+                                                self.conformer.add_atom('O', 'O', last_item)#{'chain': 'A','resi': 3, 'coor': last_item, 'q': 1.0,'b': 30.0, 'altloc':'', 'name':'O', 'e': 'O','active':True})       
                                 fname = os.path.join(f"{prefix}_{n}_{self.residue.resi[0]}.pdb")
                                 data = {}
                                 for attr in self.conformer.data:
@@ -470,20 +513,35 @@ class QFitWater:
                         n = 1
                         for coor in self._coor_set: #for every combination of water molecules
                                 t_0 = timeit.default_timer()
-                                self.conformer = copy.deepcopy(self.base_residue)
+                                self.conformer = copy.deepcopy(self.residue)
+                                for resi, active in zip(self.conformer.resi, self.conformer.data['active']):
+                                    if active:
+                                        print(resi)
                                 diff = len(coor) - len(self.conformer.coor)
                                 if diff > 0:
+                                    for i in range(1, diff + 1):
+                                        last_item = coor[-i]
                                         # Use list comprehension to create a list of dictionaries for new atoms
-                                        new_atoms = [{'chain': 'A', 'resi': 3, 'coor': coor[-i], 'q': 1.0, 'b': 10.0, 'altloc': '', 'active': True} for i in range(1, diff + 1)]
+                                        self.conformer.add_atom('O', 'O', last_item)
+                                        #new_atoms = [{'chain': 'A', 'resi': 200, 'coor': coor[-i], 'q': 1.0, 'b': 10.0, 'altloc': '', 'name':'O', 'e': 'O', 'active': True} for i in range(1, diff + 1)]
                                         # Use map function to add new atoms to the residue
-                                        list(map(self.conformer.add_water_atom3, new_atoms))
-                                        print(self.conformer.name)
-                                        print(self.conformer.coor)
+                                        #list(map(self.conformer.add_water_atom3, new_atoms))
+                                        #print(self.conformer.name)
+                                        #print(self.conformer.coor)
                                 t_1 = timeit.default_timer()
                                 #The mask is a boolean array that indicates which voxels in the density map are within a certain radius (self._rmask) of the current conformer.
                                 t_2 = timeit.default_timer()
-                                self._transformer.mask(0.3) #self._rmask
+                                #print('attr')
+                                #print(self.conformer.active)
+                                #for attr in self.conformer.data:
+                                #    array1 = getattr(self.conformer, attr)
+                                #    print(array1[self.conformer.active])
+                                #print(self.conformer.data[active])
+                                #print(self.conformer.coor[active])
+                                self._transformer.mask(1.5) #self._rmask
                                 #print(f'{t_1 - t_0} and {t_2 - t_0}')
+                        #print("Values within self._transformer.xmap.array:")
+                        #print(self._transformer.xmap.array)
                         mask = (self._transformer.xmap.array > 0)
                         nvalues = mask.sum()
                         print(f'nvalues: {nvalues}')
@@ -497,16 +555,25 @@ class QFitWater:
                         
                         self._models = np.zeros((nmodels, nvalues), float)
                         for n, coor in enumerate(self._coor_set): #for every combination of water molecules
-                                self.conformer = copy.deepcopy(self.base_residue)
+                                self.conformer = copy.deepcopy(self.residue)
                                 # Remove all waters first
                                 # Determine the difference in length between coor and the residue's coor
                                 diff = len(coor) - len(self.conformer.coor)
                                 if diff > 0:
                                         for i in range(1, diff + 1):
                                                 last_item = coor[-i]
-                                                self.conformer.add_water_atom3({'chain': 'A','resi': 3, 'coor': last_item, 'q': 1.0,'b': 10.0, 'altloc':'', 'active':True})                              
+                                                self.conformer.add_atom('O', 'O', last_item)
+                                                #.add_water_atom3({'chain': 'A','resi': 200, 'coor': last_item, 'q': 1.0,'b': 10.0, 'altloc':'', 'name':'O', 'e': 'O', 'active':True})
+                                #print(self.conformer.data["active"])
+                                #for resi, active in zip(self.conformer.resi, self.conformer.data['active']):
+                                #    if active:
+                                #        print(resi)
+                                self._update_transformer(self.conformer)
                                 self._transformer.density()
                                 model = self._models[n]
+                                #print('MASK')
+                                #print(self._transformer.xmap.array)
+                                #print(self._transformer.xmap.array[mask])
                                 model[:] = self._transformer.xmap.array[mask]
                                 model_size = model.size
                                 np.maximum(model, 0.0, out=model) #self.options.bulk_solvent_level
@@ -516,6 +583,12 @@ class QFitWater:
                         # Create and run solver
                         print("Solving QP")
                         qp_solver_class = get_qp_solver_class(self.options.qp_solver)
+                        #print(self._target)
+                        print(self._models)
+                        print(self._models.shape)
+                        print(self._target.shape)
+                        #write_mrc(self._target, 'target.mrc')
+                        #write_mrc(self._models, 'models.mrc')
                         solver = qp_solver_class(self._target, self._models)
                         solver.solve_qp()
                         print(solver.weights[solver.weights > 0.05])
@@ -540,7 +613,7 @@ class QFitWater:
                         print("Solving MIQP")
                         miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
                         solver = miqp_solver_class(self._target, self._models)
-
+                        do_BIC_selection = False
                         # Threshold selection by BIC:
                         if do_BIC_selection:
                                 # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
@@ -580,13 +653,34 @@ class QFitWater:
 
                         else:
                                 # Run solver with specified parameters
-                                solver.solve(cardinality=cardinality, threshold=threshold)
+                                solver.solve_miqp(cardinality=cardinality, threshold=threshold)
 
                                 # Update occupancies from solver weights
                                 self._occupancies = solver.weights
 
                                 # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
                                 return solver.objective_value
+                import gemmi
+
+                def write_mrc(data, filename):
+                            # Create a new CCP4 map
+                            ccp4_map = gemmi.Ccp4Map()
+
+                            # Create a new FloatGrid
+                            grid = gemmi.FloatGrid(*data.shape)
+
+                            # Fill the grid with data from the numpy array
+                            for index, value in np.ndenumerate(data):
+                                    grid.set_value(index, value)
+
+                            # Assign the grid to the ccp4_map
+                            ccp4_map.grid = grid
+
+                            # Set the map properties
+                            ccp4_map.update_ccp4_header(2, True)
+
+                            # Write the map to a file
+                            ccp4_map.write_ccp4_map(filename)
 
                 def _update_conformers(self, cutoff=0.02):
                                 logger.debug("Updating conformers based on occupancy")
@@ -599,15 +693,15 @@ class QFitWater:
                                 print(f"Remaining valid conformations: {len(self._coor_set)}")
 
                 def _update_transformer(self, structure):
-                                self.residue = structure
-                                #print(structure.coor)
-                                self._transformer = Transformer(
+                        self.conformer = structure
+                        print('update')
+                        self._transformer = Transformer(
                                                                                                 structure, self._xmap_model,
                                                                                                 smax=self._smax, smin=self._smin,
                                                                                                 simple=self._simple,
                                                                                                 em=self.options.em
                                 )
-                                self._transformer.initialize()
+                        self._transformer.initialize()
 
                 def write_maps(self):
                         """Write out model and difference map."""
