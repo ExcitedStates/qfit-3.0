@@ -754,60 +754,65 @@ class QFitRotamericResidue(_BaseQFit):
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
 
-        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
-        for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
-            for backbone_atom in ["N", "CA", "C", "O"]:
-                if backbone_atom not in residue.name:
-                    relative_to_residue = n - index
-                    logger.warning(
-                        f"[{self.identifier}] Missing backbone atom in segment residue {relative_to_residue:+d}."
-                    )
-                    logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
-                    self._coor_set.append(self.segment[index].coor)
-                    self._bs.append(self.conformer.b)
-                    return
-
-        # Retrieve the amplitudes and stepsizes from options.
-        sigma = self.options.sample_backbone_sigma
-        bba, bbs = (
-            self.options.sample_backbone_amplitude,
-            self.options.sample_backbone_step,
-        )
-        assert bba >= bbs > 0
-
-        # Create an array of amplitudes to scan:
-        #   We start from stepsize, making sure to stop only after bba.
-        #   Also include negative amplitudes.
-        eps = ((bba / bbs) / 2) * np.finfo(
-            float
-        ).epsneg  # ε to avoid FP errors in arange
-        amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
-        amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
-
-        # Optimize in torsion space to achieve the target atom position
-        optimizer = NullSpaceOptimizer(segment)
-        start_coor = atom.coor[0]  # We are working on a single atom.
-        torsion_solutions = []
-        for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + amplitude * direction
-            optimize_result = optimizer.optimize(atom_name, endpoint)
-            torsion_solutions.append(optimize_result["x"])
-
-        # Capture starting coordinates for the segment, so that we can restart after every rotator
-        starting_coor = segment.coor
-        for solution in torsion_solutions:
-            optimizer.rotator(solution)
-            self._coor_set.append(self.segment[index].coor)
-            self._bs.append(self.conformer.b)
-            segment.coor = starting_coor
-
-        logger.debug(
-            f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
-        )
-        if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(
-                prefix=f"sample_backbone_segment{index:03d}"
+        # we want to sample the backbone for every coordinate in the backbone that exists. 
+        if self.options.backbone_coordinates is not None:
+            for name, coor in self.options.backbone_coordinates.items():
+                self.segment[index].extract("name", name).coor = coor
+        
+            # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
+            for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
+                for backbone_atom in ["N", "CA", "C", "O"]:
+                    if backbone_atom not in residue.name:
+                        relative_to_residue = n - index
+                        logger.warning(
+                            f"[{self.identifier}] Missing backbone atom in segment residue {relative_to_residue:+d}."
+                        )
+                        logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
+                        self._coor_set.append(self.segment[index].coor)
+                        self._bs.append(self.conformer.b)
+                        return
+    
+            # Retrieve the amplitudes and stepsizes from options.
+            sigma = self.options.sample_backbone_sigma
+            bba, bbs = (
+                self.options.sample_backbone_amplitude,
+                self.options.sample_backbone_step,
             )
+            assert bba >= bbs > 0
+    
+            # Create an array of amplitudes to scan:
+            #   We start from stepsize, making sure to stop only after bba.
+            #   Also include negative amplitudes.
+            eps = ((bba / bbs) / 2) * np.finfo(
+                float
+            ).epsneg  # ε to avoid FP errors in arange
+            amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
+            amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
+    
+            # Optimize in torsion space to achieve the target atom position
+            optimizer = NullSpaceOptimizer(segment)
+            start_coor = atom.coor[0]  # We are working on a single atom.
+            torsion_solutions = []
+            for amplitude, direction in itertools.product(amplitudes, directions):
+                endpoint = start_coor + amplitude * direction
+                optimize_result = optimizer.optimize(atom_name, endpoint)
+                torsion_solutions.append(optimize_result["x"])
+    
+            # Capture starting coordinates for the segment, so that we can restart after every rotator
+            starting_coor = segment.coor
+            for solution in torsion_solutions:
+                optimizer.rotator(solution)
+                self._coor_set.append(self.segment[index].coor)
+                self._bs.append(self.conformer.b)
+                segment.coor = starting_coor
+    
+            logger.debug(
+                f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
+            )
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(
+                    prefix=f"sample_backbone_segment{index:03d}"
+                )
 
     def _sample_angle(self):
         """Sample residue conformations by flexing α-β-γ angle.
