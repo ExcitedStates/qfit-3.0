@@ -460,6 +460,17 @@ class QFitProtein:
         waters = waters.extract("resn", "HOH", "==")
         hetatms = hetatms.combine(waters)
 
+        # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates 
+        backbone_coor_dict = {}
+            for residue in self.structure.extract(f"resi {resi} and chain {chainid}"):
+                if residue.resn[0] != "HOH":
+                    ca_coor = residue.extract("name", "CA").coor
+                    c_coor = residue.extract("name", "C").coor
+                    n_coor = residue.extract("name", "N").coor
+                    o_coor = residue.extract("name", "O").coor
+                    grouped_coords = {"CA": ca_coor, "C": c_coor, "N": n_coor, "O": o_coor}
+                    backbone_coor_dict[(residue.resi[0], residue.chain[0].replace('"', ''))] = grouped_coords
+                    
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
@@ -553,6 +564,7 @@ class QFitProtein:
                             "xmap": self.get_map_around_substructure(residue),
                             "options": self.options,
                             "logqueue": logqueue,
+                            "backbone_coor_dict": backbone_coor_dict
                         },
                         callback=_cb,
                         error_callback=_error_cb,
@@ -579,6 +591,7 @@ class QFitProtein:
                         xmap=self.get_map_around_substructure(residue),
                         options=self.options,
                         logqueue=logqueue,
+                        backbone_coor_dict=backbone_coor_dict
                     )
                     _cb(result)
                 except Exception as e:
@@ -738,7 +751,7 @@ class QFitProtein:
         f.close()
 
     @staticmethod
-    def _run_qfit_residue(residue, structure, xmap, options, logqueue):
+    def _run_qfit_residue(residue, structure, xmap, options, logqueue, backbone_coor_dict):
         """Run qfit on a single residue to determine density-supported conformers."""
 
         # Don't run qfit if we have a ligand or water
@@ -847,6 +860,8 @@ class QFitProtein:
                 sel_str = f"not ({sel_str})"
                 structure_new = structure_new.extract(sel_str)
 
+        #add multiple backbone positions
+        options.backbone_coordinates = backbone_coor_dict[(resi, chainid)]
         # Exception handling in case qFit-residue fails:
         qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
         try:
