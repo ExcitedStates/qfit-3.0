@@ -462,14 +462,21 @@ class QFitProtein:
 
         # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates 
         backbone_coor_dict = {}
-            for residue in self.structure.extract(f"resi {resi} and chain {chainid}"):
-                if residue.resn[0] != "HOH":
-                    ca_coor = residue.extract("name", "CA").coor
-                    c_coor = residue.extract("name", "C").coor
-                    n_coor = residue.extract("name", "N").coor
-                    o_coor = residue.extract("name", "O").coor
-                    grouped_coords = {"CA": ca_coor, "C": c_coor, "N": n_coor, "O": o_coor}
-                    backbone_coor_dict[(residue.resi[0], residue.chain[0].replace('"', ''))] = grouped_coords
+        for residue in self.structure.extract(f"resi {resi} and chain {chainid}"):
+            if residue.resn[0] != "HOH":
+                ca_coor = residue.extract("name", "CA").coor
+                c_coor = residue.extract("name", "C").coor
+                n_coor = residue.extract("name", "N").coor
+                o_coor = residue.extract("name", "O").coor
+                atom_coords = [ca_coor, c_coor, n_coor, o_coor]
+                atom_names = ["CA", "C", "N", "O"]
+                grouped_coords = {}
+                for i in range(len(atom_coords[0])):
+                    grouped_coords[i] = {name: coords[i] for name, coords in zip(atom_names, atom_coords)}
+                residue_chain_key = (residue.resi[0], residue.chain[0].replace('"', ''))
+                if residue_chain_key not in backbone_coor_dict:
+                    backbone_coor_dict[residue_chain_key] = {}
+                backbone_coor_dict[residue_chain_key] = grouped_coords
                     
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
