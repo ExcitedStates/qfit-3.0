@@ -246,7 +246,7 @@ class _BaseQFit:
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
 
-    def _convert(self):
+    def _convert(self, iteration=1):
         """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting conformers to density")
         logger.debug("Masking")
@@ -264,7 +264,10 @@ class _BaseQFit:
         self._models = np.zeros((nmodels, nvalues), float)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            self.conformer.b = self._bs[n]
+            if iteration == 0:
+                self.conformer.b = self._bs[n] * 10
+            else: 
+                self.conformer.b
             self._transformer.density()
             model = self._models[n]
             model[:] = self._transformer.xmap.array[mask]
@@ -441,8 +444,9 @@ class _BaseQFit:
     def _write_intermediate_conformers(self, prefix="conformer"):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
+            #print(coor)
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-
+            #print(fname)
             data = {}
             for attr in self.conformer.data:
                 array1 = getattr(self.conformer, attr)
@@ -477,7 +481,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-
 
         # Check if residue has complete heavy atoms. If not, complete it.
         expected_atoms = np.array(self.residue._rotamers["atoms"])
@@ -650,7 +653,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._sample_angle()
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
-            self._sample_sidechain()
+            self._sample_sidechain(version = 0)
+            self._sample_sidechain(version = 1)
 
         # Check that there are no self-clashes within a conformer
         self.residue.active = True
@@ -681,7 +685,7 @@ class QFitRotamericResidue(_BaseQFit):
         self.sample_b()
         self._convert()
         self._solve_miqp(
-            threshold=self.options.threshold, cardinality=self.options.cardinality
+                threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
         if self.options.write_intermediate_conformers:
@@ -748,12 +752,11 @@ class QFitRotamericResidue(_BaseQFit):
             vec_x /= np.linalg.norm(vec_x)
             vec_y /= np.linalg.norm(vec_y)
             vec_z /= np.linalg.norm(vec_z)
-
+ 
             directions = np.vstack([vec_x, vec_y, vec_z])
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
-
         # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
         for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
             for backbone_atom in ["N", "CA", "C", "O"]:
@@ -768,11 +771,11 @@ class QFitRotamericResidue(_BaseQFit):
                     return
 
         # Retrieve the amplitudes and stepsizes from options.
-        sigma = self.options.sample_backbone_sigma
-        bba, bbs = (
-            self.options.sample_backbone_amplitude,
-            self.options.sample_backbone_step,
-        )
+        sigma = self.options.sample_backbone_sigma 
+        bba, bbs = ( 
+            0.9,
+            0.3, 
+        ) #self.options.sample_backbone_amplitude
         assert bba >= bbs > 0
 
         # Create an array of amplitudes to scan:
@@ -798,7 +801,7 @@ class QFitRotamericResidue(_BaseQFit):
         for solution in torsion_solutions:
             optimizer.rotator(solution)
             self._coor_set.append(self.segment[index].coor)
-            self._bs.append(self.conformer.b)
+            self._bs.append(self.conformer.b*5)
             segment.coor = starting_coor
 
         logger.debug(
@@ -894,18 +897,24 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
 
-    def _sample_sidechain(self):
+    def _sample_sidechain(self, version=0):
         opt = self.options
         start_chi_index = 1
-        if self.residue.resn[0] != "PRO":
-            sampling_window = np.arange(
-                -opt.rotamer_neighborhood,
-                opt.rotamer_neighborhood + opt.dihedral_stepsize,
-                opt.dihedral_stepsize,
-            )
+        if self.residue.resn[0] != "PRO": #opt.dihedral_stepsize
+            if version == 0:
+                sampling_window = np.arange(
+                    -opt.rotamer_neighborhood,
+                    opt.rotamer_neighborhood,
+                    24,
+                )
+            else:
+                sampling_window = np.arange(
+                    -opt.rotamer_neighborhood,
+                    opt.rotamer_neighborhood,
+                    opt.dihedral_stepsize,
+                )
         else:
             sampling_window = [0]
-
         rotamers = self.residue.rotamers
         rotamers.append(
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
@@ -921,6 +930,7 @@ class QFitRotamericResidue(_BaseQFit):
                 []
             )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
+                print(f'chi_index: {chi_index}')
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
                 # clash mask.
@@ -943,17 +953,33 @@ class QFitRotamericResidue(_BaseQFit):
                 n = 0
                 ex = 0
                 # For each backbone conformation so far:
+                if version == 1:
+                    sampled_rotamers = []
+                    for coor in self._coor_set:
+                            self.residue.coor = coor
+                            rotamer = [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
+                            sampled_rotamers.append(rotamer)
+                    rotamers = sampled_rotamers
                 for coor, b in zip(self._coor_set, self._bs):
                     self.residue.coor = coor
-                    self.residue.b = b
+                    self.residue.b = 100
+                    #print(self.residue.b)
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
+                    #print(f'chis:{chis}')
                     # Try each rotamer in the library for this backbone conformation:
+                    
+                    #if iteration #2-> get the rotamers that still exist
+                        #print(f'sampled_rotamers: {sampled_rotamers}')
+                    #print(f'all rotamers: {rotamers}')
                     for rotamer in rotamers:
                         # Check if the current sidechain configuration for this residue
                         # closely matches the rotamer being considered from the library
+                        # Initialize a flag to check if the current sidechain configuration is the same as the rotamer
                         is_this_same_rotamer = True
                         for curr_chi, rotamer_chi in zip(chis, rotamer):
+                            # Calculate the absolute difference between the current chi angle and the rotamer chi angle
                             diff_chi = abs(curr_chi - rotamer_chi)
+                            # If the difference is outside the rotamer neighborhood, set the flag to False and break the loop
                             if (
                                 360 - opt.rotamer_neighborhood
                                 > diff_chi
@@ -961,6 +987,7 @@ class QFitRotamericResidue(_BaseQFit):
                             ):
                                 is_this_same_rotamer = False
                                 break
+                        # If the flag is False, skip the current iteration and move to the next rotamer
                         if not is_this_same_rotamer:
                             continue
                         # Set the chi angle to the standard rotamer value.
@@ -970,6 +997,7 @@ class QFitRotamericResidue(_BaseQFit):
                         chi_rotator = ChiRotator(self.residue, chi_index)
 
                         for angle in sampling_window:
+                            #print(f'angle:{angle}')
                             # Rotate around the chi angle, hitting each of the angle values
                             # in our predetermined, generic chi-angle sampling window
                             n += 1
@@ -996,34 +1024,30 @@ class QFitRotamericResidue(_BaseQFit):
 
                             # Based on that, decide whether to keep or reject this (partial) conformer
                             if keep_coor_set:
-                                if new_coor_set:
-                                    delta = np.array(new_coor_set) - np.array(
-                                        self.residue.coor
-                                    )
-                                    if (
-                                        np.sqrt(
-                                            min(
-                                                np.square((delta))
-                                                .sum(axis=2)
-                                                .sum(axis=1)
-                                            )
-                                        )
-                                        >= 0.01
-                                    ):
-                                        new_coor_set.append(self.residue.coor)
-                                        new_bs.append(b)
+                                if iter_coor_set:
+                                    #print(iter_coor_set)
+                                    rmsd_values = [calc_rmsd(self.residue.coor, coor_set) for coor_set in iter_coor_set]
+                                    if version == 0:
+                                        if all(rmsd_value > 0.2 for rmsd_value in rmsd_values):
+                                            iter_coor_set.append(self.residue.coor)
+                                            iter_b_set.append(b)
+                                        else:
+                                            #print('overlap')
+                                            ex += 1
                                     else:
-                                        ex += 1
+                                        if all(rmsd_value > 0.05 for rmsd_value in rmsd_values):
+                                            iter_coor_set.append(self.residue.coor)
+                                            iter_b_set.append(b)
                                 else:
-                                    new_coor_set.append(self.residue.coor)
-                                    new_bs.append(b)
+                                    iter_coor_set.append(self.residue.coor)
+                                    iter_b_set.append(b)
                             else:
                                 ex += 1
 
-                iter_coor_set.append(new_coor_set)
-                iter_b_set.append(new_bs)
-                self._coor_set = new_coor_set
-                self._bs = new_bs
+                #iter_coor_set.append(new_coor_set)
+                #iter_b_set.append([100 for b in new_bs])
+                self._coor_set = iter_coor_set
+                self._bs = iter_b_set
 
             if len(self._coor_set) > 15000:
                 logger.warning(
@@ -1033,7 +1057,8 @@ class QFitRotamericResidue(_BaseQFit):
                 )
                 self._coor_set = iter_coor_set[0]
                 self._bs = iter_b_set[0]
-
+            # print(f'b: {self._bs}')
+            # print(f'coor: {self._coor_set}')
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
@@ -1046,16 +1071,19 @@ class QFitRotamericResidue(_BaseQFit):
             )
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"sample_sidechain_iter{iteration}"
+                    prefix=f"sample_sidechain_iter{version}_{iteration}"
                 )
 
             # QP score conformer occupancy
-            self._convert()
+            if version == 0:
+                self._convert(iteration=0)
+            else:
+                self._convert(iteration=1)
             self._solve_qp()
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"sample_sidechain_iter{iteration}_qp"
+                    prefix=f"sample_sidechain_iter{version}_{iteration}_qp"
                 )
 
             # MIQP score conformer occupancy
@@ -1069,7 +1097,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"sample_sidechain_iter{iteration}_miqp"
+                    prefix=f"sample_sidechain_iter{version}_{iteration}_miqp"
                 )
 
             # Check if we are done
@@ -1081,7 +1109,6 @@ class QFitRotamericResidue(_BaseQFit):
             # are sampling more than 1 dof per iteration
             increase_chi = not (
                 (opt.sample_backbone or opt.sample_angle)
-                and iteration == 0
                 and opt.dofs_per_iteration > 1
             )
             if increase_chi:
