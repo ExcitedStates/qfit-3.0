@@ -755,9 +755,13 @@ class QFitRotamericResidue(_BaseQFit):
         #     use current coords for this residue, and abort.
 
         # we want to sample the backbone for every coordinate in the backbone that exists. 
-        if self.options.backbone_coordinates is not None:
-            for name, coor in self.options.backbone_coordinates.items():
-                self.segment[index].extract("name", name).coor = coor
+        print(self.options.backbone_coordinates)
+        for residue_key, atom_dict in self.options.backbone_coordinates.items():
+            for atom_name, coor in atom_dict.items():
+                print(atom_name)
+                print(coor)
+                self.segment[index].coor[self.segment[index].name == atom_name] = coor
+
         
             # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
             for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
