@@ -818,13 +818,13 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"sample_backbone_segment{index:03d}"
                 )
 
-    def _sample_angle(self):
+     def _sample_angle(self):
         """Sample residue conformations by flexing α-β-γ angle.
 
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -864,37 +864,28 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            # Initialize rotator 
-            perp_rotator = CBAngleRotator(self.residue)
-            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
-            for perp_angle in angles:
-                perp_rotator(perp_angle)
-                coor_rotated = self.residue.coor
-                # Initialize rotator
-                bisec_rotator = BisectingAngleRotator(self.residue)
-                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
-                for bisec_angle in angles:
-                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
-                    bisec_rotator(bisec_angle)
-                    coor = self.residue.coor
+            rotator = CBAngleRotator(self.residue)
+            for angle in angles:
+                rotator(angle)
+                coor = self.residue.coor
 
-                    # Move on if these coordinates are unsupported by density
-                    if self.options.remove_conformers_below_cutoff:
-                        values = self.xmap.interpolate(coor[active_mask])
-                        mask = self.residue.e[active_mask] != "H"
-                        if np.min(values[mask]) < self.options.density_cutoff:
-                            continue
-    
-                    # Move on if these coordinates cause a clash
-                    if self.options.external_clash:
-                        if self._cd() and self.residue.clashes():
-                            continue
-                    elif self.residue.clashes():
+                # Move on if these coordinates are unsupported by density
+                if self.options.remove_conformers_below_cutoff:
+                    values = self.xmap.interpolate(coor[active_mask])
+                    mask = self.residue.e[active_mask] != "H"
+                    if np.min(values[mask]) < self.options.density_cutoff:
                         continue
-    
-                    # Valid, non-clashing conformer found!
-                    new_coor_set.append(self.residue.coor)
-                    new_bs.append(self.conformer.b)
+
+                # Move on if these coordinates cause a clash
+                if self.options.external_clash:
+                    if self._cd() and self.residue.clashes():
+                        continue
+                elif self.residue.clashes():
+                    continue
+
+                # Valid, non-clashing conformer found!
+                new_coor_set.append(self.residue.coor)
+                new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
@@ -902,7 +893,7 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-
+            
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
