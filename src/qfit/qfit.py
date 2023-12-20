@@ -818,7 +818,7 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"sample_backbone_segment{index:03d}"
                 )
 
-     def _sample_angle(self):
+    def _sample_angle(self):
         """Sample residue conformations by flexing α-β-γ angle.
 
         Only operates on residues with large aromatic sidechains
