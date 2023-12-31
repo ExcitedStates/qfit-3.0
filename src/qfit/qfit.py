@@ -644,21 +644,15 @@ class QFitRotamericResidue(_BaseQFit):
 
     def run(self):
         if self.options.sample_backbone:
-            residue_chain_key = (self.residue.resi[0], self.residue.chain[0].replace('"', ''))
             for altloc in self.options.backbone_coor_dict['coords']:
-                self.residue.coor = self.options.backbone_coor_dict['coords'][altloc]#[atom_name]
+                self.residue.coor = self.options.backbone_coor_dict['coords'][altloc]
                 if self.residue.resn[0] == 'GLY':
                     atom = self.residue.extract("name", "O")
                 else:
                     atom = self.residue.extract("name", "CB")
-                self.u_matrix = [
-                    [atom.u00[0], atom.u01[0], atom.u02[0]],
-                    [atom.u01[0], atom.u11[0], atom.u12[0]],
-                    [atom.u02[0], atom.u12[0], atom.u22[0]],
-                ]
+                if self.options.backbone_coor_dict['u_matrices'][altloc] is not None:
+                    self.u_matrix = self.options.backbone_coor_dict['u_matrices'][altloc]
                 self._sample_backbone()
-        else:
-            self._sample_backbone()
         if self.options.sample_angle:
             self._sample_angle()
 
@@ -736,6 +730,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
+        
         try:
             if not self.u_matrix:
                 self.u_matrix = [
@@ -744,7 +739,7 @@ class QFitRotamericResidue(_BaseQFit):
                     [atom.u02[0], atom.u12[0], atom.u22[0]],
                 ]
             directions = adp_ellipsoid_axes(self.u_matrix)
-            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+            logger.debug(f"[_sample_backbone] u_matrix = {self.u_matrix}")
         except AttributeError:
             logger.debug(
                 f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
