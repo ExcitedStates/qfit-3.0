@@ -736,34 +736,34 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-        if not self.u_matrix:
-            try:
+        try:
+            if not self.u_matrix:
                 self.u_matrix = [
                     [atom.u00[0], atom.u01[0], atom.u02[0]],
                     [atom.u01[0], atom.u11[0], atom.u12[0]],
                     [atom.u02[0], atom.u12[0], atom.u22[0]],
                 ]
-                directions = adp_ellipsoid_axes(self.u_matrix)
-                logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
-            except AttributeError:
-                logger.debug(
-                    f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
-                )
-                # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
-                # Find coordinates of Cα, Cβ, N atoms
-                pos_CA = self.residue.extract("name", "CA").coor[0]
-                pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
-                pos_N = self.residue.extract("name", "N").coor[0]
-                # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
-                vec_x = pos_CB - pos_CA
-                vec_y = pos_CA - pos_N
-                vec_z = np.cross(vec_x, vec_y)
-                # Normalize
-                vec_x /= np.linalg.norm(vec_x)
-                vec_y /= np.linalg.norm(vec_y)
-                vec_z /= np.linalg.norm(vec_z)
+            directions = adp_ellipsoid_axes(self.u_matrix)
+            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+        except AttributeError:
+            logger.debug(
+                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
+            )
+            # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
+            # Find coordinates of Cα, Cβ, N atoms
+            pos_CA = self.residue.extract("name", "CA").coor[0]
+            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+            pos_N = self.residue.extract("name", "N").coor[0]
+            # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
+            vec_x = pos_CB - pos_CA
+            vec_y = pos_CA - pos_N
+            vec_z = np.cross(vec_x, vec_y)
+            # Normalize
+            vec_x /= np.linalg.norm(vec_x)
+            vec_y /= np.linalg.norm(vec_y)
+            vec_z /= np.linalg.norm(vec_z)
 
-                directions = np.vstack([vec_x, vec_y, vec_z])
+            directions = np.vstack([vec_x, vec_y, vec_z])
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
