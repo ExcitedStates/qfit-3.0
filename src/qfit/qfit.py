@@ -644,8 +644,21 @@ class QFitRotamericResidue(_BaseQFit):
 
     def run(self):
         if self.options.sample_backbone:
+            residue_chain_key = (self.residue.resi[0], self.residue.chain[0].replace('"', ''))
+            for altloc in self.options.backbone_coor_dict['coords']:
+                self.residue.coor = self.options.backbone_coor_dict['coords'][altloc]#[atom_name]
+                if self.residue.resn[0] == 'GLY':
+                    atom = self.residue.extract("name", "O")
+                else:
+                    atom = self.residue.extract("name", "CB")
+                self.u_matrix = [
+                    [atom.u00[0], atom.u01[0], atom.u02[0]],
+                    [atom.u01[0], atom.u11[0], atom.u12[0]],
+                    [atom.u02[0], atom.u12[0], atom.u22[0]],
+                ]
+                self._sample_backbone()
+        else:
             self._sample_backbone()
-
         if self.options.sample_angle:
             self._sample_angle()
 
@@ -703,6 +716,7 @@ class QFitRotamericResidue(_BaseQFit):
         )
 
     def _sample_backbone(self):
+
         # Check if residue has enough neighboring residues
         index = self.segment.find(self.residue.id)
         # active = self.residue.active
@@ -722,59 +736,50 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-        try:
-            u_matrix = [
-                [atom.u00[0], atom.u01[0], atom.u02[0]],
-                [atom.u01[0], atom.u11[0], atom.u12[0]],
-                [atom.u02[0], atom.u12[0], atom.u22[0]],
-            ]
-            directions = adp_ellipsoid_axes(u_matrix)
-            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
-            logger.debug(f"[_sample_backbone] directions = {directions}")
-        except AttributeError:
-            logger.info(
-                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
-            )
-            # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
-            # Find coordinates of Cα, Cβ, N atoms
-            pos_CA = self.residue.extract("name", "CA").coor[0]
-            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
-            pos_N = self.residue.extract("name", "N").coor[0]
-            # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
-            vec_x = pos_CB - pos_CA
-            vec_y = pos_CA - pos_N
-            vec_z = np.cross(vec_x, vec_y)
-            # Normalize
-            vec_x /= np.linalg.norm(vec_x)
-            vec_y /= np.linalg.norm(vec_y)
-            vec_z /= np.linalg.norm(vec_z)
+        if not self.u_matrix:
+            try:
+                self.u_matrix = [
+                    [atom.u00[0], atom.u01[0], atom.u02[0]],
+                    [atom.u01[0], atom.u11[0], atom.u12[0]],
+                    [atom.u02[0], atom.u12[0], atom.u22[0]],
+                ]
+                directions = adp_ellipsoid_axes(self.u_matrix)
+                logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+            except AttributeError:
+                logger.debug(
+                    f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
+                )
+                # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
+                # Find coordinates of Cα, Cβ, N atoms
+                pos_CA = self.residue.extract("name", "CA").coor[0]
+                pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+                pos_N = self.residue.extract("name", "N").coor[0]
+                # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
+                vec_x = pos_CB - pos_CA
+                vec_y = pos_CA - pos_N
+                vec_z = np.cross(vec_x, vec_y)
+                # Normalize
+                vec_x /= np.linalg.norm(vec_x)
+                vec_y /= np.linalg.norm(vec_y)
+                vec_z /= np.linalg.norm(vec_z)
 
-            directions = np.vstack([vec_x, vec_y, vec_z])
+                directions = np.vstack([vec_x, vec_y, vec_z])
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
 
-        # we want to sample the backbone for every coordinate in the backbone that exists. 
-        print(self.options.backbone_coordinates)
-        for residue_key, atom_dict in self.options.backbone_coordinates.items():
-            for atom_name, coor in atom_dict.items():
-                print(atom_name)
-                print(coor)
-                self.segment[index].coor[self.segment[index].name == atom_name] = coor
-
-        
-            # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
-            for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
-                for backbone_atom in ["N", "CA", "C", "O"]:
-                    if backbone_atom not in residue.name:
-                        relative_to_residue = n - index
-                        logger.warning(
-                            f"[{self.identifier}] Missing backbone atom in segment residue {relative_to_residue:+d}."
-                        )
-                        logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
-                        self._coor_set.append(self.segment[index].coor)
-                        self._bs.append(self.conformer.b)
-                        return
+        # we only want to look for backbone in the segment we are using for inverse kinetmatics, not the entire protein
+        for n, residue in enumerate(self.segment.residues[(index - 3) : (index + 3)]):
+            for backbone_atom in ["N", "CA", "C", "O"]:
+                if backbone_atom not in residue.name:
+                    relative_to_residue = n - index
+                    logger.warning(
+                        f"[{self.identifier}] Missing backbone atom in segment residue {relative_to_residue:+d}."
+                    )
+                    logger.warning(f"[{self.identifier}] Skipping backbone sampling.")
+                    self._coor_set.append(self.segment[index].coor)
+                    self._bs.append(self.conformer.b)
+                    return
     
             # Retrieve the amplitudes and stepsizes from options.
             sigma = self.options.sample_backbone_sigma
