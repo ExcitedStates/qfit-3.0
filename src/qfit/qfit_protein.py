@@ -495,15 +495,14 @@ class QFitProtein:
             )
 
         backbone_coor_dict = {}
-        grouped_coords = {}
-        grouped_u_matrices = {}
         for residue in residues:
+            grouped_coords = {}
+            grouped_u_matrices = {}
             residue_chain_key = (residue.resi[0], residue.chain[0].replace('"', ''))
             if residue_chain_key not in backbone_coor_dict:
                 backbone_coor_dict[residue_chain_key] = {}
             for altloc in np.unique(self.structure.extract("chain", residue.chain[0], "==").extract("resi", residue.resi[0], "==").altloc):
-                residue_atoms = self.structure.extract("chain", residue.chain[0], "==").extract("resi", residue.resi[0], "==").extract("altloc", altloc)
-                grouped_coords[altloc] = residue_atoms.coor
+                grouped_coords[altloc] = self.structure.extract("chain", residue.chain[0], "==").extract("resi", residue.resi[0], "==").extract("altloc", altloc).coor
                 if residue.resn[0] == "GLY": 
                     atom_name = "O"
                 else:
@@ -520,7 +519,6 @@ class QFitProtein:
                 grouped_u_matrices[altloc] = u_matrix
             backbone_coor_dict[residue_chain_key]['coords'] = grouped_coords
             backbone_coor_dict[residue_chain_key]['u_matrices'] = grouped_u_matrices
-
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
             fname = os.path.join(
@@ -885,6 +883,8 @@ class QFitProtein:
 
         chain_resi_id= f"{resi}, '{chainid}'"
         chain_resi_id = (resi, chainid)
+        print('chain_resi_id:')
+        print(chain_resi_id)
         options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
         # Exception handling in case qFit-residue fails:
         qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
