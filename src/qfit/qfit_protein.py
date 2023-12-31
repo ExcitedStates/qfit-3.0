@@ -509,11 +509,14 @@ class QFitProtein:
                 else:
                     atom_name = "CB"
                 atom = self.structure.extract("chain", residue.chain[0], "==").extract("resi", residue.resi[0], "==").extract("name", atom_name).extract("altloc", altloc)
-                u_matrix = [
-                            [atom.u00[0], atom.u01[0], atom.u02[0]],
-                            [atom.u01[0], atom.u11[0], atom.u12[0]],
-                            [atom.u02[0], atom.u12[0], atom.u22[0]],
-                ]
+                try:
+                    u_matrix = [
+                                [atom.u00[0], atom.u01[0], atom.u02[0]],
+                                [atom.u01[0], atom.u11[0], atom.u12[0]],
+                                [atom.u02[0], atom.u12[0], atom.u22[0]],
+                    ]
+                except:
+                    u_matrix = None
                 grouped_u_matrices[altloc] = u_matrix
             backbone_coor_dict[residue_chain_key]['coords'] = grouped_coords
             backbone_coor_dict[residue_chain_key]['u_matrices'] = grouped_u_matrices
