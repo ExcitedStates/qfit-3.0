@@ -2,11 +2,12 @@ import logging
 
 import numpy as np
 from numpy.fft import rfftn, irfftn
+from scitbx.array_family import flex
 from scipy.integrate import fixed_quad
-from cctbx.maptbx import crystal_gridding, use_space_group_symmetry
+from cctbx.maptbx import use_space_group_symmetry
+import cctbx.masks
+from cctbx.array_family import flex
 
-from qfit.xtal.unitcell import UnitCell
-from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from qfit._extensions import dilate_points, mask_points  # pylint: disable=import-error,no-name-in-module
 
@@ -28,7 +29,9 @@ def fft_map_coefficients(map_coeffs, nyquist=2):
 
 class FFTTransformer:
 
-    """Transform a structure in a map via FFT"""
+    """
+    Transform a structure in a map via FFT.  Modifies the xmap object in place.
+    """
 
     def __init__(self, structure, xmap, hkl=None, em=False, b_add=None):
         self.structure = structure
@@ -151,26 +154,48 @@ class Transformer:
         self._grid_coor /= self.xmap.voxelspacing
         self._grid_coor -= self.xmap.offset
 
-    def mask(self, rmax=None, value=1.0):
-        self._coor_to_grid_coor()
+    def mask(self, rmax=None, value=1.0, implementation="qfit"):
         if rmax is None:
             rmax = self.rmax
-        lmax = np.asarray(
-            [rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
-        )
-        active = self.structure.active
-        for symop in self.xmap.unit_cell.space_group.symop_list:
-            np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
-            self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
-            mask_points(
-                self._grid_coor_rot,
-                active,
-                lmax,
-                rmax,
-                self.grid_to_cartesian,
-                value,
-                self.xmap.array,
+        # TODO deprecate and remove this
+        if implementation != "cctbx":
+            self._coor_to_grid_coor()
+            lmax = np.asarray(
+                [rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
             )
+            active = self.structure.active
+            for symop in self.xmap.unit_cell.space_group.symop_list:
+                np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
+                # XXX why use xmap.shape when this might be an extracted
+                # map?  shouldn't it be the unit cell shape here?
+                self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
+                mask_points(
+                    self._grid_coor_rot,
+                    active,
+                    lmax,
+                    rmax,
+                    self.grid_to_cartesian,
+                    value,
+                    self.xmap.array,
+                )
+        else:
+            xrs = self.structure.to_xray_structure(active_only=True)
+            sites_frac = xrs.expand_to_p1().sites_frac()
+            n_real = tuple(int(x) for x in self.xmap.unit_cell_shape)
+            # this mask is inverted, i.e. the region of interest has value 0
+            mask_sel = cctbx.masks.around_atoms(
+                xrs.unit_cell(),
+                xrs.space_group().order_z(),
+                sites_frac,
+                flex.double(sites_frac.size(), rmax),
+                n_real,
+                0,
+                0).data == 0
+            mask_sel_np = np.swapaxes(mask_sel.as_numpy_array(), 0, 2)
+            if not self.xmap.is_canonical_unit_cell():
+                sel2 = self.xmap.get_unit_cell_grid_selection()
+                mask_sel_np = mask_sel_np[sel2]
+            self.xmap.array[mask_sel_np] = value
 
     def reset(self, rmax=None, full=False):
         if full:

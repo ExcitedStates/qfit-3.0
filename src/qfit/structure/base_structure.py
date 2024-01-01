@@ -258,6 +258,15 @@ class BaseStructure(ABC):
             self.crystal_symmetry = cryst
         return write_mmcif(fname, self)
 
+    def to_xray_structure(self, active_only=False):
+        xrs = self._pdb_hierarchy.extract_xray_structure(
+            crystal_symmetry=self.crystal_symmetry)
+        if self._selection is not None:
+            xrs = xrs.select(self._selection)
+        if active_only:
+            xrs = xrs.select(_as_size_t(self.active))
+        return xrs
+
     def translate(self, translation):
         """Translate atoms"""
         self.coor += translation

@@ -207,6 +207,7 @@ def main():
     nconformers = len(conformers)
     altloc = ""
     pdb_ext = qfit_ligand.file_ext
+    multiconformer_ligand_bound = None
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
@@ -214,11 +215,14 @@ def main():
         fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
         conformer.tofile(fname)
         conformer.altloc = altloc
-        try:
-            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
-        except NameError:
-            # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
+        if not multiconformer_ligand_bound:
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
+        else:
+            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
+
+    if not multiconformer_ligand_bound:
+        logger.error("qFit-ligand failed to produce any valid conformers.")
+        return 1
 
     # Print multiconformer_ligand_only as an output file
     multiconformer_ligand_only = os.path.join(
@@ -235,7 +239,4 @@ def main():
         fname = os.path.join(
             options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
         )
-    try:
-        multiconformer_ligand_bound.tofile(fname)
-    except NameError:
-        logger.error("qFit-ligand failed to produce any valid conformers.")
+    multiconformer_ligand_bound.tofile(fname)

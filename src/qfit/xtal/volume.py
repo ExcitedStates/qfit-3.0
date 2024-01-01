@@ -374,6 +374,22 @@ class XMap(_BaseVolume):
             origin=self.origin,
         )
 
+    def get_unit_cell_grid_selection(self):
+        """
+        Generate the selection to re-extract a region from a P1 box, covering
+        the same indices as the current map region.
+        """
+        shape = self.array.shape
+        offset = self.grid_parameters.offset
+        ranges = [range(axis_len) for axis_len in shape]
+        ixgrid = np.ix_(*ranges)
+        return tuple(
+            (dimension_index + offset) % wrap_to
+            for dimension_index, offset, wrap_to in zip(
+                ixgrid, offset[::-1], self.unit_cell_shape[::-1]
+            )
+        )
+
     def interpolate(self, xyz):
         # Transform xyz to grid coor.
         uc = self.unit_cell
