@@ -243,7 +243,6 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         if TYPE_CHECKING:
             self.driver = self.cplex
             assert self.driver is not None
-        print('running CPLEX')
         # Initialize variables
         self.target = target
         self.models = models
@@ -258,10 +257,6 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         self.nthreads = nthreads
 
         # Get the driver & append raisable Exceptions to SolverError class in module (global) scope
-        try:
-            from cplex.exceptions import CplexSolverError
-        except ImportError:
-            CplexSolverError = type(None)
         global SolverError
         SolverErrors = (SolverError, CplexSolverError)
     
