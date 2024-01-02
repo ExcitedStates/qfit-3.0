@@ -11,12 +11,13 @@ import numpy as np
 import scipy as sci
 import scipy.sparse  # pylint: disable=unused-import
 from numpy.typing import NDArray
+from cplex.exceptions import CplexSolverError
 
 from .utils.optional_lazy_import import lazy_load_module_if_available
 
 logger = logging.getLogger(__name__)
 
-SolverError: tuple[type[Exception], ...] = (RuntimeError,)
+SolverError: tuple[type[Exception], ...] = (RuntimeError)
 
 __all__ = [
     "available_qp_solvers",
@@ -242,7 +243,7 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         if TYPE_CHECKING:
             self.driver = self.cplex
             assert self.driver is not None
-
+        print('running CPLEX')
         # Initialize variables
         self.target = target
         self.models = models
@@ -257,10 +258,13 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         self.nthreads = nthreads
 
         # Get the driver & append raisable Exceptions to SolverError class in module (global) scope
-        CplexSolverError: type[Exception] = self.driver.exceptions.CplexSolverError
+        try:
+            from cplex.exceptions import CplexSolverError
+        except ImportError:
+            CplexSolverError = type(None)
         global SolverError
-        SolverError += (CplexSolverError,)
-
+        SolverErrors = (SolverError, CplexSolverError)
+    
     def compute_quadratic_coeffs(self) -> None:
         """Precompute the quadratic coefficients (P, q).
 
@@ -374,8 +378,11 @@ class CPLEXSolver(QPSolver, MIQPSolver):
                 rhs = [cardinality]
             miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
 
-        # Solve
-        miqp.solve()
+        try:
+            result = miqp.solve()
+        except CplexSolverError:
+            raise SolverError("CPLEX encountered an error: Non-convex objective function")
+
 
         # Store the density residual and the weights
         self.objective_value = (
@@ -708,7 +715,10 @@ class MIOSQPSolver(MIQPSolver):
             settings=self.MIOSQP_SETTINGS,
             qp_settings=self.OSQP_SETTINGS,
         )
-        result = miqp.solve()
+        try:
+            result = miqp.solve()
+        except CplexSolverError:
+            raise SolverError("CPLEX encountered an error: Non-convex objective function")
 
         # Destructure results
         self.weights = np.array(result.x[0 : self.nconformers])
