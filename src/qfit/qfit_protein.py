@@ -883,8 +883,6 @@ class QFitProtein:
 
         chain_resi_id= f"{resi}, '{chainid}'"
         chain_resi_id = (resi, chainid)
-        print('chain_resi_id:')
-        print(chain_resi_id)
         options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
         # Exception handling in case qFit-residue fails:
         qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
