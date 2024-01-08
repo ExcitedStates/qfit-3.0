@@ -209,7 +209,7 @@ def build_argparser():
     p.add_argument(
         "-sas",
         "--sample-angle-step",
-        default=3.75,
+        default=6,
         dest="sample_angle_step",
         metavar="<float>",
         type=float,
@@ -218,7 +218,7 @@ def build_argparser():
     p.add_argument(
         "-sar",
         "--sample-angle-range",
-        default=7.5,
+        default=18,
         dest="sample_angle_range",
         metavar="<float>",
         type=float,
