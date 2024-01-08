@@ -646,7 +646,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.sample_backbone:
             self._sample_backbone()
 
-        if self.options.sample_angle:
+        if self.options.sample_angle and self.resn in ("TRP", "TYR", "PHE", "HIS"):
             self._sample_angle()
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers and self.resn not in ("TRP", "TYR", "PHE", "HIS"):
@@ -828,13 +828,6 @@ class QFitRotamericResidue(_BaseQFit):
             does not start at CG. Later χ angles are more effective at moving
             the guanidinium group.
         """
-        # Only operate on aromatics!
-        if self.resn not in ("TRP", "TYR", "PHE", "HIS"):
-            logger.debug(
-                f"[{self.identifier}] Not F/H/W/Y. Cα-Cβ-Cγ angle sampling skipped."
-            )
-            return
-
         # Get rotamer wells to sample in
         rotamers = self.residue.rotamers
         rotamers.append(
