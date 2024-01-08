@@ -96,8 +96,8 @@ class QFitOptions:
 
         # N-CA-CB angle sampling
         self.sample_angle = True
-        self.sample_angle_range = 7.5
-        self.sample_angle_step = 3.75
+        self.sample_angle_range = 18
+        self.sample_angle_step = 6
 
         # Rotamer sampling
         self.sample_rotamers = True
@@ -649,7 +649,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.sample_angle:
             self._sample_angle()
 
-        if self.residue.nchi >= 1 and self.options.sample_rotamers:
+        if self.residue.nchi >= 1 and self.options.sample_rotamers and self.resn not in ("TRP", "TYR", "PHE", "HIS"):
             self._sample_sidechain()
 
         # Check that there are no self-clashes within a conformer
@@ -835,13 +835,16 @@ class QFitRotamericResidue(_BaseQFit):
             )
             return
 
+        # Get rotamer wells to sample in
+        rotamers = self.residue.rotamers
+        rotamers.append(
+            [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
+        )
+
         # Limit active atoms
         active_names = ("N", "CA", "C", "O", "CB", "H", "HA", "CG", "HB2", "HB3")
         selection = self.residue.select("name", active_names)
-        self.residue.active = False
-        self.residue._active[selection] = True
         self.residue.update_clash_mask()
-        active_mask = self.residue.active
 
         # Define sampling range
         angles = np.arange(
@@ -855,37 +858,34 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            # Initialize rotator 
-            perp_rotator = CBAngleRotator(self.residue)
-            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
-            for perp_angle in angles:
-                perp_rotator(perp_angle)
-                coor_rotated = self.residue.coor
-                # Initialize rotator
-                bisec_rotator = BisectingAngleRotator(self.residue)
-                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
-                for bisec_angle in angles:
-                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
-                    bisec_rotator(bisec_angle)
-                    coor = self.residue.coor
+            # Try each rotamer in the library for this backbone conformation:
+            for rotamer in rotamers:
+                # Set the chi angle to the standard rotamer value.
+                self.residue.set_chi(1, rotamer[1 - 1])
+                # Initialize rotator 
+                perp_rotator = CBAngleRotator(self.residue)
+                # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
+                for perp_angle in angles:
+                    perp_rotator(perp_angle)
+                    coor_rotated = self.residue.coor
+                    # Initialize rotator
+                    bisec_rotator = BisectingAngleRotator(self.residue)
+                    # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
+                    for bisec_angle in angles:
+                        self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
+                        bisec_rotator(bisec_angle)
+                        coor = self.residue.coor
 
-                    # Move on if these coordinates are unsupported by density
-                    if self.options.remove_conformers_below_cutoff:
-                        values = self.xmap.interpolate(coor[active_mask])
-                        mask = self.residue.e[active_mask] != "H"
-                        if np.min(values[mask]) < self.options.density_cutoff:
+                        # Move on if these coordinates cause a clash
+                        if self.options.external_clash:
+                            if self._cd() and self.residue.clashes():
+                                continue
+                        elif self.residue.clashes():
                             continue
-    
-                    # Move on if these coordinates cause a clash
-                    if self.options.external_clash:
-                        if self._cd() and self.residue.clashes():
-                            continue
-                    elif self.residue.clashes():
-                        continue
-    
-                    # Valid, non-clashing conformer found!
-                    new_coor_set.append(self.residue.coor)
-                    new_bs.append(self.conformer.b)
+        
+                        # Valid, non-clashing conformer found!
+                        new_coor_set.append(self.residue.coor)
+                        new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
@@ -894,6 +894,14 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
 
+        self.residue.active = True
+        # QP score conformer occupancy
+        self._convert()
+        self._solve_qp()
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(prefix=f"QP_sample_angle")
+            
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
