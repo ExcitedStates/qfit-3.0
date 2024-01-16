@@ -1090,8 +1090,8 @@ class QFitRotamericResidue(_BaseQFit):
         mc_residue = mc_residue.reorder()
 
         # Save the multiconformer residue
-        logger.info(f"[{self.identifier}] Saving multiconformer_residue.pdb")
         fname = os.path.join(self.directory_name, f"multiconformer_residue.pdb")
+        logger.info(f"[{self.identifier}] Saving {fname}")
         mc_residue.tofile(fname)
 
 

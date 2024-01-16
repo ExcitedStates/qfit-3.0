@@ -3,8 +3,9 @@ import logging
 import numpy as np
 from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
-from cctbx.maptbx import use_space_group_symmetry
-import cctbx.masks
+from cctbx.maptbx import use_space_group_symmetry, crystal_gridding
+from cctbx.masks import around_atoms as mask_around_atoms
+from cctbx.miller import fft_map
 from cctbx.sgtbx import space_group_info
 from cctbx.uctbx import unit_cell
 from cctbx.array_family import flex
@@ -176,6 +177,8 @@ class Transformer:
         # would be better to use that wrapper directly in qfit, in place
         # of the calls to xmap.extract()
         xrs = self.structure.to_xray_structure(active_only=True)
+        if self.xmap.is_canonical_unit_cell():
+            return xrs.expand_to_p1()
         origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
         uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
         n_real = tuple(int(x) for x in self.xmap.shape[::-1])
@@ -216,7 +219,7 @@ class Transformer:
         n_real = tuple(int(x) for x in self.xmap.shape[::-1])
         sites_frac = xrs.sites_frac()
         # this mask is inverted, i.e. the region of interest has value 0
-        mask_sel = cctbx.masks.around_atoms(
+        mask_sel = mask_around_atoms(
             xrs.unit_cell(),
             1,
             sites_frac,
@@ -270,6 +273,37 @@ class Transformer:
 
     def density(self):
         """Transform structure to a density in a xmap."""
+        if False:
+            return self._density_cctbx_fft()
+        else:
+            return self._density_qfit()
+
+    def _density_cctbx_fft(self):
+        """
+        Compute the electron density using via CCTBX structure factors.
+        """
+        xrs = self._get_structure_in_box()
+        if self.em:
+            logger.debug("Switching to electron structure factor table")
+            xrs.discard_scattering_type_registry()
+            xrs.scattering_type_registry(table="electron")
+        fcalc = xrs.structure_factors(
+            anomalous_flag=False,
+            d_min=self.xmap.resolution.high,
+            algorithm="fft").f_calc()
+        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
+        grid = crystal_gridding(
+            unit_cell = xrs.unit_cell(),
+            space_group_info = xrs.space_group_info(),
+            pre_determined_n_real = n_real)
+        fcalc_map = fft_map(
+            crystal_gridding = grid,
+            fourier_coefficients = fcalc)
+        real_map = fcalc_map.apply_volume_scaling().real_map_unpadded()
+        self.xmap.array[:] = np.swapaxes(real_map.as_numpy_array(), 0, 2)
+        #self.xmap.tofile("density_cctbx.ccp4")
+
+    def _density_qfit(self):
         if not self._initialized:
             self.initialize()
 
@@ -293,6 +327,7 @@ class Transformer:
                 self.grid_to_cartesian,
                 self.xmap.array,
             )
+        #self.xmap.tofile("density_qfit.ccp4")
 
     def simple_radial_density(self, element, bfactor):
         """Calculate electron density as a function of radius."""
