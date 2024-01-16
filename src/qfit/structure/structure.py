@@ -120,7 +120,8 @@ class Structure(BaseStructure):
                            self._pdb_hierarchy,
                            selection=selection,
                            parent=self,
-                           hierarchy_objects=chains)
+                           hierarchy_objects=chains,
+                           crystal_symmetry=self.crystal_symmetry)
             self._chains.append(chain)
 
     def collapse_backbone(self, resid, chainid):
@@ -475,7 +476,8 @@ class _Chain(BaseStructure):
                     self._pdb_hierarchy,
                     selection=selection,
                     parent=self,
-                    hierarchy_objects=(iotbx_residue_group,)
+                    hierarchy_objects=(iotbx_residue_group,),
+                    crystal_symmetry=self.crystal_symmetry
                 )
                 self._residue_groups.append(residue_group)
 
@@ -503,7 +505,8 @@ class _Chain(BaseStructure):
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
-                hierarchy_objects=conformers
+                hierarchy_objects=conformers,
+                crystal_symmetry=self.crystal_symmetry
             )
             self._conformers.append(conformer)
 
@@ -538,7 +541,8 @@ class ResidueGroup(BaseMonomer):
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
-                hierarchy_objects=(iotbx_atom_group,)
+                hierarchy_objects=(iotbx_atom_group,),
+                crystal_symmetry=self.crystal_symmetry
             )
             self._atom_groups.append(atom_group)
 
@@ -633,6 +637,7 @@ class _Conformer(BaseStructure):
                     resi=iotbx_residue.resseq_as_int(),
                     icode=iotbx_residue.icode.strip(),
                     monomer_type=rtype,
+                    crystal_symmetry=self.crystal_symmetry
                 )
                 self._residues.append(residue)
 
@@ -663,7 +668,8 @@ class _Conformer(BaseStructure):
                     self._pdb_hierarchy,
                     selection=selection,
                     parent=self,
-                    residues=segment
+                    residues=segment,
+                    crystal_symmetry=self.crystal_symmetry
                 )
                 self._segments.append(segment)
 
@@ -697,7 +703,8 @@ class Segment(BaseStructure):
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self.parent,
-                residues=residues
+                residues=residues,
+                crystal_symmetry=self.crystal_symmetry
             )
         else:
             raise TypeError

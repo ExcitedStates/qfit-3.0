@@ -434,8 +434,10 @@ class QFitProtein:
                         residue_multiconformer
                     )
 
+            if multiconformer_model is None:
+                raise RuntimeError(f"No usable model built for {residue.shortcode}")
             # Write out multiconformer_model.pdb only if in debug mode.
-            # This output is not a final qFit output, so it might confuse users.
+            # This output is not a final qFit output, so it might confuse users
             if self.options.debug:
                 fname = self._get_output_model_path("multiconformer_model")
                 # FIXME

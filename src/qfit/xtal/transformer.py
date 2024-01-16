@@ -2,14 +2,16 @@ import logging
 
 import numpy as np
 from numpy.fft import rfftn, irfftn
-from scitbx.array_family import flex
 from scipy.integrate import fixed_quad
 from cctbx.maptbx import use_space_group_symmetry
 import cctbx.masks
+from cctbx.sgtbx import space_group_info
+from cctbx.uctbx import unit_cell
 from cctbx.array_family import flex
+from mmtbx.utils import shift_origin
 
 from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
-from qfit._extensions import dilate_points, mask_points  # pylint: disable=import-error,no-name-in-module
+from qfit._extensions import dilate_points  # pylint: disable=import-error,no-name-in-module
 
 
 logger = logging.getLogger(__name__)
@@ -154,48 +156,99 @@ class Transformer:
         self._grid_coor /= self.xmap.voxelspacing
         self._grid_coor -= self.xmap.offset
 
-    def mask(self, rmax=None, value=1.0, implementation="qfit"):
+    def get_masked_selection(self):
+        return self.xmap.array > 0
+
+    def mask(self, rmax=None, value=1.0):
+        """
+        Compute an atom mask around the current structure.  Modifies
+        self.xmap in place by adding values of 1 for masked points, 0 for
+        points outside the mask.  Assumes that the map has previously
+        been reset to 0 with self.reset(full=True).
+        """
         if rmax is None:
             rmax = self.rmax
-        # TODO deprecate and remove this
-        if implementation != "cctbx":
-            self._coor_to_grid_coor()
-            lmax = np.asarray(
-                [rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
-            )
-            active = self.structure.active
-            for symop in self.xmap.unit_cell.space_group.symop_list:
-                np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
-                # XXX why use xmap.shape when this might be an extracted
-                # map?  shouldn't it be the unit cell shape here?
-                self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
-                mask_points(
-                    self._grid_coor_rot,
-                    active,
-                    lmax,
-                    rmax,
-                    self.grid_to_cartesian,
-                    value,
-                    self.xmap.array,
-                )
-        else:
-            xrs = self.structure.to_xray_structure(active_only=True)
-            sites_frac = xrs.expand_to_p1().sites_frac()
-            n_real = tuple(int(x) for x in self.xmap.unit_cell_shape)
-            # this mask is inverted, i.e. the region of interest has value 0
-            mask_sel = cctbx.masks.around_atoms(
-                xrs.unit_cell(),
-                xrs.space_group().order_z(),
-                sites_frac,
-                flex.double(sites_frac.size(), rmax),
-                n_real,
-                0,
-                0).data == 0
-            mask_sel_np = np.swapaxes(mask_sel.as_numpy_array(), 0, 2)
-            if not self.xmap.is_canonical_unit_cell():
-                sel2 = self.xmap.get_unit_cell_grid_selection()
-                mask_sel_np = mask_sel_np[sel2]
-            self.xmap.array[mask_sel_np] = value
+        return self._mask_cctbx(rmax, value)
+
+    def _get_structure_in_box(self):
+        # XXX the logic in here is a simplified version of the approach in
+        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
+        # would be better to use that wrapper directly in qfit, in place
+        # of the calls to xmap.extract()
+        xrs = self.structure.to_xray_structure(active_only=True)
+        origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
+        uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
+        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
+        logger.debug(f"Computing mask with n_real={n_real} origin={origin} uc_grid={uc_grid}")
+        ucp = self.structure.crystal_symmetry.unit_cell().parameters()
+        box_cell_abc = [ucp[i]*(n_real[i]/uc_grid[i]) for i in range(3)]
+        uc_box = unit_cell(box_cell_abc + list(ucp)[3:])
+        logger.debug(f"New unit cell: {uc_box.parameters()}")
+        sg_p1 = space_group_info("P1")
+        # XXX unlike the original qFit implementation, I am not even
+        # attempting to deal with space group symmetry right now.  weirdly,
+        # it's not clear if this even matters, since the old implementation
+        # seems slightly buggy
+        xrs_p1_box = xrs.customized_copy(space_group_info=sg_p1)
+        # this applies the shift to the xrs_p1_box object
+        soo = shift_origin(
+            xray_structure=xrs_p1_box,
+            n_xyz=uc_grid,
+            origin_grid_units=origin)
+        sites_cart = soo.xray_structure.sites_cart()
+        sites_frac = uc_box.fractionalize(sites_cart)
+        xrs_shifted = xrs_p1_box.customized_copy(unit_cell=uc_box)
+        xrs_shifted.set_sites_frac(sites_frac)
+        return xrs_shifted
+
+    def _mask_cctbx(self, rmax, value):
+        """
+        Compute an atom mask using cctbx.masks.  This method accounts for
+        map cutouts and origin shifts to match the original qFit behavior,
+        by temporarily translating the masked structure to fit in a P1 box
+        corresponding to the map extents.
+        """
+        # XXX the logic in here is a simplified version of the approach in
+        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
+        # would be better to use that wrapper directly in qfit, in place
+        # of the calls to xmap.extract()
+        xrs = self._get_structure_in_box()
+        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
+        sites_frac = xrs.sites_frac()
+        # this mask is inverted, i.e. the region of interest has value 0
+        mask_sel = cctbx.masks.around_atoms(
+            xrs.unit_cell(),
+            1,
+            sites_frac,
+            flex.double(sites_frac.size(), rmax),
+            n_real,
+            0,
+            0).data == 0
+        mask_sel_np = np.swapaxes(mask_sel.as_numpy_array(), 0, 2)
+        assert np.sum(mask_sel_np) > 0
+        self.xmap.array[mask_sel_np] += value
+
+    def get_conformers_mask(self, coor_set, rmax):
+        """
+        Get the combined map mask (as a numpy boolean array) for a series of
+        coordinates for the current structure.
+        """
+        assert len(coor_set) > 0
+        self.reset(full=True)
+        logger.debug(f"Masking {len(coor_set)} conformations")
+        for coor in coor_set:
+            self.structure.coor = coor
+            self.mask(rmax)
+        mask = self.xmap.array > 0
+        #self.xmap.tofile("mask_cctbx.ccp4")
+        self.reset(full=True)
+        return mask
+
+    def get_conformer_density(self, coor, b):
+        self.structure.coor = coor
+        self.structure.b = b
+        self.density()
+        return self.xmap.array
 
     def reset(self, rmax=None, full=False):
         if full:

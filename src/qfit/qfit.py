@@ -272,25 +272,17 @@ class _BaseQFit(ABC):
     def _convert(self):
         """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting conformers to density")
-        logger.debug("Masking")
-        self._transformer.reset(full=True)
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
-            self._transformer.mask(self._rmask)
-        mask = self._transformer.xmap.array > 0
-        self._transformer.reset(full=True)
-
+        mask = self._transformer.get_conformers_mask(
+            self._coor_set, self._rmask)
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
-        logger.debug("Density")
+        logger.debug(f"Transforming to density for {nvalues} map points")
         nmodels = len(self._coor_set)
         self._models = np.zeros((nmodels, nvalues), float)
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
-            self.conformer.b = self._bs[n]
-            self._transformer.density()
+        for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
+            density = self._transformer.get_conformer_density(coor, b)
             model = self._models[n]
-            model[:] = self._transformer.xmap.array[mask]
+            model[:] = density[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
@@ -325,6 +317,7 @@ class _BaseQFit(ABC):
         # Create solver
         logger.info("Solving MIQP")
         miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
+        assert len(self._models) > 0
         solver = miqp_solver_class(self._target, self._models)
 
         # Threshold selection by BIC:

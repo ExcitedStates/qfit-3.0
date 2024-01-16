@@ -87,6 +87,7 @@ class Ligand(BaseLigand):
             structure_ligand.selection,
             link_data=structure_ligand.link_data,
             cif_file=cif_file,
+            crystal_symmetry=structure_ligand.crystal_symmetry
         )
 
     @property

@@ -72,11 +72,8 @@ class TestTransformer(SyntheticMapRunner):
         t = Transformer(ssub, xsub, simple=False)
         t.initialize()
         t.reset(full=True)
-        # XXX I think there is a bug in the qfit implementation - with cctbx
-        # the masked map CC is above 0.79
-        MASK_IMPL = "qfit"
-        MASKED_MIN_CC = 0.37
-        t.mask(0.5 + 2.0 / 3, implementation=MASK_IMPL)
+        MASKED_MIN_CC = 0.79
+        t.mask(0.5 + 2.0 / 3)
         mask = t.xmap.array > 0
         t.reset(full=True)
         t.density()
@@ -104,22 +101,20 @@ class TestTransformer(SyntheticMapRunner):
             assert xmap.array.shape == shape
             t = Transformer(structure, xmap, simple=True)
             rmask = 0.5 + d_min / 3.0  # from qfit.py
-            for impl in ["qfit", "cctbx"]:
-                t.reset(full=True)
-                t.mask(rmax=rmask, implementation=impl)
-                mask = t.xmap.array > 0
-                assert np.sum(mask) == msize
+            t.reset(full=True)
+            t.mask(rmax=rmask)
+            mask = t.xmap.array > 0
+            assert np.sum(mask) == msize
             # repeat with extracted map - masked area should have same size
             # XXX note that the padding here is less than default, to deal
             # with the artifically small unit cell
             xsub = xmap.extract(structure.coor, padding=2.0)
             assert xsub.array.shape != shape
             t2 = Transformer(structure, xsub, simple=True)
-            for impl in ["qfit", "cctbx"]:
-                t2.reset(full=True)
-                t2.mask(rmax=rmask, implementation=impl)
-                mask2 = t2.xmap.array > 0
-                assert np.sum(mask2) == msize
+            t2.reset(full=True)
+            t2.mask(rmax=rmask)
+            mask2 = t2.xmap.array > 0
+            assert np.sum(mask2) == msize
 
     def test_transformer_mask_p21(self):
         """
@@ -129,8 +124,9 @@ class TestTransformer(SyntheticMapRunner):
         pdb_multi, pdb_single = self._get_start_models("ASA")
         RESOLUTIONS = [1.0, 2.0]
         SHAPES = [(39, 36, 38), (22, 19, 20)]
-        # XXX these are untrustworthy until I prove otherwise
-        MASKS = [(2682, 7362, 11132), (351, 991, 1497)]
+        # XXX these are values if symmetry is applied
+        #MASKS = [(2682, 7362, 11132), (351, 991, 1497)]
+        MASKS = [(1341, 3700, 5650), (176, 495, 749)]
         RMAXES = (0.8333333333, 1.25, 1.5)
         for d_min, shape, masks in zip(RESOLUTIONS, SHAPES, MASKS):
             fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
@@ -142,12 +138,11 @@ class TestTransformer(SyntheticMapRunner):
             assert xsub.array.shape == shape
             t = Transformer(ssub, xsub, simple=True)
             for rmax, mask_size in zip(RMAXES, masks):
-                for impl in ["qfit"]: #, "cctbx"]:
-                    t.reset(full=True)
-                    t.mask(rmax=rmax, implementation=impl)
-                    #t.xmap.tofile(f"ASA_mask_{impl}.ccp4")
-                    mask = t.xmap.array > 0
-                    assert np.sum(mask) == mask_size
+                t.reset(full=True)
+                t.mask(rmax=rmax)
+                #t.xmap.tofile(f"ASA_mask_{impl}.ccp4")
+                mask = t.xmap.array > 0
+                assert np.sum(mask) == mask_size
 
     def test_transformer_3mer_lys_p6322(self):
         pdb_multi = self._get_file_path("AKA_p6322_3conf.pdb")

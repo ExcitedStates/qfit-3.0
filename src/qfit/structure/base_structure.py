@@ -259,6 +259,7 @@ class BaseStructure(ABC):
         return write_mmcif(fname, self)
 
     def to_xray_structure(self, active_only=False):
+        assert self.crystal_symmetry is not None
         xrs = self._pdb_hierarchy.extract_xray_structure(
             crystal_symmetry=self.crystal_symmetry)
         if self._selection is not None:
