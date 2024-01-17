@@ -55,7 +55,7 @@ def main():
   # # conformations should be examined via GoodnessOfFit:
   validator = Validator(xmap, xmap.resolution, options.directory)
   rscc = validator.rscc(ligand)
-  print("rscc = ", rscc)
+  print(rscc)
 
   csv_filename = f"{options.pdb}_rscc.csv"
 
