@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+from argparse import ArgumentParser
+import numpy as np
+import pandas as pd
+import csv
+from qfit.scaler import MapScaler
+from qfit.structure import Structure
+from qfit.volume import XMap
+from qfit.validator import Validator
+
 '''
 This script will calculate the RSCC of a ligand (or any residue) defined by their ligand name (--ligand) or residue number and chain id (--resi_chain). 
 It will only work on mtz maps with 2FOFCWT,PH2FOFCWT. 
