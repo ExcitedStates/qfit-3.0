@@ -338,8 +338,8 @@ def build_argparser():
         "--qp-solver",
         dest="qp_solver",
         choices=available_qp_solvers.keys(),
-        default=next(iter(available_qp_solvers.keys())),
-        help="Select the QP solver",
+        default='OSQPSolver',
+        help="Select the QP solver. Please chose between: 'CVXOPTSolver', 'CPLEXSolver', 'OSQPSolver'",
     )
     p.add_argument(
         "--miqp-solver",
