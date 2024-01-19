@@ -339,14 +339,14 @@ def build_argparser():
         dest="qp_solver",
         choices=available_qp_solvers.keys(),
         default='OSQPSolver',
-        help="Select the QP solver. Please chose between: 'CVXOPTSolver', 'CPLEXSolver', 'OSQPSolver'",
+        help="Select the QP solver. Please choose between: 'CVXOPTSolver', 'CPLEXSolver', 'OSQPSolver'",
     )
     p.add_argument(
         "--miqp-solver",
         dest="miqp_solver",
         choices=available_miqp_solvers.keys(),
-        default=next(iter(available_miqp_solvers.keys())),
-        help="Select the MIQP solver",
+        default='MIOSQPSolver',
+        help="Select the MIQP solver. Please choose between: 'CPLEXSolver', 'MIOSQPSolver'",
     )
 
     # qFit Segment options
