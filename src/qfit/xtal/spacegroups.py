@@ -124,7 +124,7 @@ class SpaceGroup:
         return SpaceGroup.from_cctbx(sg_info)
 
     @staticmethod
-    def from_cctbx(space_group_info):
+    def from_cctbx(cctbx_space_group_info):
         def _to_symop(op):
             n12 = op.as_double_array()
             return SymOp(
@@ -132,7 +132,7 @@ class SpaceGroup:
                 np.array(n12[9:12], np.float64),
             )
 
-        group = space_group_info.group()
+        group = cctbx_space_group_info.group()
         point_group_type = group.point_group_type()
         if point_group_type[0] == "-":
             point_group_type = point_group_type[1] + "bar" + point_group_type[2:]
@@ -140,10 +140,10 @@ class SpaceGroup:
         num_primitive_sym_equiv = group.order_p()
         symops = [_to_symop(op) for op in group.all_ops()]
         return SpaceGroup(
-            number=space_group_info.type().number(),
+            number=cctbx_space_group_info.type().number(),
             num_sym_equiv=num_sym_equiv,
             num_primitive_sym_equiv=num_primitive_sym_equiv,
-            short_name=str(space_group_info).replace(" ", ""),
+            short_name=str(cctbx_space_group_info).replace(" ", ""),
             point_group_name=f"PG{point_group_type}",
             crystal_system=group.crystal_system().upper(),
             pdb_name=str(space_group_info),

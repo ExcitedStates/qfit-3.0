@@ -27,29 +27,48 @@ END"""
 
 SERINE_MULTICONF = """\
 CRYST1    6.000    6.000    6.000  90.00  90.00  90.00 P 1
-ATOM      1  N  ASER A   1       2.264   2.024   3.928  0.50  1.00           N
-ATOM      2  N  BSER A   1       2.267   2.022   3.930  0.50  1.00           N
-ATOM      3  CA ASER A   1       3.355   2.711   4.609  0.50  1.00           C
-ATOM      4  CA BSER A   1       3.356   2.716   4.606  0.50  1.00           C
-ATOM      5  C  ASER A   1       4.708   2.300   4.035  0.50  1.00           C
-ATOM      6  C  BSER A   1       4.710   2.299   4.039  0.50  1.00           C
-ATOM      7  O  ASER A   1       5.027   1.114   3.962  0.50  1.00           O
-ATOM      8  O  BSER A   1       5.023   1.111   3.963  0.50  1.00           O
-ATOM      9  CB ASER A   1       3.313   2.425   6.111  0.50  1.00           C
-ATOM     10  CB BSER A   1       3.312   2.447   6.111  0.50  1.00           C
-ATOM     11  OG ASER A   1       2.144   2.967   6.701  0.50  1.00           O
-ATOM     12  OG BSER A   1       4.392   3.079   6.775  0.50  1.00           O
+ATOM      1  N  ASER A   1       2.264   2.024   3.928  0.50  8.00           N
+ATOM      2  N  BSER A   1       2.267   2.022   3.930  0.50  8.00           N
+ATOM      3  CA ASER A   1       3.355   2.711   4.609  0.50  8.00           C
+ATOM      4  CA BSER A   1       3.356   2.716   4.606  0.50  8.00           C
+ATOM      5  C  ASER A   1       4.708   2.300   4.035  0.50  8.00           C
+ATOM      6  C  BSER A   1       4.710   2.299   4.039  0.50  8.00           C
+ATOM      7  O  ASER A   1       5.027   1.114   3.962  0.50  8.00           O
+ATOM      8  O  BSER A   1       5.023   1.111   3.963  0.50  8.00           O
+ATOM      9  CB ASER A   1       3.313   2.425   6.111  0.50  8.00           C
+ATOM     10  CB BSER A   1       3.312   2.447   6.111  0.50  8.00           C
+ATOM     11  OG ASER A   1       2.144   2.967   6.701  0.50  8.00           O
+ATOM     12  OG BSER A   1       4.392   3.079   6.775  0.50  8.00           O
 TER
 END"""
 
 SERINE_SINGLE = """\
 CRYST1    6.000    6.000    6.000  90.00  90.00  90.00 P 1
-ATOM      1  N   SER A   1       2.264   2.024   3.928  1.00  1.00           N
-ATOM      2  CA  SER A   1       3.355   2.711   4.609  1.00  1.00           C
-ATOM      3  C   SER A   1       4.708   2.300   4.035  1.00  1.00           C
-ATOM      4  O   SER A   1       5.027   1.114   3.962  1.00  1.00           O
-ATOM      5  CB  SER A   1       3.313   2.425   6.111  1.00  1.00           C
-ATOM      6  OG  SER A   1       2.144   2.967   6.701  1.00  2.00           O
+ATOM      1  N   SER A   1       2.264   2.024   3.928  1.00  8.00           N
+ATOM      2  CA  SER A   1       3.355   2.711   4.609  1.00  8.00           C
+ATOM      3  C   SER A   1       4.708   2.300   4.035  1.00  8.00           C
+ATOM      4  O   SER A   1       5.027   1.114   3.962  1.00  8.00           O
+ATOM      5  CB  SER A   1       3.313   2.425   6.111  1.00  8.00           C
+ATOM      6  OG  SER A   1       2.144   2.967   6.701  1.00 12.00           O
+TER
+END"""
+
+TRIMER_TEMPLATE = """\
+ATOM      1  N   ALA A   1       0.661   1.882   2.716  1.00 20.00           N
+ATOM      2  CA  ALA A   1       2.002   1.825   2.146  1.00 20.00           C
+ATOM      3  C   ALA A   1       2.974   2.688   2.942  1.00 20.00           C
+ATOM      4  O   ALA A   1       2.902   3.916   2.906  1.00 20.00           O
+ATOM      5  CB  ALA A   1       1.976   2.260   0.689  1.00 20.00           C
+ATOM      6  N   ALA A   2       3.885   2.037   3.661  1.00 20.00           N
+ATOM      7  CA  ALA A   2       4.884   2.713   4.476  1.00 20.00           C
+ATOM      8  C   ALA A   2       6.272   2.339   3.980  1.00 20.00           C
+ATOM      9  O   ALA A   2       6.604   1.152   3.888  1.00 20.00           O
+ATOM     10  CB  ALA A   2       4.731   2.347   5.955  1.00 20.00           C
+ATOM     12  N   ALA A   3       7.076   3.348   3.662  1.00 20.00           N
+ATOM     13  CA  ALA A   3       8.432   3.124   3.174  1.00 20.00           C
+ATOM     14  C   ALA A   3       9.458   3.813   4.067  1.00 20.00           C
+ATOM     15  O   ALA A   3       9.520   5.041   4.125  1.00 20.00           O
+ATOM     16  CB  ALA A   3       8.566   3.610   1.739  1.00 20.00           C
 TER
 END"""
 
@@ -154,14 +173,14 @@ class BaseTestRunner(unittest.TestCase):
             pdbh.write_pdb_file(pdb_new, crystal_symmetry=xrs)
             yield op.abspath(pdb_new)
 
-    def _compare_maps(self, mtz_file_1, mtz_file_2, expected_correlation):
+    def _compare_maps(self, mtz_file_1, mtz_file_2, cc_min):
         fmodel_1 = any_file(mtz_file_1)
         fmodel_2 = any_file(mtz_file_2)
         array1 = fmodel_1.file_object.as_miller_arrays()[0].data()
         array2 = fmodel_2.file_object.as_miller_arrays()[0].data()
         lc = flex.linear_correlation(flex.abs(array1), flex.abs(array2))
         cc = lc.coefficient()
-        assert cc >= expected_correlation, f"Bad CC: {cc} < {expected_correlation}"
+        assert cc >= cc_min, f"Bad CC: {cc} < {cc_min}"
 
     def _get_rotamer(self, residue, chi_radius=CHI_RADIUS):
         # FIXME this is awful, we should replace it with something like
@@ -188,7 +207,7 @@ class BaseTestRunner(unittest.TestCase):
 
     def _write_tmp_pdb(self, pdb_str, suffix=""):
         pdb_tmp = tempfile.NamedTemporaryFile(suffix=f"{suffix}.pdb").name
-        with open(pdb_tmp, "wt") as pdb_out:
+        with open(pdb_tmp, "wt", encoding="ascii") as pdb_out:
             pdb_out.write(pdb_str)
         return pdb_tmp
 
@@ -214,7 +233,7 @@ class BaseTestRunner(unittest.TestCase):
         final_pdbs = []
         for file_name, content in zip([pdb_multi, pdb_single],
                                       [SERINE_MULTICONF, SERINE_SINGLE]):
-            with open(file_name, "wt") as pdb_out:
+            with open(file_name, "wt", encoding="ascii") as pdb_out:
                 pdb_out.write(content)
                 logging.info(f"Wrote {file_name}")
             if crystal_symmetry:
@@ -243,3 +262,63 @@ class BaseTestRunner(unittest.TestCase):
     def _get_all_serine_monomer_crystals(self):
         for space_group_symbol in SERINE_ALTERNATE_SYMMETRY.keys():
             yield self._get_serine_monomer_with_symmetry(space_group_symbol)
+
+    def _get_axa_tripeptide_pdb(self, middle_resname="ALA"):
+        return TRIMER_TEMPLATE.replace("ALA A   2", f"{middle_resname} A   2")
+
+    def _write_axa_tripeptide_pdb(self, resname):
+        # this is the truncated-sidechain version
+        pdb_str = self._get_axa_tripeptide_pdb(resname)
+        return self._write_tmp_pdb(pdb_str, f"-{resname}-single")
+
+    def _create_mock_multi_conf_3mer(self, resname, set_b_iso=10):
+        """
+        Create a tripeptide model AXA where the central residue is rebuilt
+        to have two conformations with the most distant rotamers possible,
+        as well as the sidechain-free single-conformer starting model.
+        """
+        # this is the truncated-sidechain version; only the multi-conf pdb
+        # has complete sidechains
+        pdb_single = self._write_axa_tripeptide_pdb(resname)
+        s_single = Structure.fromfile(pdb_single)
+        res = s_single.copy().chains[0].conformers[0].residues[1]
+        res.complete_residue()
+        s = res.get_rebuilt_structure()
+        res = s.chains[0].conformers[0].residues[1]
+        best_rmsd = 0
+        best_pair = []
+        for i, angles1 in enumerate(res.rotamers[:-1]):
+            res1 = res.copy()
+            for k, chi in enumerate(angles1, start=1):
+                res1.set_chi(k, chi)
+            for _, angles2 in enumerate(res.rotamers[i+1:]):
+                res2 = res.copy()
+                for k, chi in enumerate(angles2, start=1):
+                    res2.set_chi(k, chi)
+                rmsd = res1.rmsd(res2)
+                if rmsd > best_rmsd:
+                    best_rmsd = rmsd
+                    best_pair = (res1, res2)
+        (res1, res2) = best_pair
+        res1.q = 0.5
+        res2.q = 0.5
+        res1.atoms[0].parent().altloc = "A"
+        res2.atoms[0].parent().altloc = "B"
+        first_res = s_single.extract("resi 1").copy()
+        last_res = s_single.extract("resi 3").copy()
+        s_multi = first_res.combine(res1).combine(res2).combine(last_res)
+        # this will automatically create a P1 box around the atoms
+        xrs = s_multi._pdb_hierarchy.extract_xray_structure()  # pylint: disable=protected-access
+        s_multi = s_multi.with_symmetry(xrs.crystal_symmetry())
+        s_single = s_single.with_symmetry(xrs.crystal_symmetry())
+        # NOTE it is very important that these be the same initial values!
+        # the qFit algorithm is very sensitive to initial B-factors
+        s_multi.b = set_b_iso
+        s_single.b = set_b_iso
+        assert s_multi.natoms == 10 + 2 * len(res.name)
+        pdb_multi = pdb_single.replace(f"-{resname}-single.pdb",
+                                       f"-{resname}-multi.pdb")
+        s_multi.tofile(pdb_multi)
+        s_single.tofile(pdb_single)
+        print(f"RMSD is {best_rmsd}")
+        return (pdb_multi, pdb_single)

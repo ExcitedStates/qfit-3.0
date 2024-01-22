@@ -1,105 +1,244 @@
 import logging
 
 import numpy as np
-from numpy.fft import rfftn, irfftn
 from scipy.integrate import fixed_quad
-from cctbx.maptbx import use_space_group_symmetry, crystal_gridding
-from cctbx.masks import around_atoms as mask_around_atoms
-from cctbx.miller import fft_map
+from cctbx import maptbx, masks, miller
 from cctbx.sgtbx import space_group_info
 from cctbx.uctbx import unit_cell
-from cctbx.array_family import flex
+from cctbx.xray import structure_factors
+from cctbx.array_family import flex as flex_array
+from cctbx.xray import ext as xray_ext
 from mmtbx.utils import shift_origin
 
 from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from qfit._extensions import dilate_points  # pylint: disable=import-error,no-name-in-module
-
 
 logger = logging.getLogger(__name__)
 
 
 def fft_map_coefficients(map_coeffs, nyquist=2):
     """
-    Transform CCTBX map coefficients to a real map with swapped X and Z axes
+    Transform CCTBX map coefficients (e.g. from an MTZ file) to a real map,
+    using symmetry-aware FFT gridding.  Returns the equivalent 3D numpy array.
     """
     fft_map = map_coeffs.fft_map(
         resolution_factor=1/(2*nyquist),
-        symmetry_flags=use_space_group_symmetry)
+        symmetry_flags=maptbx.use_space_group_symmetry)
     real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
-    logger.info(f"FFT map dimensions before axis swap: {real_map.focus()}")
-    return np.swapaxes(real_map.as_numpy_array(), 0, 2)
+    logger.info(f"FFT map dimensions from CCTBX: {real_map.focus()}")
+    return real_map.as_numpy_array()
 
 
-class FFTTransformer:
+class CCTBXTransformer:
 
     """
-    Transform a structure in a map via FFT.  Modifies the xmap object in place.
+    Manager to transform a structure to a density or equivalent atom mask,
+    using CCTBX map sampling functions.  Modifies the xmap object in place.
     """
-
-    def __init__(self, structure, xmap, hkl=None, em=False, b_add=None):
+    def __init__(
+        self,
+        structure,
+        xmap,
+        rmax=3.0,
+        em=False,
+        smin=None,     # XXX unused, for API compatibility
+        smax=None,     # XXX unused, for API compatibility
+        simple=False,  # XXX unused, for API compatibility
+    ):
         self.structure = structure
         self.xmap = xmap
-        self.asf_range = 6
+        self.rmax = rmax
         self.em = em
-        if self.em == True:
-            self.asf_range = 5
-        if hkl is None:
-            hkl = self.xmap.hkl
-        self.hkl = hkl
-        self.b_add = b_add
-        h, k, l = self.hkl.T
-        fft_mask = np.ones(self.xmap.shape, dtype=bool)
-        fft_mask.fill(True)
-        sg = self.xmap.unit_cell.space_group
-        hmax = 0
-        hsym = np.zeros_like(h)
-        ksym = np.zeros_like(k)
-        lsym = np.zeros_like(l)
-        for symop in sg.iter_primitive_symops():
-            for n, msym in enumerate((hsym, ksym, lsym)):
-                msym.fill(0)
-                rot = np.asarray(symop.R.T)[n]
-                for r, m in zip(rot, (h, k, l)):
-                    if r != 0:
-                        msym += int(r) * m
-            fft_mask[lsym, ksym, hsym] = False
-            fft_mask[-lsym, -ksym, -hsym] = False
-        # Keep the density on absolute level
-        fft_mask[0, 0, 0] = False
-        hmax = fft_mask.shape[-1] // 2 + 1
-        # self._fft_mask = fft_mask
-        self._fft_mask = fft_mask[:, :, :hmax].copy()
-        self.hkl = hkl
-        if self.b_add is not None:
-            b_original = self.structure.b
-            self.structure.b += self.b_add
-        self._transformer = Transformer(
-            self.structure, self.xmap, simple=True, em=self.em
-        )
-        self._transformer.initialize()
-        if b_add is not None:
-            self.structure.b = b_original
 
+    def get_masked_selection(self):
+        return self.xmap.array > 0
+
+    def mask(self, rmax=None, value=1.0):
+        """
+        Compute an atom mask around the current structure.  Modifies
+        self.xmap in place by adding values of 1 for masked points, 0 for
+        points outside the mask.  Assumes that the map has previously
+        been reset to 0 with self.reset(full=True).
+        """
+        if rmax is None:
+            rmax = self.rmax
+        return self._mask_cctbx(rmax, value)
+
+    def _get_structure_in_box(self):
+        # XXX the logic in here is a simplified version of the approach in
+        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
+        # would be better to use that wrapper directly in qfit, in place
+        # of the calls to xmap.extract()
+        xrs = self.structure.to_xray_structure(active_only=True)
+        if self.xmap.is_canonical_unit_cell():
+            return xrs.expand_to_p1()
+        origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
+        uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
+        n_real = self.xmap.n_real()
+        #logger.debug(f"Computing mask with n_real={n_real} origin={origin} uc_grid={uc_grid}")
+        ucp = self.structure.crystal_symmetry.unit_cell().parameters()
+        box_cell_abc = [ucp[i]*(n_real[i]/uc_grid[i]) for i in range(3)]
+        uc_box = unit_cell(box_cell_abc + list(ucp)[3:])
+        #logger.debug(f"New unit cell: {uc_box.parameters()}")
+        sg_p1 = space_group_info("P1")
+        # XXX unlike the original qFit implementation, I am not even
+        # attempting to deal with space group symmetry right now.  weirdly,
+        # it's not clear if this even matters, since the old implementation
+        # seems slightly buggy
+        xrs_p1_box = xrs.customized_copy(space_group_info=sg_p1)
+        # this applies the shift to the xrs_p1_box object
+        soo = shift_origin(
+            xray_structure=xrs_p1_box,
+            n_xyz=uc_grid,
+            origin_grid_units=origin)
+        sites_cart = soo.xray_structure.sites_cart()
+        sites_frac = uc_box.fractionalize(sites_cart)
+        xrs_shifted = xrs_p1_box.customized_copy(unit_cell=uc_box)
+        xrs_shifted.set_sites_frac(sites_frac)
+        return xrs_shifted
+
+    def _mask_cctbx(self, rmax, value):
+        """
+        Compute an atom mask using cctbx.masks.  This method accounts for
+        map cutouts and origin shifts to match the original qFit behavior,
+        by temporarily translating the masked structure to fit in a P1 box
+        corresponding to the map extents.
+        """
+        xrs = self._get_structure_in_box()
+        n_real = self.xmap.n_real()
+        sites_frac = xrs.sites_frac()
+        # this mask is inverted, i.e. the region of interest has value 0
+        mask_sel = masks.around_atoms(
+            xrs.unit_cell(),
+            1,
+            sites_frac,
+            flex_array.double(sites_frac.size(), rmax),
+            n_real,
+            0,
+            0).data == 0
+        self.xmap.mask_with_value(mask_sel, value)
+
+    def get_conformers_mask(self, coor_set, rmax):
+        """
+        Get the combined map mask (as a numpy boolean array) for a series of
+        coordinates for the current structure.
+        """
+        assert len(coor_set) > 0
+        self.reset(full=True)
+        logger.debug(f"Masking {len(coor_set)} conformations")
+        for coor in coor_set:
+            self.structure.coor = coor
+            self.mask(rmax)
+        mask = self.xmap.array > 0
+        self.reset(full=True)
+        return mask
+
+    def get_conformer_density(self, coor, b):
+        self.structure.coor = coor
+        self.structure.b = b
+        self.density()
+        return self.xmap.array
+
+    # XXX unused, for API compatibility
     def initialize(self):
-        self._transformer.initialize()
+        ...
 
-    def mask(self, *args, **kwargs):
-        self._transformer.mask(*args, **kwargs)
-
-    def reset(self, *args, **kwargs):
-        self._transformer.reset(*args, **kwargs)
+    def reset(self, rmax=None, full=False):
+        if full:
+            self.xmap.array.fill(0)
+        else:
+            self.mask(rmax=rmax, value=0.0)
 
     def density(self):
-        self._transformer.density()
-        fft_grid = rfftn(self.xmap.array)
-        fft_grid[self._fft_mask] = 0
-        grid = irfftn(fft_grid, self.xmap.shape)
-        if self.b_add is not None:
-            pass
-        self.xmap.array[:] = grid.real
+        """
+        Compute the current model electron density using cctbx.xray, without
+        any FFTs
+        """
+        xrs = self._get_structure_in_box()
+        if self.em:
+            logger.debug("Switching to electron structure factor table")
+            xrs.discard_scattering_type_registry()
+            xrs.scattering_type_registry(table="electron")
+        n_real = self.xmap.n_real()
+        # FIXME this does not produce usable results
+        #u_base = xray_ext.calc_u_base(
+        #    d_min=self.xmap.resolution.high,
+        #    grid_resolution_factor=0.25)
+        #print("u_base=%s" % u_base)
+        # this parameter is passed to the CCTBX density summation routines;
+        # the default value in the C++ header is 0.25, but lower values seem
+        # to work better at least with our synthetic tests
+        # TODO figure out empirical formula, or grid search for ideal value?
+        u_base = 0.1
+        # XXX this is using many default values from the CCTBX C++ header code;
+        # it is probably worth experimenting with the parameters especially
+        sampled_density = xray_ext.sampled_model_density(
+            unit_cell=xrs.unit_cell(),
+            scatterers=xrs.scatterers(),
+            scattering_type_registry=xrs.scattering_type_registry(),
+            fft_n_real=n_real,
+            fft_m_real=n_real,
+            u_base=u_base,
+            wing_cutoff=1e-3,
+            exp_table_one_over_step_size=-100,
+            force_complex=False,
+            sampled_density_must_be_positive=False,
+            tolerance_positive_definite=1e-5)
+        real_map = sampled_density.real_map()
+        self.xmap.set_values_from_flex_array(real_map)
+        return self.xmap.array
 
 
-class Transformer:
+class FFTTransformer(CCTBXTransformer):
+    """
+    Alternative transformer for cases where we want to use the same set of
+    reflections (h,k,l) as the input map coefficients, and can tolerate the
+    overhead of running two FFTs.  Currently this is only used in scaler.py.
+    """
+
+    def __init__(self, structure, xmap, hkl=None, em=False):
+        super().__init__(structure, xmap, em=em)
+        if hkl is None:
+            hkl = self.xmap.hkl
+        assert hkl is not None
+        self.hkl = hkl
+
+    def density(self):
+        """
+        Compute the electron density using via CCTBX structure factor FFT.
+        """
+        xrs = self.structure.to_xray_structure(active_only=True)
+        if self.em:
+            logger.debug("Switching to electron structure factor table")
+            xrs.discard_scattering_type_registry()
+            xrs.scattering_type_registry(table="electron")
+        assert self.structure.crystal_symmetry is not None
+        reflections = miller.set(xrs.crystal_symmetry(),
+                                 flex_array.miller_index(self.hkl),
+                                 anomalous_flag=False)
+        sfs = structure_factors.from_scatterers(
+            crystal_symmetry=xrs.crystal_symmetry(),
+            d_min=self.xmap.resolution.high,
+            cos_sin_table=False,
+            quality_factor=None,
+            u_base=None,
+            b_base=None,
+            wing_cutoff=None)(
+                xray_structure=xrs,
+                miller_set=reflections,
+                algorithm="fft")
+        grid = maptbx.crystal_gridding(
+            unit_cell = xrs.unit_cell(),
+            space_group_info = xrs.space_group_info(),
+            pre_determined_n_real = self.xmap.n_real())
+        fcalc_map = miller.fft_map(
+            crystal_gridding = grid,
+            fourier_coefficients = sfs.f_calc())
+        real_map = fcalc_map.apply_volume_scaling().real_map_unpadded()
+        self.xmap.set_values_from_flex_array(real_map)
+
+
+class ClassicTransformer(CCTBXTransformer):
 
     """Transform a structure to a density."""
 
@@ -114,14 +253,11 @@ class Transformer:
         simple=False,
         em=False,
     ):
-        self.structure = structure
-        self.xmap = xmap
+        super().__init__(structure, xmap, rmax=rmax, em=em)
         self.smin = smin
         self.smax = smax
-        self.rmax = rmax
         self.rstep = rstep
         self.simple = simple
-        self.em = em
         self.asf_range = 6
         if self.em == True:
             self.asf_range = 5
@@ -157,108 +293,6 @@ class Transformer:
         self._grid_coor /= self.xmap.voxelspacing
         self._grid_coor -= self.xmap.offset
 
-    def get_masked_selection(self):
-        return self.xmap.array > 0
-
-    def mask(self, rmax=None, value=1.0):
-        """
-        Compute an atom mask around the current structure.  Modifies
-        self.xmap in place by adding values of 1 for masked points, 0 for
-        points outside the mask.  Assumes that the map has previously
-        been reset to 0 with self.reset(full=True).
-        """
-        if rmax is None:
-            rmax = self.rmax
-        return self._mask_cctbx(rmax, value)
-
-    def _get_structure_in_box(self):
-        # XXX the logic in here is a simplified version of the approach in
-        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
-        # would be better to use that wrapper directly in qfit, in place
-        # of the calls to xmap.extract()
-        xrs = self.structure.to_xray_structure(active_only=True)
-        if self.xmap.is_canonical_unit_cell():
-            return xrs.expand_to_p1()
-        origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
-        uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
-        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
-        logger.debug(f"Computing mask with n_real={n_real} origin={origin} uc_grid={uc_grid}")
-        ucp = self.structure.crystal_symmetry.unit_cell().parameters()
-        box_cell_abc = [ucp[i]*(n_real[i]/uc_grid[i]) for i in range(3)]
-        uc_box = unit_cell(box_cell_abc + list(ucp)[3:])
-        logger.debug(f"New unit cell: {uc_box.parameters()}")
-        sg_p1 = space_group_info("P1")
-        # XXX unlike the original qFit implementation, I am not even
-        # attempting to deal with space group symmetry right now.  weirdly,
-        # it's not clear if this even matters, since the old implementation
-        # seems slightly buggy
-        xrs_p1_box = xrs.customized_copy(space_group_info=sg_p1)
-        # this applies the shift to the xrs_p1_box object
-        soo = shift_origin(
-            xray_structure=xrs_p1_box,
-            n_xyz=uc_grid,
-            origin_grid_units=origin)
-        sites_cart = soo.xray_structure.sites_cart()
-        sites_frac = uc_box.fractionalize(sites_cart)
-        xrs_shifted = xrs_p1_box.customized_copy(unit_cell=uc_box)
-        xrs_shifted.set_sites_frac(sites_frac)
-        return xrs_shifted
-
-    def _mask_cctbx(self, rmax, value):
-        """
-        Compute an atom mask using cctbx.masks.  This method accounts for
-        map cutouts and origin shifts to match the original qFit behavior,
-        by temporarily translating the masked structure to fit in a P1 box
-        corresponding to the map extents.
-        """
-        # XXX the logic in here is a simplified version of the approach in
-        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
-        # would be better to use that wrapper directly in qfit, in place
-        # of the calls to xmap.extract()
-        xrs = self._get_structure_in_box()
-        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
-        sites_frac = xrs.sites_frac()
-        # this mask is inverted, i.e. the region of interest has value 0
-        mask_sel = mask_around_atoms(
-            xrs.unit_cell(),
-            1,
-            sites_frac,
-            flex.double(sites_frac.size(), rmax),
-            n_real,
-            0,
-            0).data == 0
-        mask_sel_np = np.swapaxes(mask_sel.as_numpy_array(), 0, 2)
-        assert np.sum(mask_sel_np) > 0
-        self.xmap.array[mask_sel_np] += value
-
-    def get_conformers_mask(self, coor_set, rmax):
-        """
-        Get the combined map mask (as a numpy boolean array) for a series of
-        coordinates for the current structure.
-        """
-        assert len(coor_set) > 0
-        self.reset(full=True)
-        logger.debug(f"Masking {len(coor_set)} conformations")
-        for coor in coor_set:
-            self.structure.coor = coor
-            self.mask(rmax)
-        mask = self.xmap.array > 0
-        #self.xmap.tofile("mask_cctbx.ccp4")
-        self.reset(full=True)
-        return mask
-
-    def get_conformer_density(self, coor, b):
-        self.structure.coor = coor
-        self.structure.b = b
-        self.density()
-        return self.xmap.array
-
-    def reset(self, rmax=None, full=False):
-        if full:
-            self.xmap.array.fill(0)
-        else:
-            self.mask(rmax=rmax, value=0.0)
-
     def initialize(self):
         self.radial_densities = []
         for atom in self.structure.atoms:
@@ -273,37 +307,6 @@ class Transformer:
 
     def density(self):
         """Transform structure to a density in a xmap."""
-        if False:
-            return self._density_cctbx_fft()
-        else:
-            return self._density_qfit()
-
-    def _density_cctbx_fft(self):
-        """
-        Compute the electron density using via CCTBX structure factors.
-        """
-        xrs = self._get_structure_in_box()
-        if self.em:
-            logger.debug("Switching to electron structure factor table")
-            xrs.discard_scattering_type_registry()
-            xrs.scattering_type_registry(table="electron")
-        fcalc = xrs.structure_factors(
-            anomalous_flag=False,
-            d_min=self.xmap.resolution.high,
-            algorithm="fft").f_calc()
-        n_real = tuple(int(x) for x in self.xmap.shape[::-1])
-        grid = crystal_gridding(
-            unit_cell = xrs.unit_cell(),
-            space_group_info = xrs.space_group_info(),
-            pre_determined_n_real = n_real)
-        fcalc_map = fft_map(
-            crystal_gridding = grid,
-            fourier_coefficients = fcalc)
-        real_map = fcalc_map.apply_volume_scaling().real_map_unpadded()
-        self.xmap.array[:] = np.swapaxes(real_map.as_numpy_array(), 0, 2)
-        #self.xmap.tofile("density_cctbx.ccp4")
-
-    def _density_qfit(self):
         if not self._initialized:
             self.initialize()
 
@@ -315,6 +318,7 @@ class Transformer:
         q = self.structure.q
         for symop in self.xmap.unit_cell.space_group.symop_list:
             np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
+            # FIXME this can't be right...
             self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
             dilate_points(
                 self._grid_coor_rot,
@@ -400,3 +404,8 @@ class Transformer:
         else:
             # Return 4th order Tayler expansion to prevent singularity
             return w * a * (1 - a * a * r * r / 6.0)
+
+
+#class Transformer(CCTBXTransformer):
+class Transformer(ClassicTransformer):
+    ...

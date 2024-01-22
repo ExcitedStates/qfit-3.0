@@ -61,6 +61,10 @@ class _BaseVolume(ABC):
     def shape(self):
         return self.array.shape
 
+    def n_real(self):
+        """Alternative to 'shape' for CCTBX compatibility"""
+        return tuple(int(x) for x in self.shape[::-1])
+
     @property
     def offset(self):
         return self.grid_parameters.offset
@@ -88,6 +92,20 @@ class _BaseVolume(ABC):
         grid = flex.grid((ox, oy, oz), (nx + ox, ny + oy, nz + oz))
         density.reshape(grid)
         return density
+
+    def value_at(self, i, j, k):
+        """
+        Returns the value of the real-space map at coordinates (i,j,k),
+        accounting for internal storage conventions
+        """
+        return self.array[k][j][i]
+
+    def set_values_from_flex_array(self, real_map):
+        self.array[:] = np.swapaxes(real_map.as_numpy_array(), 0, 2)
+
+    def mask_with_value(self, real_sel, value):
+        real_sel_np = np.swapaxes(real_sel.as_numpy_array(), 0, 2)
+        self.array[real_sel_np] += value
 
 
 # XXX currently unused
@@ -207,9 +225,6 @@ class XMap(_BaseVolume):
         offset = map_data.accessor().origin()
         grid_parameters = GridParameters(voxelspacing, offset)
         resolution = Resolution(high=resolution)
-        # Reorder axis so that nx is fastest changing.
-        # NOTE CCTBX handles axis conventions internally, so we always run
-        # this swap here (without needing to check the map file header again)
         density = np.swapaxes(map_data.as_numpy_array(), 0, 2)
         return XMap(
             density,
@@ -232,7 +247,7 @@ class XMap(_BaseVolume):
         unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
         space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        grid = fft_map_coefficients(map_coeffs)
+        grid = np.swapaxes(fft_map_coefficients(map_coeffs), 0, 2)
         abc = unit_cell.abc
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")
@@ -306,9 +321,8 @@ class XMap(_BaseVolume):
         return self._expand_to_p1()
 
     def is_canonical_unit_cell(self):
-        return np.allclose(self.shape, self.unit_cell_shape[::-1]) and np.allclose(
-            self.offset, 0
-        )
+        return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and
+                np.allclose(self.offset, 0))
 
     def extract(self, orth_coor, padding=3.0):
         """Create a copy of the map around the atomic coordinates provided.

@@ -397,7 +397,7 @@ class QFitProtein:
                 # Load the multiconformer_residue.pdb file
                 fname = self._get_partial_model_path(residue)
                 if not os.path.exists(fname):
-                    logger.warn(
+                    logger.warning(
                         f"[{residue.shortcode}] Couldn't find {fname}! "
                         "Will not be present in multiconformer_model.pdb!"
                     )
@@ -419,7 +419,7 @@ class QFitProtein:
                 # Load the multiconformer_residue.pdb file
                 fname = self._get_partial_model_path(residue)
                 if not os.path.exists(fname):
-                    logger.warn(
+                    logger.warning(
                         f"[{residue.shortcode}] Couldn't find {fname}! "
                         "Will not be present in multiconformer_model.pdb!"
                     )

@@ -370,7 +370,7 @@ class _BaseQFit(ABC):
         # don't sample b-factors with em
         if not self.options.sample_bfactors or self.options.em:
             return
-
+        logger.info("Sampling B-factors for %s...", self.conformer)
         new_coor = []
         new_bfactor = []
         multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5]

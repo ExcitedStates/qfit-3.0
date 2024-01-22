@@ -34,15 +34,14 @@ def main():
     args = parse_args()
 
     structure = Structure.fromfile(args.pdb_file)
-    xmap = XMap.fromfile(args.xmap)
-    resolution = args.resolution
+    xmap = XMap.fromfile(args.xmap, resolution=args.resolution)
     out = XMap.zeros_like(xmap)
 
     if hasattr(xmap, "hkl") and not args.no_fft:
         transformer = FFTTransformer(structure, out)
     else:
         if args.resolution is not None:
-            smax = 0.5 / resolution
+            smax = 0.5 / args.resolution
             simple = False
         else:
             smax = None

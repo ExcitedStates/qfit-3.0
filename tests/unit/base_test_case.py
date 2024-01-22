@@ -28,3 +28,12 @@ class UnitBase(BaseTestRunner):
         pdb_tmp = self._get_water_pdb()
         mtz_out = tempfile.NamedTemporaryFile(suffix="-water-fmodel.mtz").name
         return self._create_fmodel(pdb_tmp, d_min, mtz_out)
+
+    def _get_file_path(self, base_name):
+        return op.join(self.DATA, base_name)
+
+    def _get_start_models(self, peptide_name):
+        return (
+            self._get_file_path(f"{peptide_name}_multiconf.pdb"),
+            self._get_file_path(f"{peptide_name}_single.pdb"),
+        )
