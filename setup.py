@@ -73,6 +73,7 @@ def main():
             "scripts/post/qfit_final_refine_cryoem.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
+            "scripts/post/get_lig_chain_res.py",
             "scripts/post/qfit_RMSF.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/b_factor.py",

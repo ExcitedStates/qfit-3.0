@@ -799,7 +799,27 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-        directions = atom.get_adp_ellipsoid_axes()
+        try:
+            directions = atom.get_adp_ellipsoid_axes()
+        except KeyError:
+            logger.info(
+                f"[{self.identifier}] Got KeyError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
+            )
+            # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
+            # Find coordinates of Cα, Cβ, N atoms
+            pos_CA = self.residue.extract("name", "CA").coor[0]
+            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+            pos_N = self.residue.extract("name", "N").coor[0]
+            # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
+            vec_x = pos_CB - pos_CA
+            vec_y = pos_CA - pos_N
+            vec_z = np.cross(vec_x, vec_y)
+            # Normalize
+            vec_x /= np.linalg.norm(vec_x)
+            vec_y /= np.linalg.norm(vec_y)
+            vec_z /= np.linalg.norm(vec_z)
+
+            directions = np.vstack([vec_x, vec_y, vec_z])
 
         # If we are missing a backbone atom in our segment,
         #     use current coords for this residue, and abort.
@@ -1024,13 +1044,9 @@ class QFitRotamericResidue(_BaseQFit):
 
             if len(self._coor_set) > MAX_CONFORMERS:
                 logger.warning(
-                    f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). "
-                    f"Reverting to a previous iteration of degrees of freedom: item 0. "
-                    f"n_coords: {[len(cs) for (cs) in iter_coor_set]}"
+                    f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
-                self._coor_set = iter_coor_set[0]
-                self._bs = iter_b_set[0]
-
+                
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
@@ -1041,9 +1057,49 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(
                 f"Side chain sampling generated {len(self._coor_set)} conformers"
             )
-            self._save_intermediate(f"sample_sidechain_iter{iteration}")
 
-            self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
+            self._save_intermediate(f"sample_sidechain_iter{iteration}")
+            
+            if len(self._coor_set) <= 15000:
+                # If <15000 conformers are generated, QP score conformer occupancy normally 
+                self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
+            if len(self._coor_set) > 15000:
+                # If >15000 conformers are generated, split the QP conformer scoring into two
+                temp_coor_set = self._coor_set
+                temp_bs = self._bs
+
+                # Splitting the arrays into two sections
+                half_index = len(temp_coor_set) // 2  # Integer division for splitting
+                section_1_coor = temp_coor_set[:half_index]
+                section_1_bs = temp_bs[:half_index]
+                section_2_coor = temp_coor_set[half_index:]
+                section_2_bs = temp_bs[half_index:]
+
+                # Process the first section
+                self._coor_set = section_1_coor
+                self._bs = section_1_bs
+
+                # QP score the first section
+                self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
+
+                # Save results from the first section
+                qp_temp_coor = self._coor_set
+                qp_temp_bs = self._bs
+
+                # Process the second section
+                self._coor_set = section_2_coor
+                self._bs = section_2_bs
+
+                # QP score the second section 
+                self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
+
+                # Save results from the second section
+                qp_2_temp_coor = self._coor_set
+                qp_2_temp_bs = self._bs
+
+                # Concatenate the results from both sections
+                self._coor_set = np.concatenate((qp_temp_coor, qp_2_temp_coor), axis=0)
+                self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
 
             # MIQP score conformer occupancy
             self.sample_b()

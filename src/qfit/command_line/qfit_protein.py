@@ -258,10 +258,10 @@ class QFitProtein:
             ctx = mp.get_context(method="spawn")
 
         # Extract non-protein atoms
-        hetatms = self.structure.extract("record", "HETATM", "==")
+        self.hetatms = self.structure.extract("record", "HETATM", "==")
         other_waters = self.structure.extract("record", "ATOM", "==")
         other_waters = other_waters.extract("resn", "HOH", "==")
-        hetatms = hetatms.combine(other_waters)
+        self.hetatms = self.hetatms.combine(other_waters)
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
@@ -468,12 +468,8 @@ class QFitProtein:
 
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
+        multiconformer = multiconformer.combine(self.hetatms)
         fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
-        #if self.options.scale or self.options.cryst_info:
-        #    multiconformer_model.tofile(
-        #    fname, self.options.scale_info, self.options.cryst_info
-        #    )
-        #else:
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
