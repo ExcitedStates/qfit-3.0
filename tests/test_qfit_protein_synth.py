@@ -456,10 +456,7 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
     def test_qfit_protein_rebuilt_tripeptide_gln(self):
         self._run_rebuilt_multi_conformer_tripeptide("GLN")
 
-    # TODO figure out why this fails at almost any resolution
-    # the resulting conformations are significantly skewed, in a weirdly
-    # symmetrical way
-    @pytest.mark.skip(reason="Needs more debugging")
+    # TODO figure out why this fails at lower resolution
     def test_qfit_protein_rebuilt_tripeptide_glu(self):
         self._run_rebuilt_multi_conformer_tripeptide("GLU",
             d_min=1.35, set_b_iso=8)
@@ -497,7 +494,5 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
     def test_qfit_protein_rebuilt_tripeptide_tyr(self):
         self._run_rebuilt_multi_conformer_tripeptide("TYR")
 
-    # TODO this is inexplicably
-    @pytest.mark.skip(reason="Needs more debugging")
     def test_qfit_protein_rebuilt_tripeptide_val(self):
         self._run_rebuilt_multi_conformer_tripeptide("VAL")
