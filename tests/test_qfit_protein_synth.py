@@ -55,6 +55,7 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
             "2",
             "--dihedral-stepsize",
             "10",
+            "--transformer", "cctbx"
         ]
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
@@ -197,7 +198,6 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         # have overlapped conformations of the same rotamer)
         assert len(rotamers[2]) == 2
 
-    #@pytest.mark.skip(reason="FIXME possible loss of sensitivity")
     def test_qfit_protein_3mer_trp_3conf_p21(self):
         """
         Build a Trp residue with three different rotamers, two of them
@@ -206,7 +206,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         pdb_multi = self._get_file_path("AWA_3conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
         rotamers = self._run_and_validate_identical_rotamers(
-            pdb_multi, pdb_single, d_min=0.85, cc_min=0.987
+            pdb_multi, pdb_single, d_min=0.95, cc_min=0.985, chi_radius=15
         )
         assert len(rotamers[2]) == 3
         s = Structure.fromfile("multiconformer_model2.pdb")

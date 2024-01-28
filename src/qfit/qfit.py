@@ -20,7 +20,7 @@ from .structure.ligand import BondOrder
 from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
 from .validator import Validator
-from .xtal.transformer import Transformer
+from .xtal.transformer import get_transformer
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,8 @@ class QFitOptions:
         self.em = False
         self.scale_info = None
         self.cryst_info = None
+        # TODO make the default "cctbx"
+        self.transformer = "qfit"
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -225,9 +227,12 @@ class _BaseQFit(ABC):
             conformers.append(conformer)
         return conformers
 
+    def _get_transformer(self, *args, **kwds):
+        return get_transformer(self.options.transformer, *args, **kwds)
+
     def _update_transformer(self, conformer):
         self.conformer = conformer
-        self._transformer = Transformer(
+        self._transformer = self._get_transformer(
             conformer,
             self._xmap_model,
             smax=self._smax,
@@ -247,7 +252,7 @@ class _BaseQFit(ABC):
             subtract_structure = subtract_structure.extract("resn", "HOH", "!=")
 
         # Calculate the density that we are going to subtract:
-        self._subtransformer = Transformer(
+        self._subtransformer = self._get_transformer(
             subtract_structure,
             self._xmap_model2,
             smax=self._smax,
@@ -762,7 +767,7 @@ class QFitRotamericResidue(_BaseQFit):
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
         validator = Validator(
-            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em
+            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em, transformer=self.options.transformer
         )
 
         if self.xmap.resolution.high < 3.0:

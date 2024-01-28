@@ -2,13 +2,18 @@ import numpy as np
 import pytest
 
 from qfit.structure import Structure
-from qfit.xtal.transformer import Transformer, FFTTransformer
+from qfit.xtal.transformer import get_transformer, FFTTransformer
 from qfit.xtal.volume import XMap
 
 from .base_test_case import UnitBase
 
 
 class TransformerBase(UnitBase):
+    # TODO change this to cctbx
+    IMPLEMENTATION = "qfit"
+
+    def _get_transformer(self, *args, **kwds):
+        return get_transformer(self.IMPLEMENTATION, *args, **kwds)
 
     def _load_qfit_inputs(self, pdb_file, mtz_file):
         structure = Structure.fromfile(pdb_file)
@@ -23,7 +28,7 @@ class TransformerBase(UnitBase):
     def _run_transformer(self, structure, xmap, cc_min=0.99):
         rmask = 0.5 + xmap.resolution.high / 3.0  # from qfit.py
         xmap_orig = xmap.array.copy()
-        t = Transformer(structure, xmap)
+        t = self._get_transformer(structure, xmap)
         t.reset(full=True)
         t.mask(rmax=rmask)
         mask = t.get_masked_selection()
@@ -70,7 +75,7 @@ class TestTransformer(TransformerBase):
             fmodel_mtz = self._create_fmodel(pdb_file, high_resolution=d_min)
             structure, xmap = self._load_qfit_inputs(pdb_file, fmodel_mtz)
             assert xmap.n_real() == shape
-            t = Transformer(structure, xmap)
+            t = self._get_transformer(structure, xmap)
             rmask = 0.5 + d_min / 3.0  # from qfit.py
             t.reset(full=True)
             t.mask(rmax=rmask)
@@ -81,7 +86,7 @@ class TestTransformer(TransformerBase):
             # with the artifically small unit cell
             xsub = xmap.extract(structure.coor, padding=2.0)
             assert xsub.n_real() != shape
-            t2 = Transformer(structure, xsub)
+            t2 = self._get_transformer(structure, xsub)
             t2.reset(full=True)
             t2.mask(rmax=rmask)
             mask2 = t2.xmap.array > 0
@@ -107,7 +112,7 @@ class TestTransformer(TransformerBase):
             xsub = xmap.extract(ssub.coor)
             #xsub.tofile("ASA_extract.ccp4")
             assert xsub.n_real() == shape
-            t = Transformer(ssub, xsub)
+            t = self._get_transformer(ssub, xsub)
             for rmax, mask_size in zip(RMAXES, masks):
                 t.reset(full=True)
                 t.mask(rmax=rmax)
@@ -128,20 +133,41 @@ class TestTransformer(TransformerBase):
         xsub = xmap.extract(ssub.coor)
         self._run_transformer(ssub, xsub, cc_min)
 
+    MIN_CC_GLU = 0.94
+    MIN_CC_LYS = 0.945
+    MIN_CC_TRP = 0.95
+
     def test_transformer_rebuilt_tripeptide_glu(self):
-        self._run_transformer_rebuilt_3mer("GLU", cc_min=0.94)
+        self._run_transformer_rebuilt_3mer("GLU", cc_min=self.MIN_CC_GLU)
 
     def test_transformer_rebuilt_tripeptide_lys(self):
-        self._run_transformer_rebuilt_3mer("LYS", cc_min=0.945)
+        self._run_transformer_rebuilt_3mer("LYS", cc_min=self.MIN_CC_LYS)
 
     def test_transformer_rebuilt_tripeptide_ser(self):
         self._run_transformer_rebuilt_3mer("SER", cc_min=0.9)
 
     def test_transformer_rebuilt_tripeptide_trp(self):
-        self._run_transformer_rebuilt_3mer("TRP", cc_min=0.95)
+        self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
 
 
-class TestFFTTransformer(TransformerBase):
+class TestCCTBXTransformer(TestTransformer):
+    IMPLEMENTATION = "cctbx"
+    # TODO figure out why these values are lower
+    MIN_CC_GLU = 0.929
+    MIN_CC_LYS = 0.928
+    MIN_CC_TRP = 0.934
+
+
+class TestFFTTransformer(TestTransformer):
+    IMPLEMENTATION = "fft"
+
+    def _run_transformer_rebuilt_3mer(self, *args, **kwds):
+        pytest.skip("not applicable to this class")
+
+
+class TestCompareTransformers(TransformerBase):
+    # TODO change this to "cctbx"
+    IMPLEMENTATION = "qfit"
 
     def _run_fft_transformer(self, pdb_multi, mtz_file, cc_min=0.9):
         structure, xmap = self._load_qfit_inputs(pdb_multi, mtz_file)
@@ -165,7 +191,7 @@ class TestFFTTransformer(TransformerBase):
         fmodel_mtz = self._create_fmodel(pdb_file, high_resolution=1.5)
         t1 = self._run_fft_transformer(pdb_file, fmodel_mtz)
         structure, xmap = self._load_qfit_inputs(pdb_file, fmodel_mtz)
-        t2 = Transformer(structure, xmap)
+        t2 = self._get_transformer(structure, xmap)
         t2.reset(full=True)
         t2.density()
         ccs = np.corrcoef(t1.xmap.array.flatten(), t2.xmap.array.flatten())
@@ -183,9 +209,10 @@ class TestFFTTransformer(TransformerBase):
         pdb_multi, fmodel_mtz = self._get_lys_3mer_p6322_fmodel()
         self._run_fft_transformer(pdb_multi, fmodel_mtz, cc_min=0.88)
 
+    # TODO figure out why this works much worse with cctbx transform
     @pytest.mark.fast
     def test_fft_transformer_3mer_trp_3conf_p21(self):
-        pdb_multi = self._get_file_path("AWA_2conf.pdb")
+        pdb_multi = self._get_file_path("AWA_3conf.pdb")
         pdb_single = self._get_file_path("AWA_single.pdb")
         fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=2.0)
         self._run_fft_transformer(pdb_multi, fmodel_mtz)

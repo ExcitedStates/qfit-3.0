@@ -88,6 +88,20 @@ SERINE_ALTERNATE_SYMMETRY = {
 }
 
 
+def create_fmodel(pdb_file_name, high_resolution, output_file=None):
+    if output_file is None:
+        output_file = tempfile.NamedTemporaryFile(suffix="-fmodel.mtz").name
+    fmodel_args = [
+        pdb_file_name,
+        f"high_resolution={high_resolution}",
+        "r_free_flags_fraction=0.1",
+        "output.label=FWT",
+        f"output.file_name={output_file}",
+    ]
+    fmodel.run(args=fmodel_args, log=null_out())
+    return output_file
+
+
 class TemporaryDirectoryManager:
     """
     Context manager for running a function/command in a separate temporary
@@ -126,21 +140,8 @@ class BaseTestRunner(unittest.TestCase):
     def _run_in_tmpdir(self, dirname=None):
         return TemporaryDirectoryManager(dirname)
 
-    def _create_fmodel(self,
-                       pdb_file_name,
-                       high_resolution,
-                       output_file=None):
-        if output_file is None:
-            output_file = tempfile.NamedTemporaryFile(suffix="-fmodel.mtz").name
-        fmodel_args = [
-            pdb_file_name,
-            f"high_resolution={high_resolution}",
-            "r_free_flags_fraction=0.1",
-            "output.label=FWT",
-            f"output.file_name={output_file}",
-        ]
-        fmodel.run(args=fmodel_args, log=null_out())
-        return output_file
+    def _create_fmodel(self, *args, **kwds):
+        return create_fmodel(*args, **kwds)
 
     def _replace_symmetry(self,
                           new_symmetry,

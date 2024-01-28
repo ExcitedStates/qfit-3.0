@@ -35,6 +35,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             "--rmsd-cutoff", "0.1",
             "--dihedral-stepsize", "20",
             "--debug",
+            "--transformer", "cctbx"
         ] + list(extra_args)
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)

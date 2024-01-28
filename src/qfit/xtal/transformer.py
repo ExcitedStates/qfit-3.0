@@ -149,29 +149,23 @@ class CCTBXTransformer:
         else:
             self.mask(rmax=rmax, value=0.0)
 
+    # TODO figure out why this produces inferior results
     def density(self):
         """
-        Compute the current model electron density using cctbx.xray, without
-        any FFTs
+        Compute the current model electron density using cctbx.xray map
+        sampling function, without any FFTs
         """
         xrs = self._get_structure_in_box()
         if self.em:
             logger.debug("Switching to electron structure factor table")
             xrs.discard_scattering_type_registry()
             xrs.scattering_type_registry(table="electron")
+        else:
+            xrs.scattering_type_registry(table="n_gaussian")
         n_real = self.xmap.n_real()
-        # FIXME this does not produce usable results
-        #u_base = xray_ext.calc_u_base(
-        #    d_min=self.xmap.resolution.high,
-        #    grid_resolution_factor=0.25)
-        #print("u_base=%s" % u_base)
-        # this parameter is passed to the CCTBX density summation routines;
-        # the default value in the C++ header is 0.25, but lower values seem
-        # to work better at least with our synthetic tests
-        # TODO figure out empirical formula, or grid search for ideal value?
-        u_base = 0.1
-        # XXX this is using many default values from the CCTBX C++ header code;
-        # it is probably worth experimenting with the parameters especially
+        u_base = xray_ext.calc_u_base(
+            d_min=self.xmap.resolution.high,
+            grid_resolution_factor=0.25)
         sampled_density = xray_ext.sampled_model_density(
             unit_cell=xrs.unit_cell(),
             scatterers=xrs.scatterers(),
@@ -182,11 +176,11 @@ class CCTBXTransformer:
             wing_cutoff=1e-3,
             exp_table_one_over_step_size=-100,
             force_complex=False,
+            use_u_base_as_u_extra=True,
             sampled_density_must_be_positive=False,
             tolerance_positive_definite=1e-5)
-        real_map = sampled_density.real_map()
+        real_map = sampled_density.real_map_unpadded()
         self.xmap.set_values_from_flex_array(real_map)
-        return self.xmap.array
 
 
 class FFTTransformer(CCTBXTransformer):
@@ -196,7 +190,7 @@ class FFTTransformer(CCTBXTransformer):
     overhead of running two FFTs.  Currently this is only used in scaler.py.
     """
 
-    def __init__(self, structure, xmap, hkl=None, em=False):
+    def __init__(self, structure, xmap, hkl=None, em=False, **kwds):
         super().__init__(structure, xmap, em=em)
         if hkl is None:
             hkl = self.xmap.hkl
@@ -216,6 +210,8 @@ class FFTTransformer(CCTBXTransformer):
         reflections = miller.set(xrs.crystal_symmetry(),
                                  flex_array.miller_index(self.hkl),
                                  anomalous_flag=False)
+        # XXX This is currently in closer agreement with the old "classic"
+        # implementation below, which does not use FFT, but it is much slower
         sfs = structure_factors.from_scatterers(
             crystal_symmetry=xrs.crystal_symmetry(),
             d_min=self.xmap.resolution.high,
@@ -238,7 +234,8 @@ class FFTTransformer(CCTBXTransformer):
         self.xmap.set_values_from_flex_array(real_map)
 
 
-class ClassicTransformer(CCTBXTransformer):
+# TODO retire this
+class QfitTransformer(CCTBXTransformer):
 
     """Transform a structure to a density."""
 
@@ -406,6 +403,18 @@ class ClassicTransformer(CCTBXTransformer):
             return w * a * (1 - a * a * r * r / 6.0)
 
 
-#class Transformer(CCTBXTransformer):
-class Transformer(ClassicTransformer):
+# XXX leaving the old implementation as the default for now
+class Transformer(QfitTransformer):
     ...
+
+
+def get_transformer(impl_name, *args, **kwds):
+    """
+    Instantiate a Transformer class using the specified implementation.
+    """
+    if impl_name == "fft":
+        return FFTTransformer(*args, **kwds)
+    elif impl_name == "cctbx":
+        return CCTBXTransformer(*args, **kwds)
+    else:
+        return QfitTransformer(*args, **kwds)
