@@ -106,7 +106,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
 
     # TODO figure out why this always finds 3 confs using CCTBX transformer
     #@pytest.mark.fast
-    @pytest.skip(reason="FIXME consistently finds 3 conformations down to 0.5 Angstrom resolution")
+    @pytest.mark.skip(reason="FIXME consistently finds 3 conformations down to 0.5 Angstrom resolution")
     def test_sample_sidechain_3mer_ser_p21(self):
         self._run_sample_sidechain_3mer_and_validate(
             peptide_name="ASA",

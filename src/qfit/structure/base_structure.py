@@ -419,18 +419,11 @@ class BaseStructure(ABC):
         Identify sampling directions based on the ellipsoid axes of the
         refined ADPs.  Should only be used on single-atom structures.
         """
-        try:
-            u_matrix = self.extract_anisous()[0]
-            directions = adp_ellipsoid_axes(u_matrix)
-            logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
-            logger.debug(f"[_sample_backbone] directions = {directions}")
-            return directions
-        except KeyError:
-            logger.info(
-                f"Got KeyError for directions at Cβ. Treating as isotropic B, using x,y,z vectors."
-            )
-            # TODO: Probably choose to put one of these as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
-            return np.identity(3)
+        u_matrix = self.extract_anisous()[0]
+        directions = adp_ellipsoid_axes(u_matrix)
+        logger.debug(f"[_sample_backbone] u_matrix = {u_matrix}")
+        logger.debug(f"[_sample_backbone] directions = {directions}")
+        return directions
 
 
 class BaseMonomer(BaseStructure):
