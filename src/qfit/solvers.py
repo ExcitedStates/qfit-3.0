@@ -540,7 +540,7 @@ class MIOSQPSolver(MIQPSolver):
 
         # Append raisable Exceptions to SolverError class in module (global) scope
         global SolverError
-        SolverError += (ValueError,)
+        SolverErrors = (SolverError, CplexSolverError)
 
     def compute_quadratic_coeffs(self) -> None:
         """Precompute the quadratic coefficients (P, q).
