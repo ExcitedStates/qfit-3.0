@@ -14,6 +14,7 @@ import numpy as np
 
 from . import MapScaler, Structure, XMap, Covalent_Ligand
 from . import QFitCovalentLigand, QFitOptions
+from .solvers import available_qp_solvers, available_miqp_solvers
 
 os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -288,6 +289,22 @@ def parse_args():
         dest="bic_threshold",
         action="store_false",
         help="Do not use BIC to select the most parsimonious MIQP threshold",
+    )
+
+    # Solver options
+    p.add_argument(
+        "--qp-solver",
+        dest="qp_solver_choice",
+        choices=available_qp_solvers.keys(),
+        default=next(iter(available_qp_solvers.keys())),
+        help="Select the QP solver",
+    )
+    p.add_argument(
+        "--miqp-solver",
+        dest="miqp_solver_choice",
+        choices=available_miqp_solvers.keys(),
+        default=next(iter(available_miqp_solvers.keys())),
+        help="Select the MIQP solver",
     )
 
     # Output options
