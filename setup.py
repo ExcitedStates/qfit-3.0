@@ -86,6 +86,7 @@ def main():
             "scripts/post/lig_occ.py",
             "scripts/post/calc_OP.py",
             "scripts/post/make_methyl_df.py",
+            "scripts/post/find_close_residues.py",
             "scripts/post/get_seq.py",
         ],
     )
