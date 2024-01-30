@@ -16,6 +16,9 @@ If you use this software, please cite:
 
 ## Installation (conda recommended)
 
+# If you are installing on a Mac, please refer to the instructions below on M1.
+
+
 We recommend using the _conda_ package manager to install _qFit_.
 
 You will need the following tools:
