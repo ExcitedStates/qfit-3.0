@@ -43,10 +43,9 @@ Once these are installed, you can:
    For some of the post analysis scripts, you will also need sklean
    conda install -c anaconda scikit-learn
 
-5. If you are an academic user, we recommend you register and use the academic license of CPLEX (IBM Optomization Algorithm).
-      a. First, you have to [register IBM Academic Initiative](https://www.ibm.com/academic/home) with your academic instituion issued email. (e.g. janedoe@university.edu)
-      b. Once you are logged into IBM, click [here](https://www.ibm.com/academic/topic/data-science) and navigate to “IBM ILOG CPLEX Optimization       
- Studio” under Softwares sections.
+5. If you are an academic user, we recommend you register and use the academic license of CPLEX (IBM Optomization Algorithm). \n
+      a. First, you have to [register IBM Academic Initiative](https://www.ibm.com/academic/home) with your academic instituion issued email. (e.g. janedoe@university.edu) \n
+      b. Once you are logged into IBM, click [here](https://www.ibm.com/academic/topic/data-science) and navigate to “IBM ILOG CPLEX Optimization Studio” under Softwares sections. \n
 
 
    If you are an industry user, you can install cplex using conda:
