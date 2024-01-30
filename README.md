@@ -34,23 +34,36 @@ Once these are installed, you can:
    conda activate qfit
    ```
 
-1. Install dependencies
+2. Install dependencies
    ```bash
    conda install -c anaconda mkl numpy=1.22
    conda install -c anaconda -c ibmdecisionoptimization \
-                 cvxopt cplex
+                 cvxopt
    ```
    For some of the post analysis scripts, you will also need sklean
    conda install -c anaconda scikit-learn
+
+5. If you are an academic user, we recommend you register and use the academic license of CPLEX (IBM Optomization Algorithm).
+      a. First, you have to [register IBM Academic Initiative](https://www.ibm.com/academic/home) with your academic instituion issued email. (e.g. janedoe@university.edu)
+      b. Once you are logged into IBM, click [here](https://www.ibm.com/academic/topic/data-science) and navigate to “IBM ILOG CPLEX Optimization       
+ Studio” under Softwares sections.
+
+
+   If you are an industry user, you can install cplex using conda:
+   ```bash
+   conda install -c anaconda -c ibmdecisionoptimization \
+                 cplex
+   ```
+ 
    
-1. Clone the latest release of the qFit source, and install to your conda env
+4. Clone the latest release of the qFit source, and install to your conda env
    ```bash
    git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
 
-1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
+5. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
 ### M1 Macs
 
