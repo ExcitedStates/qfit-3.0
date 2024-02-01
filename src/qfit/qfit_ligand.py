@@ -254,14 +254,14 @@ def build_argparser():
     # Solver options
     p.add_argument(
         "--qp-solver",
-        dest="qp_solver_choice",
+        dest="qp_solver",
         choices=available_qp_solvers.keys(),
         default=next(iter(available_qp_solvers.keys())),
         help="Select the QP solver",
     )
     p.add_argument(
         "--miqp-solver",
-        dest="miqp_solver_choice",
+        dest="miqp_solver",
         choices=available_miqp_solvers.keys(),
         default=next(iter(available_miqp_solvers.keys())),
         help="Select the MIQP solver",
