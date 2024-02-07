@@ -147,6 +147,73 @@ class MIQPSolver(GenericSolver):
 # Define solver implementations
 ###############################
 
+class CVXPYSolver(QPSolver, MIQPSolver):
+    driver_pkg_name = "cvxpy"
+    driver = lazy_load_module_if_available(driver_pkg_name)
+    
+    def __init__(self, target, models, nthreads=1):
+        self.target = target
+        self.models = models
+        
+        self.quad_obj = None
+        self.lin_obj = None
+
+        self.weights = None
+        self.objective_value = None
+
+        self.nconformers = models.shape[0]
+    
+    def compute_quadratic_coeffs(self):
+        # minimize 0.5 x.T P x + q.T x
+        #   where P = self.quad_obj =   ρ_model.T ρ_model
+        #         q = self.lin_obj  = - ρ_model.T ρ_obs
+        self.quad_obj = self.models @ self.models.T
+        self.lin_obj = -1 * self.models @ self.target
+    
+    def solve_miqp(self, threshold=0, cardinality=0):
+        if self.quad_obj is None or self.lin_obj is None:
+            self.compute_quadratic_coeffs()
+        
+        m = self.nconformers
+        P = self.quad_obj
+        q = self.lin_obj
+        
+        w = cp.Variable(m)
+        z = cp.Variable(m, boolean=True)
+        objective = cp.Minimize(0.5*cp.quad_form(w, P) + q.T @ w)
+        constraints = [np.ones(m).T @ w <= 1]
+        if threshold:
+            constraints += [w - z <= 0, w >= threshold * z]
+            #The first constraint requires w_i to be zero if z_i is
+            #The second requires that each non-zero w_i is greater than the threshold
+        if cardinality:
+            constraints += [w - z <= 0, np.ones(m).T @ z == cardinality]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver='SCIP')
+        self.objective_value = prob.value
+        #I'm not sure why objective_values is calculated this way, but doing
+        #so to be compatible with the CPLEXSolver class
+        self.objective_value = 2 * prob.value + self.target.T @ self.target
+        self.weights = w.value
+    
+    def solve_qp(self):
+        if self.quad_obj is None or self.lin_obj is None:
+            self.compute_quadratic_coeffs()
+        
+        m = self.nconformers
+        P = self.quad_obj
+        q = self.lin_obj
+        w = cp.Variable(m)
+        objective = cp.Minimize(0.5*cp.quad_form(w, P) + q.T @ w)
+        constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
+        prob = cp.Problem(objective, constraints)
+        prob.solve()
+        self.objective_value = prob.value
+        #I'm not sure why objective_values is calculated this way, but doing
+        #so to be compatible with the CPLEXSolver class
+        self.objective_value = 2 * prob.value + self.target.T @ self.target
+        self.weights = w.value
+
 
 class CVXOPTSolver(QPSolver):
     driver_pkg_name = "cvxopt"
