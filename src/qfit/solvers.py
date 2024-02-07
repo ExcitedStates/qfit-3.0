@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
 import scipy as sci
+import cvxpy
 import scipy.sparse  # pylint: disable=unused-import
 from numpy.typing import NDArray
 from cplex.exceptions import CplexSolverError
@@ -178,9 +179,9 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         P = self.quad_obj
         q = self.lin_obj
         
-        w = cp.Variable(m)
-        z = cp.Variable(m, boolean=True)
-        objective = cp.Minimize(0.5*cp.quad_form(w, P) + q.T @ w)
+        w = cvxpy.Variable(m)
+        z = cvxpy.Variable(m, boolean=True)
+        objective = cvxpy.Minimize(0.5*cvxpy.quad_form(w, P) + q.T @ w)
         constraints = [np.ones(m).T @ w <= 1]
         if threshold:
             constraints += [w - z <= 0, w >= threshold * z]
@@ -188,7 +189,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
             #The second requires that each non-zero w_i is greater than the threshold
         if cardinality:
             constraints += [w - z <= 0, np.ones(m).T @ z == cardinality]
-        prob = cp.Problem(objective, constraints)
+        prob = cvxpy.Problem(objective, constraints)
         prob.solve(solver='SCIP')
         self.objective_value = prob.value
         #I'm not sure why objective_values is calculated this way, but doing
@@ -203,10 +204,10 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         m = self.nconformers
         P = self.quad_obj
         q = self.lin_obj
-        w = cp.Variable(m)
-        objective = cp.Minimize(0.5*cp.quad_form(w, P) + q.T @ w)
+        w = cvxpy.Variable(m)
+        objective = cvxpy.Minimize(0.5*cvxpy.quad_form(w, P) + q.T @ w)
         constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
-        prob = cp.Problem(objective, constraints)
+        prob = cvxpy.Problem(objective, constraints)
         prob.solve()
         self.objective_value = prob.value
         #I'm not sure why objective_values is calculated this way, but doing
