@@ -413,7 +413,7 @@ class _BaseQFit:
         if (
             self.options.write_intermediate_conformers
         ):  # Output all conformations before we remove them
-            self._write_intermediate_conformers(prefix="cplex_remove")
+            self._write_intermediate_conformers(prefix="qp_remove")
         self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
@@ -1397,7 +1397,7 @@ class QFitSegment(_BaseQFit):
                         logger.debug("MIQP failed, dropping a fragment-conformer")
                         self._zero_out_most_similar_conformer()  # Remove conformer
                         if self.options.write_intermediate_conformers:
-                            self._write_intermediate_conformers(prefix="cplex_kept")
+                            self._write_intermediate_conformers(prefix="miqp_kept")
                         continue
                     else:
                         # No Exceptions here! Solvable!
