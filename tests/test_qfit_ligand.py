@@ -61,8 +61,7 @@ class TestQFitLigand(BaseTestRunner):
 
         return qfit_ligand
 
-    #@pytest.mark.slow
-    @pytest.mark.skip(reason="FIXME very slow and currently failing")
+    @pytest.mark.slow
     def test_run_qfit_ligand(self):
         qfit_ligand = self.mock_main()
         # Run qfit object
