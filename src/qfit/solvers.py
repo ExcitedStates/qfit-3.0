@@ -213,7 +213,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
 
         w = cp.Variable(m)
         z = cp.Variable(m, boolean=True)
-        objective = cp.Minimize(0.5 * cp.quad_form(w, P) + q.T @ w)
+        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
         constraints = [np.ones(m).T @ w <= 1]
         if threshold:
             constraints += [w - z <= 0, w >= threshold * z]
@@ -238,7 +238,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         P = self.quad_obj
         q = self.lin_obj
         w = cp.Variable(m)
-        objective = cp.Minimize(0.5 * cp.quad_form(w, P) + q.T @ w)
+        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
         constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
         prob = cp.Problem(objective, constraints)
         prob.solve()
