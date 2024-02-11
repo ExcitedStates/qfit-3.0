@@ -1,5 +1,7 @@
 import os.path as op
 
+from libtbx import easy_pickle
+
 from qfit.structure import Structure
 from qfit.structure.ligand import Ligand
 
@@ -54,6 +56,9 @@ class TestStructureLigand(UnitBase):
         s = self._STRUCTURE_PPI_SINGLE
         lig = Ligand.from_structure(s)
         self._validate_ppi(lig)
+        p1 = easy_pickle.dumps(lig)
+        lig1b = easy_pickle.loads(p1)
+        self._validate_ppi(lig1b)
 
     def test_ligand_from_structure_tris(self):
         s = self._STRUCTURE_TRS_SINGLE

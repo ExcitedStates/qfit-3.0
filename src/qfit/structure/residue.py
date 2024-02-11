@@ -82,14 +82,12 @@ class Residue(BaseMonomer):
         after unpickling in a multiprocessing call.
         """
         return self.__class__(
-            self._atoms,
             self._pdb_hierarchy,
             resi=self.id[0],
             icode=self.id[1],
             monomer_type=self.type,
             selection=self._selection,
             parent=self.parent,
-            hierarchy_objects=self._hierarchy_objects,
         )
 
     def get_named_atom_selection(self, atom_names):
@@ -426,7 +424,6 @@ class RotamerResidue(Residue):
 
     def get_rebuilt_structure(self):
         return self.parent.parent.parent.__class__(
-            self._atoms,
             self._pdb_hierarchy,
             **self._kwargs)
 

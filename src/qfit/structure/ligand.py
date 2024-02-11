@@ -82,12 +82,12 @@ class Ligand(BaseLigand):
     @staticmethod
     def from_structure(structure_ligand, cif_file=None):
         return Ligand(
-            structure_ligand._atoms,  # pylint: disable=protected-access
             structure_ligand._pdb_hierarchy,  # pylint: disable=protected-access
-            structure_ligand.selection,
+            selection=structure_ligand.selection,
             link_data=structure_ligand.link_data,
             cif_file=cif_file,
-            crystal_symmetry=structure_ligand.crystal_symmetry
+            crystal_symmetry=structure_ligand.crystal_symmetry,
+            atoms=structure_ligand._atoms,  # pylint: disable=protected-access
         )
 
     @property

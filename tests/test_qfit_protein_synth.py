@@ -33,7 +33,8 @@ class SyntheticMapRunner(BaseTestRunner):
 
 class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
 
-    def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution):
+    def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
+                      extra_args=()):
         fmodel_mtz = self._create_fmodel(pdb_file_multi,
                                          high_resolution=high_resolution)
         os.symlink(pdb_file_single, "single.pdb")
@@ -56,7 +57,7 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
             "--dihedral-stepsize",
             "10",
             "--transformer", "cctbx"
-        ]
+        ] + list(extra_args)
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
         return fmodel_mtz
@@ -81,8 +82,11 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
         chi_radius=SyntheticMapRunner.CHI_RADIUS,
         cc_min=0.99,
         model_name="multiconformer_model2.pdb",
+        extra_args=()
     ):
-        fmodel_mtz = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_mtz = self._run_qfit_cli(pdb_multi, pdb_single,
+                                        high_resolution=d_min,
+                                        extra_args=extra_args)
         self._validate_new_fmodel(
             fmodel_in=fmodel_mtz,
             high_resolution=d_min,
@@ -126,11 +130,12 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
 
     def _run_kmer_and_validate_identical_rotamers(
         self, peptide_name, d_min, chi_radius=SyntheticMapRunner.CHI_RADIUS,
-        cc_min=0.99
+        cc_min=0.99, extra_args=()
     ):
         (pdb_multi, pdb_single) = self._get_start_models(peptide_name)
         return self._run_and_validate_identical_rotamers(
-            pdb_multi, pdb_single, d_min, chi_radius, cc_min=cc_min
+            pdb_multi, pdb_single, d_min, chi_radius, cc_min=cc_min,
+            extra_args=extra_args
         )
 
     def _run_serine_monomer(self, space_group_symbol, cc_min=0.99):
@@ -178,6 +183,11 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
     def test_qfit_protein_3mer_ser_p21(self):
         """Build a Ser residue with two rotamers at moderate resolution"""
         self._run_kmer_and_validate_identical_rotamers("ASA", 1.5, chi_radius=15)
+
+    def test_qfit_protein_3mer_ser_p21_parallel(self):
+        """Build a Ala-Ser-Ala model in parallel"""
+        self._run_kmer_and_validate_identical_rotamers("ASA", 1.5,
+            chi_radius=15, extra_args=("--nproc", "3"))
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """

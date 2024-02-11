@@ -17,18 +17,17 @@ from qfit.utils.normalize_to_precision import normalize_to_precision
 class Structure(BaseStructure):
     """Class with access to underlying PDB hierarchy."""
 
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
+    def __init__(self, pdb_hierarchy, **kwargs):
         self._dist2_matrix = None
         self._chains = []
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+        super().__init__(pdb_hierarchy, **kwargs)
 
     @staticmethod
     def fromfile(fname):
         pdb_inp, link_data, file_format = read_pdb_or_mmcif(fname)
         pdb_hierarchy = get_pdb_hierarchy(pdb_inp)
         return Structure(
-            pdb_hierarchy.atoms(),
-            pdb_hierarchy,
+            pdb_hierarchy=pdb_hierarchy,
             link_data=link_data,
             crystal_symmetry=pdb_inp.crystal_symmetry(),
             file_format=file_format,
@@ -116,11 +115,11 @@ class Structure(BaseStructure):
         sel_cache = hierarchy.atom_selection_cache()
         for chain_id, chains in chains_d.items():
             selection = sel_cache.selection(f"chain '{chain_id}'").iselection()
-            chain = _Chain(self._atoms,
-                           self._pdb_hierarchy,
+            chain = _Chain(self._pdb_hierarchy,
                            selection=selection,
                            parent=self,
                            hierarchy_objects=chains,
+                           atoms=self._atoms,
                            crystal_symmetry=self.crystal_symmetry)
             self._chains.append(chain)
 
@@ -138,9 +137,9 @@ class Structure(BaseStructure):
             return self.copy()
         altlocs_sel_str = " or ".join([f"altloc {a}" for a in altlocs_remove])
         remove_sel_str = f"{sel_str} and (name CA or name C or name O or name N or name H or name HA) and ({altlocs_sel_str})"
-        remove_mask = self._selection_cache.selection(remove_sel_str)
+        remove_mask = self._get_base_atom_selection(remove_sel_str)
         keep_sel_str = f"{sel_str} and (name CA or name C or name O or name N) and altloc '{altloc_keep}'"
-        keep_mask = self._selection_cache.selection(keep_sel_str)
+        keep_mask = self._get_base_atom_selection(keep_sel_str)
         keep_sel = keep_mask.select(~remove_mask).iselection()
         atoms = self.get_selected_atoms((~remove_mask).iselection())
         # FIXME This should manipulate the hierarchy directly instead of
@@ -150,10 +149,7 @@ class Structure(BaseStructure):
             atom_labels[i_seq].set_occ(1.0)
             atom_labels[i_seq].altloc = ""
         new_hierarchy = get_pdb_hierarchy(load_atoms_from_labels(atom_labels))
-        return Structure(new_hierarchy.atoms(),
-                         new_hierarchy,
-                         selection=None,
-                         **self._kwargs)
+        return Structure(new_hierarchy, selection=None, **self._kwargs)
 
     def set_backbone_occ(self):
         """
@@ -296,7 +292,7 @@ class Structure(BaseStructure):
         return multiconformer
 
     def _get_non_hetero_structure(self):
-        atom_sel = self._selection_cache.selection("not hetero")
+        atom_sel = self._get_base_atom_selection("not hetero")
         if self._selection is not None:
             sel_mask = flex.bool(atom_sel.size(), False)
             sel_mask.set_selected(self._selection, True)
@@ -412,8 +408,8 @@ class Structure(BaseStructure):
 
 
 class _Chain(BaseStructure):
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+    def __init__(self, pdb_hierarchy, **kwargs):
+        super().__init__(pdb_hierarchy, **kwargs)
         self._residue_groups = []
         self._conformers = []
         self.conformer_ids = np.unique(self.altloc)
@@ -472,11 +468,11 @@ class _Chain(BaseStructure):
             for iotbx_residue_group in iotbx_chain.residue_groups():
                 selection = iotbx_residue_group.atoms().extract_i_seq()
                 residue_group = ResidueGroup(
-                    self._atoms,
                     self._pdb_hierarchy,
                     selection=selection,
                     parent=self,
                     hierarchy_objects=(iotbx_residue_group,),
+                    atoms=self._atoms,
                     crystal_symmetry=self.crystal_symmetry
                 )
                 self._residue_groups.append(residue_group)
@@ -501,11 +497,11 @@ class _Chain(BaseStructure):
             for conf in conformers[1:]:
                 selection.extend(conf.atoms().extract_i_seq())
             conformer = _Conformer(
-                self._atoms,
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
                 hierarchy_objects=conformers,
+                atoms=self._atoms,
                 crystal_symmetry=self.crystal_symmetry
             )
             self._conformers.append(conformer)
@@ -515,8 +511,8 @@ class ResidueGroup(BaseMonomer):
 
     """Guarantees a group with similar resi and icode."""
 
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+    def __init__(self, pdb_hierarchy, **kwargs):
+        super().__init__(pdb_hierarchy, **kwargs)
         self._iotbx_residue_group = self._hierarchy_objects[0]
         self._atom_groups = []
 
@@ -537,11 +533,11 @@ class ResidueGroup(BaseMonomer):
         for iotbx_atom_group in self._iotbx_residue_group.atom_groups():
             selection = iotbx_atom_group.atoms().extract_i_seq()
             atom_group = _AtomGroup(
-                self._atoms,
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self,
                 hierarchy_objects=(iotbx_atom_group,),
+                atoms=self._atoms,
                 crystal_symmetry=self.crystal_symmetry
             )
             self._atom_groups.append(atom_group)
@@ -555,8 +551,8 @@ class ResidueGroup(BaseMonomer):
 
 
 class _AtomGroup(BaseStructure):
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+    def __init__(self, pdb_hierarchy, **kwargs):
+        super().__init__(pdb_hierarchy, **kwargs)
         self._iotbx_atom_group = self._hierarchy_objects[0]
 
     @property
@@ -572,14 +568,18 @@ class _Conformer(BaseStructure):
 
     """Guarantees a single consistent conformer."""
 
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+    def __init__(self, pdb_hierarchy, **kwargs):
+        super().__init__(pdb_hierarchy, **kwargs)
         self._residues = []
         self._segments = []
 
     @property
     def id(self):
         return self._hierarchy_objects[0].altloc
+
+    def __setstate__(self, d):
+        super().__setstate__(d)
+        self._hierarchy_objects = None
 
     def __getitem__(self, arg):
         if not self._residues:
@@ -630,10 +630,10 @@ class _Conformer(BaseStructure):
                 else:
                     continue
                 residue = monomer_class(
-                    self._atoms,
                     self._pdb_hierarchy,
                     selection=selection,
                     parent=self,
+                    atoms=self._atoms,
                     resi=iotbx_residue.resseq_as_int(),
                     icode=iotbx_residue.icode.strip(),
                     monomer_type=rtype,
@@ -664,10 +664,10 @@ class _Conformer(BaseStructure):
                 selections = [residue.selection for residue in segment]
                 selection = np.concatenate(selections)
                 segment = Segment(
-                    self._atoms,
                     self._pdb_hierarchy,
                     selection=selection,
                     parent=self,
+                    atoms=self._atoms,
                     residues=segment,
                     crystal_symmetry=self.crystal_symmetry
                 )
@@ -679,8 +679,8 @@ class Segment(BaseStructure):
     """Class that guarantees connected residues and allows
     backbone rotations."""
 
-    def __init__(self, atoms, pdb_hierarchy, **kwargs):
-        super().__init__(atoms, pdb_hierarchy, **kwargs)
+    def __init__(self, pdb_hierarchy, **kwargs):
+        super().__init__(pdb_hierarchy, **kwargs)
         self.residues = kwargs["residues"]
 
     def __contains__(self, residue):
@@ -699,10 +699,10 @@ class Segment(BaseStructure):
                 selections.append(residue.selection)
             selection = np.concatenate(selections)
             return Segment(
-                self._atoms,
                 self._pdb_hierarchy,
                 selection=selection,
                 parent=self.parent,
+                atoms=self._atoms,
                 residues=residues,
                 crystal_symmetry=self.crystal_symmetry
             )
@@ -729,10 +729,10 @@ class Segment(BaseStructure):
 
     @staticmethod
     def from_structure(structure, selection, residues):
-        return Segment(structure._atoms,  # pylint: disable=protected-access
-                       structure._pdb_hierarchy,  # pylint: disable=protected-access
+        return Segment(structure._pdb_hierarchy,  # pylint: disable=protected-access
                        selection=selection,
                        parent=structure,
+                       atoms=structure._atoms,  # pylint: disable=protected-access
                        residues=residues)
 
     def get_psi_phi_angles(self):

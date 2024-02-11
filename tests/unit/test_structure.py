@@ -5,6 +5,7 @@ Unit tests for structure I/O and basic manipulation
 import tempfile
 import os.path as op
 
+from libtbx import easy_pickle
 import numpy as np
 import pytest
 
@@ -127,6 +128,16 @@ class TestStructureIO(UnitBase):
         s3 = Structure.fromfile(pdb_tmp)
         assert len(list(s3.single_conformer_residues)) == 2
 
+    def test_structure_pickle(self):
+        PDB = op.join(self.DATA, "4ms6_tiny.pdb.gz")
+        s1 = Structure.fromfile(PDB)
+        p1 = easy_pickle.dumps(s1)
+        s1b = easy_pickle.loads(p1)
+        assert s1b.total_length == s1.total_length and s1b.natoms == s1.natoms
+        s2 = s1.extract("resi", (295, 299), "==")
+        p2 = easy_pickle.dumps(s2)
+        s2b = easy_pickle.loads(p2)
+        assert s2b.total_length == s2.total_length and s2b.natoms == s2.natoms
 
 
 class StructureUnitBase(UnitBase):
@@ -361,6 +372,17 @@ class TestProteinStructure(StructureUnitBase):
         assert list(confA.segments[0].selection) == [12, 13, 14, 15, 16, 17, 18, 19]
         assert list(confB.segments[0].selection) == [12, 13, 14, 15, 20, 21, 22, 23]
         assert list(confB.segments[1].selection) == [24, 25, 26, 27, 28, 29, 30, 31]
+
+    def test_structure_hierarchy_pickle(self):
+        s = Structure.fromfile(op.join(self.DATA, "pdb_hierarchy_test.pdb"))
+        for chain in s.chains:
+            for conf in chain.conformers:
+                for res1 in conf.residues:
+                    rp1 = easy_pickle.dumps(res1)
+                    res2 = easy_pickle.loads(rp1)
+                    assert (res2.total_length == res1.total_length and
+                            res2.natoms == res1.natoms)
+                    assert type(res2.parent.parent.parent) == type(res1.parent.parent.parent)
 
     def test_structure_hierarchy_3conf(self):
         s = self._STRUCTURE_AWA_3CONF

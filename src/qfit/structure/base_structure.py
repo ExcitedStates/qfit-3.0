@@ -32,16 +32,18 @@ class BaseStructure(ABC):
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
     def __init__(self,
-                 atoms,
                  pdb_hierarchy,
                  selection=None,
                  parent=None,
                  hierarchy_objects=None,
+                 atoms=None,
                  **kwargs):
-        self._atoms = atoms
         self._pdb_hierarchy = pdb_hierarchy
+        if atoms is None:
+            atoms = pdb_hierarchy.atoms()
+        self._atoms = atoms
         self._hierarchy_objects = hierarchy_objects
-        self._selection_cache = pdb_hierarchy.atom_selection_cache()
+        self._selection_cache = None
         if selection is not None:
             selection = _as_size_t(selection)
         self._selection = selection
@@ -63,6 +65,17 @@ class BaseStructure(ABC):
             uc = self.crystal_symmetry.unit_cell()
             values = list(uc.parameters()) + [spg.type().lookup_symbol()]
             self.unit_cell = UnitCell(*values)
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        d["_atoms"] = None
+        d["_selection_cache"] = None
+        d["_hierarchy_objects"] = None
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+        self._atoms = self._pdb_hierarchy.atoms()
 
     def _get_element_property(self, ptype):
         elements, ind = np.unique(self.e, return_inverse=True)
@@ -110,12 +123,15 @@ class BaseStructure(ABC):
         """
         new_pdb = load_combined_atoms(self.get_selected_atoms(selection))
         hierarchy = get_pdb_hierarchy(new_pdb)
-        return self.__class__(hierarchy.atoms(),
-                              hierarchy,
-                              **self._kwargs)
+        return self.__class__(hierarchy, **self._kwargs)
+
+    def _get_base_atom_selection(self, selection_string):
+        if self._selection_cache is None:
+            self._selection_cache = self._pdb_hierarchy.atom_selection_cache()
+        return self._selection_cache.selection(selection_string)
 
     def get_atom_selection(self, selection_string):
-        selection = self._selection_cache.selection(selection_string)
+        selection = self._get_base_atom_selection(selection_string)
         if self._selection is not None:
             base_sel = flex.bool(selection.size(), False)
             base_sel.set_selected(self._selection, True)
@@ -125,7 +141,8 @@ class BaseStructure(ABC):
     def with_symmetry(self, crystal_symmetry):
         kwargs = dict(self._kwargs)
         kwargs["crystal_symmetry"] = crystal_symmetry
-        return self.__class__(self._atoms, self._pdb_hierarchy, **kwargs)
+        kwargs["atoms"] = self._atoms
+        return self.__class__(self._pdb_hierarchy, **kwargs)
 
     def combine(self, other):
         """
@@ -134,8 +151,7 @@ class BaseStructure(ABC):
         """
         pdb_in = load_combined_atoms(self.atoms, other.atoms)
         pdb_hierarchy = get_pdb_hierarchy(pdb_in)
-        return self.__class__(pdb_hierarchy.atoms(),
-                              pdb_hierarchy,
+        return self.__class__(pdb_hierarchy,
                               crystal_symmetry=self.crystal_symmetry)
 
     @property
@@ -150,8 +166,10 @@ class BaseStructure(ABC):
         if class_def is None:
             class_def = self.__class__
         new_hierarchy = self.get_selected_hierarchy().deep_copy()
-        atoms = new_hierarchy.atoms()
-        return class_def(atoms, new_hierarchy, parent=None, selection=None, **self._kwargs)
+        return class_def(new_hierarchy,
+                         parent=None,
+                         selection=None,
+                         **self._kwargs)
 
     def copy(self):
         return self._copy()
@@ -165,11 +183,11 @@ class BaseStructure(ABC):
         else:
             selection = self.select(*args)
         return self.__class__(
-            self._atoms,
             self._pdb_hierarchy,
             selection=selection,
             parent=self,
             hierarchy_objects=self._hierarchy_objects,
+            atoms=self._atoms,
             **self._kwargs
         )
 
