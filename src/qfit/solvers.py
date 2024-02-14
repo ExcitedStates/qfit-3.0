@@ -17,7 +17,7 @@ from .utils.optional_lazy_import import lazy_load_module_if_available
 
 logger = logging.getLogger(__name__)
 
-SolverError: tuple[type[Exception], ...] = (RuntimeError)
+SolverError: tuple[type[Exception], ...] = RuntimeError
 
 __all__ = [
     "available_qp_solvers",
@@ -259,7 +259,7 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         # Get the driver & append raisable Exceptions to SolverError class in module (global) scope
         global SolverError
         SolverErrors = (SolverError, CplexSolverError)
-    
+
     def compute_quadratic_coeffs(self) -> None:
         """Precompute the quadratic coefficients (P, q).
 
@@ -376,8 +376,9 @@ class CPLEXSolver(QPSolver, MIQPSolver):
         try:
             result = miqp.solve()
         except CplexSolverError:
-            raise SolverError("CPLEX encountered an error: Non-convex objective function")
-
+            raise SolverError(
+                "CPLEX encountered an error: Non-convex objective function"
+            )
 
         # Store the density residual and the weights
         self.objective_value = (
@@ -713,7 +714,9 @@ class MIOSQPSolver(MIQPSolver):
         try:
             result = miqp.solve()
         except CplexSolverError:
-            raise SolverError("CPLEX encountered an error: Non-convex objective function")
+            raise SolverError(
+                "CPLEX encountered an error: Non-convex objective function"
+            )
 
         # Destructure results
         self.weights = np.array(result.x[0 : self.nconformers])

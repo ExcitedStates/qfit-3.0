@@ -42,7 +42,8 @@ def get_occ(structure, ligand, pdb):
             )
         )
     occ = pd.DataFrame(
-        lig, columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc"]
+        lig,
+        columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc"],
     )
     occ.to_csv(pdb + "_ligand_occupancy.csv", index=False)
 

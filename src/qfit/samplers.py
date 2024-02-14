@@ -134,20 +134,21 @@ class CBAngleRotator:
             R @ self._coor_to_rotate.T
         ).T + self._origin
 
+
 class BisectingAngleRotator:
-    """"
-    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate the aromatic side chain about an axis bisecting this angle. 
+    """ "
+    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate the aromatic side chain about an axis bisecting this angle.
 
     Attributes:
         residue (qfit._BaseResidue): Residue being manipulated.
         atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
             the flexion.
     """
-    
+
     def __init__(self, residue):
         """
         Inits a BisectingAngleRotator to rotate the sidechain about an axis bisecting the CA-CB-CG angle of a residue
-        
+
         Args:
             residue (qfit._BaseResidue): Residue to manipulate.
         """
@@ -165,7 +166,7 @@ class BisectingAngleRotator:
 
         # Define the origin of rotation as the coordinates of the CB atom
         self._origin = self.residue.extract("name", "CB").coor[0]
-        # Get the coordinates of the atoms to rotate 
+        # Get the coordinates of the atoms to rotate
         self._coor_to_rotate = self.residue._coor[self.atoms_to_rotate]
         self._coor_to_rotate -= self._origin
         # Extract the coordinates of the CA and CG atoms, and translate them relative to the origin
@@ -177,12 +178,11 @@ class BisectingAngleRotator:
         vec_CG = axis_coor[1]
         vec_CA /= np.linalg.norm(vec_CA)
         vec_CG /= np.linalg.norm(vec_CG)
-        # Define a new rotation axis as the normalized sum of vec_CA and vec_CG. This makes the axis bisect the angle between these two vectors 
+        # Define a new rotation axis as the normalized sum of vec_CA and vec_CG. This makes the axis bisect the angle between these two vectors
         new_axis = vec_CA + vec_CG
         new_axis /= np.linalg.norm(new_axis)
         self.new_axis = new_axis
 
-       
         # Align the new rotation axis to the Z-axis to simplify the rotation transformation
         aligner = ZAxisAligner(new_axis)
         self._forward = aligner.forward_rotation
@@ -196,6 +196,8 @@ class BisectingAngleRotator:
         self.residue._coor[self.atoms_to_rotate] = (
             R @ self._coor_to_rotate.T
         ).T + self._origin
+
+
 class GlobalRotator:
 
     """Rotate ligand around its center."""
