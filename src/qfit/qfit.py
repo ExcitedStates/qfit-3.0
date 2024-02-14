@@ -70,7 +70,7 @@ class QFitOptions:
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-        self.dofs_per_iteration = 1 
+        self.dofs_per_iteration = 1
         self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = 0.01
@@ -103,7 +103,6 @@ class QFitOptions:
         self.sample_rotamers = True
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
-
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -319,7 +318,7 @@ class _BaseQFit:
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
                     model_params_per_atom * natoms * nconfs * 1.5
-                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
+                )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
@@ -477,7 +476,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-
 
         # Check if residue has complete heavy atoms. If not, complete it.
         expected_atoms = np.array(self.residue._rotamers["atoms"])
@@ -644,14 +642,16 @@ class QFitRotamericResidue(_BaseQFit):
 
     def run(self):
         if self.options.sample_backbone:
-            for altloc in self.options.backbone_coor_dict['coords']:
-                self.residue.coor = self.options.backbone_coor_dict['coords'][altloc]
-                if self.residue.resn[0] == 'GLY':
+            for altloc in self.options.backbone_coor_dict["coords"]:
+                self.residue.coor = self.options.backbone_coor_dict["coords"][altloc]
+                if self.residue.resn[0] == "GLY":
                     atom = self.residue.extract("name", "O")
                 else:
                     atom = self.residue.extract("name", "CB")
-                if self.options.backbone_coor_dict['u_matrices'][altloc] is not None:
-                    self.u_matrix = self.options.backbone_coor_dict['u_matrices'][altloc]
+                if self.options.backbone_coor_dict["u_matrices"][altloc] is not None:
+                    self.u_matrix = self.options.backbone_coor_dict["u_matrices"][
+                        altloc
+                    ]
                 self._sample_backbone()
         if self.options.sample_angle:
             self._sample_angle()
@@ -710,7 +710,6 @@ class QFitRotamericResidue(_BaseQFit):
         )
 
     def _sample_backbone(self):
-
         # Check if residue has enough neighboring residues
         index = self.segment.find(self.residue.id)
         # active = self.residue.active
@@ -730,7 +729,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-        
+
         try:
             if not self.u_matrix:
                 self.u_matrix = [
@@ -747,7 +746,9 @@ class QFitRotamericResidue(_BaseQFit):
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             # Find coordinates of Cα, Cβ, N atoms
             pos_CA = self.residue.extract("name", "CA").coor[0]
-            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+            pos_CB = self.residue.extract("name", atom_name).coor[
+                0
+            ]  # Position of CB for all residues except for GLY, which is position of O
             pos_N = self.residue.extract("name", "N").coor[0]
             # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
             vec_x = pos_CB - pos_CA
@@ -775,7 +776,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._coor_set.append(self.segment[index].coor)
                     self._bs.append(self.conformer.b)
                     return
-    
+
             # Retrieve the amplitudes and stepsizes from options.
             sigma = self.options.sample_backbone_sigma
             bba, bbs = (
@@ -783,7 +784,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self.options.sample_backbone_step,
             )
             assert bba >= bbs > 0
-    
+
             # Create an array of amplitudes to scan:
             #   We start from stepsize, making sure to stop only after bba.
             #   Also include negative amplitudes.
@@ -792,7 +793,7 @@ class QFitRotamericResidue(_BaseQFit):
             ).epsneg  # ε to avoid FP errors in arange
             amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
             amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
-    
+
             # Optimize in torsion space to achieve the target atom position
             optimizer = NullSpaceOptimizer(segment)
             start_coor = atom.coor[0]  # We are working on a single atom.
@@ -801,7 +802,7 @@ class QFitRotamericResidue(_BaseQFit):
                 endpoint = start_coor + amplitude * direction
                 optimize_result = optimizer.optimize(atom_name, endpoint)
                 torsion_solutions.append(optimize_result["x"])
-    
+
             # Capture starting coordinates for the segment, so that we can restart after every rotator
             starting_coor = segment.coor
             for solution in torsion_solutions:
@@ -809,7 +810,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set.append(self.segment[index].coor)
                 self._bs.append(self.conformer.b)
                 segment.coor = starting_coor
-    
+
             logger.debug(
                 f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
             )
@@ -893,7 +894,7 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-            
+
     def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
@@ -1029,7 +1030,7 @@ class QFitRotamericResidue(_BaseQFit):
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
-                
+
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
@@ -1044,9 +1045,9 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"sample_sidechain_iter{iteration}"
                 )
-            
+
             if len(self._coor_set) <= 15000:
-                # If <15000 conformers are generated, QP score conformer occupancy normally 
+                # If <15000 conformers are generated, QP score conformer occupancy normally
                 self._convert()
                 self._solve_qp()
                 self._update_conformers()
@@ -1087,7 +1088,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = section_2_coor
                 self._bs = section_2_bs
 
-                # QP score the second section 
+                # QP score the second section
                 self._convert()
                 self._solve_qp()
                 self._update_conformers()
