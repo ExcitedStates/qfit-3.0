@@ -11,7 +11,6 @@ import numpy as np
 import scipy as sci
 import scipy.sparse  # pylint: disable=unused-import
 from numpy.typing import NDArray
-from cplex.exceptions import CplexSolverError
 
 import cvxpy as cp
 
@@ -225,7 +224,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         prob.solve(solver="SCIP")
         self.objective_value = prob.value
         # I'm not sure why objective_values is calculated this way, but doing
-        # so to be compatible with the CPLEXSolver class
+        # so to be compatible with the former CPLEXSolver class
         self.objective_value = 2 * prob.value + self.target.T @ self.target
         self._weights = w.value
         self.construct_weights()
@@ -244,178 +243,10 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         prob.solve()
         self.objective_value = prob.value
         # I'm not sure why objective_values is calculated this way, but doing
-        # so to be compatible with the CPLEXSolver class
+        # so to be compatible with the former CPLEXSolver class
         self.objective_value = 2 * prob.value + self.target.T @ self.target
         self._weights = w.value
         self.construct_weights()
-
-
-class CPLEXSolver(QPSolver, MIQPSolver):
-    driver_pkg_name = "cplex"
-    driver = lazy_load_module_if_available(driver_pkg_name)
-    if TYPE_CHECKING:
-        import cplex
-
-    def __init__(
-        self, target: NDArray[np.float_], models: NDArray[np.float_], nthreads: int = 1
-    ) -> None:
-        if TYPE_CHECKING:
-            self.driver = self.cplex
-            assert self.driver is not None
-        # Initialize variables
-        self.target = target
-        self.models = models
-
-        self.quad_obj: list[object] = []
-        self.lin_obj: list[tuple[int, float]] = []
-
-        self.weights: Optional[NDArray[np.float_]] = None
-        self.objective_value: Optional[float] = None
-
-        self.nconformers = models.shape[0]
-        self.nthreads = nthreads
-
-        # Get the driver & append raisable Exceptions to SolverError class in module (global) scope
-        global SolverError
-        SolverErrors = (SolverError, CplexSolverError)
-
-    def compute_quadratic_coeffs(self) -> None:
-        """Precompute the quadratic coefficients (P, q).
-
-        These values don't depend on threshold/cardinality.
-        Having these objectives pre-computed saves a few cycles when MIQP
-        is evaluated for multiple values of threshold/cardinality.
-        """
-        if TYPE_CHECKING:
-            self.driver = self.cplex
-            assert self.driver is not None
-
-        # minimize 0.5 x.T P x + q.T x
-        #   where P = self.quad_obj =   ρ_model.T ρ_model
-        #         q = self.lin_obj  = - ρ_model.T ρ_obs
-        quad_obj_coeffs = np.inner(self.models, self.models)
-        lin_obj_coeffs = -np.inner(self.models, self.target)
-
-        # We have to unpack the arrays for CPLEX into CSR format (even though they're dense)
-        self.quad_obj = []
-        for row in quad_obj_coeffs:
-            idxs, vals = zip(*enumerate(row.tolist()))
-            self.quad_obj.append(self.driver.SparsePair(ind=idxs, val=vals))
-
-        # CPLEX requires linear objectives as a list of (idx, val) tuples
-        self.lin_obj = list(enumerate(lin_obj_coeffs))
-
-    def solve_miqp(
-        self,
-        threshold: Optional[float] = None,
-        cardinality: Optional[int] = None,
-        exact: bool = False,
-    ) -> None:
-        if TYPE_CHECKING:
-            self.driver = self.cplex
-            assert self.driver is not None
-
-        if not (self.quad_obj and self.lin_obj):
-            self.compute_quadratic_coeffs()
-
-        # Create and configure the cplex object
-        miqp = self.driver.Cplex()
-        miqp.set_results_stream(None)
-        miqp.set_log_stream(None)
-        miqp.set_warning_stream(None)
-        miqp.set_error_stream(None)
-        if self.nthreads is not None:
-            miqp.parameters.threads.set(self.nthreads)
-
-        # Create variables and set linear constraints
-        # w_i ≤ 1
-        variable_names = [f"w{n}" for n in range(self.nconformers)]
-        upper_bounds = self.nconformers * [1.0]
-        miqp.variables.add(names=variable_names, ub=upper_bounds)
-
-        # Σ_i w_i ≤ 1
-        ind = [f"w{n}" for n in range(self.nconformers)]
-        val = self.nconformers * [1.0]
-        miqp.linear_constraints.add(
-            lin_expr=[self.driver.SparsePair(ind=ind, val=val)],
-            senses=["L"],
-            rhs=[1.0],
-        )
-
-        # Setup quadratic objective of the MIQP
-        miqp.objective.set_quadratic(self.quad_obj)
-        miqp.objective.set_linear(self.lin_obj)
-        miqp.objective.set_sense(miqp.objective.sense.minimize)
-
-        # If cardinality or threshold is specified, the problem is a MIQP,
-        # so we need to add binary integer variables z_i.
-        if cardinality not in (None, 0) or threshold not in (None, 0):
-            # z_i ∈ {0, 1}
-            integer_names = [f"z{n}" for n in range(self.nconformers)]
-            variable_types = self.nconformers * miqp.variables.type.binary
-            miqp.variables.add(names=integer_names, types=variable_types)
-
-            # Only count weights for which z_i is 1
-            # w_i - z_i ≤ 0
-            # (∵ z_i ∈ {0,1} and 0 ≤ w_i ≤ 1, this is only true when z_i = 1)
-            lin_expr = [
-                self.driver.SparsePair(ind=[f"w{n}", f"z{n}"], val=[1, -1])
-                for n in range(self.nconformers)
-            ]
-            senses = self.nconformers * ["L"]
-            rhs = self.nconformers * [0.0]
-            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-        # Set the threshold constraint if applicable
-        if threshold not in (None, 0):
-            # tdmin z_i - w_i ≤ 0, i.e. w_i ≥ tdmin
-            lin_expr = [
-                self.driver.SparsePair(ind=[f"z{n}", f"w{n}"], val=[threshold, -1])
-                for n in range(self.nconformers)
-            ]
-            senses = self.nconformers * ["L"]
-            rhs = self.nconformers * [0.0]
-            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-        # Set the cardinality constraint if applicable
-        if cardinality not in (None, 0):
-            # Σ z_i ≤ cardinality
-            cardinality = cast(int, cardinality)  # typing noop
-            ind = [f"z{n}" for n in range(self.nconformers)]
-            val = self.nconformers * [1.0]
-            lin_expr = [self.driver.SparsePair(ind=ind, val=val)]
-            if exact:
-                senses = ["E"]
-                rhs = [min(cardinality, self.nconformers)]
-            else:
-                senses = ["L"]
-                rhs = [cardinality]
-            miqp.linear_constraints.add(lin_expr=lin_expr, senses=senses, rhs=rhs)
-
-        try:
-            result = miqp.solve()
-        except CplexSolverError:
-            raise SolverError(
-                "CPLEX encountered an error: Non-convex objective function"
-            )
-
-        # Store the density residual and the weights
-        self.objective_value = (
-            2 * miqp.solution.get_objective_value()
-            + np.inner(self.target, self.target)
-        )  # fmt:skip
-        self.weights = np.array(miqp.solution.get_values()[: self.nconformers])
-
-        # Close the cplex object
-        miqp.end()
-
-    def solve_qp(self) -> None:
-        if TYPE_CHECKING:
-            self.driver = self.cplex
-            assert self.driver is not None
-
-        # We can re-use the MIQP code above, provided no cardinality or threshold.
-        self.solve_miqp(threshold=None, cardinality=None, exact=False)
 
 
 ###############################
