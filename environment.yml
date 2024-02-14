@@ -7,6 +7,7 @@ dependencies:
   - libblas[build=*mkl]
   - numpy>=1.20,<2
   - scipy>=1.0
+  - cvxpy
   - pandas>=1.2
   - pyparsing>=2.2.0
   - cvxopt
