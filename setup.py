@@ -28,6 +28,7 @@ def main():
         "numpy>=1.20,<2",
         "scipy>=1.0",
         "cvxpy",
+        "pyscipopt",
         "pandas>=1.2",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
