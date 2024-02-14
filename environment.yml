@@ -7,11 +7,9 @@ dependencies:
   - libblas[build=*mkl]
   - numpy>=1.20,<2
   - scipy>=1.0
+  - cvxpy
+  - pyscipopt
   - pandas>=1.2
   - pyparsing>=2.2.0
   - cvxopt
-  - ibmdecisionoptimization::cplex
-  - osqp
-  - pip:
-    - "git+https://github.com/osqp/miosqp.git@ac672338b0593d865dd15b7a76434f25e24244a9#egg=miosqp"
   - tqdm

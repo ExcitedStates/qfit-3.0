@@ -69,7 +69,7 @@ def build_argparser():
         "Chain, residue id, and optionally insertion code for "
         "residue in structure, e.g. A,105, or A,105:A.",
     )
-    
+
     # Map options
     p.add_argument(
         "-l",
@@ -420,9 +420,9 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-            
-        if self.options.residue is not None: #run qFit residue
-            multiconformer = self._run_qfit_residue_parallel()    
+
+        if self.options.residue is not None:  # run qFit residue
+            multiconformer = self._run_qfit_residue_parallel()
         elif self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             multiconformer = self._create_refine_restraints(multiconformer)
@@ -481,7 +481,7 @@ class QFitProtein:
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
-            
+
         else:
             residues = list(
                 self.structure.extract("record", "HETATM", "!=")
@@ -608,7 +608,7 @@ class QFitProtein:
                     )
                     continue
                 residue_multiconformer = Structure.fromfile(fname)
-                fname = f'{residue.shortcode}_qFit_residue.pdb'
+                fname = f"{residue.shortcode}_qFit_residue.pdb"
                 residue_multiconformer.tofile(fname)
 
         if self.options.residue is None:
@@ -641,7 +641,6 @@ class QFitProtein:
                     multiconformer_model = multiconformer_model.combine(
                         residue_multiconformer
                     )
-
 
             # Write out multiconformer_model.pdb only if in debug mode.
             # This output is not a final qFit output, so it might confuse users.
@@ -679,7 +678,7 @@ class QFitProtein:
         )
         if self.options.scale or self.options.cryst_info:
             multiconformer.tofile(
-            fname, self.options.scale_info, self.options.cryst_info
+                fname, self.options.scale_info, self.options.cryst_info
             )
         else:
             multiconformer.tofile(fname)

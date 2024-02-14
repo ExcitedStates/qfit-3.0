@@ -22,7 +22,6 @@ from qfit.structure import Structure
 from qfit.structure.rotamers import ROTAMERS
 
 
-
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
@@ -69,11 +68,11 @@ def main():
         close_res.loc[n, "res_id"] = residue_id
         close_res.loc[n, "chain"] = chain
         n += 1
-    close_res.to_csv(pdb_name + "_" + args.ligand + "_" +str(args.dist) + "_closeres.csv",
-                index=False,
-            )
+    close_res.to_csv(
+        pdb_name + "_" + args.ligand + "_" + str(args.dist) + "_closeres.csv",
+        index=False,
+    )
 
 
 if __name__ == "__main__":
     main()
-

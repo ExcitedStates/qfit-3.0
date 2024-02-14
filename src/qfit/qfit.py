@@ -70,7 +70,7 @@ class QFitOptions:
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-        self.dofs_per_iteration = 1 
+        self.dofs_per_iteration = 1
         self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = 0.01
@@ -103,7 +103,6 @@ class QFitOptions:
         self.sample_rotamers = True
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
-
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -319,7 +318,7 @@ class _BaseQFit:
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
                     model_params_per_atom * natoms * nconfs * 1.5
-                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
+                )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
@@ -414,7 +413,7 @@ class _BaseQFit:
         if (
             self.options.write_intermediate_conformers
         ):  # Output all conformations before we remove them
-            self._write_intermediate_conformers(prefix="cplex_remove")
+            self._write_intermediate_conformers(prefix="qp_remove")
         self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
@@ -477,7 +476,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.resn = residue.resn[0]
         self.resi, self.icode = residue.id
         self.identifier = f"{self.chain}/{self.resn}{''.join(map(str, residue.id))}"
-
 
         # Check if residue has complete heavy atoms. If not, complete it.
         expected_atoms = np.array(self.residue._rotamers["atoms"])
@@ -738,7 +736,9 @@ class QFitRotamericResidue(_BaseQFit):
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             # Find coordinates of Cα, Cβ, N atoms
             pos_CA = self.residue.extract("name", "CA").coor[0]
-            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+            pos_CB = self.residue.extract("name", atom_name).coor[
+                0
+            ]  # Position of CB for all residues except for GLY, which is position of O
             pos_N = self.residue.extract("name", "N").coor[0]
             # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
             vec_x = pos_CB - pos_CA
@@ -855,7 +855,7 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            # Initialize rotator 
+            # Initialize rotator
             perp_rotator = CBAngleRotator(self.residue)
             # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
             for perp_angle in angles:
@@ -875,14 +875,14 @@ class QFitRotamericResidue(_BaseQFit):
                         mask = self.residue.e[active_mask] != "H"
                         if np.min(values[mask]) < self.options.density_cutoff:
                             continue
-    
+
                     # Move on if these coordinates cause a clash
                     if self.options.external_clash:
                         if self._cd() and self.residue.clashes():
                             continue
                     elif self.residue.clashes():
                         continue
-    
+
                     # Valid, non-clashing conformer found!
                     new_coor_set.append(self.residue.coor)
                     new_bs.append(self.conformer.b)
@@ -1029,7 +1029,7 @@ class QFitRotamericResidue(_BaseQFit):
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
-                
+
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
@@ -1044,9 +1044,9 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"sample_sidechain_iter{iteration}"
                 )
-            
+
             if len(self._coor_set) <= 15000:
-                # If <15000 conformers are generated, QP score conformer occupancy normally 
+                # If <15000 conformers are generated, QP score conformer occupancy normally
                 self._convert()
                 self._solve_qp()
                 self._update_conformers()
@@ -1087,7 +1087,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = section_2_coor
                 self._bs = section_2_bs
 
-                # QP score the second section 
+                # QP score the second section
                 self._convert()
                 self._solve_qp()
                 self._update_conformers()
@@ -1397,7 +1397,7 @@ class QFitSegment(_BaseQFit):
                         logger.debug("MIQP failed, dropping a fragment-conformer")
                         self._zero_out_most_similar_conformer()  # Remove conformer
                         if self.options.write_intermediate_conformers:
-                            self._write_intermediate_conformers(prefix="cplex_kept")
+                            self._write_intermediate_conformers(prefix="miqp_kept")
                         continue
                     else:
                         # No Exceptions here! Solvable!

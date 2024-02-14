@@ -350,7 +350,7 @@ class Structure(_BaseStructure):
 
     def normalize_occupancy(self):
         """This function will scale the occupancy of protein residues to make the sum(occ) equal to 1 for all.
-        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be in CPLEX),
+        The goal of this function is to determine if the sum(occ) of each residue coming out of qFit residue or segement is < 1 (as it can be due to QP),
         and scale each alt conf occupancy for the residue to sum to one.
         To accomplish this, if the sum(occ) is less than 1, then we will divide each conformer occupancy by the sum(occ).
         """
