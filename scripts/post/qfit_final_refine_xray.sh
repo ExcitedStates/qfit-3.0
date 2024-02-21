@@ -106,7 +106,7 @@ remove_duplicates "${multiconf}"
 
 #__________________________________NORMALIZE OCCUPANCIES________________________________________
 redistribute_cull_low_occupancies -occ 0.09 "${multiconf}_fixed.pdb"
-mv -v "${multiconf}_fixed_norm.pdb" "${multiconf}_fixed.pdb
+mv -v "${multiconf}_fixed_norm.pdb" "${multiconf}_fixed.pdb"
 
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
