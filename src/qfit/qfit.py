@@ -1045,65 +1045,13 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"sample_sidechain_iter{iteration}"
                 )
 
-            if len(self._coor_set) <= 15000:
-                # If <15000 conformers are generated, QP score conformer occupancy normally
-                self._convert()
-                self._solve_qp()
-                self._update_conformers()
-                if self.options.write_intermediate_conformers:
-                    self._write_intermediate_conformers(
-                        prefix=f"sample_sidechain_iter{iteration}_qp"
-                    )
-            if len(self._coor_set) > 15000:
-                # If >15000 conformers are generated, split the QP conformer scoring into two
-                temp_coor_set = self._coor_set
-                temp_bs = self._bs
-
-                # Splitting the arrays into two sections
-                half_index = len(temp_coor_set) // 2  # Integer division for splitting
-                section_1_coor = temp_coor_set[:half_index]
-                section_1_bs = temp_bs[:half_index]
-                section_2_coor = temp_coor_set[half_index:]
-                section_2_bs = temp_bs[half_index:]
-
-                # Process the first section
-                self._coor_set = section_1_coor
-                self._bs = section_1_bs
-
-                # QP score the first section
-                self._convert()
-                self._solve_qp()
-                self._update_conformers()
-                if self.options.write_intermediate_conformers:
-                    self._write_intermediate_conformers(
-                        prefix=f"sample_sidechain_iter{iteration}_qp"
-                    )
-
-                # Save results from the first section
-                qp_temp_coor = self._coor_set
-                qp_temp_bs = self._bs
-
-                # Process the second section
-                self._coor_set = section_2_coor
-                self._bs = section_2_bs
-
-                # QP score the second section
-                self._convert()
-                self._solve_qp()
-                self._update_conformers()
-                if self.options.write_intermediate_conformers:
-                    self._write_intermediate_conformers(
-                        prefix=f"sample_sidechain_iter{iteration}_qp"
-                    )
-
-                # Save results from the second section
-                qp_2_temp_coor = self._coor_set
-                qp_2_temp_bs = self._bs
-
-                # Concatenate the results from both sections
-                self._coor_set = np.concatenate((qp_temp_coor, qp_2_temp_coor), axis=0)
-                self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
-
+            self._convert()
+            self._solve_qp()
+            self._update_conformers()
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(
+                    prefix=f"sample_sidechain_iter{iteration}_qp"
+                )
             # MIQP score conformer occupancy
             self.sample_b()
             self._convert()
