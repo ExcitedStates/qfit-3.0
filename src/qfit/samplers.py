@@ -131,10 +131,11 @@ class CBAngleRotator(_BaseSampler):
 
 
 
+
 class BisectingAngleRotator:
-    """"
-    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate the
-    aromatic side chain about an axis bisecting this angle. 
+    """
+    Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate the aromatic side chain about an axis bisecting this angle.
+
     Attributes:
         residue (qfit.Residue): Residue being manipulated.
         atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
@@ -143,8 +144,8 @@ class BisectingAngleRotator:
 
     def __init__(self, residue):
         """
-        Inits a BisectingAngleRotator to rotate the sidechain about an axis
-        bisecting the CA-CB-CG angle of a residue
+        Inits a BisectingAngleRotator to rotate the sidechain about an axis bisecting the CA-CB-CG angle of a residue
+
         Args:
             residue (qfit.Residue): Residue to manipulate.
         """

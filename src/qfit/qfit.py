@@ -17,6 +17,7 @@ from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
 from .structure import Structure, Segment, calc_rmsd
 from .structure.clash import ClashDetector
 from .structure.ligand import BondOrder
+from .structure.math import adp_ellipsoid_axes
 from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
 from .validator import Validator
@@ -809,10 +810,13 @@ class QFitRotamericResidue(_BaseQFit):
         atom = self.residue.extract("name", atom_name)
 
         try:
-            directions = atom.get_adp_ellipsoid_axes()
-        except KeyError:
+            if not self.u_matrix:
+                self.u_matrix = atom.extract_anisous()[0]
+            directions = adp_ellipsoid_axes(self.u_matrix)
+            logger.debug(f"[_sample_backbone] u_matrix = {self.u_matrix}")
+        except AttributeError:
             logger.debug(
-                f"[{self.identifier}] Got KeyError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
+                f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
             )
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             # Find coordinates of Cα, Cβ, N atoms
@@ -848,42 +852,44 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs.append(self.conformer.b)
                     return
 
-        # Retrieve the amplitudes and stepsizes from options.
-        bba, bbs = (
-            self.options.sample_backbone_amplitude,
-            self.options.sample_backbone_step,
-        )
-        assert bba >= bbs > 0
+            # Retrieve the amplitudes and stepsizes from options.
+            sigma = self.options.sample_backbone_sigma
+            bba, bbs = (
+                self.options.sample_backbone_amplitude,
+                self.options.sample_backbone_step,
+            )
+            assert bba >= bbs > 0
 
-        # Create an array of amplitudes to scan:
-        #   We start from stepsize, making sure to stop only after bba.
-        #   Also include negative amplitudes.
-        # ε to avoid FP errors in arange
-        eps = ((bba / bbs) / 2) * np.finfo(float).epsneg  # pylint: disable=no-member
-        amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
-        amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
+            # Create an array of amplitudes to scan:
+            #   We start from stepsize, making sure to stop only after bba.
+            #   Also include negative amplitudes.
+            eps = ((bba / bbs) / 2) * np.finfo(
+                float
+            ).epsneg  # ε to avoid FP errors in arange
+            amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
+            amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
 
-        # Optimize in torsion space to achieve the target atom position
-        optimizer = NullSpaceOptimizer(segment)
-        start_coor = atom.coor[0]  # We are working on a single atom.
-        torsion_solutions = []
-        for amplitude, direction in itertools.product(amplitudes, directions):
-            endpoint = start_coor + amplitude * direction
-            optimize_result = optimizer.optimize(atom_name, endpoint)
-            torsion_solutions.append(optimize_result["x"])
+            # Optimize in torsion space to achieve the target atom position
+            optimizer = NullSpaceOptimizer(segment)
+            start_coor = atom.coor[0]  # We are working on a single atom.
+            torsion_solutions = []
+            for amplitude, direction in itertools.product(amplitudes, directions):
+                endpoint = start_coor + amplitude * direction
+                optimize_result = optimizer.optimize(atom_name, endpoint)
+                torsion_solutions.append(optimize_result["x"])
 
-        # Capture starting coordinates for the segment, so that we can restart after every rotator
-        starting_coor = segment.coor
-        for solution in torsion_solutions:
-            optimizer.rotator(solution)
-            self._coor_set.append(self.segment[index].coor)
-            self._bs.append(self.conformer.b)
-            segment.coor = starting_coor
+            # Capture starting coordinates for the segment, so that we can restart after every rotator
+            starting_coor = segment.coor
+            for solution in torsion_solutions:
+                optimizer.rotator(solution)
+                self._coor_set.append(self.segment[index].coor)
+                self._bs.append(self.conformer.b)
+                segment.coor = starting_coor
 
-        logger.debug(
-            f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
-        )
-        self._save_intermediate(f"sample_backbone_segment{index:03d}")
+            logger.debug(
+                f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
+            )
+            self._save_intermediate(f"sample_backbone_segment{index:03d}")
 
     def _sample_angle(self):
         """Sample residue conformations by flexing α-β-γ angle.
@@ -1058,7 +1064,6 @@ class QFitRotamericResidue(_BaseQFit):
             logger.debug(
                 f"Side chain sampling generated {len(self._coor_set)} conformers"
             )
-
             self._save_intermediate(f"sample_sidechain_iter{iteration}")
             
             if len(self._coor_set) <= 15000:

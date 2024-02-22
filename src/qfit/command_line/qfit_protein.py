@@ -210,6 +210,9 @@ class QFitProtein:
         else:
             self.pdb = ""
         # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates
+        if self.options.residue is not None:
+            chainid, resi = self.options.residue.split(",")  # pylint: disable=unused-variable
+
         if self.options.residue is not None:  # run qFit residue
             multiconformer = self._run_qfit_residue_parallel()
         elif self.options.only_segment:
@@ -323,7 +326,7 @@ class QFitProtein:
                 )
                 try:
                     u_matrix = atom.extract_anisous()[0]
-                except:
+                except Exception:
                     u_matrix = None
                 grouped_u_matrices[altloc] = u_matrix
             backbone_coor_dict[residue_chain_key]["coords"] = grouped_coords
@@ -637,6 +640,8 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
             sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
             sel_str = f"not ({sel_str})"
             structure_new = structure_new.extract(sel_str)
+
+    # add multiple backbone positions
 
     chain_resi_id = f"{resi}, '{chainid}'"
     chain_resi_id = (resi, chainid)

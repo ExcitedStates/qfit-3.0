@@ -425,6 +425,9 @@ class BaseStructure(ABC):
             self._active_flag[selection] = value
 
     def extract_anisous(self):
+        uij = self.atoms.extract_uij()
+        if uij.as_double().all_eq(-1):
+            raise AttributeError("Atoms are not anisotropic")
         scaled_uij = np.array(self.atoms.extract_uij()) * ANISOU_SCALE
         return np.array([(
             (uij[0], uij[3], uij[4]),
