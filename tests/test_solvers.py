@@ -74,7 +74,7 @@ class TestMIQPSolver:
         expected_weights = np.array([1 / 3, 1 / 3, 1 / 3])
         expected_objective = 0.0
         assert np.allclose(solver.weights, expected_weights, atol=1e-3)
-        assert np.isclose(solver.objective_value, expected_objective, atol=1e-6)
+        assert np.isclose(solver.objective_value, expected_objective, atol=1e-4)
 
     def test_miqp_solver_with_cardinality_2(
         self, solver_class: type[qfit.solvers.MIQPSolver]

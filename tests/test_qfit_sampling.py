@@ -204,7 +204,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         self._run_sampling_rebuilt_3mer("MET", d_min=1.8)
 
     def test_sampling_rebuilt_tripeptide_phe(self):
-        self._run_sampling_rebuilt_3mer("PHE", d_min=1.3)
+        self._run_sampling_rebuilt_3mer("PHE", d_min=1.35)
 
     def test_sampling_rebuilt_tripeptide_ser(self):
         self._run_sampling_rebuilt_3mer("SER", d_min=2.0)

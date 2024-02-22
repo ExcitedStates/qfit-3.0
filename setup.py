@@ -27,6 +27,8 @@ def main():
     install_requires = [
         "numpy>=1.20,<2",
         "scipy>=1.0",
+        "cvxpy",
+        "pyscipopt",
         "pandas>=1.2",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
@@ -45,10 +47,6 @@ def main():
         ext_modules=ext_modules,
         setup_requires=setup_requires,
         install_requires=install_requires,
-        extra_dependencies={
-            "cplex": ["cvxopt", "cplex"],
-            "osqp": ["osqp", "miosqp @ git+https://github.com/osqp/miosqp.git@ac672338b0593d865dd15b7a76434f25e24244a9#egg=miosqp"],
-        },
         zip_safe=False,
         python_requires=">=3.9",
         entry_points={
@@ -85,6 +83,7 @@ def main():
             "scripts/post/lig_occ.py",
             "scripts/post/calc_OP.py",
             "scripts/post/make_methyl_df.py",
+            "scripts/post/find_close_residues.py",
             "scripts/post/get_seq.py",
         ],
     )

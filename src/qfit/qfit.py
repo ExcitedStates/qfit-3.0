@@ -10,7 +10,7 @@ import tqdm
 
 from .backbone import NullSpaceOptimizer
 from .relabel import RelabellerOptions, Relabeller
-from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
+from .samplers import ChiRotator, CBAngleRotator, BondRotator
 from .samplers import GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
@@ -71,7 +71,7 @@ class QFitOptions:
         # Sampling options
         self.clash_scaling_factor = 0.75
         self.external_clash = False
-        self.dofs_per_iteration = 1 
+        self.dofs_per_iteration = 1
         self.dihedral_stepsize = 6
         self.hydro = False
         self.rmsd_cutoff = DEFAULT_RMSD_CUTOFF
@@ -104,7 +104,6 @@ class QFitOptions:
         self.sample_rotamers = True
         self.rotamer_neighborhood = 24
         self.remove_conformers_below_cutoff = False
-
 
         # General settings
         # Exclude certain atoms always during density and mask creation to
@@ -339,7 +338,7 @@ class _BaseQFit(ABC):
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
                     model_params_per_atom * natoms * nconfs * 1.5
-                )  #hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
+                )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 BIC = n * np.log(rss / n) + k * np.log(n)
@@ -428,7 +427,7 @@ class _BaseQFit(ABC):
             f"Zeroing occupancy of conf {idx_to_zero} (of {n_confs}): "
             f"occ={self._occupancies[idx_to_zero]:.06f} vs {self._occupancies[idx_to_keep]:.06f}"
         )
-        self._save_intermediate(prefix="cplex_remove")
+        self._save_intermediate(prefix="qp_remove")
         self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=MIN_OCCUPANCY):
@@ -735,8 +734,17 @@ class QFitRotamericResidue(_BaseQFit):
         Main sampling routine
         """
         if self.options.sample_backbone:
-            self._sample_backbone()
-
+            for altloc in self.options.backbone_coor_dict["coords"]:
+                self.residue.coor = self.options.backbone_coor_dict["coords"][altloc]
+                if self.residue.resn[0] == "GLY":
+                    atom = self.residue.extract("name", "O")  # pylint: disable=unused-variable
+                else:
+                    atom = self.residue.extract("name", "CB")
+                if self.options.backbone_coor_dict["u_matrices"][altloc] is not None:
+                    self.u_matrix = self.options.backbone_coor_dict["u_matrices"][
+                        altloc
+                    ]
+                self._sample_backbone()
         if self.options.sample_angle:
             self._sample_angle()
 
@@ -799,16 +807,19 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
+
         try:
             directions = atom.get_adp_ellipsoid_axes()
         except KeyError:
-            logger.info(
+            logger.debug(
                 f"[{self.identifier}] Got KeyError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
             )
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
             # Find coordinates of Cα, Cβ, N atoms
             pos_CA = self.residue.extract("name", "CA").coor[0]
-            pos_CB = self.residue.extract("name", atom_name).coor[0] # Position of CB for all residues except for GLY, which is position of O
+            pos_CB = self.residue.extract("name", atom_name).coor[
+                0
+            ]  # Position of CB for all residues except for GLY, which is position of O
             pos_N = self.residue.extract("name", "N").coor[0]
             # Set x, y, z = Cβ-Cα, Cα-N, (Cβ-Cα × Cα-N)
             vec_x = pos_CB - pos_CA
@@ -880,7 +891,7 @@ class QFitRotamericResidue(_BaseQFit):
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -920,29 +931,19 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            # Initialize rotator 
-            perp_rotator = CBAngleRotator(self.residue)
-            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
-            for perp_angle in angles:
-                perp_rotator(perp_angle)
-                coor_rotated = self.residue.coor
-                # Initialize rotator
-                bisec_rotator = BisectingAngleRotator(self.residue)
-                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
-                for bisec_angle in angles:
-                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
-                    bisec_rotator(bisec_angle)
-                    coor = self.residue.coor
+            rotator = CBAngleRotator(self.residue)
+            for angle in angles:
+                rotator(angle)
+                coor = self.residue.coor
+                # Move on if these coordinates are unsupported by density,
+                # or if they cause a clash
+                if (self.is_conformer_below_cutoff(coor, active_mask) or
+                    self.is_clashing()):
+                    continue
 
-                    # Move on if these coordinates are unsupported by density,
-                    # or if they cause a clash
-                    if (self.is_conformer_below_cutoff(coor, active_mask) or
-                        self.is_clashing()):
-                        continue
-
-                    # Valid, non-clashing conformer found!
-                    new_coor_set.append(self.residue.coor)
-                    new_bs.append(self.conformer.b)
+                # Valid, non-clashing conformer found!
+                new_coor_set.append(self.residue.coor)
+                new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
@@ -1046,7 +1047,7 @@ class QFitRotamericResidue(_BaseQFit):
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
-                
+
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
@@ -1061,8 +1062,11 @@ class QFitRotamericResidue(_BaseQFit):
             self._save_intermediate(f"sample_sidechain_iter{iteration}")
             
             if len(self._coor_set) <= 15000:
-                # If <15000 conformers are generated, QP score conformer occupancy normally 
-                self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
+                # If <15000 conformers are generated, QP score conformer occupancy normally
+                self._convert()
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{iteration}_qp")
             if len(self._coor_set) > 15000:
                 # If >15000 conformers are generated, split the QP conformer scoring into two
                 temp_coor_set = self._coor_set
@@ -1090,7 +1094,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = section_2_coor
                 self._bs = section_2_bs
 
-                # QP score the second section 
+                # QP score the second section
                 self._solve_qp_and_update(f"sample_sidechain_iter{iteration}_qp")
 
                 # Save results from the second section
@@ -1362,7 +1366,7 @@ class QFitSegment(_BaseQFit):
                         # MIQP failed and we need to remove conformers that are close to each other
                         logger.debug("MIQP failed, dropping a fragment-conformer")
                         self._zero_out_most_similar_conformer()  # Remove conformer
-                        self._save_intermediate(prefix="cplex_kept")
+                        self._save_intermediate(prefix="miqp_kept")
                         continue
                     else:
                         # No Exceptions here! Solvable!

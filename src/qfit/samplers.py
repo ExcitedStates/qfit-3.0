@@ -130,22 +130,21 @@ class CBAngleRotator(_BaseSampler):
         self.residue.set_xyz(new_coor, self.atoms_to_rotate)
 
 
+
 class BisectingAngleRotator:
     """"
     Deflects a residue's sidechain by bending the CA-CB-CG angle. Rotate the
     aromatic side chain about an axis bisecting this angle. 
-
     Attributes:
         residue (qfit.Residue): Residue being manipulated.
         atoms_to_rotate (np.ndarray[int]): Atom indices that will be moved by
             the flexion.
     """
-    
+
     def __init__(self, residue):
         """
         Inits a BisectingAngleRotator to rotate the sidechain about an axis
         bisecting the CA-CB-CG angle of a residue
-        
         Args:
             residue (qfit.Residue): Residue to manipulate.
         """
@@ -175,12 +174,11 @@ class BisectingAngleRotator:
         vec_CG = axis_coor[1]
         vec_CA /= np.linalg.norm(vec_CA)
         vec_CG /= np.linalg.norm(vec_CG)
-        # Define a new rotation axis as the normalized sum of vec_CA and vec_CG. This makes the axis bisect the angle between these two vectors 
+        # Define a new rotation axis as the normalized sum of vec_CA and vec_CG. This makes the axis bisect the angle between these two vectors
         new_axis = vec_CA + vec_CG
         new_axis /= np.linalg.norm(new_axis)
         self.new_axis = new_axis
 
-       
         # Align the new rotation axis to the Z-axis to simplify the rotation transformation
         aligner = ZAxisAligner(new_axis)
         self._forward = aligner.forward_rotation

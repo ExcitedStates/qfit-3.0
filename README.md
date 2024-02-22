@@ -1,4 +1,4 @@
-# qFit 3.2.2
+# qFit
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -14,59 +14,29 @@ If you use this software, please cite:
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
 
-## Installation (conda recommended)
-
-We recommend using the _conda_ package manager to install _qFit_.
+## Installation
 
 You will need the following tools:
 
 * git
-* _conda_ package manager (which you can get by installing [Miniconda3](https://docs.conda.io/en/latest/miniconda.html))
+* pip
 
 Once these are installed, you can:
 
-1. Create a new conda env & activate it
-   ```bash
-   conda create --name qfit "python>=3.9"
-   conda activate qfit
-   ```
-
 1. Install dependencies
    ```bash
-   conda install -c anaconda mkl numpy=1.22
-   conda install -c anaconda -c ibmdecisionoptimization \
-                 cvxopt cplex
+   pip install -r requirements.txt
    ```
-   For some of the post analysis scripts, you will also need sklean
-   conda install -c anaconda scikit-learn
    
-1. Clone the latest release of the qFit source, and install to your conda env
+1. Clone the latest release of the qFit source and install it using pip
    ```bash
-   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+   git clone https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
-### M1 Macs
-
-Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
-We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
-
-As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
-macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
-
-Instead of the first step in the above Installation section, use this:
-
-1. Create a new conda env & activate it
-   ```bash
-   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
-   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
-   conda activate qfit
-   ```
-
-then follow the rest of the instructions.
 
 ### Advanced
 
@@ -76,14 +46,9 @@ If you prefer to manage your environments using other methods, qFit has the foll
 * [numpy](https://numpy.org)
 * [scipy](https://scipy.org)
 * [cctbx](https://github.com/cctbx/cctbx_project)
-* [cvxopt](https://cvxopt.org)
-* [IBM ILOG CPLEX Optimization Studio (Community Edition)](https://www.ibm.com/products/ilog-cplex-optimization-studio)
-
-Installation instructions using `pip` can be found in the `docs` folder.
+* [cvxpy](https://www.cvxpy.org)
 
 Once dependencies are installed, you can clone the qFit source, and install to your env as above.
-
-(Note: `python setup.py install` will only work if numpy has _already_ been installed.)
 
 
 ## Contributing
@@ -168,5 +133,3 @@ Gohlke. See file header.
 
 The `Xpleo` software and `LoopTK` package have been major inspirations for the inverse kinematics
 functionality.
-
-[1]: https://www-01.ibm.com/software/websphere/products/optimization/cplex-studio-community-edition/ "IBM website"

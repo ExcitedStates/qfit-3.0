@@ -9,6 +9,7 @@ import itertools as itl
 
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
 
 from qfit.command_line.common_options import get_base_argparser
 from qfit.command_line.custom_argparsers import ToggleActionFlag
@@ -208,9 +209,9 @@ class QFitProtein:
             self.pdb = self.options.pdb + "_"
         else:
             self.pdb = ""
-            
-        if self.options.residue is not None: #run qFit residue
-            multiconformer = self._run_qfit_residue_parallel()    
+        # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates
+        if self.options.residue is not None:  # run qFit residue
+            multiconformer = self._run_qfit_residue_parallel()
         elif self.options.only_segment:
             multiconformer = self._run_qfit_segment(self.structure)
             self._create_refine_restraints(multiconformer)
@@ -284,13 +285,49 @@ class QFitProtein:
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
-            
+
         else:
             residues = list(
                 self.structure.extract("record", "HETATM", "!=")
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
+
+        backbone_coor_dict = {}
+        for residue in residues:
+            grouped_coords = {}
+            grouped_u_matrices = {}
+            residue_chain_key = (residue.resi[0], residue.chain[0].replace('"', ""))
+            if residue_chain_key not in backbone_coor_dict:
+                backbone_coor_dict[residue_chain_key] = {}
+            for altloc in np.unique(
+                self.structure.extract("chain", residue.chain[0], "==")
+                .extract("resi", residue.resi[0], "==")
+                .altloc
+            ):
+                grouped_coords[altloc] = (
+                    self.structure.extract("chain", residue.chain[0], "==")
+                    .extract("resi", residue.resi[0], "==")
+                    .extract("altloc", altloc)
+                    .coor
+                )
+                if residue.resn[0] == "GLY":
+                    atom_name = "O"
+                else:
+                    atom_name = "CB"
+                atom = (
+                    self.structure.extract("chain", residue.chain[0], "==")
+                    .extract("resi", residue.resi[0], "==")
+                    .extract("name", atom_name)
+                    .extract("altloc", altloc)
+                )
+                try:
+                    u_matrix = atom.extract_anisous()[0]
+                except:
+                    u_matrix = None
+                grouped_u_matrices[altloc] = u_matrix
+            backbone_coor_dict[residue_chain_key]["coords"] = grouped_coords
+            backbone_coor_dict[residue_chain_key]["u_matrices"] = grouped_u_matrices
 
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
@@ -352,6 +389,7 @@ class QFitProtein:
                             "xmap": self.get_map_around_substructure(residue),
                             "options": self.options,
                             "logqueue": logqueue,
+                            "backbone_coor_dict": backbone_coor_dict,
                         },
                         callback=_cb,
                         error_callback=_error_cb,
@@ -378,6 +416,7 @@ class QFitProtein:
                         xmap=self.get_map_around_substructure(residue),
                         options=self.options,
                         logqueue=logqueue,
+                        backbone_coor_dict=backbone_coor_dict,
                     )
                     _cb(result)
                 except Exception as e:
@@ -527,7 +566,8 @@ class QFitProtein:
         f.close()
 
 
-def _run_qfit_residue(residue, structure, xmap, options, logqueue):
+def _run_qfit_residue(residue, structure, xmap, options, logqueue,
+                      backbone_coor_dict):
     """Run qfit on a single residue to determine density-supported conformers."""
     # Don't run qfit if we have a ligand or water
     if residue.type != "rotamer-residue":
@@ -598,6 +638,9 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue):
             sel_str = f"not ({sel_str})"
             structure_new = structure_new.extract(sel_str)
 
+    chain_resi_id = f"{resi}, '{chainid}'"
+    chain_resi_id = (resi, chainid)
+    options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
     # Exception handling in case qFit-residue fails:
     qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
     try:
