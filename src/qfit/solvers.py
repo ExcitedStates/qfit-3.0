@@ -164,7 +164,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self.valid_indices = []
         self.redundant_indices = []
 
-        self._weights = np.zeros(self.nconformers)
+        self._weights = None
         self._objective_value = 0
         self.weights = None
 
@@ -236,6 +236,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
             self.compute_quadratic_coeffs()
 
         valid_conformers = len(self.valid_indices)
+        self._weights = np.zeros(valid_conformers)
         splits = valid_conformers // split_threshold + 1  # number of splits
         for split in range(splits):
             # take every splits-th element with split as an offset, guaranteeing full coverage
