@@ -105,24 +105,24 @@ echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_na
 remove_duplicates "${multiconf}"
 
 #__________________________________NORMALIZE OCCUPANCIES________________________________________
-redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
-mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
+redistribute_cull_low_occupancies -occ 0.09 "${multiconf}_fixed.pdb"
+mv -v "${multiconf}_fixed_norm.pdb" "${multiconf}_fixed.pdb"
 
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
-phenix.pdbtools remove="element H" "${multiconf}.fixed"
+phenix.pdbtools remove="element H" "${multiconf}_fixed.pdb"
 
 #__________________________________GET CIF FILE__________________________________
 
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
-                 pdb_file_name="${multiconf}.f_modified.pdb"
+                 pdb_file_name="${multiconf}_fixed_modified.pdb"
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
-if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
-  cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
+if [ ! -f "${multiconf}_fixed_modified.updated.pdb" ]; then
+  cp -v "${multiconf}_fixed_modified.pdb" "${multiconf}_fixed_modified.updated.pdb";
 fi
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
+if [ -f "${multiconf}_fixed_modified.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${multiconf}_fixed_modified.ligands.cif'" >> ${pdb_name}_refine.params
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
@@ -134,7 +134,7 @@ echo "refinement.main.number_of_macro_cycles=5"      >> ${pdb_name}_refine.param
 echo "refinement.main.nqh_flips=False"               >> ${pdb_name}_refine.params
 echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.params
 
-phenix.refine  "${multiconf}.f_modified.updated.pdb" \
+phenix.refine  "${multiconf}_fixed_modified.updated.pdb" \
                "${pdb_name}.mtz" \
                "${pdb_name}_refine.params" \
                --overwrite
@@ -148,9 +148,10 @@ echo "refinement.main.number_of_macro_cycles=5"                                 
 echo "refinement.main.nqh_flips=False"                                            >> ${pdb_name}_occ_refine.params
 echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
+echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
 
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
+if [ -f "${multiconf}_fixed_modified.ligands.cif" ]; then
+  echo "refinement.input.monomers.file_name='${multiconf}_fixed_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
 zeroes=50

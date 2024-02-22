@@ -5,10 +5,10 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast  # pylint: disable=unused-import
 
 import numpy as np
-import scipy as sci
+import scipy as sci  # pylint: disable=unused-import
 import scipy.sparse  # pylint: disable=unused-import
 from numpy.typing import NDArray
 
