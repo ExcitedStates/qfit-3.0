@@ -13,6 +13,9 @@ If you use this software, please cite:
 - [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
+As this software relies on CVXPY, please also cite:
+- [Agrawal, Verschueren, Diamond, & Boyd. A Rewriting System for Convex Optimization Problems. Journal of Control and Decision. (2018).](https://arxiv.org/abs/1709.04494)
+- [Diamond & Boyd. CVXPY: A Python-Embedded Modeling Language for Convex Optimization. Journal of Machine Learning Research. (2016)](https://www.jmlr.org/papers/volume17/15-408/15-408.pdf)
 
 ## Installation
 
