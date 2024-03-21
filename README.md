@@ -40,7 +40,6 @@ Once these are installed, you can:
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
-
 ### Advanced
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
@@ -81,12 +80,14 @@ An example test case (3K0N) can be found in the [qfit protein example](example/q
 To model alternate conformers for all residues in a *X-ray crystallography* model using qFit,
 the following command should be used:
 
-`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE]`
+`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] -p [# OF THREADS]`
 
 This command will produce a multiconformer model that spans the entirety of the
 input target protein. The final model, with consistent labeling of multiple conformers
 is output into *multiconformer_model2.pdb*. This file should then
-be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder.
+be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder. 
+
+qFit can be run on a single thread, but speeds up significantly with multiple threads.
 
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
