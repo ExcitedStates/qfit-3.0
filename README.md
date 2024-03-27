@@ -111,6 +111,7 @@ Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
+
 To model alternate conformers for all residues in a *cryo-EM* model using qFit,
 the following command should be used:
 
@@ -120,7 +121,7 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
 
-More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/README.md).
 
 
 ## License
