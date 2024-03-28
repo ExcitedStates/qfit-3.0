@@ -87,7 +87,7 @@ input target protein. The final model, with consistent labeling of multiple conf
 is output into *multiconformer_model2.pdb*. This file should then
 be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder. 
 
-qFit can be run on a single thread, but speeds up significantly with multiple threads.
+qFit can be run on a single thread, but speeds up significantly with multiple threads. Do to this, use the *-p* flag.
 
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
@@ -111,7 +111,8 @@ Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
-To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
+
+To model alternate conformers for all residues in a *cryo-EM* model using qFit,
 the following command should be used:
 
 `qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
@@ -120,7 +121,7 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
 
-More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/README.md).
 
 
 ## License

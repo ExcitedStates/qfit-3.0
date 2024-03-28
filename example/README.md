@@ -20,16 +20,15 @@ qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
 which can be achieved by using the flag *-r*.
 
-`qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
+`qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION] -em`
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22`
+`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 -em`
 
-We recommend users run [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
+If you would like, you can use [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
 
 `qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
-
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb multiconformer_model2.pdb`
