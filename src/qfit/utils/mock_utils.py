@@ -98,7 +98,17 @@ def create_fmodel(pdb_file_name, high_resolution, output_file=None):
         "output.label=FWT",
         f"output.file_name={output_file}",
     ]
-    fmodel.run(args=fmodel_args, log=null_out())
+    # XXX the CLI implementation for mmtbx tools has changed - the old 'run'
+    # method no longer exists in the current repo
+    if hasattr(fmodel, "run"):
+        fmodel.run(args=fmodel_args, log=null_out())
+    else:
+        from iotbx.cli_parser import run_program
+        from mmtbx.programs import fmodel as fmodel_program
+        run_program(program_class=fmodel_program.Program,
+                    args=fmodel_args,
+                    hide_parsing_output=True,
+                    logger=null_out())
     return output_file
 
 
