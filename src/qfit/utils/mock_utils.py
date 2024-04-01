@@ -88,7 +88,8 @@ SERINE_ALTERNATE_SYMMETRY = {
 }
 
 
-def create_fmodel(pdb_file_name, high_resolution, output_file=None):
+def create_fmodel(pdb_file_name, high_resolution, output_file=None,
+                  em=False):
     if output_file is None:
         output_file = tempfile.NamedTemporaryFile(suffix="-fmodel.mtz").name
     fmodel_args = [
@@ -98,6 +99,8 @@ def create_fmodel(pdb_file_name, high_resolution, output_file=None):
         "output.label=FWT",
         f"output.file_name={output_file}",
     ]
+    if em:
+        fmodel_args.append("scattering_table=electron")
     # XXX the CLI implementation for mmtbx tools has changed - the old 'run'
     # method no longer exists in the current repo
     if hasattr(fmodel, "run"):
