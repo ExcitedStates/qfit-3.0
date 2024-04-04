@@ -19,27 +19,59 @@ As this software relies on CVXPY, please also cite:
 
 ## Installation
 
+## Installation (conda recommended)
+
+We recommend using the _conda_ package manager to install _qFit_.
+
 You will need the following tools:
 
 * git
-* pip
+* _conda_ package manager (which you can get by installing [Miniconda3](https://docs.conda.io/en/latest/miniconda.html))
 
 Once these are installed, you can:
 
+1. Create a new conda env & activate it
+   ```bash
+   conda create --name qfit "python>=3.9"
+   conda activate qfit
+   ```
+
 1. Install dependencies
    ```bash
-   pip install -r requirements.txt
+   conda install -c anaconda mkl numpy=1.22
+   pip install cvxpy
+   pip install PySCIPOpt
    ```
-   
-1. Clone the latest release of the qFit source and install it using pip
+   For some of the post analysis scripts, you will also need sklean
+   conda install -c anaconda scikit-learn
+
+1. Clone the latest release of the qFit source, and install to your conda env
    ```bash
-   git clone https://github.com/ExcitedStates/qfit-3.0.git
+   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
+### M1 Macs
+
+Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
+We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
+
+As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
+macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
+
+Instead of the first step in the above Installation section, use this:
+
+1. Create a new conda env & activate it
+   ```bash
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
+   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
+   conda activate qfit
+   ```
+
+then follow the rest of the instructions.
 ### Advanced
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
