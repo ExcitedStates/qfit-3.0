@@ -44,6 +44,28 @@ def build_argparser():
         type=str,
         help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.",
     )
+    
+    # RDKit input options
+    p.add_argument(
+        "-sm",
+        "--smiles",
+        type=str,
+        help="SMILES string for molecule",
+    )
+    p.add_argument(
+        "-nc",
+        "--numConf",
+        type=int,
+        help="Number of RDKit conformers to generate",
+    )
+
+    p.add_argument(
+        "-lb",
+        "--ligand_bic",
+        action="store_true",
+        help="Flag to run with ligand BIC on",
+    )
+
 
     # Map input options
     p.add_argument(
@@ -389,7 +411,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode, receptor
 
 
 def main():
