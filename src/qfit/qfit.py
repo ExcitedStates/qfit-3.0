@@ -1623,6 +1623,7 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
+        self.sample_b()
         self._convert()
         if self.options.ligand_bic:
             print("BIC IS ON")
