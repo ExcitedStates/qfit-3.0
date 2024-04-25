@@ -101,4 +101,4 @@ done
 #__________________________________NAME FINAL FILES__________________________________
 cp "${pdb_name}2_real_space_refined.001.pdb" "${pdb_name}_qFit.pdb"
 cp "${pdb_name}.ccp4" "${pdb_name}_qFit.ccp4"
-cp "${pdb_name}${pdb_name}2_real_space_refined.001.log" "${pdb_name}_qFit.log"
+cp "${pdb_name}2_real_space_refined.001.log" "${pdb_name}_qFit.log"
