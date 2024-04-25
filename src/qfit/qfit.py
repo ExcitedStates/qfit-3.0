@@ -8,7 +8,6 @@ from collections import namedtuple
 import subprocess
 import numpy as np
 import tqdm
-import timeit
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -683,7 +682,6 @@ class QFitRotamericResidue(_BaseQFit):
         )
 
     def run(self):
-        start_time = timeit.default_timer()
         if self.options.sample_backbone:
             self._sample_backbone()
 
@@ -743,9 +741,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.validation_metrics = validator.GoodnessOfFit(
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
-        # End of processing
-        end_time = timeit.default_timer()
-        print(f"Processing time: {end_time - start_time} seconds")
 
 
 
