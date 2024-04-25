@@ -4,11 +4,11 @@ Some of the advanced and specialized options available in qFit are demonstrated 
 
 ### 1. Modelling alternate conformers for a residue of interest
 
-`qfit_residue [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
+`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] --residue [CHAIN,RESIDUE]`
 
 Using the example 3K0N:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113`
+`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --residue A,113`
 
 This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
@@ -20,16 +20,15 @@ qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
 which can be achieved by using the flag *-r*.
 
-`qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
+`qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION] -em`
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22`
+`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 -em`
 
-We recommend users run [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
+If you would like, you can use [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
 
 `qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
-
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb multiconformer_model2.pdb`
@@ -43,7 +42,7 @@ of the [Phenix software suite](https://phenix-online.org/).
 
 ### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
-In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
+In its default mode, *qfit_protein* samples backbone conformations
 using our KGS routine. This can be disabled using the *--no-backbone* flag.
 
 For even faster (and less precise) results, one can also disable the sampling of
@@ -58,20 +57,13 @@ the cost of precision:
 
 Using the example 3K0N:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --residue A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
-`qfit_residue -h`
+`qfit_protein -h`
 
-
-### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
-
-Using the example 3K0N:
-
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
-
-### 6.  Parallelization:
+### 5.  Parallelization:
 
 The *qfit_protein* program can be executed in parallel and the number of concurrent processes
 can be adjusted using the *-p* flag.
@@ -81,7 +73,7 @@ Using the example 3K0N, spawning 30 parallel processes:
 `qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -p 30`
 
 
-### 7. Modeling alternate conformers of a ligand
+### 6. Modeling alternate conformers of a ligand
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:

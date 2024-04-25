@@ -13,31 +13,65 @@ If you use this software, please cite:
 - [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
+As this software relies on CVXPY, please also cite:
+- [Agrawal, Verschueren, Diamond, & Boyd. A Rewriting System for Convex Optimization Problems. Journal of Control and Decision. (2018).](https://arxiv.org/abs/1709.04494)
+- [Diamond & Boyd. CVXPY: A Python-Embedded Modeling Language for Convex Optimization. Journal of Machine Learning Research. (2016)](https://www.jmlr.org/papers/volume17/15-408/15-408.pdf)
 
 ## Installation
+
+## Installation (conda recommended)
+
+We recommend using the _conda_ package manager to install _qFit_.
 
 You will need the following tools:
 
 * git
-* pip
+* _conda_ package manager (which you can get by installing [Miniconda3](https://docs.conda.io/en/latest/miniconda.html))
 
 Once these are installed, you can:
 
+1. Create a new conda env & activate it
+   ```bash
+   conda create --name qfit "python>=3.9"
+   conda activate qfit
+   ```
+
 1. Install dependencies
    ```bash
-   pip install -r requirements.txt
+   conda install -c anaconda mkl numpy=1.22
+   pip install cvxpy
+   pip install PySCIPOpt
    ```
-   
-1. Clone the latest release of the qFit source and install it using pip
+   For some of the post analysis scripts, you will also need sklean
+   conda install -c anaconda scikit-learn
+
+1. Clone the latest release of the qFit source, and install to your conda env
    ```bash
-   git clone https://github.com/ExcitedStates/qfit-3.0.git
+   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    cd qfit-3.0
    pip install .
    ```
 
 1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
 
+### M1 Macs
 
+Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
+We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
+
+As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
+macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
+
+Instead of the first step in the above Installation section, use this:
+
+1. Create a new conda env & activate it
+   ```bash
+   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
+   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
+   conda activate qfit
+   ```
+
+then follow the rest of the instructions.
 ### Advanced
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
@@ -78,12 +112,14 @@ An example test case (3K0N) can be found in the [qfit protein example](example/q
 To model alternate conformers for all residues in a *X-ray crystallography* model using qFit,
 the following command should be used:
 
-`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE]`
+`qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] -p [# OF THREADS]`
 
 This command will produce a multiconformer model that spans the entirety of the
 input target protein. The final model, with consistent labeling of multiple conformers
 is output into *multiconformer_model2.pdb*. This file should then
-be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder.
+be used as input to the post-qFit refinement script provided in [scripts](scripts/post) folder. 
+
+qFit can be run on a single thread, but speeds up significantly with multiple threads. Do to this, use the *-p* flag.
 
 If you wish to specify a different directory for the output, this can be done
 using the flag *-d*.
@@ -107,7 +143,8 @@ Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
 
-To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
+
+To model alternate conformers for all residues in a *cryo-EM* model using qFit,
 the following command should be used:
 
 `qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
@@ -116,7 +153,7 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
 
-More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/README.md).
 
 
 ## License
