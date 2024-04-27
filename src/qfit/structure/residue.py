@@ -250,7 +250,10 @@ class _RotamerResidue(_BaseResidue):
 
         ref_atom = self._rotamers["connectivity"][atom][0]
         if ref_atom not in self.name:
+            print('ref atom:')
+            print(ref_atom)
             self.complete_residue_recursive(ref_atom)
+        print(self.name)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
         bond_length, bond_length_sd = self._rotamers["bond_dist"][ref_atom][atom]
@@ -593,8 +596,8 @@ class _RotamerResidue(_BaseResidue):
 
     def add_atom(self, name, element, coor):
         index = self._selection[-1]
-        # if index < len(self.data["record"]):
-        #     index = len(self.data["record"]) - 1
+        if index < len(self.data["record"]):
+            index = len(self.data["record"]) - 1
         for attr in self.data:
             if attr == "e":
                 setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), element))
@@ -618,7 +621,9 @@ class _RotamerResidue(_BaseResidue):
                     "_" + attr,
                     np.append(getattr(self, "_" + attr), getattr(self, attr)[-1]),
                 )
-        setattr(self, "_selection", np.append(self.__dict__["_selection"], index + 1))
+                # Ensure the array and the value being appended are of integer type
+        selection = np.append(self.__dict__["_selection"].astype(int), int(index + 1)) #ensuring this is not a float
+        setattr(self, "_selection", selection) 
         setattr(self, "natoms", self.natoms + 1)
 
     def reorder(self):
@@ -628,7 +633,7 @@ class _RotamerResidue(_BaseResidue):
             if self.name[idx] != atom2:
                 idx2 = np.argwhere(self.name == atom2)[0]
                 index = np.ndarray((1,), dtype="int")
-                index[0,] = np.array(self.__dict__["_selection"][0], dtype="int")
+                index[0,] = np.array(self.__dict__["_selection"][0])
                 for attr in [
                     "record",
                     "name",
