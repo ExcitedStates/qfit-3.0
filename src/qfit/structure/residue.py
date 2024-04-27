@@ -593,8 +593,8 @@ class _RotamerResidue(_BaseResidue):
 
     def add_atom(self, name, element, coor):
         index = self._selection[-1]
-        if index < len(self.data["record"]):
-            index = len(self.data["record"]) - 1
+        # if index < len(self.data["record"]):
+        #     index = len(self.data["record"]) - 1
         for attr in self.data:
             if attr == "e":
                 setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), element))
