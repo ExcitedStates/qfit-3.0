@@ -287,7 +287,7 @@ class RotamerResidue(Residue):
         if ref_atom not in self.name:
             print('ref atom:')
             print(ref_atom)
-            self.complete_residue_recursive(ref_atom)
+            self._complete_residue_recursive(ref_atom)
         print(self.name)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]

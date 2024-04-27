@@ -10,7 +10,7 @@ import tqdm
 
 from .backbone import NullSpaceOptimizer
 from .relabel import RelabellerOptions, Relabeller
-from .samplers import ChiRotator, CBAngleRotator, BondRotator
+from .samplers import ChiRotator, CBAngleRotator, BondRotator, BisectingAngleRotator
 from .samplers import GlobalRotator
 from .samplers import RotationSets, Translator
 from .solvers import SolverError, get_qp_solver_class, get_miqp_solver_class
