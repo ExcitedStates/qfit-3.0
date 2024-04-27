@@ -157,7 +157,7 @@ class CCTBXTransformer:
         """
         xrs = self._get_structure_in_box()
         if self.em:
-            logger.debug("Switching to electron structure factor table")
+            #logger.debug("Switching to electron structure factor table")
             xrs.discard_scattering_type_registry()
             xrs.scattering_type_registry(table="electron")
         else:

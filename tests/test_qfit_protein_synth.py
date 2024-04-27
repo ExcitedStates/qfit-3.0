@@ -142,6 +142,9 @@ class TestQfitProteinSimple(QfitProteinSyntheticDataRunner):
 @pytest.mark.slow
 class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
 
+    # cutoff for multiple tests that behave differently for Xray vs EM
+    MIN_CC_PHE = 0.99
+
     def _run_kmer_and_validate_identical_rotamers(
         self, peptide_name, d_min, chi_radius=SyntheticMapRunner.CHI_RADIUS,
         cc_min=0.99, extra_args=()
@@ -257,7 +260,9 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         (pdb_multi, pdb_single) = self._get_start_models("AFA")
         fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi)
-        self._validate_new_fmodel(fmodel_in=fmodel_in, high_resolution=d_min)
+        self._validate_new_fmodel(fmodel_in=fmodel_in,
+                                  high_resolution=d_min,
+                                  cc_min=self.MIN_CC_PHE)
 
     def test_qfit_protein_3mer_phe_p21_mmcif(self):
         """
@@ -272,7 +277,9 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         self._validate_phe_3mer_confs(pdb_multi, "multiconformer_model2.cif")
         self._validate_new_fmodel(
             fmodel_in=fmodel_in,
-            high_resolution=d_min, model_name="multiconformer_model.cif"
+            high_resolution=d_min,
+            model_name="multiconformer_model.cif",
+            cc_min=self.MIN_CC_PHE
         )
 
     def test_qfit_protein_3mer_phe_p1(self):
@@ -290,7 +297,8 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
         self._validate_phe_3mer_confs(pdb_multi)
         self._validate_new_fmodel(fmodel_in=fmodel_in,
-                                  high_resolution=d_min)
+                                  high_resolution=d_min,
+                                  cc_min=self.MIN_CC_PHE)
 
     def test_qfit_protein_7mer_peptide_p21(self):
         """
@@ -408,9 +416,46 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         assert len(rotamers[3]) == 2
 
 
-# XXX we might not need to run these every time
 @pytest.mark.slow
 class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
+    """
+    Cryo-EM tests using CCP4 map input
+    """
+
+    # XXX the three '3mer_phe' tests have consistently lower model-map CC in
+    # this test
+    MIN_CC_PHE = 0.976
+
+    def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
+                      extra_args=(), em=True):
+        fmodel_mtz = self._create_fmodel(pdb_file_multi,
+                                         high_resolution=high_resolution,
+                                         em=True)
+        os.symlink(pdb_file_single, "single.pdb")
+        xmap = XMap.from_mtz(fmodel_mtz, label="FWT,PHIFWT")
+        xmap.tofile("fmodel_1.ccp4")
+        qfit_args = [
+            "qfit_protein",
+            "fmodel_1.ccp4",
+            pdb_file_single,
+            "--debug",
+            "--resolution",
+            str(high_resolution),
+            "--backbone-amplitude",
+            "0.1",
+            "--rotamer-neighborhood",
+            "10",
+            # XXX this is required for many of these tests to work
+            "--dofs-per-iteration",
+            "2",
+            "--dihedral-stepsize",
+            "10",
+            "--transformer", "cctbx"
+        ] + list(extra_args)
+        qfit_args.append("--cryo_em")
+        print(" ".join(qfit_args))
+        subprocess.check_call(qfit_args)
+        return fmodel_mtz
 
     def _run_and_validate_identical_rotamers(self, *args, **kwds):
         super()._run_and_validate_identical_rotamers(*args, **kwds, em=True)
@@ -426,35 +471,6 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
 
     def test_qfit_protein_3mer_lys_p21(self):
         pytest.skip("failing for cryo-EM")
-
-
-## NOTE this is a useful sanity check but we don't want to run it every time,
-## or have the skipped tests count against the total
-## uncomment this block to activate
-#@pytest.mark.skip("For development purposes, redundant with MTZ-driven test")
-#class TestQfitProteinSyntheticDataCcp4Map(_BaseClass):
-#    __test__ = True
-#
-#    def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution):
-#        fmodel_mtz = self._create_fmodel(pdb_file_multi,
-#                                         high_resolution=high_resolution)
-#        os.symlink(pdb_file_single, "single.pdb")
-#        xmap = XMap.from_mtz(fmodel_mtz, label="FWT,PHIFWT")
-#        xmap.tofile("fmodel_1.ccp4")
-#        qfit_args = [
-#            "qfit_protein",
-#            "fmodel_1.ccp4",
-#            pdb_file_single,
-#            "--resolution",
-#            str(high_resolution),
-#            "--backbone-amplitude",
-#            "0.1",
-#            "--rotamer-neighborhood",
-#            "10",
-#            "--debug",
-#        ]
-#        print(" ".join(qfit_args))
-#        return subprocess.check_call(qfit_args)
 
 
 @pytest.mark.slow
