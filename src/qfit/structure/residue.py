@@ -285,7 +285,10 @@ class RotamerResidue(Residue):
 
         ref_atom = self._residue_info["connectivity"][next_atom_name][0]
         if ref_atom not in self.name:
-            self._complete_residue_recursive(ref_atom)
+            print('ref atom:')
+            print(ref_atom)
+            self.complete_residue_recursive(ref_atom)
+        print(self.name)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
         bond_length, bond_length_sd = self._residue_info["bond_dist"][ref_atom][next_atom_name]

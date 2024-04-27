@@ -35,14 +35,14 @@ def get_base_argparser(description):
 
     # Map input options
     mo = p.add_argument_group("Map options")
-    mo.add_argument(
+    p.add_argument(
         "-l",
         "--label",
-        default="FWT,PHWT",
+        default="2FOFCWT,PH2FOFCWT",
         metavar="<F,PHI>",
         help="MTZ column labels to build density",
     )
-    mo.add_argument(
+    p.add_argument(
         "-r",
         "--resolution",
         default=None,
@@ -50,7 +50,7 @@ def get_base_argparser(description):
         type=float,
         help="Map resolution (Å) (only use when providing CCP4 map files)",
     )
-    mo.add_argument(
+    p.add_argument(
         "-m",
         "--resolution-min",
         default=None,

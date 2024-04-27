@@ -735,17 +735,8 @@ class QFitRotamericResidue(_BaseQFit):
         Main sampling routine
         """
         if self.options.sample_backbone:
-            for altloc in self.options.backbone_coor_dict["coords"]:
-                self.residue.coor = self.options.backbone_coor_dict["coords"][altloc]
-                if self.residue.resn[0] == "GLY":
-                    atom = self.residue.extract("name", "O")  # pylint: disable=unused-variable
-                else:
-                    atom = self.residue.extract("name", "CB")
-                if self.options.backbone_coor_dict["u_matrices"][altloc] is not None:
-                    self.u_matrix = self.options.backbone_coor_dict["u_matrices"][
-                        altloc
-                    ]
-                self._sample_backbone()
+            self._sample_backbone()
+
         if self.options.sample_angle:
             self._sample_angle()
 
@@ -808,14 +799,14 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Determine directions for backbone sampling
         atom = self.residue.extract("name", atom_name)
-
         try:
             if not self.u_matrix:
                 self.u_matrix = atom.extract_anisous()[0]
             directions = adp_ellipsoid_axes(self.u_matrix)
             logger.debug(f"[_sample_backbone] u_matrix = {self.u_matrix}")
+            logger.debug(f"[_sample_backbone] directions = {directions}")
         except AttributeError:
-            logger.debug(
+            logger.info(
                 f"[{self.identifier}] Got AttributeError for directions at Cβ. Treating as isotropic B, using Cβ-Cα, C-N,(Cβ-Cα × C-N) vectors."
             )
             # Choose direction vectors as Cβ-Cα, C-N, and then (Cβ-Cα × C-N)
@@ -852,44 +843,47 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs.append(self.conformer.b)
                     return
 
-            # Retrieve the amplitudes and stepsizes from options.
-            sigma = self.options.sample_backbone_sigma
-            bba, bbs = (
-                self.options.sample_backbone_amplitude,
-                self.options.sample_backbone_step,
+        # Retrieve the amplitudes and stepsizes from options.
+        sigma = self.options.sample_backbone_sigma
+        bba, bbs = (
+            self.options.sample_backbone_amplitude,
+            self.options.sample_backbone_step,
+        )
+        assert bba >= bbs > 0
+
+        # Create an array of amplitudes to scan:
+        #   We start from stepsize, making sure to stop only after bba.
+        #   Also include negative amplitudes.
+        eps = ((bba / bbs) / 2) * np.finfo(
+            float
+        ).epsneg  # ε to avoid FP errors in arange
+        amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
+        amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
+
+        # Optimize in torsion space to achieve the target atom position
+        optimizer = NullSpaceOptimizer(segment)
+        start_coor = atom.coor[0]  # We are working on a single atom.
+        torsion_solutions = []
+        for amplitude, direction in itertools.product(amplitudes, directions):
+            endpoint = start_coor + amplitude * direction
+            optimize_result = optimizer.optimize(atom_name, endpoint)
+            torsion_solutions.append(optimize_result["x"])
+
+        # Capture starting coordinates for the segment, so that we can restart after every rotator
+        starting_coor = segment.coor
+        for solution in torsion_solutions:
+            optimizer.rotator(solution)
+            self._coor_set.append(self.segment[index].coor)
+            self._bs.append(self.conformer.b)
+            segment.coor = starting_coor
+
+        logger.debug(
+            f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
+        )
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(
+                prefix=f"sample_backbone_segment{index:03d}"
             )
-            assert bba >= bbs > 0
-
-            # Create an array of amplitudes to scan:
-            #   We start from stepsize, making sure to stop only after bba.
-            #   Also include negative amplitudes.
-            eps = ((bba / bbs) / 2) * np.finfo(
-                float
-            ).epsneg  # ε to avoid FP errors in arange
-            amplitudes = np.arange(start=bbs, stop=bba + bbs - eps, step=bbs)
-            amplitudes = np.concatenate([-amplitudes[::-1], amplitudes])
-
-            # Optimize in torsion space to achieve the target atom position
-            optimizer = NullSpaceOptimizer(segment)
-            start_coor = atom.coor[0]  # We are working on a single atom.
-            torsion_solutions = []
-            for amplitude, direction in itertools.product(amplitudes, directions):
-                endpoint = start_coor + amplitude * direction
-                optimize_result = optimizer.optimize(atom_name, endpoint)
-                torsion_solutions.append(optimize_result["x"])
-
-            # Capture starting coordinates for the segment, so that we can restart after every rotator
-            starting_coor = segment.coor
-            for solution in torsion_solutions:
-                optimizer.rotator(solution)
-                self._coor_set.append(self.segment[index].coor)
-                self._bs.append(self.conformer.b)
-                segment.coor = starting_coor
-
-            logger.debug(
-                f"[_sample_backbone] Backbone sampling generated {len(self._coor_set)} conformers."
-            )
-            self._save_intermediate(f"sample_backbone_segment{index:03d}")
 
     def _sample_angle(self):
         """Sample residue conformations by flexing α-β-γ angle.
@@ -897,7 +891,7 @@ class QFitRotamericResidue(_BaseQFit):
         Only operates on residues with large aromatic sidechains
             (Trp, Tyr, Phe, His) where CG is a member of the aromatic ring.
         Here, slight deflections of the ring are likely to lead to better-
-            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ) later.
+            scoring conformers when we scan χ(Cα-Cβ) and χ(Cβ-Cγ).
 
         This angle does not exist in {Gly, Ala}, and it does not make sense to
             sample this angle in Pro.
@@ -937,19 +931,29 @@ class QFitRotamericResidue(_BaseQFit):
         new_bs = []
         for coor in self._coor_set:
             self.residue.coor = coor
-            rotator = CBAngleRotator(self.residue)
-            for angle in angles:
-                rotator(angle)
-                coor = self.residue.coor
-                # Move on if these coordinates are unsupported by density,
-                # or if they cause a clash
-                if (self.is_conformer_below_cutoff(coor, active_mask) or
-                    self.is_clashing()):
-                    continue
+            # Initialize rotator
+            perp_rotator = CBAngleRotator(self.residue)
+            # Rotate about the axis perpendicular to CB-CA and CB-CG vectors
+            for perp_angle in angles:
+                perp_rotator(perp_angle)
+                coor_rotated = self.residue.coor
+                # Initialize rotator
+                bisec_rotator = BisectingAngleRotator(self.residue)
+                # Rotate about the axis bisecting the CA-CA-CG angle for each angle you sample across the perpendicular axis
+                for bisec_angle in angles:
+                    self.residue.coor = coor_rotated  # Ensure that the second rotation is applied to the updated coordinates from first rotation
+                    bisec_rotator(bisec_angle)
+                    coor = self.residue.coor
 
-                # Valid, non-clashing conformer found!
-                new_coor_set.append(self.residue.coor)
-                new_bs.append(self.conformer.b)
+                    # Move on if these coordinates are unsupported by density,
+                    # or if they cause a clash
+                    if (self.is_conformer_below_cutoff(coor, active_mask) or
+                        self.is_clashing()):
+                        continue
+
+                    # Valid, non-clashing conformer found!
+                    new_coor_set.append(self.residue.coor)
+                    new_bs.append(self.conformer.b)
 
         # Update sampled coords
         self._coor_set = new_coor_set
