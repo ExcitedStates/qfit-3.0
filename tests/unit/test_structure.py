@@ -127,6 +127,11 @@ class TestStructureIO(UnitBase):
         s2.tofile(pdb_tmp)
         s3 = Structure.fromfile(pdb_tmp)
         assert len(list(s3.single_conformer_residues)) == 2
+        # sanity check for presence of ANISOUs
+        PDB2 = op.join(self.DATA, "..", "qfit_ligand_test", "5AGK.pdb")
+        s4 = Structure.fromfile(PDB2)
+        s5 = s4.combine(s3)
+        xrs = s5.to_xray_structure()
 
     def test_structure_pickle(self):
         PDB = op.join(self.DATA, "4ms6_tiny.pdb.gz")

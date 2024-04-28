@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple
-import itertools as itl
+import itertools
 from math import inf
 import logging
 
@@ -156,10 +156,10 @@ def load_combined_atoms(*atom_lists):
 
 
 def load_atoms_from_labels(atom_labels):
-    atom_lines = [atom.format_atom_record_group().split('\n')[0]
-                  for atom in atom_labels]
+    atom_lines = itertools.chain(*[atom.format_atom_record_group().split('\n')
+                                   for atom in atom_labels])
     return iotbx.pdb.pdb_input(source_info="qfit_structure",
-                               lines=atom_lines)
+                               lines=list(atom_lines))
 
 
 def write_mmcif(fname, structure):
@@ -250,7 +250,7 @@ class RecordParser:
         )
 
         # Intersperse formatted values with spaces
-        line = itl.zip_longest(formatted_values, spaces, fillvalue="")
+        line = itertools.zip_longest(formatted_values, spaces, fillvalue="")
         line = "".join(flatten(line)) + "\n"
         return line
 
