@@ -156,7 +156,8 @@ def load_combined_atoms(*atom_lists):
 
 
 def load_atoms_from_labels(atom_labels):
-    atom_lines = [atom.format_atom_record_group() for atom in atom_labels]
+    atom_lines = [atom.format_atom_record_group().split('\n')[0]
+                  for atom in atom_labels]
     return iotbx.pdb.pdb_input(source_info="qfit_structure",
                                lines=atom_lines)
 
