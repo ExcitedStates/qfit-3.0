@@ -4,4 +4,3 @@ pyscipopt
 scipy
 scikit-learn
 rdkit
-biopython
