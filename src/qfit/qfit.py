@@ -1492,11 +1492,6 @@ class QFitLigand(_BaseQFit):
         # Initialize using the base qfit class
         super().__init__(ligand, receptor, xmap, options)
 
-        # These lists will be used to combine coor_sets output for
-        # each of the clusters that we sample:
-        self._all_coor_set = []
-        self._all_bs = []
-
         # Populate useful attributes:
         self.ligand = ligand
         self.receptor = receptor
@@ -1511,54 +1506,12 @@ class QFitLigand(_BaseQFit):
             ligand, receptor, scaling_factor=self.options.clash_scaling_factor
         )
 
-        # # Determine which roots to start building from
-        # self._rigid_clusters = ligand.rigid_clusters()
-        # self.roots = None
-        # if self.roots is None:
-        #     self._clusters_to_sample = []
-        #     for cluster in self._rigid_clusters:
-        #         nhydrogen = (self.ligand.e[cluster] == "H").sum()
-        #         if len(cluster) - nhydrogen > 1:
-        #             self._clusters_to_sample.append(cluster)
-        # logger.debug(f"Number of clusters to sample: {len(self._clusters_to_sample)}")
-
         # Initialize the transformer
         if options.subtract:
             self._subtract_transformer(self.ligand, self.receptor)
         self._update_transformer(self.ligand)
         self._starting_coor_set = [ligand.coor.copy()]
         self._starting_bs = [ligand.b.copy()]
-
-        # Use input protein+ligand pdb file to construct a ligand only pdb file, will be used to generate the starting rdkit conformer
-        input_lig_info = self.options.selection
-        split_lig = input_lig_info.split(',')
-        ligand_chain = split_lig[0]
-        ligand_res_id = int(split_lig[1])
-
-        # Initialize a biopython parser object, Load the structure from the PDB file
-        parser = PDB.PDBParser(QUIET=True)
-        structure = parser.get_structure('structure', self.options.structure)
-        
-        # Write the ligand to a new PDB file
-        io = PDB.PDBIO()
-        for model in structure:
-            for chain in model:
-                if chain.id == ligand_chain:
-                    print("chain id = ", chain.id)
-                    for res in chain:
-                        if res.id[1] == ligand_res_id:
-                            print("res id = ", res.id[1])
-                            ligand = res
-                            break
-        self.ligand_pdb_file = "ligand.pdb"
-        if ligand:
-            class LigandSelect(PDB.Select):
-                def accept_residue(self, residue):
-                    return residue == ligand
-            io.set_structure(structure)
-            io.save(self.ligand_pdb_file, LigandSelect())
-        else:
-            logger.error(f"Ligand with chain {ligand_chain} and residue ID {ligand_res_id} not found in the PDB file.")
 
 
     def run(self):
@@ -1576,11 +1529,9 @@ class QFitLigand(_BaseQFit):
         logger.info("Starting RDKit conformer generation")
 
         if not branching_atoms:
-            # print("No branches")
             # if there are no branches, qFit will not run branching search or long chain search. Therefore, 3 methods of sampling remain
             num_conf_for_method = round(num_gen_conformers / 3)
         if branching_atoms:
-            #print("Has branches, run branching search")
             if length_branching > 30:
                 #print("has long branches, run long chain search")
                 num_conf_for_method = round(num_gen_conformers / 5)
@@ -1589,14 +1540,11 @@ class QFitLigand(_BaseQFit):
 
 
         self.num_conf_for_method = num_conf_for_method
-
         self.random_unconstrained()
         self.terminal_atom_const()
         self.spherical_search()
         if branching_atoms:
-            #print("Has branches, run branching search")
             if length_branching > 30:
-                #print("has long branches, run long chain search")
                 self.branching_search()
                 self.long_chain_search()
             elif length_branching <= 30:
@@ -1648,6 +1596,7 @@ class QFitLigand(_BaseQFit):
 
     def random_unconstrained(self):
         """
+        Run RDKit with the minimum constraints -- only from the bounds matrix
         """
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
 
@@ -1746,7 +1695,7 @@ class QFitLigand(_BaseQFit):
 
     def terminal_atom_const(self):
         """
-        Identify the terminal atoms of the ligand and learn distance constrains between those atoms and the rest of the molecule. This results in the generated conformers
+        Identify the terminal atoms of the ligand and learn distances between those atoms and the rest of the molecule. This results in the generated conformers
         having a more reasonable shape, similar to the deposited model.         
         """
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
@@ -1774,8 +1723,6 @@ class QFitLigand(_BaseQFit):
         AllChem.EmbedMultipleConfs(mol, numConfs=num_conformers, useBasicKnowledge=True, pruneRmsThresh=self.options.rmsd_cutoff, 
                                     coordMap={idx: ligand.GetConformer().GetAtomPosition(idx) for idx in terminal_indices})
 
-        # if mol.GetNumConformers() == 0:
-        #     print("NO CONF GENERATED")
         if mol.GetNumConformers() != 0:
             # Minimize the energy of each conformer to find most stable structure
             logger.info("Minimizing energy of each conformer")
@@ -1854,7 +1801,7 @@ class QFitLigand(_BaseQFit):
 
     def spherical_search(self):
         """
-        Define a sphere around the deposited ligand, where the radius is the maximum distance from the geometric center to and atom in the molecule. Constrain conformer
+        Define a sphere around the deposited ligand, where the radius is the maximum distance from the geometric center to any atom in the molecule. Constrain conformer
         generation to be within this sphere. This is a less restrictive constraint, while still biasing RDKit to generate conformers more likely to sit well in binding site
         """
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
@@ -2031,8 +1978,6 @@ class QFitLigand(_BaseQFit):
         branching_ligand = Chem.RemoveHs(branching_ligand)
 
         # Check for internal/external clashes
-        if mol_copy.GetNumConformers() == 0:
-            print("NO CONF GENERATED")
         if mol_copy.GetNumConformers() != 0:
             logger.info("Checking for clashes")
             # Store the coordinates of each conformer into numpy array
@@ -2121,13 +2066,9 @@ class QFitLigand(_BaseQFit):
             o3a = Chem.rdMolAlign.GetCrippenO3A(mol, ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
             o3a.Align()
 
-       
-
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
 
-        if mol.GetNumConformers() == 0:
-            print("NO CONF GENERATED")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
@@ -2179,12 +2120,6 @@ class QFitLigand(_BaseQFit):
             logger.info(f"Long chain search generated: {len(new_coor_set)} plausible conformers")  
             logger.info(f"bfactor shape = {np.shape(self._bs)}")
             
-            # self._convert() 
-            # logger.info("Solving QP after long chain search.")
-            # self._solve_qp()
-            # logger.debug("Updating conformers after long chain search.")
-            # self._update_conformers()
-            # self._write_intermediate_conformers(prefix="long_chain_sol")
     
             # logger.info(f"After long chain QP there are {len(self._coor_set)} conformers")
     
