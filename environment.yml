@@ -14,4 +14,3 @@ dependencies:
   - cvxopt
   - tqdm
   - rdkit
-  - biopython
