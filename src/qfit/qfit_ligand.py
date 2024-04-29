@@ -379,6 +379,11 @@ def prepare_qfit_ligand(options):
     ligand.q = 1
 
     # save ligand pdb file to working directory 
+    try:
+        os.makedirs(options.directory)
+    except OSError:
+        pass
+        
     input_ligand = os.path.join(
         options.directory, "ligand.pdb"
     )
