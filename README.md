@@ -11,17 +11,18 @@ Electron density maps obtained from high-resolution X-ray diffraction data are a
 
 1) Download qFit
    git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+   
    cd qfit-3.0
    
-2) Create the Conda environment using the downloaded file:
+3) Create the Conda environment using the downloaded file:
 
    conda env create -f <QFIT-ENV-FILE>
 
-3) After creating the Conda environment, activate it:
+4) After creating the Conda environment, activate it:
 
    conda activate qfit
 
-4) Finally, install qFit:
+5) Finally, install qFit:
 
    pip install .
 
@@ -35,14 +36,6 @@ If you prefer to manage your environments using other methods, qFit has the foll
 * [cvxpy](https://www.cvxpy.org)
 
 Once dependencies are installed, you can clone the qFit source, and install to your env as above.
-
-## Citations
-If you use this software, please cite: 
-- [Wankowicz SA, Ravikumar A, Sharma S, Riley BT, Raju A, Hogan DW, van den Bedem H, Keedy DA, & Fraser JS. Uncovering Protein Ensembles: Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM. bioRxiv. (2023).](https://www.biorxiv.org/content/10.1101/2023.06.28.546963v2.abstract)
-- [Riley BT, Wankowicz SA, et al. qFit 3: Protein and ligand multiconformer modeling for X-ray crystallographic and single-particle cryo-EM density maps. Protein Sci. 30, 270–285 (2021)](https://dx.doi.org/10.1002/pro.4001)
-- [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
-- [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
-
 
 ## Usage examples
 
@@ -92,7 +85,6 @@ Additionally, the qFit_occupancy.params file must exist in the folder.
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
-
 To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
 the following command should be used:
 
@@ -103,6 +95,14 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
 
 More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+
+## Citations
+If you use this software, please cite: 
+- [Wankowicz SA, Ravikumar A, Sharma S, Riley BT, Raju A, Hogan DW, van den Bedem H, Keedy DA, & Fraser JS. Uncovering Protein Ensembles: Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM. bioRxiv. (2023).](https://www.biorxiv.org/content/10.1101/2023.06.28.546963v2.abstract)
+- [Riley BT, Wankowicz SA, et al. qFit 3: Protein and ligand multiconformer modeling for X-ray crystallographic and single-particle cryo-EM density maps. Protein Sci. 30, 270–285 (2021)](https://dx.doi.org/10.1002/pro.4001)
+- [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
+- [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
+
 
 ## Contributing
 
