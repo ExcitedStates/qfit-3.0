@@ -118,10 +118,6 @@ class QFitOptions:
         self.exclude_atoms = None
 
         ### From QFitLigandOptions
-        # Ligand sampling
-        # self.local_search = True
-        # self.sample_ligand = True  # From QFitCovalentLigandOptions
-        # self.sample_ligand_stepsize = 10  # Was 8 in QFitCovalentLigandOptions
         self.selection = None
         self.cif_file = None
         # RDKit options
