@@ -1513,6 +1513,9 @@ class QFitLigand(_BaseQFit):
         self._starting_coor_set = [ligand.coor.copy()]
         self._starting_bs = [ligand.b.copy()]
 
+        # Read in ligand pdb file
+        self.ligand_pdb_file = "ligand.pdb"
+
 
     def run(self):
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
