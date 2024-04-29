@@ -33,7 +33,6 @@ def main():
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
         "rdkit",
-        "biopython",
     ]
 
     setup(
