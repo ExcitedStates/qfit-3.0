@@ -75,7 +75,7 @@ def build_argparser():
     p.add_argument(
         "-l",
         "--label",
-        default="FWT,PHWT",
+        default="2FOFCWT,PH2FOFCWT",
         metavar="<F,PHI>",
         help="MTZ column labels to build density",
     )
