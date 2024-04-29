@@ -56,6 +56,7 @@ def build_argparser():
         "-nc",
         "--numConf",
         type=int,
+        default=10000,
         help="Number of RDKit conformers to generate",
     )
 
