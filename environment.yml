@@ -13,3 +13,5 @@ dependencies:
   - pyparsing>=2.2.0
   - cvxopt
   - tqdm
+  - rdkit
+  - biopython
