@@ -106,6 +106,17 @@ Additionally, the qFit_occupancy.params file must exist in the folder.
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
 
+To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
+the following command should be used:
+
+`qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
+
+After *multiconformer_model2.pdb* has been generated, refine this model using:
+
+`qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
+
+More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+
 To model alternate conformations of ligands using qFit, execute the following command:
 
 `qfit_ligand [COMPOSITE_OMIT_MAP_FILE] [PDB_FILE] -l [LABELS] [SELECTION] -sm [SMILES]`
@@ -125,24 +136,6 @@ To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following comm
 `qfit_final_refine_ligand.sh 4ms6.mtz`
 
 
-
-
-
-
-
-
-
-
-To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
-the following command should be used:
-
-`qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
-
-After *multiconformer_model2.pdb* has been generated, refine this model using:
-
-`qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
-
-More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
 
 
 ## License
