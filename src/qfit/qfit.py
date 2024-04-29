@@ -28,7 +28,6 @@ from .structure.rotamers import ROTAMERS
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import random
-from Bio import PDB
 from scipy.spatial.transform import Rotation as R
 import math
 
