@@ -8,6 +8,7 @@ from collections import namedtuple
 import subprocess
 import numpy as np
 import tqdm
+import timeit
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -259,16 +260,6 @@ class _BaseQFit:
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
         
-        print(f"self._target shape: {self._target.shape}, size: {self._target.size}")
-        # self._target is a 1D array, so we adjust our approach accordingly.
-        
-        # Calculate statistics for the original array
-        # original_peaks = np.max(self._target)
-        # original_valleys = np.min(self._target)
-        # original_mean = np.mean(self._target)
-        # print(f"Original array - Peaks: {original_peaks}, Valleys: {original_valleys}, Mean: {original_mean}")
-        
-        
         # For a 1D array, we adjust our pooling approach
         pooled_values = []
         for i in range(0, len(self._target), stride):
@@ -280,16 +271,6 @@ class _BaseQFit:
         
         # Convert pooled_values back to a numpy array
         self._target = np.array(pooled_values)
-        
-        # Calculate statistics for the pooled array
-        # pooled_peaks = np.max(self._target)
-        # pooled_valleys = np.min(self._target)
-        # pooled_mean = np.mean(self._target)
-        # print(f"Pooled array - Peaks: {pooled_peaks}, Valleys: {pooled_valleys}, Mean: {pooled_mean}")
-        # # Analyze the relationship between original and pooled arrays
-        # relationship_analysis = f"Pooling leads to changes in peaks from {original_peaks} to {pooled_peaks}, " \
-        #                         f"valleys from {original_valleys} to {pooled_valleys}, and mean from {original_mean} to {pooled_mean}."
-
         
         logger.debug("Density")
         nmodels = len(self._coor_set)
@@ -682,6 +663,7 @@ class QFitRotamericResidue(_BaseQFit):
         )
 
     def run(self):
+        start_time = timeit.default_timer()
         if self.options.sample_backbone:
             self._sample_backbone()
 
@@ -741,6 +723,9 @@ class QFitRotamericResidue(_BaseQFit):
         self.validation_metrics = validator.GoodnessOfFit(
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
+        # End of processing
+        end_time = timeit.default_timer()
+        print(f"Processing time: {end_time - start_time} seconds")
 
 
 
@@ -960,6 +945,8 @@ class QFitRotamericResidue(_BaseQFit):
                 )
         else:
             sampling_window = [0]
+            stride_ = 1
+            pool_size_ = 1
 
         rotamers = self.residue.rotamers
         rotamers.append(
@@ -1143,7 +1130,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_1_bs
 
                 # QP score the first section
-                self._convert()
+                self._convert(stride_, pool_size_)
                 self._solve_qp()
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
@@ -1160,7 +1147,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_2_bs
 
                 # QP score the second section
-                self._convert()
+                self._convert(stride_, pool_size_)
                 self._solve_qp()
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
@@ -1463,6 +1450,7 @@ class QFitSegment(_BaseQFit):
                             threshold=self.options.threshold,
                             cardinality=self.options.cardinality,
                             segment=True,
+                            do_BIC_selection=False,
                         )
                     except SolverError:
                         # MIQP failed and we need to remove conformers that are close to each other
@@ -2532,3 +2520,4 @@ class QFitCovalentLigand(_BaseQFit):
             conformer.b = b
             conformers.append(conformer)
         return conformers
+
