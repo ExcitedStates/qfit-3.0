@@ -29,7 +29,7 @@ class TestQFitLigand:
             "2FOFCWT,PH2FOFCWT",
             "B, 801",  # selection
             "-sm",
-            "[H]/N=C(\CS(=O)C)/NCCC[C@@H](C(=O)O)N",
+            "CS(=O)CC(=N)NCCCC(C(=O)O)N",
             "-nc",
             "1000"
         ]
