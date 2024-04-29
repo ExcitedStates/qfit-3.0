@@ -377,6 +377,12 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
+    # save ligand pdb file to working directory 
+    input_ligand = os.path.join(
+        options.directory, "ligand.pdb"
+    )
+    ligand.tofile(input_ligand)
+
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
