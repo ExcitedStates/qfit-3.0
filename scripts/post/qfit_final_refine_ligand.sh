@@ -137,41 +137,36 @@ fi
 #__________________________________FINAL REFINEMENT__________________________________
 
 # Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
-echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
-echo "refinement.output.serial=2"                >> ${pdb_name}_final_refine.params
-echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
-echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
-echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
-echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine.params
-echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.params
-echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
-echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine.params
-echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine.params
+echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_refine.params
+echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_refine.params
+echo "refinement.output.serial=2"                >> ${pdb_name}_refine.params
+echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_refine.params
+echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_refine.params
+echo "refinement.refine.${adp}"                  >> ${pdb_name}_refine.params
+echo "refinement.output.write_maps=False"        >> ${pdb_name}_refine.params
+echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_refine.params
+echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_refine.params
+echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_refine.params
+echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_refine.params
 
-echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_final_refine.params
+echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
 
 phenix.refine  "${multiconf}.f_modified.pdb" \
                "${pdb_name}.mtz" \
-               "${pdb_name}_final_refine.params" \
-               "refinement.input.xray_data.r_free_flags.generate=True" \
-               "refinement.input.xray_data.labels=${xray_data_labels}" \
+               "${pdb_name}_refine.params" \
                --overwrite
 
-redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_002.pdb"
-mv -v "${pdb_name}_002_norm.pdb" "${pdb_name}_002.pdb"
-
 #__________________________________NAME FINAL FILES__________________________________
-cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit.pdb"
-cp -v "${pdb_name}_002.mtz" "${pdb_name}_qFit.mtz"
-cp -v "${pdb_name}_002.log" "${pdb_name}_qFit.log"
+cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit_ligand.pdb"
+cp -v "${pdb_name}_002.mtz" "${pdb_name}_qFit_ligand.mtz"
+cp -v "${pdb_name}_002.log" "${pdb_name}_qFit_ligand.log"
 
 #__________________________COMMENTARY FOR USER_______________________________________
 if [ -f "${pdb_name}_002.pdb" ]; then
    echo ""
    echo "[qfit_final_refine_ligand] Refinement is complete."
    echo "                         Please be sure to INSPECT your refined structure, especially all new altconfs."
-   echo "                         The output can be found at ${pdb_name}_qFit.(pdb|mtz|log) ."
+   echo "                         The output can be found at ${pdb_name}_qFit_ligand.(pdb|mtz|log) ."
 else
    echo "Refinement did not complete."
    echo "Please check for failure reports by examining log files."
