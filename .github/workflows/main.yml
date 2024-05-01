@@ -30,6 +30,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: environment.yml
           activate-environment: qfit
+      - name: Check Git installation and PATH
+        run: |
+          echo "PATH=$PATH"
+          which git || echo "Git not found"
+          git --version || echo "Git not accessible"
       - name: Conda info
         shell: bash -l {0}
         run: |
