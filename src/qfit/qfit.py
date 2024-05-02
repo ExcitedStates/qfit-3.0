@@ -1716,6 +1716,8 @@ class QFitLigand(_BaseQFit):
         ligand = Chem.RemoveHs(ligand)
 
         # Check for internal/external clashes 
+        if mol.GetNumConformers() == 0:
+            logger.error(f"Unconstrained search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
@@ -1802,7 +1804,9 @@ class QFitLigand(_BaseQFit):
         # Generate conformers 
         AllChem.EmbedMultipleConfs(mol, numConfs=num_conformers, useBasicKnowledge=True, pruneRmsThresh=self.options.rmsd_cutoff, 
                                     coordMap={idx: ligand.GetConformer().GetAtomPosition(idx) for idx in terminal_indices})
-
+        
+        if mol.GetNumConformers() == 0:
+            logger.error(f"terminal atom constrained search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Minimize the energy of each conformer to find most stable structure
             logger.info("Minimizing energy of each conformer")
@@ -1945,7 +1949,9 @@ class QFitLigand(_BaseQFit):
 
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
-
+        
+        if mol.GetNumConformers() == 0:
+            logger.error(f"Spherical search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
@@ -2057,6 +2063,8 @@ class QFitLigand(_BaseQFit):
         branching_ligand = Chem.RemoveHs(branching_ligand)
 
         # Check for internal/external clashes
+        if mol.GetNumConformers() == 0:
+            logger.error(f"Branching search generated no conformers. Moving onto next sampling function.")
         if mol_copy.GetNumConformers() != 0:
             logger.info("Checking for clashes")
             # Store the coordinates of each conformer into numpy array
@@ -2148,7 +2156,9 @@ class QFitLigand(_BaseQFit):
 
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
-
+        
+        if mol.GetNumConformers() == 0:
+            logger.error(f"Long chain search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
