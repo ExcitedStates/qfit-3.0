@@ -190,10 +190,10 @@ def build_argparser():
     )
     p.add_argument(
         "-ec",
-        "--external-clash",
+        "--no-external-clash",
         action="store_true",
         dest="external_clash",
-        help="Enable external clash detection during sampling",
+        help="Turn off external clash detection during sampling",
     )
     p.add_argument(
         "-bs",
@@ -203,22 +203,7 @@ def build_argparser():
         type=float,
         help="Bulk solvent level in absolute values",
     )
-    p.add_argument(
-        "-b",
-        "--dofs-per-iteration",
-        default=2,
-        metavar="<int>",
-        type=int,
-        help="Number of internal degrees that are sampled/built per iteration",
-    )
-    p.add_argument(
-        "-s",
-        "--dihedral-stepsize",
-        default=10,
-        metavar="<float>",
-        type=float,
-        help="Stepsize for dihedral angle sampling in degrees",
-    )
+    
     p.add_argument(
         "-c",
         "--cardinality",
@@ -299,7 +284,9 @@ def build_argparser():
         type=os.path.abspath,
         help="Directory to store results",
     )
-    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
+    p.add_argument(
+        "-v", "--verbose", action="store_true", help="Be verbose"
+    )
     p.add_argument(
         "--debug", action="store_true", help="Log as much information as possible"
     )
