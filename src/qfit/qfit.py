@@ -1577,10 +1577,10 @@ class QFitLigand(_BaseQFit):
         num_gen_conformers = self.options.numConf
         
         # check if ligand has long branch/side chain
+        logger.debug("Testing branching status of ligand")
         branching_test = self.identify_core_and_sidechain(ligand)
         branching_atoms = branching_test[0]
         length_branching = branching_test[1]
-        # print("length of side chain = ", length_branching)
 
         # run rdkit conformer generator 
         logger.info("Starting RDKit conformer generation")
@@ -1590,7 +1590,7 @@ class QFitLigand(_BaseQFit):
             num_conf_for_method = round(num_gen_conformers / 3)
         if branching_atoms:
             if length_branching > 30:
-                #print("has long branches, run long chain search")
+                logger.debug("Ligand has long branches, run long chain search")
                 num_conf_for_method = round(num_gen_conformers / 5)
             elif length_branching <= 30:
                 num_conf_for_method = round(num_gen_conformers / 4)
@@ -1631,14 +1631,12 @@ class QFitLigand(_BaseQFit):
         self.sample_b()
         self._convert()
         if self.options.ligand_bic:
-            print("BIC IS ON")
             self._solve_miqp(
                 threshold=self.options.threshold,
                 cardinality=self.options.cardinality,
                 do_BIC_selection=True
             )
         if not self.options.ligand_bic:
-            print("BIC IS OFF")
             self._solve_miqp(
                 threshold=self.options.threshold,
                 cardinality=self.options.cardinality,
@@ -1722,6 +1720,7 @@ class QFitLigand(_BaseQFit):
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0]) 
+                            
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -1829,6 +1828,7 @@ class QFitLigand(_BaseQFit):
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0]) 
+                            
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -1895,7 +1895,7 @@ class QFitLigand(_BaseQFit):
         # Set up the embedding parameters
         ps = Chem.rdDistGeom.EmbedParameters()
         ps = Chem.rdDistGeom.ETKDGv3()
-        ps.randomSeed = 0xf00d # do I need this??
+        ps.randomSeed = 0xf00d 
         ps.SetBoundsMat(bounds)
         ps.useBasicKnowledge = True
         ps.pruneRmsThresh = self.options.rmsd_cutoff
@@ -2047,6 +2047,7 @@ class QFitLigand(_BaseQFit):
             new_idx_set = []
             new_coor_set = []
             new_bs = []
+            
             # loop through each rdkit generated conformer
             for idx, conf in enumerate(new_coors):  
                 b = self._bs
@@ -2155,6 +2156,7 @@ class QFitLigand(_BaseQFit):
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0]) 
+                            
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
