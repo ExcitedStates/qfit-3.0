@@ -125,6 +125,9 @@ class QFitOptions:
         self.numConf = None
         self.smiles = None
         self.ligand_bic = None
+        self.rot_range = None
+        self.trans_range = None
+        self.rotation_step = None
 
         ### From QFitSegmentOptions
         self.fragment_length = None
@@ -508,7 +511,7 @@ class _BaseQFit:
 
         if len(ring_atoms) == 0:  # No rings in the molecule
             # Use the largest connected component as the core
-            components = Chem.rdmolops.GetMolFrags(mol, asMols=False) # I think this would just select the whole ligand??
+            components = Chem.rdmolops.GetMolFrags(mol, asMols=False)
             core_atoms = max(components, key=len)
         else:
             # Use the largest ring system as the core
@@ -538,6 +541,31 @@ class _BaseQFit:
         length_side_chain = len(all_side_chain_atoms)
         return all_side_chain_atoms, length_side_chain
 
+    def apply_translations(self, conformation, translation_range):
+        translation_range = int(translation_range)
+        translated_conformations = []
+        # translate conformers in x, y, z directions based on input range
+        for dx in np.linspace(-translation_range, translation_range, num=3):  
+            for dy in np.linspace(-translation_range, translation_range, num=3):
+                for dz in np.linspace(-translation_range, translation_range, num=3):
+                    translation_vector = np.array([dx, dy, dz])
+                    translated_conformation = conformation + translation_vector
+                    translated_conformations.append(translated_conformation)
+        return translated_conformations    
+    
+    def apply_rotations(self, conformation, rotation_range, step):
+        rotation_range = int(rotation_range)
+        step = int(step)
+        rotated_conformations = [conformation]  # Include the original conformation
+        center = conformation.mean(axis=0)  # Compute the center of the conformation
+        for angle in range(-rotation_range, rotation_range + step, step):
+            for axis in ['x', 'y', 'z']:
+                r = R.from_euler(axis, np.radians(angle), degrees=False)
+                rotation_matrix = r.as_matrix()
+                # Apply rotation around the center
+                rotated_conformation = np.dot(conformation - center, rotation_matrix.T) + center
+                rotated_conformations.append(rotated_conformation)
+        return rotated_conformations
 
 
 class QFitRotamericResidue(_BaseQFit):
@@ -1552,7 +1580,6 @@ class QFitLigand(_BaseQFit):
         self.xmap = xmap
         self.options = options
         csf = self.options.clash_scaling_factor
-        self._trans_box = [(-0.2, 0.21, 0.1)] * 3
         self._bs = [self.ligand.b]
 
         # External clash detection:
@@ -1689,9 +1716,6 @@ class QFitLigand(_BaseQFit):
         ligand = Chem.RemoveHs(ligand)
 
         # Check for internal/external clashes 
-        if mol.GetNumConformers() == 0:
-            print("NO CONF GENERATED")
-
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
@@ -1922,8 +1946,6 @@ class QFitLigand(_BaseQFit):
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
 
-        if mol.GetNumConformers() == 0:
-            print("NO CONF GENERATED")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
             logger.info("Checking for clashes")
@@ -2174,7 +2196,6 @@ class QFitLigand(_BaseQFit):
     
             self._coor_set = merged_arr
             self._bs = merged_bs
-            # self._bs = new_bs  
     
             logger.info(f"Long chain search generated: {len(new_coor_set)} plausible conformers")  
             logger.info(f"bfactor shape = {np.shape(self._bs)}")
@@ -2192,32 +2213,10 @@ class QFitLigand(_BaseQFit):
 
     def rot_trans(self):
         """
-        Rotate and translate all conformers that pass QP scoring for further sampling of conformational space. Rotate 15 degrees by 5 degree increments in x, y, z directions 
+        Rotate and translate all conformers that pass QP scoring for further sampling of conformational space. Rotate (by default) 15 degrees by 5 degree increments in x, y, z directions 
         and translate 0.3 angstroms in x, y, z directions. 
         """
-        
-        def apply_translations(conformation, translation_range=0.3):
-            translated_conformations = []
-            for dx in np.linspace(-translation_range, translation_range, num=3):  # num can be adjusted based on the desired granularity
-                for dy in np.linspace(-translation_range, translation_range, num=3):
-                    for dz in np.linspace(-translation_range, translation_range, num=3):
-                        translation_vector = np.array([dx, dy, dz])
-                        translated_conformation = conformation + translation_vector
-                        translated_conformations.append(translated_conformation)
-            return translated_conformations    
-        
-        def apply_rotations(conformation, rotation_range=15, step=5):
-            rotated_conformations = [conformation]  # Include the original conformation
-            center = conformation.mean(axis=0)  # Compute the center of the conformation
-            for angle in range(step, rotation_range + step, step):
-                for axis in ['x', 'y', 'z']:
-                    r = R.from_euler(axis, np.radians(angle), degrees=False)
-                    rotation_matrix = r.as_matrix()
-                    # Apply rotation around the center
-                    rotated_conformation = np.dot(conformation - center, rotation_matrix.T) + center
-                    rotated_conformations.append(rotated_conformation)
-            return rotated_conformations
-        
+                
         # Initialize empty list to store rotated/translated conformers + b-factors 
         extended_coor_set = []
         extended_bs = [] 
@@ -2229,14 +2228,14 @@ class QFitLigand(_BaseQFit):
         # rotations
         for conf, b in zip(self._coor_set, self._bs):
             # Apply rotations to each initial conformation
-            rotated_conformations = apply_rotations(conf, rotation_range=15, step=5)
+            rotated_conformations = self.apply_rotations(conf, self.options.rot_range, self.options.rotation_step)
             rotated_coor_set.extend(rotated_conformations)
             rotated_bs.extend([b] * len(rotated_conformations))  # Extend b values for each rotated conformation
 
         # translations 
         for conf, b in zip(self._coor_set, self._bs):
             # Apply translations to each conformation
-            translated_conformations = apply_translations(conf, translation_range=0.3)
+            translated_conformations = self.apply_translations(conf, self.options.trans_range)
             extended_coor_set.extend(translated_conformations)
             extended_bs.extend([b] * len(translated_conformations))  # Extend b values for each translated conformation
 
