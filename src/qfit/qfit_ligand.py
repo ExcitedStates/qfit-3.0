@@ -90,7 +90,6 @@ def build_argparser():
         help="Rotation step size for RDKit conformers",
     )
 
-
     # Map input options
     p.add_argument(
         "-l",
@@ -177,22 +176,7 @@ def build_argparser():
         default=True,
         help="Consider waters for soft clash detection",
     )
-
-    # Sampling options
-    p.add_argument(
-        "--build",
-        action=ToggleActionFlag,
-        dest="build",
-        default=True,
-        help="Build ligand",
-    )
-    p.add_argument(
-        "--local",
-        action=ToggleActionFlag,
-        dest="local_search",
-        default=True,
-        help="Perform a local search",
-    )
+    
     p.add_argument(
         "--remove-conformers-below-cutoff",
         action="store_true",
