@@ -67,6 +67,29 @@ def build_argparser():
         help="Flag to run with ligand BIC on",
     )
 
+    p.add_argument(
+        "-rr",
+        "--rot_range",
+        type=float,
+        default=15.0,
+        help="Rotation range for RDKit conformers",
+    )
+    p.add_argument(
+        "-tr",
+        "--trans_range",
+        type=float,
+        default=0.3,
+        help="Translation range for RDKit conformers",
+    )
+
+    p.add_argument(
+        "-rs",
+        "--rotation_step",
+        type=float,
+        default=5.0,
+        help="Rotation step size for RDKit conformers",
+    )
+
 
     # Map input options
     p.add_argument(
