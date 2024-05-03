@@ -2063,7 +2063,7 @@ class QFitLigand(_BaseQFit):
         branching_ligand = Chem.RemoveHs(branching_ligand)
 
         # Check for internal/external clashes
-        if mol.GetNumConformers() == 0:
+        if mol_copy.GetNumConformers() == 0:
             logger.error(f"Branching search generated no conformers. Moving onto next sampling function.")
         if mol_copy.GetNumConformers() != 0:
             logger.info("Checking for clashes")
