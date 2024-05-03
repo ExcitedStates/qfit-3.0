@@ -20,29 +20,42 @@ jobs:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.9', '3.10']
     steps:
+      - name: Setup Git
+        run: |
+          if ! command -v git &> /dev/null
+          then
+            echo "Git could not be found, attempting to install..."
+            sudo apt-get update
+            sudo apt-get install git -y
+          else
+            echo "Git is already installed."
+            git --version
+          fi
+        if: runner.os != 'windows-latest'  # Skip Git setup on Windows as it usually comes with Git.
+
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Ensures the entire git history is fetched
+
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          miniconda-version: ${{ runner.os == 'macOS' && 'latest' || null }}
+          miniconda-version: ${{ runner.os == 'macos-latest' ? 'latest' : '' }}
           auto-update-conda: true
           channels: anaconda
           auto-activate-base: false
           python-version: ${{ matrix.python-version }}
           environment-file: environment.yml
           activate-environment: qfit
-      - name: Check Git installation and PATH
-        run: |
-          echo "PATH=$PATH"
-          which git || echo "Git not found"
-          git --version || echo "Git not accessible"
+
       - name: Conda info
         shell: bash -l {0}
         run: |
           conda info
           conda list
+
       - name: Run pytest with the Conda environment
         shell: bash -l -o pipefail {0}
         run: |
           pip install .
-          conda install pytest hypothesis[numpy]
+          conda install pytest hypothesis  # Removed the [numpy] as it's usually part of the Hypothesis dependencies directly
           pytest
