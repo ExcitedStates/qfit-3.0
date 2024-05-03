@@ -24,6 +24,7 @@ Electron density maps obtained from high-resolution X-ray diffraction data are a
    conda activate qfit
 
 5) If you installing on M1 Mac:
+   
      conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
      conda activate qfit
    
