@@ -19,19 +19,7 @@ jobs:
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.9', '3.10']
-    steps:
-      - name: Setup Git
-        run: |
-          if ! command -v git &> /dev/null
-          then
-            echo "Git could not be found, attempting to install..."
-            sudo apt-get update
-            sudo apt-get install git -y
-          else
-            echo "Git is already installed."
-            git --version
-          fi
-          
+    steps:     
       - uses: actions/checkout@v2
       - uses: conda-incubator/setup-miniconda@v2
         with:
