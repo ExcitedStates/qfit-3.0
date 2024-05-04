@@ -32,6 +32,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: environment.yml
           activate-environment: qfit
+      - name: Check Git status
+        run: |
+          git status
+          git branch -a
+          git log -1
       - name: Conda info
         shell: bash -l {0}
         run: |
