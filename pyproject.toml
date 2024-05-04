@@ -7,3 +7,7 @@ requires = [
     "cvxpy",
     "pyscipopt",
 ]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "qfit/_version.py"  # Adjust the path according to where you want the version file
