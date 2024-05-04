@@ -21,6 +21,8 @@ jobs:
         python-version: ['3.9', '3.10']
     steps:     
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 
       - uses: conda-incubator/setup-miniconda@v2
         with:
           miniconda-version: ${{ runner.os == 'macOS' && 'latest' || null }}
