@@ -14,7 +14,6 @@ jobs:
   test:
     name: Build & run tests (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -33,11 +32,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: environment.yml
           activate-environment: qfit
-      - name: Check Git status
-        run: |
-          git status
-          git branch -a
-          git log -1
+      # - name: Check Git status
+      #   run: |
+      #     git status
+      #     git branch -a
+      #     git log -1
       - name: Conda info
         shell: bash -l {0}
         run: |
@@ -46,6 +45,6 @@ jobs:
       - name: Run pytest with the Conda environment
         shell: bash -l -o pipefail {0}
         run: |
-          pip install .
+          python setup.py install
           conda install pytest hypothesis[numpy]
           pytest
