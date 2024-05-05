@@ -37,8 +37,8 @@ def main():
     setup(
         name="qfit",
         use_scm_version=True,
-        author="Blake Riley, Stephanie A. Wankowicz, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
-        author_email="saulo@stanford.edu",
+        author="Stephanie A. Wankowicz, Blake Riley, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
+        author_email="mullane.stephanie@gmail.com",
         project_urls={"Documentation": "https://github.com/ExcitedStates/qfit-3.0/"},
         package_dir=package_dir,
         packages=packages,
