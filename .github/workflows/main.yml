@@ -32,11 +32,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: environment.yml
           activate-environment: qfit
-      - name: Install Git
-        if: runner.os == 'macOS'
-        run: |
-          brew install git
-          git --version
       - name: Conda info
         shell: bash -l {0}
         run: |
@@ -45,6 +40,6 @@ jobs:
       - name: Run pytest with the Conda environment
         shell: bash -l -o pipefail {0}
         run: |
-          pip install .
+          pip install --verbose .
           conda install pytest hypothesis[numpy]
           pytest
