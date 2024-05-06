@@ -198,7 +198,7 @@ def build_argparser():
     p.add_argument(
         "-ec",
         "--no-external-clash",
-        action="store_true",
+        action="store_false",
         dest="external_clash",
         help="Turn off external clash detection during sampling",
     )
