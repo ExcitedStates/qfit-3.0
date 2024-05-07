@@ -22,7 +22,8 @@ which can be achieved by using the flag *-r*.
 
 `qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
 
-#### You also must use the -em flag
+#### You also must use the -em flag for cryo-EM structures. 
+
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
 
 `qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em`
