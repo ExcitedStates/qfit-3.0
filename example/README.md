@@ -24,7 +24,7 @@ which can be achieved by using the flag *-r*.
 
 For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
 
-# For EM, you must put on -em flag #
+#### For EM, you must put on -em flag #
 
 `qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em`
 
