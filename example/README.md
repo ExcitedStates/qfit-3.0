@@ -22,14 +22,15 @@ which can be achieved by using the flag *-r*.
 
 `qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
 
-For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
+For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22`
+# For EM, you must put on -em flag #
+
+`qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em`
 
 We recommend users run [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
-
+`qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb multiconformer_model2.pdb`
