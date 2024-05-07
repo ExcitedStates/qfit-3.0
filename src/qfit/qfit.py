@@ -1196,6 +1196,13 @@ class QFitRotamericResidue(_BaseQFit):
     def tofile(self):
         # Save the individual conformers
         conformers = self.get_conformers()
+        if len(conformers) == 0:
+            msg = "No conformers could be generated. " "Using Deposited conformer."
+            logger.warning(msg)
+            self._coor_set = [self.residue.coor]
+            self._bs = [self.residue.b]
+            self._occupancies = [1.0]
+            conformers = self.get_conformers()
         for n, conformer in enumerate(conformers, start=1):
             fname = os.path.join(self.directory_name, f"conformer_{n}.pdb")
             conformer.tofile(fname)
@@ -2238,11 +2245,11 @@ class QFitCovalentLigand(_BaseQFit):
                 self._bs = new_bs
 
             if not self._coor_set:
-                msg = (
-                    "No conformers could be generated. Check for initial "
-                    "clashes and density support."
+                logger.warning(
+                    "No conformers could be generated. Using deposited conformer."
                 )
-                raise RuntimeError(msg)
+                self._coor_set = [self.residue.coor]
+                self._bs = [self.residue.b]
             else:
                 logger.info(
                     f"Side chain sampling produced {len(self._coor_set)} conformers"
