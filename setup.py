@@ -32,6 +32,7 @@ def main():
         "pandas>=1.2",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
+        "rdkit",
     ]
 
     setup(
@@ -70,6 +71,7 @@ def main():
         scripts=[
             "scripts/post/qfit_final_refine_xray.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
+            "scripts/post/qfit_final_refine_ligand.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",

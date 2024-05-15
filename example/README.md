@@ -87,11 +87,19 @@ Using the example 3K0N, spawning 30 parallel processes:
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
-`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
+`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND] -sm [SMILES]`
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
-(aka res. number). The main output file is named *multiconformer_model_[CHAIN]_[LIGAND].pdb*
+(aka res. number). The main output file is named *multiconformer_ligand_bound_with_protein.pdb*
+
+
+If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
 
 Using the example 4MS6:
 
-`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702`
+`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 10000`
+
+
+To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
+
+`qfit_final_refine_ligand.sh 4ms6.mtz`

@@ -28,6 +28,10 @@ class TestQFitLigand:
             "-l",
             "2FOFCWT,PH2FOFCWT",
             "B, 801",  # selection
+            "-sm",
+            "CS(=O)CC(=N)NCCCC(C(=O)O)N",
+            "-nc",
+            "1000"
         ]
 
         # TODO: Add options to reduce computational load

@@ -7,6 +7,7 @@ qFit is a collection of programs for modeling multi-conformer protein structures
 
 Electron density maps obtained from high-resolution X-ray diffraction data are a spatial and temporal average of all conformations within the crystal. qFit evaluates an extremely large number of combinations of sidechain conformers, backbone fragments and small-molecule ligands to locally explain the electron density.
 
+
 ## Installation
 
 1) Download qFit
@@ -100,6 +101,25 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
 
 More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
+
+To model alternate conformations of ligands using qFit, execute the following command:
+
+`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] [PDB_FILE] -l [LABELS] [SELECTION] -sm [SMILES]`
+
+This command facilitates the incorporation of alternate ligand conformations into your protein model. The results are outputted to two files: *multiconformer_ligand_bound_with_protein.pdb*, which is the multiconformer model of the protein-ligand complex, and *multiconformer_ligand_only.pdb*, which is the multiconformer model of the ligand alone. 
+
+After running qFit-ligand, it is recommended to perform a final refinement using the script found in [scripts](scripts/post). Run this in the same directory as your models.
+
+If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
+
+Using the example 4MS6:
+
+`qfit_ligand example/qfit_ligand_example/4ms6_composit_map.mtz example/qfit_ligand_example/4ms6.pdb -l 2FOFCWT,PH2FOFCWT A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 10000`
+
+To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
+
+`qfit_final_refine_ligand.sh 4ms6.mtz`
+
 
 ## Citations
 If you use this software, please cite: 
