@@ -108,62 +108,6 @@ class _BaseVolume(ABC):
         self.array[real_sel_np] += value
 
 
-# XXX currently unused
-class EMMap(_BaseVolume):
-
-    """A non-periodic volume. Has no notion of a unit cell or space group."""
-
-    def __init__(self, array, grid_parameters=None, origin=(0, 0, 0)):
-        super().__init__(array, grid_parameters, origin)
-
-    # FIXME replace with ccp4 input
-    # @classmethod
-    # def fromfile(cls, fid, fmt=None):
-    #    p = parse_volume(fid)
-    #    density = p.density
-    #    grid_parameters = GridParameters(p.voxelspacing)
-    #    origin = p.origin
-    #    return cls(density, grid_parameters=grid_parameters, origin=origin)
-
-    @classmethod
-    def zeros(cls, shape, grid_parameters=None, origin=None):
-        array = np.zeros(shape, dtype=np.float64)
-        return cls(array, grid_parameters, origin)
-
-    @classmethod
-    def zeros_like(cls, volume):
-        array = np.zeros_like(volume.array)
-        return cls(array, volume.grid_parameters, volume.origin)
-
-    def copy(self):
-        return EMMap(
-            self.array.copy(),
-            grid_parameters=self.grid_parameters.copy(),
-            origin=self.origin.copy(),
-        )
-
-    def interpolate(self, xyz, order=1):
-        # Transform xyz to grid coor.
-        grid_coor = xyz - self.origin
-        grid_coor /= self.grid_parameters.voxelspacing
-        values = map_coordinates(self.array, grid_coor.T[::-1], order=order)
-        return values
-
-    def extract(self, xyz, padding=3):
-        grid_coor = xyz - self.origin
-        grid_coor /= self.voxelspacing
-        grid_padding = padding / self.voxelspacing
-        lb = grid_coor.min(axis=0) - grid_padding
-        ru = grid_coor.max(axis=0) + grid_padding
-        lb = np.floor(lb).astype(int)
-        lb = np.maximum(lb, 0)
-        ru = np.ceil(ru).astype(int)
-        array = self.array[lb[2] : ru[2], lb[1] : ru[1], lb[0] : ru[0]].copy()
-        grid_parameters = GridParameters(self.voxelspacing)
-        origin = self.origin + lb * self.voxelspacing
-        return EMMap(array, grid_parameters=grid_parameters, origin=origin)
-
-
 class XMap(_BaseVolume):
 
     """A periodic volume with a unit cell and space group."""

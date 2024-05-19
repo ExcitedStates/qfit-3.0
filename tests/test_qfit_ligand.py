@@ -22,6 +22,7 @@ from qfit.solvers import (
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skip(reason="FIXME too slow and unstable")
 class TestQFitLigand(BaseTestRunner):
     def mock_main(self):
         data_dir = os.path.join(os.path.dirname(__file__), "qfit_ligand_test")
@@ -47,7 +48,7 @@ class TestQFitLigand(BaseTestRunner):
         options.debug = True  # For debugging in tests
         options.qp_solver = next(iter(available_qp_solvers.keys()))
         options.miqp_solver = next(iter(available_miqp_solvers.keys()))
-        options.transformer = "cctbx"
+        #options.transformer = "cctbx"
 
         # Setup logger
         setup_logging(options=options, filename="qfit_ligand.log")

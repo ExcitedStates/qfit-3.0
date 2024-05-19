@@ -95,12 +95,13 @@ def read_pdb(fname):
     return read_pdb_or_mmcif(fname)
 
 
-def write_pdb(fname, structure):
+def write_pdb(fname, structure, resolution=None):
     """
     Write a structure to a PDB file using the iotbx.pdb API
     """
-    # FIXME this does not save resolution!
     with smart_open.for_writing(fname, gzip_mode="wt") as f:
+        if resolution is not None:
+            f.write(f"REMARK   2 RESOLUTION.    {resolution:.2f} ANGSTROMS.\n")
         if structure.crystal_symmetry:
             f.write(
                 "{}\n".format(

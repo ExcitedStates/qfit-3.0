@@ -197,7 +197,7 @@ class BaseTestRunner(unittest.TestCase):
         assert cc >= cc_min, f"Bad CC: {cc} < {cc_min}"
 
     def _get_rotamer(self, residue, chi_radius=CHI_RADIUS):
-        # FIXME this is awful, we should replace it with something like
+        # TODO this is awful, we should replace it with something like
         # mmtbx.rotalyze but I don't have the necessary library data
         if len(residue.rotamers) == 0:
             return None

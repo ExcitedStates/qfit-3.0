@@ -482,12 +482,6 @@ class QFitProtein:
             # This output is not a final qFit output, so it might confuse users
             if self.options.debug:
                 fname = self._get_output_model_path("multiconformer_model")
-                # FIXME
-                #if self.options.scale or self.options.cryst_info:
-                #    multiconformer_model.tofile(
-                #        fname, self.structure.scale, self.structure.cryst_info
-                #    )
-                #else:
                 multiconformer_model.tofile(fname,
                     self.structure.crystal_symmetry)
 
@@ -684,9 +678,6 @@ def prepare_qfit_protein(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure).reorder()
-    # FIXME
-    #options.scale_info = structure.scale
-    #options.cryst_info = structure.cryst_info
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 

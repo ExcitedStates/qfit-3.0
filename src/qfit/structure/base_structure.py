@@ -196,9 +196,13 @@ class BaseStructure(ABC):
         coor = np.dot(self.coor, R.T)  # pylint: disable=access-member-before-definition
         self.coor = coor
 
-    # FIXME this is not used anywhere, but the logic to handle ring flips
+    # TODO this is not used anywhere, but the logic to handle ring flips
     # is something we should incorporate in the overall program
     def rmsd(self, other):
+        """
+        Compute the pairwise RMSD to another conformation of the same
+        residue, accounting for the symmetry of PHE/TYR rings.
+        """
         coor1 = self.coor
         coor2 = other.coor
         if coor1.shape != coor2.shape:
@@ -374,7 +378,7 @@ class BaseStructure(ABC):
 
     @property
     def charge(self):
-        return np.array(["" for a in self.atoms])  # FIXME
+        return np.array([a.charge.strip() for a in self.atoms])
 
     @property
     def chain(self):

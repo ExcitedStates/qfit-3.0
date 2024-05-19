@@ -49,8 +49,7 @@ class QFitOptions:
         self.em = False
         self.scale_info = None
         self.cryst_info = None
-        # TODO make the default "cctbx"
-        self.transformer = "qfit"
+        self.transformer = "cctbx"
 
         # Density preparation options
         self.density_cutoff = 0.3

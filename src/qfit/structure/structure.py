@@ -142,7 +142,7 @@ class Structure(BaseStructure):
         keep_mask = self._get_base_atom_selection(keep_sel_str)
         keep_sel = keep_mask.select(~remove_mask).iselection()
         atoms = self.get_selected_atoms((~remove_mask).iselection())
-        # FIXME This should manipulate the hierarchy directly instead of
+        # XXX This should ideally manipulate the hierarchy directly instead of
         # using the atom label objects
         atom_labels = [a.fetch_labels() for a in atoms]
         for i_seq in keep_sel:
@@ -312,7 +312,8 @@ class Structure(BaseStructure):
         Returns:
             int
         """
-        # FIXME this is very inefficient
+        # XXX this is very inefficient, but since this method is called
+        # infrequently it's probably not worth the effort to optimize
         residue_groups = self._get_non_hetero_structure().residue_groups
         return sum(1 for _ in residue_groups)
 

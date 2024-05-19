@@ -113,11 +113,10 @@ def get_base_argparser(description):
         type=float,
         help="Padding size for map creation",
     )
-    # TODO make the default "cctbx"
     p.add_argument(
         "--transformer",
-        choices=["qfit","cctbx","fft"],
-        default="qfit",
+        choices=["cctbx","fft","qfit"],
+        default="cctbx",
         dest="transformer",
         help="Map sampling algorithm")
 

@@ -403,18 +403,17 @@ class QfitTransformer(CCTBXTransformer):
             return w * a * (1 - a * a * r * r / 6.0)
 
 
-# XXX leaving the old implementation as the default for now
-class Transformer(QfitTransformer):
+class Transformer(CCTBXTransformer):
     ...
 
 
-def get_transformer(impl_name, *args, **kwds):
+def get_transformer(impl_name="qfit", *args, **kwds):
     """
     Instantiate a Transformer class using the specified implementation.
     """
     if impl_name == "fft":
         return FFTTransformer(*args, **kwds)
-    elif impl_name == "cctbx":
-        return CCTBXTransformer(*args, **kwds)
-    else:
+    elif impl_name == "qfit":
         return QfitTransformer(*args, **kwds)
+    else:
+        return CCTBXTransformer(*args, **kwds)

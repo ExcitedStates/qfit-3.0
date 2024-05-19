@@ -142,7 +142,7 @@ class Ligand(BaseLigand):
                 try:
                     connectivity_matrix[index1, index2] = True
                     connectivity_matrix[index2, index1] = True
-                except Exception as e:  # FIXME why?
+                except IndexError as e:
                     if not (a1.startswith("H") or a2.startswith("H")):
                         logging.warning(f"Can't find atoms for {cif_bond}: {e}")
                     continue
@@ -150,7 +150,7 @@ class Ligand(BaseLigand):
                     try:
                         index1 = index1[0, 0]
                         index2 = index2[0, 0]
-                    except Exception as e:
+                    except IndexError as e:
                         logging.warning(f"Can't find atoms for {cif_bond}: {e}")
                         continue
                     if index1 not in self.bond_types:
