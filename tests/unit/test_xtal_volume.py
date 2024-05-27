@@ -296,13 +296,13 @@ class TestVolumeXmapIO(UnitBase):
                                              real_map)
         asu_rm = asu_map.data()
         tmp_map = tempfile.NamedTemporaryFile(suffix="map.ccp4").name
-        iotbx.ccp4_map.write_ccp4_map(
+        iotbx.ccp4_map.write_ccp4_map(  # pylint: disable=no-member
             file_name=tmp_map,
             unit_cell=coeffs.unit_cell(),
             space_group=coeffs.space_group(),
             unit_cell_grid=real_map.focus(),
             map_data=asu_rm,
-            labels=flex.std_string(["qfit-test"]))
+            labels=flex.std_string(["qfit-test"]))  # pylint: disable=no-member
         # now load as a qFit map and expand to p1
         xmap_asu = XMap.fromfile(tmp_map, resolution=coeffs.d_min())
         assert xmap_asu.n_real() == (13, 19, 49)

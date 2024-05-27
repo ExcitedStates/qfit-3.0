@@ -338,7 +338,8 @@ class BaseStructure(ABC):
             for atom in self.atoms:
                 atom.b = value
         else:
-            return self.atoms.set_b(flex.double(value))
+            b_values = flex.double(value)
+            return self.atoms.set_b(b_values)
 
     @property
     def q(self):

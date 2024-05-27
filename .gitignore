@@ -106,5 +106,5 @@ ENV/
 .DS_Store
 
 validation_metrics.txt
-tmp
+tmp*
 *.pse

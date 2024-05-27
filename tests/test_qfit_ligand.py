@@ -22,7 +22,7 @@ from qfit.solvers import (
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.skip(reason="FIXME too slow and unstable")
+#@pytest.mark.skip(reason="FIXME too slow and unstable")
 class TestQFitLigand(BaseTestRunner):
     def mock_main(self):
         data_dir = os.path.join(os.path.dirname(__file__), "qfit_ligand_test")
@@ -33,6 +33,10 @@ class TestQFitLigand(BaseTestRunner):
             "-l",
             "2FOFCWT,PH2FOFCWT",
             "B, 801",  # selection
+            "-sm",
+            "CS(=O)CC(=N)NCCCC(C(=O)O)N",
+            "-nc",
+            "1000"
         ]
 
         # TODO: Add options to reduce computational load

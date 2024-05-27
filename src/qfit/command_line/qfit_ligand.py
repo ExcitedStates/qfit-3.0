@@ -14,12 +14,13 @@ from qfit import MapScaler, Structure, XMap, Ligand
 from qfit.qfit import QFitLigand, QFitOptions
 from qfit.logtools import setup_logging, log_run_info
 
+
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
 def build_argparser():
-    p = get_base_argparser(__doc__)
+    p = get_base_argparser(__doc__,
+                           default_enable_external_clash=True)
     p.add_argument(
         "-cif",
         "--cif_file",
@@ -33,37 +34,52 @@ def build_argparser():
         help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.",
     )
 
-    # Sampling options
+    # RDKit input options
     p.add_argument(
-        "--build",
-        action=ToggleActionFlag,
-        dest="build",
-        default=True,
-        help="Build ligand",
+        "-sm",
+        "--smiles",
+        type=str,
+        required=True,
+        help="SMILES string for molecule",
     )
     p.add_argument(
-        "--local",
-        action=ToggleActionFlag,
-        dest="local_search",
-        default=True,
-        help="Perform a local search",
-    )
-    p.add_argument(
-        "-b",
-        "--dofs-per-iteration",
-        default=2,
-        metavar="<int>",
+        "-nc",
+        "--numConf",
         type=int,
-        help="Number of internal degrees that are sampled/built per iteration",
+        default=10000,
+        help="Number of RDKit conformers to generate",
+    )
+
+    p.add_argument(
+        "-lb",
+        "--ligand_bic",
+        action="store_true",
+        help="Flag to run with ligand BIC on",
+    )
+
+    p.add_argument(
+        "-rr",
+        "--rot_range",
+        type=float,
+        default=15.0,
+        help="Rotation range for RDKit conformers",
     )
     p.add_argument(
-        "-s",
-        "--dihedral-stepsize",
-        default=10,
-        metavar="<float>",
+        "-tr",
+        "--trans_range",
         type=float,
-        help="Stepsize for dihedral angle sampling in degrees",
+        default=0.3,
+        help="Translation range for RDKit conformers",
     )
+
+    p.add_argument(
+        "-rs",
+        "--rotation_step",
+        type=float,
+        default=5.0,
+        help="Rotation step size for RDKit conformers",
+    )
+
     p.add_argument(
         "-ic",
         "--intermediate-cardinality",
@@ -102,11 +118,13 @@ def prepare_qfit_ligand(options):
     chainid, resi = options.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
+        residue_id = (int(resi), icode)  # pylint: disable=unused-variable
     else:
+        residue_id = int(resi)  # pylint: disable=unused-variable
         icode = ""
 
     # Extract the ligand:
-    structure_ligand = structure.extract(f"chain {chainid} and resid {resi}")
+    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
 
     if icode:
         structure_ligand = structure_ligand.extract("icode", icode)
@@ -140,6 +158,13 @@ def prepare_qfit_ligand(options):
 
     ligand.altloc = ""
     ligand.q = 1
+
+    # save ligand pdb file to working directory
+    os.makedirs(options.directory, exist_ok=True)
+    input_ligand = os.path.join(
+        options.directory, "ligand.pdb"
+    )
+    ligand.tofile(input_ligand)
 
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
@@ -175,7 +200,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode, receptor
 
 
 def main():
@@ -196,7 +221,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, _, _, icode, receptor = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)  # pylint: disable=unused-variable
 
     time0 = time.time()
     qfit_ligand.run()

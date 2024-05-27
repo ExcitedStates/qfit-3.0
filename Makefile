@@ -17,17 +17,19 @@ test: test-unit test-int
 
 pylint:
 	set -o pipefail && \
-	  pylint --disable=R,C,W --enable=$(PYLINT_ERROR_WARNINGS) src/qfit/ 2>&1 | \
-	  (grep -v RuntimeWarning || true) 1>&2
+		pylint --disable=R,C,W --enable=$(PYLINT_ERROR_WARNINGS) \
+		--ignored-modules=rdkit,scitbx.array_family,cctbx,iotbx \
+		src/qfit/ 2>&1 | \
+		(grep -v RuntimeWarning || true) 1>&2
 	set -o pipefail && \
-	  pylint --disable=R,C,W0511,W0612,W0613,W0632 tests/ 2>&1 | \
-	  (grep -v RuntimeWarning || true) 1>&2
+		pylint --disable=R,C,W0511,W0612,W0613,W0632 tests/ 2>&1 | \
+		(grep -v RuntimeWarning || true) 1>&2
 
 # This is too aggressive to fix everything right now
 pylint-warn:
 	set -o pipefail && \
-	  pylint --disable=R,C src/qfit/ 2>&1 | \
-	  (grep -v RuntimeWarning || true) 1>&2
+		pylint --disable=R,C src/qfit/ 2>&1 | \
+		(grep -v RuntimeWarning || true) 1>&2
 
 clean:
 	rm -rf build dist

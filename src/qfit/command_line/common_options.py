@@ -12,7 +12,8 @@ from qfit.command_line.custom_argparsers import (
 from qfit.solvers import available_qp_solvers, available_miqp_solvers
 
 
-def get_base_argparser(description):
+def get_base_argparser(description,
+                       default_enable_external_clash=False):
     p = argparse.ArgumentParser(
         formatter_class=CustomHelpFormatter, description=description
     )
@@ -143,13 +144,22 @@ def get_base_argparser(description):
         type=float,
         help="Set clash scaling factor",
     )
-    p.add_argument(
-        "-ec",
-        "--external-clash",
-        action="store_true",
-        dest="external_clash",
-        help="Enable external clash detection during sampling",
-    )
+    if default_enable_external_clash:
+        p.add_argument(
+            "-ec",
+            "--no-external-clash",
+            action="store_false",
+            dest="external_clash",
+            help="Turn off external clash detection during sampling",
+        )
+    else:
+        p.add_argument(
+            "-ec",
+            "--external-clash",
+            action="store_true",
+            dest="external_clash",
+            help="Enable external clash detection during sampling",
+        )
     p.add_argument(
         "-bs",
         "--bulk-solvent-level",

@@ -58,6 +58,7 @@ def remove_redistribute_conformer(residue, remove, keep):
         residue_out.altloc = ""  # adjusting altloc label
 
     else:
+        additional_occ_redist = 0
         naltlocs = len(
             np.unique(residue_out.extract("q", 1.0, "!=").altloc)
         )  # number of altlocs left

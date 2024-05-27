@@ -13,10 +13,12 @@ class ClashDetector:
     def __init__(self, ligand, receptor, scaling_factor=0.85, exclude=None):
         self.ligand = ligand
         self.scaling_factor = scaling_factor
+        self.receptor = receptor
         receptor_radius = receptor.vdw_radius
         self.ligand_radius = self.ligand.vdw_radius
+        max_receptor_radius = 0 if receptor_radius.size == 0 else receptor_radius.max()
         self.voxelspacing = self.scaling_factor * (
-            receptor_radius.max() + self.ligand_radius.max()
+            max_receptor_radius + self.ligand_radius.max()
         )
         self.exclude = exclude
 
@@ -35,7 +37,6 @@ class ClashDetector:
             self.grid[key] = np.asarray(value)
         for key, value in self.radius.items():
             self.radius[key] = np.asarray(value)
-        self.receptor = receptor
 
     def __call__(self):
         inv_voxelspacing = 1 / self.voxelspacing

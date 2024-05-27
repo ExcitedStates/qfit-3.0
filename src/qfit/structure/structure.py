@@ -581,6 +581,7 @@ class _Conformer(BaseStructure):
     def __getitem__(self, arg):
         if not self._residues:
             self._build_residues()
+        key = None
         if isinstance(arg, int):
             key = (arg, "")
         elif isinstance(arg, tuple):

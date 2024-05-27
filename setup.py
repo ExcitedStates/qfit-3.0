@@ -33,13 +33,14 @@ def main():
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
         "molmass",
+        "rdkit",
     ]
 
     setup(
         name="qfit",
         use_scm_version=True,
-        author="Blake Riley, Stephanie A. Wankowicz, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
-        author_email="saulo@stanford.edu",
+        author="Stephanie A. Wankowicz, Blake Riley, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
+        author_email="mullane.stephanie@gmail.com",
         project_urls={"Documentation": "https://github.com/ExcitedStates/qfit-3.0/"},
         package_dir=package_dir,
         packages=packages,
@@ -69,6 +70,7 @@ def main():
         scripts=[
             "scripts/post/qfit_final_refine_xray.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
+            "scripts/post/qfit_final_refine_ligand.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",

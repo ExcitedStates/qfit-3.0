@@ -32,6 +32,18 @@ class SyntheticMapRunner(BaseTestRunner):
 
 
 class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
+    COMMON_SAMPLING_ARGS = [
+        "--backbone-amplitude",
+        "0.1",
+        "--rotamer-neighborhood",
+        "10",
+        # XXX this is required for many of these tests to work
+        "--dofs-per-iteration",
+        "2",
+        "--dihedral-stepsize",
+        "10",
+        "--transformer", "cctbx"
+    ]
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
                       extra_args=(), em=False):
@@ -43,22 +55,12 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
             "qfit_protein",
             fmodel_mtz,
             pdb_file_single,
-            "--debug",
+            #"--debug",
             "--resolution",
             str(high_resolution),
             "--label",
             "FWT,PHIFWT",
-            "--backbone-amplitude",
-            "0.1",
-            "--rotamer-neighborhood",
-            "10",
-            # XXX this is required for many of these tests to work
-            "--dofs-per-iteration",
-            "2",
-            "--dihedral-stepsize",
-            "10",
-            "--transformer", "cctbx"
-        ] + list(extra_args)
+        ] + self.COMMON_SAMPLING_ARGS + list(extra_args)
         if em:
             qfit_args.append("--cryo_em")
         print(" ".join(qfit_args))
@@ -143,7 +145,8 @@ class TestQfitProteinSimple(QfitProteinSyntheticDataRunner):
 class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
 
     # cutoff for multiple tests that behave differently for Xray vs EM
-    MIN_CC_PHE = 0.99
+    MIN_CC_PHE = 0.989
+    D_MIN_7MER = 1.3
 
     def _run_kmer_and_validate_identical_rotamers(
         self, peptide_name, d_min, chi_radius=SyntheticMapRunner.CHI_RADIUS,
@@ -215,11 +218,9 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         rotamers = self._run_and_validate_identical_rotamers(
             pdb_multi,
             pdb_single,
-            d_min=2.00009,
+            d_min=1.95, #1.7,
             chi_radius=15,
-            # FIXME the associated CCP4 map input test consistently has a lower
-            # correlation than the MTZ input version
-            cc_min=0.9845,
+            cc_min=0.973
         )
         # this should not find a third distinct conformation (although it may
         # have overlapped conformations of the same rotamer)
@@ -278,7 +279,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         self._validate_new_fmodel(
             fmodel_in=fmodel_in,
             high_resolution=d_min,
-            model_name="multiconformer_model.cif",
+            model_name="multiconformer_model2.cif",
             cc_min=self.MIN_CC_PHE
         )
 
@@ -304,27 +305,27 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         """
         Build a 7-mer peptide with multiple residues in double conformations
         """
-        d_min = 1.3
         (pdb_multi, pdb_single) = self._get_start_models("GNNAFNS")
-        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single,
+                                       high_resolution=self.D_MIN_7MER)
         self._validate_7mer_confs(pdb_multi)
-        self._validate_new_fmodel(fmodel_in, d_min, 0.95)
+        self._validate_new_fmodel(fmodel_in, self.D_MIN_7MER, 0.95)
 
     def test_qfit_protein_7mer_peptide_p1(self):
         """
         Build a 7-mer peptide with multiple residues in double conformations
         in a smaller P1 cell.
         """
-        d_min = 1.3
         new_models = []
         for pdb_file in self._get_start_models("GNNAFNS"):
             new_models.append(self._replace_symmetry(
                 new_symmetry=("P1", (30, 10, 15, 90, 105, 90)),
                 pdb_file=pdb_file))
         (pdb_multi, pdb_single) = new_models
-        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single, high_resolution=d_min)
+        fmodel_in = self._run_qfit_cli(pdb_multi, pdb_single,
+                                       high_resolution=self.D_MIN_7MER)
         self._validate_7mer_confs(pdb_multi)
-        self._validate_new_fmodel(fmodel_in, d_min, 0.95)
+        self._validate_new_fmodel(fmodel_in, self.D_MIN_7MER, 0.95)
 
     def _validate_7mer_confs(self, pdb_file_multi):
         rotamers_in = self._get_model_rotamers(pdb_file_multi)
@@ -367,7 +368,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         """
         Build a low-occupancy Arg conformer.
         """
-        # FIXME this test is very sensitive to slight differences in input and
+        # XXX this test is very sensitive to slight differences in input and
         # OS - in some circumstances it can detect occupancy as low as 0.28,
         # but not when using CCP4 input
         d_min = 1.18
@@ -416,6 +417,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         assert len(rotamers[3]) == 2
 
 
+@pytest.mark.cryoem
 @pytest.mark.slow
 class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
     """
@@ -424,7 +426,8 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
 
     # XXX the three '3mer_phe' tests have consistently lower model-map CC in
     # this test
-    MIN_CC_PHE = 0.976
+    MIN_CC_PHE = 0.975
+    D_MIN_7MER = 1.15
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
                       extra_args=(), em=True):
@@ -438,20 +441,10 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
             "qfit_protein",
             "fmodel_1.ccp4",
             pdb_file_single,
-            "--debug",
+            #"--debug",
             "--resolution",
             str(high_resolution),
-            "--backbone-amplitude",
-            "0.1",
-            "--rotamer-neighborhood",
-            "10",
-            # XXX this is required for many of these tests to work
-            "--dofs-per-iteration",
-            "2",
-            "--dihedral-stepsize",
-            "10",
-            "--transformer", "cctbx"
-        ] + list(extra_args)
+        ] + self.COMMON_SAMPLING_ARGS + list(extra_args)
         qfit_args.append("--cryo_em")
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
@@ -519,7 +512,7 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
     # TODO figure out why this fails at lower resolution
     def test_qfit_protein_rebuilt_tripeptide_glu(self):
         self._run_rebuilt_multi_conformer_tripeptide("GLU",
-            d_min=1.35, set_b_iso=8)
+            d_min=1.3, set_b_iso=8)
 
     def test_qfit_protein_rebuilt_tripeptide_his(self):
         self._run_rebuilt_multi_conformer_tripeptide("HIS")

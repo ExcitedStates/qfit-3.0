@@ -273,12 +273,15 @@ class RecordParser:
         """
         field = formatter.format(value)
         if len(field) > maxlen:
+            replacement_field = None
             if dtype is str:
                 replacement_field = "X" * maxlen
             elif dtype is float:
                 replacement_field = formatter.format(inf)
             elif dtype is int:
                 replacement_field = formatter.format(0)
+            else:
+                raise RuntimeError(f"Can't handle type {dtype} here")
             logger.warning(
                 f"{field} exceeds field width {maxlen} chars. "
                 f"Using {replacement_field}."

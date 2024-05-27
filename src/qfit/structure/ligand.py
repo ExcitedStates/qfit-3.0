@@ -447,6 +447,7 @@ class BondOrder(object):
             if ncluster == cluster:
                 continue
             for b in self.bonds:
+                bond = (None, None)
                 if b[0] in cluster and b[1] in ncluster:
                     bond = (b[0], b[1])
                 elif b[1] in cluster and b[0] in ncluster:

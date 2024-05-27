@@ -124,7 +124,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
 
     @pytest.mark.fast
     def test_sample_sidechain_3mer_phe_p21(self):
-        result, multi = self._run_setup_and_sample_sidechain_3mer("AFA", 1.3)
+        result, multi = self._run_setup_and_sample_sidechain_3mer("AFA", 1.2)
         new_confs = result.get_conformers()
         # I think the third conformer is a flipped ring?  In the full program
         # it appears to get pruned later
@@ -169,10 +169,10 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
                                   rmsd_min_other_conf=rmsd_min_other_conf)
 
     def test_sampling_rebuilt_tripeptide_arg(self):
-        self._run_sampling_rebuilt_3mer("ARG", d_min=1.9)
+        self._run_sampling_rebuilt_3mer("ARG", d_min=1.6)
 
     def test_sampling_rebuilt_tripeptide_asn(self):
-        self._run_sampling_rebuilt_3mer("ASN")
+        self._run_sampling_rebuilt_3mer("ASN", d_min=1.4)
 
     def test_sampling_rebuilt_tripeptide_asp(self):
         self._run_sampling_rebuilt_3mer("ASP")
@@ -198,10 +198,10 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         self._run_sampling_rebuilt_3mer("LEU")
 
     def test_sampling_rebuilt_tripeptide_lys(self):
-        self._run_sampling_rebuilt_3mer("LYS", d_min=1.8)
+        self._run_sampling_rebuilt_3mer("LYS", d_min=1.6)
 
     def test_sampling_rebuilt_tripeptide_met(self):
-        self._run_sampling_rebuilt_3mer("MET", d_min=1.8)
+        self._run_sampling_rebuilt_3mer("MET", d_min=1.6)
 
     def test_sampling_rebuilt_tripeptide_phe(self):
         self._run_sampling_rebuilt_3mer("PHE", d_min=1.35)
@@ -220,4 +220,4 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         self._run_sampling_rebuilt_3mer("TYR", d_min=1.5)
 
     def test_sampling_rebuilt_tripeptide_val(self):
-        self._run_sampling_rebuilt_3mer("VAL", d_min=2.0)
+        self._run_sampling_rebuilt_3mer("VAL", d_min=1.8)

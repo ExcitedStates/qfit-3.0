@@ -14,7 +14,7 @@ This will produce a parsimonious model containing up to 5 alternate conformers
 for residue 113 of chain A of 3K0N.
 
 
-### 2. Using a map file in ".ccp4" format as input for qFit (cryo-EM structure)
+### 2. Running qFit on cyro-EM structures. 
 
 qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
@@ -22,14 +22,15 @@ which can be achieved by using the flag *-r*.
 
 `qfit_protein [MAP_FILE] [PDB_FILE] -r [RESOLUTION]`
 
-For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M)
+#### You also must use the -em flag for cryo-EM structures. 
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22`
+For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
+
+`qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em`
 
 We recommend users run [qscore](https://github.com/gregdp/mapq) to determine which residues should be modeled using qFit. After running qscore, run qFit protein using the following command:
 
-`qfit_protein qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb -r 1.22 --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
-
+`qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em --qscore 7A4M.pdb__Q__apoF_chainA.ccp4_All.txt`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_cryoem.sh qfit_cryoem_example/apoF_chainA.ccp4 qfit_cryoem_example/apoF_chainA.pdb multiconformer_model2.pdb`
@@ -86,11 +87,19 @@ Using the example 3K0N, spawning 30 parallel processes:
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
 
-`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND]`
+`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] -l [LABEL] [PDB_FILE] [CHAIN,LIGAND] -sm [SMILES]`
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
-(aka res. number). The main output file is named *multiconformer_model_[CHAIN]_[LIGAND].pdb*
+(aka res. number). The main output file is named *multiconformer_ligand_bound_with_protein.pdb*
+
+
+If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
 
 Using the example 4MS6:
 
-`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702`
+`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 10000`
+
+
+To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
+
+`qfit_final_refine_ligand.sh 4ms6.mtz`
