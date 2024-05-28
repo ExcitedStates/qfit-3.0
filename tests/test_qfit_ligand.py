@@ -23,15 +23,15 @@ class TestQFitLigand:
     def mock_main(self):
         # Prepare args
         args = [
-            "./tests/qfit_ligand_test/5AGK_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
-            "./tests/qfit_ligand_test/5AGK.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_ligand_test/5C40_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/qfit_ligand_test/5C40.pdb",  # structurefile, using relative directory from tests/
             "-l",
             "2FOFCWT,PH2FOFCWT",
-            "B, 801",  # selection
+            "A, 401",  # selection
             "-sm",
-            "CS(=O)CC(=N)NCCCC(C(=O)O)N",
+            "c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)OP(=O)(CP(=O)(O)O)O)O)O)N",
             "-nc",
-            "1000"
+            "10000"
         ]
 
         # TODO: Add options to reduce computational load
