@@ -31,7 +31,7 @@ class TestQFitLigand:
             "-sm",
             "c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)OP(=O)(CP(=O)(O)O)O)O)O)N",
             "-nc",
-            "10000"
+            "5000"
         ]
 
         # TODO: Add options to reduce computational load
@@ -59,7 +59,7 @@ class TestQFitLigand:
         qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(
             options=options
         )
-        #assert qfit_ligand.ligand.natoms == 31
+        assert qfit_ligand.ligand.natoms == 31
 
         return qfit_ligand
 
