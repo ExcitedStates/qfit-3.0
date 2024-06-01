@@ -22,21 +22,20 @@ from qfit.solvers import (
 logger = logging.getLogger(__name__)
 
 
-#@pytest.mark.skip(reason="FIXME too slow and unstable")
 class TestQFitLigand(BaseTestRunner):
     def mock_main(self):
         data_dir = os.path.join(os.path.dirname(__file__), "qfit_ligand_test")
         # Prepare args
         args = [
-            os.path.join(data_dir, "5AGK_composite_omit_map.mtz"),
-            os.path.join(data_dir, "5AGK.pdb"),
+            os.path.join(data_dir, "5C40_composite_omit_map.mtz"),
+            os.path.join(data_dir, "5C40.pdb"),
             "-l",
             "2FOFCWT,PH2FOFCWT",
-            "B, 801",  # selection
+            "A, 401",  # selection
             "-sm",
-            "CS(=O)CC(=N)NCCCC(C(=O)O)N",
+            "c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)OP(=O)(CP(=O)(O)O)O)O)O)N",
             "-nc",
-            "1000"
+            "5000"
         ]
 
         # TODO: Add options to reduce computational load
@@ -62,7 +61,7 @@ class TestQFitLigand(BaseTestRunner):
         qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(
             options=options
         )
-        assert qfit_ligand.ligand.natoms == 15
+        assert qfit_ligand.ligand.natoms == 31
 
         return qfit_ligand
 
