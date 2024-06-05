@@ -33,6 +33,14 @@ def build_argparser():
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit-ligand with EM options",
+    )
+
+    p.add_argument(
         "-cif",
         "--cif_file",
         type=str,
