@@ -8,7 +8,7 @@ test-unit:
 	py.test --verbose -n 4 --durations=10 tests/unit/test_*.py
 
 test-int:
-	py.test --verbose -n 4 --durations=20 tests/test_*.py
+	py.test --verbose -n 4 --durations=40 tests/test_*.py
 
 test-int-quick:
 	py.test --verbose -n 4 --durations=20 -m "not slow" tests/test_*.py

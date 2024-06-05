@@ -63,8 +63,9 @@ class BaseStructure(ABC):
         if self.crystal_symmetry:
             spg = self.crystal_symmetry.space_group_info()
             uc = self.crystal_symmetry.unit_cell()
-            values = list(uc.parameters()) + [spg.type().lookup_symbol()]
-            self.unit_cell = UnitCell(*values)
+            if None not in [spg, uc]:
+                values = list(uc.parameters()) + [spg.type().lookup_symbol()]
+                self.unit_cell = UnitCell(*values)
 
     def __getstate__(self):
         d = dict(self.__dict__)
