@@ -9,6 +9,8 @@ import subprocess
 import numpy as np
 import tqdm
 import timeit
+import concurrent.futures
+
 
 from .backbone import NullSpaceOptimizer, adp_ellipsoid_axes
 from .clash import ClashDetector
@@ -1628,18 +1630,27 @@ class QFitLigand(_BaseQFit):
                 num_conf_for_method = round(num_gen_conformers / 5)
             elif length_branching <= 30:
                 num_conf_for_method = round(num_gen_conformers / 4)
-
-
         self.num_conf_for_method = num_conf_for_method
-        self.random_unconstrained()
-        self.terminal_atom_const()
-        self.spherical_search()
-        if branching_atoms:
-            if length_branching > 30:
-                self.branching_search()
-                self.long_chain_search()
-            elif length_branching <= 30:
-                self.branching_search()
+
+        # Run conformer generation functions in parallel
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(self.random_unconstrained),
+                executor.submit(self.terminal_atom_const),
+                executor.submit(self.spherical_search)
+            ]
+            if branching_atoms:
+                if length_branching > 30:
+                    futures.append(executor.submit(self.branching_search))
+                    futures.append(executor.submit(self.long_chain_search))
+                elif length_branching <= 30:
+                    futures.append(executor.submit(self.branching_search))
+
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as exc:
+                    logger.error(f'Generated an exception: {exc}')
 
         logger.info(f"Number of generated conformers, before scoring: {len(self._coor_set)}")
         
