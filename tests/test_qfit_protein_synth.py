@@ -301,7 +301,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
                                   high_resolution=d_min,
                                   cc_min=self.MIN_CC_PHE)
 
-    @pytest.mark.skipif(DISABLE_SLOW, "Redundant P21 test for 7-mer building")
+    @pytest.mark.skipif(DISABLE_SLOW, reason="Redundant P21 test for 7-mer building")
     def test_qfit_protein_7mer_peptide_p21(self):
         """
         Build a 7-mer peptide with multiple residues in double conformations
