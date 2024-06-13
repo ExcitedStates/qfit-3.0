@@ -16,6 +16,7 @@ from string import ascii_uppercase
 from qfit.structure import Structure
 
 
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("holo_str", type=str, help="PDB-file containing structure.")
@@ -44,7 +45,7 @@ def main():
             for coor in tmp_h_atom.coor:
                 tot_dist += np.linalg.norm(tmp_a.coor - coor, axis=1)
                 tmp_dist = np.median(tot_dist)
-            if dist is None:
+            if dist == None:
                 dist = tmp_dist
                 rename_chain = chain_a
             else:

@@ -104,3 +104,7 @@ ENV/
 
 # macOS Finder
 .DS_Store
+
+validation_metrics.txt
+tmp*
+*.pse

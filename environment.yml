@@ -12,4 +12,5 @@ dependencies:
   - pyparsing>=2.2.0
   - cvxopt
   - tqdm
+  - cctbx-base
   - rdkit

@@ -39,6 +39,7 @@ If you prefer to manage your environments using other methods, qFit has the foll
 * [Python 3.6+](https://python.org)
 * [numpy](https://numpy.org)
 * [scipy](https://scipy.org)
+* [cctbx](https://github.com/cctbx/cctbx_project)
 * [cvxpy](https://www.cvxpy.org)
 
 Once dependencies are installed, you can clone the qFit source, and install to your env as above.
