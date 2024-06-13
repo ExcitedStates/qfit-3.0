@@ -17,7 +17,7 @@ Electron density maps obtained from high-resolution X-ray diffraction data are a
    
 3) Create the Conda environment using the downloaded file:
 
-   conda env create -f enviornment.yml
+   conda env create -f environment.yml
 
 4) After creating the Conda environment, activate it:
 

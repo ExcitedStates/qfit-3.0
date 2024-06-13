@@ -21,6 +21,15 @@ os.environ["OMP_NUM_THREADS"] = "1"
 def build_argparser():
     p = get_base_argparser(__doc__,
                            default_enable_external_clash=True)
+
+    p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit-ligand with EM options",
+    )
+
     p.add_argument(
         "-cif",
         "--cif_file",
