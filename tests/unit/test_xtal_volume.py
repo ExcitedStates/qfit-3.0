@@ -32,6 +32,9 @@ class TestVolumeXmapIO(UnitBase):
             assert xmap.value_at(0, 0, 0) == pytest.approx(-0.719, abs=0.001)
             assert xmap.value_at(4, 5, 6) == pytest.approx(4.1893, abs=0.001)
             assert tuple(xmap.offset) == (0, 0, 0)
+            symm = xmap.get_p1_crystal_symmetry()
+            assert symm.unit_cell().parameters() == (4.0, 5.0, 6.0, 90, 90, 90)
+            assert str(symm.space_group_info()) == "P 1"
 
         MTZ = self.make_water_fmodel_mtz(d_min)
         print(f"MTZ: {MTZ}")

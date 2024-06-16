@@ -60,12 +60,18 @@ class BaseStructure(ABC):
         else:
             self.natoms = self._selection.size()
         self._active_flag = np.ones(self.total_length, dtype=bool)
+        self.set_crystal_symmetry(self.crystal_symmetry)
+
+    def set_crystal_symmetry(self, crystal_symmetry):
+        self.crystal_symmetry = crystal_symmetry
         if self.crystal_symmetry:
             spg = self.crystal_symmetry.space_group_info()
             uc = self.crystal_symmetry.unit_cell()
             if None not in [spg, uc]:
                 values = list(uc.parameters()) + [spg.type().lookup_symbol()]
                 self.unit_cell = UnitCell(*values)
+            else:
+                self.crystal_symmetry = None
 
     def __getstate__(self):
         d = dict(self.__dict__)
@@ -281,10 +287,10 @@ class BaseStructure(ABC):
             self.crystal_symmetry = cryst
         return write_mmcif(fname, self)
 
-    def to_xray_structure(self, active_only=False):
-        assert self.crystal_symmetry is not None
-        xrs = self._pdb_hierarchy.extract_xray_structure(
-            crystal_symmetry=self.crystal_symmetry)
+    def to_xray_structure(self, active_only=False, crystal_symmetry=None):
+        assert self.crystal_symmetry or crystal_symmetry
+        symm = crystal_symmetry if crystal_symmetry else self.crystal_symmetry
+        xrs = self._pdb_hierarchy.extract_xray_structure(crystal_symmetry=symm)
         if self._selection is not None:
             xrs = xrs.select(self._selection)
         if active_only:
