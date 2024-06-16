@@ -9,8 +9,7 @@ from .base_test_case import UnitBase
 
 
 class TransformerBase(UnitBase):
-    # TODO change this to cctbx
-    IMPLEMENTATION = "qfit"
+    IMPLEMENTATION = "cctbx"
 
     def _get_transformer(self, *args, **kwds):
         return get_transformer(self.IMPLEMENTATION, *args, **kwds)
@@ -133,9 +132,14 @@ class TestTransformer(TransformerBase):
         xsub = xmap.extract(ssub.coor)
         self._run_transformer(ssub, xsub, cc_min)
 
-    MIN_CC_GLU = 0.94
-    MIN_CC_LYS = 0.945
-    MIN_CC_TRP = 0.95
+    #MIN_CC_GLU = 0.94
+    #MIN_CC_LYS = 0.945
+    #MIN_CC_TRP = 0.95
+    # TODO figure out why these values are lower than in the old qFit
+    # implementation or the FFT
+    MIN_CC_GLU = 0.929
+    MIN_CC_LYS = 0.928
+    MIN_CC_TRP = 0.934
 
     def test_transformer_rebuilt_tripeptide_glu(self):
         self._run_transformer_rebuilt_3mer("GLU", cc_min=self.MIN_CC_GLU)
@@ -150,24 +154,18 @@ class TestTransformer(TransformerBase):
         self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
 
 
-class TestCCTBXTransformer(TestTransformer):
-    IMPLEMENTATION = "cctbx"
-    # TODO figure out why these values are lower
-    MIN_CC_GLU = 0.929
-    MIN_CC_LYS = 0.928
-    MIN_CC_TRP = 0.934
-
-
 class TestFFTTransformer(TestTransformer):
     IMPLEMENTATION = "fft"
+    MIN_CC_GLU = 0.94
+    MIN_CC_LYS = 0.945
+    MIN_CC_TRP = 0.95
 
     def _run_transformer_rebuilt_3mer(self, *args, **kwds):
         pytest.skip("not applicable to this class")
 
 
 class TestCompareTransformers(TransformerBase):
-    # TODO change this to "cctbx"
-    IMPLEMENTATION = "qfit"
+    IMPLEMENTATION = "cctbx"
 
     def _run_fft_transformer(self, pdb_multi, mtz_file, cc_min=0.9):
         structure, xmap = self._load_qfit_inputs(pdb_multi, mtz_file)
@@ -227,7 +225,8 @@ class TestCompareTransformers(TransformerBase):
         assert xsub.n_real() == (18, 17, 18)
         assert np.all(xsub.offset == [-4, -3, -5])
         xsub_orig = xsub.array.copy()
-        MASKED_MIN_CC = 0.79
+        # XXX this was 0.79 with the old qfit transformer
+        MASKED_MIN_CC = 0.755
         self._run_transformer(ssub, xsub, MASKED_MIN_CC)
 
     def test_fft_transformer_ser_monomer_space_groups(self):
