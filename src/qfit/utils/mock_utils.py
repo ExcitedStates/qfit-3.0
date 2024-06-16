@@ -89,16 +89,19 @@ SERINE_ALTERNATE_SYMMETRY = {
 
 
 def create_fmodel(pdb_file_name, high_resolution, output_file=None,
-                  em=False):
+                  em=False, reference_file=None):
     if output_file is None:
         output_file = tempfile.NamedTemporaryFile(suffix="-fmodel.mtz").name
     fmodel_args = [
         pdb_file_name,
-        f"high_resolution={high_resolution}",
         "r_free_flags_fraction=0.1",
         "output.label=FWT",
         f"output.file_name={output_file}",
     ]
+    if reference_file:
+        fmodel_args.append(reference_file)
+    else:
+        fmodel_args.append(f"high_resolution={high_resolution}")
     if em:
         fmodel_args.append("scattering_table=electron")
     # XXX the CLI implementation for mmtbx tools has changed - the old 'run'
@@ -164,8 +167,8 @@ class BaseTestRunner(unittest.TestCase):
             (space_group_symbol, unit_cell) = new_symmetry
             new_symmetry = symmetry(space_group_symbol=space_group_symbol,
                                     unit_cell=unit_cell)
-        suffix = "_newsymm.pdb"
         if not output_pdb_file:
+            suffix = "_newsymm.pdb"
             output_pdb_file = op.splitext(op.basename(pdb_file))[0] + suffix
         pdb_in = Structure.fromfile(pdb_file)
         pdb_in.crystal_symmetry = new_symmetry

@@ -9,7 +9,7 @@ from scipy.ndimage import map_coordinates
 from iotbx.reflection_file_reader import any_reflection_file
 import iotbx.ccp4_map
 import iotbx.mrcfile
-from cctbx import maptbx
+from cctbx import maptbx, crystal
 from scitbx.array_family import flex
 import boost_adaptbx.boost.python as bp
 asu_map_ext = bp.import_ext("cctbx_asymmetric_map_ext")
@@ -236,6 +236,10 @@ class XMap(_BaseVolume):
             int
         )
         return shape
+
+    def get_p1_crystal_symmetry(self):
+        return crystal.symmetry(unit_cell=self.unit_cell.to_cctbx(),
+                                space_group_symbol="P1")
 
     def _expand_to_p1(self):
         """

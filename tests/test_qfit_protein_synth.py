@@ -4,10 +4,12 @@ a variety of small peptides with several alternate conformers.
 """
 
 import subprocess
+import tempfile
 import os.path as op
 import os
 
 from iotbx.file_reader import any_file
+import cctbx.crystal
 import pytest
 
 from qfit.qfit import QFitOptions, QFitSegment
@@ -50,7 +52,6 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
         fmodel_mtz = self._create_fmodel(pdb_file_multi,
                                          high_resolution=high_resolution,
                                          em=em)
-        os.symlink(pdb_file_single, "single.pdb")
         qfit_args = [
             "qfit_protein",
             fmodel_mtz,
@@ -77,7 +78,8 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
     ):
         fmodel_out = self._create_fmodel(model_name,
                                          high_resolution=high_resolution,
-                                         em=em)
+                                         em=em,
+                                         reference_file=fmodel_in)
         # correlation of the single-conf 7-mer fmodel is 0.922
         self._compare_maps(fmodel_in, fmodel_out, cc_min)
 
@@ -429,19 +431,34 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
     # this test
     MIN_CC_PHE = 0.975
     D_MIN_7MER = 1.15
+    # By convention, EM structures in the PDB have placeholder CRYST1 records
+    # with P1 symmetry and unit cell parameters (1,1,1,90,90,90); this is
+    # recognized by iotbx.pdb and results in undefined symmetry in the loaded
+    # structure object.  We define it literally here so we can substitute it
+    # in the input PDB file for qfit_protein; it will be transformed to None
+    # when read back in.  (Note that mmcif does *not* use this convention, or
+    # at least iotbx does not respect it, so for those inputs we just leave
+    # out the symmetry entirely.)
+    MOCK_SYMMETRY = cctbx.crystal.symmetry(space_group_symbol="P1",
+                                           unit_cell=(1,1,1,90,90,90))
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
                       extra_args=(), em=True):
         fmodel_mtz = self._create_fmodel(pdb_file_multi,
                                          high_resolution=high_resolution,
                                          em=True)
-        os.symlink(pdb_file_single, "single.pdb")
         xmap = XMap.from_mtz(fmodel_mtz, label="FWT,PHIFWT")
         xmap.tofile("fmodel_1.ccp4")
+        ext = pdb_file_single[-4:]
+        pdb_file_single_em = tempfile.NamedTemporaryFile(suffix=ext).name
+        self._replace_symmetry(
+            new_symmetry=self.MOCK_SYMMETRY if ext == ".pdb" else None,
+            pdb_file=pdb_file_single,
+            output_pdb_file=pdb_file_single_em)
         qfit_args = [
             "qfit_protein",
             "fmodel_1.ccp4",
-            pdb_file_single,
+            pdb_file_single_em,
             #"--debug",
             "--resolution",
             str(high_resolution),

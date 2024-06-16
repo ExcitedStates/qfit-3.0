@@ -69,14 +69,19 @@ class CCTBXTransformer:
         # mmtbx.utils.extract_box_around_model_and_map.  in the future it
         # would be better to use that wrapper directly in qfit, in place
         # of the calls to xmap.extract()
-        xrs = self.structure.to_xray_structure(active_only=True)
+        symm = self.structure.crystal_symmetry
+        if not symm:
+            symm = self.xmap.get_p1_crystal_symmetry()
+        xrs = self.structure.to_xray_structure(
+            active_only=True,
+            crystal_symmetry=symm)
         if self.xmap.is_canonical_unit_cell():
             return xrs.expand_to_p1()
         origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
         uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
         n_real = self.xmap.n_real()
         #logger.debug(f"Computing mask with n_real={n_real} origin={origin} uc_grid={uc_grid}")
-        ucp = self.structure.crystal_symmetry.unit_cell().parameters()
+        ucp = symm.unit_cell().parameters()
         box_cell_abc = [ucp[i]*(n_real[i]/uc_grid[i]) for i in range(3)]
         uc_box = unit_cell(box_cell_abc + list(ucp)[3:])
         #logger.debug(f"New unit cell: {uc_box.parameters()}")
