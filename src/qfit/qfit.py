@@ -552,22 +552,6 @@ class _BaseQFit(ABC):
                  (self.detect_clashes() or self.primary_entity.clashes() > 0)) or
                 (self.primary_entity.clashes() > 0))
 
-    def _solve_qp_and_update(self, prefix, stride=1, pool_size=1):
-        """QP score conformer occupancy"""
-        self._convert(stride, pool_size)
-        self._solve_qp()
-        self._update_conformers()
-        self._save_intermediate(prefix)
-
-    def _solve_miqp_and_update(self, prefix, stride=1, pool_size=1):
-        # MIQP score conformer occupancy
-        self._convert(stride, pool_size)
-        self._solve_miqp(
-            threshold=self.options.threshold,
-            cardinality=self.options.cardinality)
-        self._update_conformers()
-        self._save_intermediate(prefix=prefix)
-
     def is_same_rotamer(self, rotamer, chis):
         # Check if the residue configuration corresponds to the
         # current rotamer
@@ -857,11 +841,21 @@ class QFitRotamericResidue(_BaseQFit):
             self._bs = new_bs
 
         # QP score conformer occupancy
-        self._solve_qp_and_update(prefix="qp_solution_residue")
+        self._convert()
+        self._solve_qp()
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(prefix="qp_solution")
 
         # MIQP score conformer occupancy
         self.sample_b()
-        self._solve_miqp_and_update(prefix="miqp_solution_residue")
+        self._convert()
+        self._solve_miqp(
+            threshold=self.options.threshold, cardinality=self.options.cardinality
+        )
+        self._update_conformers()
+        if self.options.write_intermediate_conformers:
+            self._write_intermediate_conformers(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
