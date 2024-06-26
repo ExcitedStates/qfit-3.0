@@ -471,6 +471,10 @@ class _BaseQFit(ABC):
         logger.debug("Updating conformers based on occupancy")
 
         # Check that all arrays match dimensions.
+        print(len(self._occupancies))
+        print(len(self._coor_set))
+        print(len(self._bs))
+        
         assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
 
         # Filter all arrays & lists based on self._occupancies
