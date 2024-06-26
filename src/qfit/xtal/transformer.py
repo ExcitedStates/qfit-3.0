@@ -149,7 +149,6 @@ class Transformer:
         else:
             self.mask(rmax=rmax, value=0.0)
 
-    # TODO figure out why this produces inferior results
     def density(self):
         """
         Compute the current model electron density using cctbx.xray map
