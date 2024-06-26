@@ -1,5 +1,7 @@
 import argparse
 from qfit.structure import Structure
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Process multiconformer file for refinement.")
     parser.add_argument("structure", type=str, help="Path to the structure file")
