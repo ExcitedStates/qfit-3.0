@@ -137,7 +137,7 @@ phenix.refine  "${multiconf}_fixed_modified.updated.pdb" \
                "${pdb_name}_refine.params" \
                --overwrite
 
-create_restraints_file.py ${pdb_name}_002.pdb
+create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
