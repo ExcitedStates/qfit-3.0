@@ -107,7 +107,17 @@ OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 
 `get_seq.py pdb.pdb --pdb {pdb_name}`
 
-### 8. Get Ligand Occupancy 
+### 8. Get SMILES String
+This script will take in a ligand name and return its SMILES string, as specified on the Protein Data Bank.
+
+INPUT: Ligand name
+
+OUTPUT: SMILES string written to console
+
+`get_smiles.py LIG`
+
+
+### 9. Get Ligand Occupancy 
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
 
 INPUT: PDB file, name of PDB, name of ligand
@@ -117,7 +127,7 @@ OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy informat
 example:
 `lig_occ.py pdb.pdb --pdb {pdb_name} -l {ligand name}`
 
-## 9. Get Root Mean Squared Flucuations (RMSF) for each residue 
+## 10. Get Root Mean Squared Flucuations (RMSF) for each residue 
 
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
 
@@ -128,7 +138,7 @@ OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for eac
 example:
 `qfit_RMSF.py {PDB}_qFit.pdb --pdb={PDB}`
 
-## 10. Relabel chains of matching PDB
+## 11. Relabel chains of matching PDB
 
 This script will rename chains in one PDB (holo) one based how close via RMSD is on corresponding PDB (apo).
 
@@ -139,7 +149,7 @@ OUTPUT: PDB with renamed chain(s)
 example:
 `relabel_chain.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name}`
 
-## 11. Subset structures based on proximity to ligand
+## 12. Subset structures based on proximity to ligand
 This script will take in 2 pdbs and a ligand or geometric point in the PDB and the PDB names and output a list of overlapping ligands and a list of close residues (determined by -distance).
 
 INPUT: 2 PDB, 2 PDB names, ligand (optional: distance)
@@ -150,7 +160,7 @@ example:
 `subset_structure_AH.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name} -ls {ligand name}`
 
 
-## 12. Water scripts
+## 13. Water scripts
 
 water_clash.py: This will take in two PDBs, one containing water molecules, one containing only protein or protein/hetatoms.
 It will then determine how many clashes occur between the two and adjust accordingly.
