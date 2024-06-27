@@ -16,7 +16,7 @@ def create_refine_restraints(multiconformer):
     For refinement, we need to create occupancy restraints for all residues in the same segment with the same altloc.
     This function will go through the qFit output and create a constraint file to be fed into refinement
     """
-    fname = os.path.join(self.options.directory, "qFit_occupancy.params")
+    fname = os.path.join("qFit_occupancy.params")
     f = open(fname, "w+")
     f.write("refinement {\n")
     f.write("  refine {\n")
