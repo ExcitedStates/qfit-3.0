@@ -10,26 +10,26 @@ Electron density maps obtained from high-resolution X-ray diffraction data are a
 
 ## Installation
 
-1) Download qFit
+**1) Download qFit**
    
    git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    
    cd qfit-3.0
    
-3) Create the Conda environment using the downloaded file:
+**3) Create the Conda environment using the downloaded file**
 
    conda env create -f environment.yml
 
-4) After creating the Conda environment, activate it:
+**4) After creating the Conda environment, activate it**
 
    conda activate qfit
 
-5) If you installing on M1 Mac:
+**5) If you installing on M1 Mac**
    
      conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
      conda activate qfit
    
-7) Finally, install qFit:
+**7) Finally, install qFit**
 
    pip install .
 
