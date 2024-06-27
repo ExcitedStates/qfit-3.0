@@ -66,7 +66,7 @@ def create_refine_restraints(multiconformer):
 def main():
     args = parse_args()
     structure = Structure.fromfile(args.structure).reorder()
-    create_refine_restraints(multiconformer)
+    create_refine_restraints(structure)
 
 
 if __name__ == "__main__":
