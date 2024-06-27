@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import os
 from qfit.structure import Structure
 
 
