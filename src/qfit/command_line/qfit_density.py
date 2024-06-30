@@ -40,12 +40,6 @@ def main():
     if hasattr(xmap, "hkl") and not args.no_fft:
         transformer = FFTTransformer(structure, out)
     else:
-        if args.resolution is not None:
-            smax = 0.5 / args.resolution
-            simple = False
-        else:
-            smax = None
-            simple = True
-        transformer = Transformer(structure, out, smax=smax, simple=simple)
+        transformer = Transformer(structure, out)
     transformer.density()
     out.tofile(args.output)

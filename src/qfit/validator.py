@@ -18,26 +18,26 @@ class Validator:
     def _get_transformer(self, *args, **kwds):
         return get_transformer(self._transformer, *args, **kwds)
 
-    def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
+    def rscc(self, structure, rmask=1.5, mask_structure=None):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         if mask_structure is None:
-            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, em=self.em)
         else:
             transformer = self._get_transformer(
-                mask_structure, model_map, simple=simple, em=self.em
+                mask_structure, model_map, em=self.em
             )
         transformer.mask(rmask)
         mask = model_map.array > 0
         model_map.array.fill(0)
         if mask_structure is not None:
-            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, em=self.em)
         transformer.density()
 
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         return corr
 
-    def fisher_z(self, structure, rmask=1.5, simple=True):
+    def fisher_z(self, structure, rmask=1.5):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         transformer = self._get_transformer(structure, model_map)
@@ -57,7 +57,7 @@ class Validator:
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 
-    def fisher_z_difference(self, structure1, structure2, rmask=1.5, simple=True):
+    def fisher_z_difference(self, structure1, structure2, rmask=1.5):
         # Create mask of combined structures
         combined = structure1.combine(structure2)
         model_map = XMap.zeros_like(self.xmap)
@@ -71,11 +71,11 @@ class Validator:
 
         # Get density values of xmap, and both structures
         target_values = self.xmap.array[mask]
-        transformer = self._get_transformer(structure1, model_map, simple=simple)
+        transformer = self._get_transformer(structure1, model_map)
         model_map.array.fill(0)
         transformer.density()
         model1_values = model_map.array[mask]
-        transformer = self._get_transformer(structure2, model_map, simple=simple)
+        transformer = self._get_transformer(structure2, model_map)
         model_map.array.fill(0)
         transformer.density()
         model2_values = model_map.array[mask]

@@ -24,7 +24,6 @@ class MapScaler:
             transformer = Transformer(
                 structure,
                 self._model_map,
-                simple=True,
                 rmax=3,
                 em=self.em
             )
@@ -42,7 +41,6 @@ class MapScaler:
             transformer = Transformer(
                 structure,
                 self._model_map,
-                simple=True,
                 rmax=3,
                 em=self.em,
             )

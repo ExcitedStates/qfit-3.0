@@ -50,8 +50,6 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         # XXX default values don't work for Phe and Lys tests
         options.dofs_per_iteration = 2
         options.dihedral_stepsize = 10
-        # TODO make this the default
-        options.transformer = "cctbx"
         return options
 
     def _load_qfit_inputs(self, pdb_file, mtz_file):
@@ -124,7 +122,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
 
     @pytest.mark.fast
     def test_sample_sidechain_3mer_phe_p21(self):
-        result, multi = self._run_setup_and_sample_sidechain_3mer("AFA", 1.2)
+        result, multi = self._run_setup_and_sample_sidechain_3mer("AFA", 1.15)
         new_confs = result.get_conformers()
         # I think the third conformer is a flipped ring?  In the full program
         # it appears to get pruned later

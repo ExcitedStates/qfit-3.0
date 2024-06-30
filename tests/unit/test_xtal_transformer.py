@@ -33,9 +33,16 @@ class TransformerBase(UnitBase):
         mask = t.get_masked_selection()
         t.reset(full=True)
         t.density()
-        xmap_new = t.xmap.array
+        xmap_new = t.xmap.array.copy()
         ccs = np.corrcoef(xmap_new[mask].flatten(), xmap_orig[mask].flatten())
         assert ccs[0][1] >= cc_min
+        t.reset(full=True)
+        if self.IMPLEMENTATION == "cctbx":
+            for dens in t.get_conformers_densities([structure.coor],
+                                                   [structure.b]):
+                ccs = np.corrcoef(xmap_new[mask].flatten(),
+                                  dens[mask].flatten())
+                assert ccs[0][1] >= 0.999999999
 
 
 class TestTransformer(TransformerBase):

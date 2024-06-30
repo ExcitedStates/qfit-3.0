@@ -44,7 +44,6 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
         "2",
         "--dihedral-stepsize",
         "10",
-        "--transformer", "cctbx"
     ]
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,

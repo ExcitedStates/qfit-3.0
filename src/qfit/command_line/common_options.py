@@ -114,12 +114,6 @@ def get_base_argparser(description,
         type=float,
         help="Padding size for map creation",
     )
-    p.add_argument(
-        "--transformer",
-        choices=["cctbx","fft"],
-        default="cctbx",
-        dest="transformer",
-        help="Map sampling algorithm")
 
     p.add_argument(
         "--waters-clash",

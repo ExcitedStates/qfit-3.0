@@ -36,14 +36,17 @@ class Transformer:
         xmap,
         rmax=3.0,
         em=False,
-        smin=None,     # XXX unused, for API compatibility
-        smax=None,     # XXX unused, for API compatibility
-        simple=False,  # XXX unused, for API compatibility
     ):
         self.structure = structure
         self.xmap = xmap
         self.rmax = rmax
         self.em = em
+
+    def reset(self, rmax=None, full=False):
+        if full:
+            self.xmap.array.fill(0)
+        else:
+            self.mask(rmax=rmax, value=0.0)
 
     def get_masked_selection(self):
         return self.xmap.array > 0
@@ -57,26 +60,41 @@ class Transformer:
         """
         if rmax is None:
             rmax = self.rmax
-        return self._mask_cctbx(rmax, value)
+        xrs, _ = self._get_xray_structure_in_box()
+        return self._mask_cctbx(xrs, rmax, value)
 
-    def _get_structure_in_box(self):
-        # XXX the logic in here is a simplified version of the approach in
-        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
-        # would be better to use that wrapper directly in qfit, in place
-        # of the calls to xmap.extract()
+    def _get_xray_structure(self):
         symm = self.structure.crystal_symmetry
         if not symm:
             symm = self.xmap.get_p1_crystal_symmetry()
         xrs = self.structure.to_xray_structure(
             active_only=True,
             crystal_symmetry=symm)
-        if self.xmap.is_canonical_unit_cell():
-            return xrs.expand_to_p1()
+        if self.em:
+            #logger.debug("Switching to electron structure factor table")
+            xrs.discard_scattering_type_registry()
+            xrs.scattering_type_registry(table="electron")
+        else:
+            xrs.scattering_type_registry(table="n_gaussian")
+        return xrs
+
+    def _get_xray_structure_in_box(self):
+        # XXX the logic in here is a simplified version of the approach in
+        # mmtbx.utils.extract_box_around_model_and_map.  in the future it
+        # would be better to use that wrapper directly in qfit, in place
+        # of the calls to xmap.extract()
+        xrs = self._get_xray_structure()
+        if self.xmap.is_canonical_unit_cell() and self.em:
+            return xrs.expand_to_p1(), 0
+        # XXX note that a lot of this math is technically unnecessary if the
+        # map is already a canonical P1 box, but dealing with this up front
+        # allows us to modify the extracted cctbx.xray.structure object in
+        # place with new coordinates and/or Bs
         origin = tuple(int(x) for x in self.xmap.grid_parameters.offset)
         uc_grid = tuple(int(x) for x in self.xmap.unit_cell_shape)
         n_real = self.xmap.n_real()
         #logger.debug(f"Computing mask with n_real={n_real} origin={origin} uc_grid={uc_grid}")
-        ucp = symm.unit_cell().parameters()
+        ucp = xrs.unit_cell().parameters()
         box_cell_abc = [ucp[i]*(n_real[i]/uc_grid[i]) for i in range(3)]
         uc_box = unit_cell(box_cell_abc + list(ucp)[3:])
         #logger.debug(f"New unit cell: {uc_box.parameters()}")
@@ -86,25 +104,26 @@ class Transformer:
         # it's not clear if this even matters, since the old implementation
         # seems slightly buggy
         xrs_p1_box = xrs.customized_copy(space_group_info=sg_p1)
+        sites_start = xrs_p1_box.sites_cart()
         # this applies the shift to the xrs_p1_box object
         soo = shift_origin(
             xray_structure=xrs_p1_box,
             n_xyz=uc_grid,
             origin_grid_units=origin)
         sites_cart = soo.xray_structure.sites_cart()
+        delta_xyz_cart = sites_cart - sites_start
         sites_frac = uc_box.fractionalize(sites_cart)
         xrs_shifted = xrs_p1_box.customized_copy(unit_cell=uc_box)
         xrs_shifted.set_sites_frac(sites_frac)
-        return xrs_shifted
+        return xrs_shifted, delta_xyz_cart
 
-    def _mask_cctbx(self, rmax, value):
+    def _mask_cctbx(self, xrs, rmax, value=1.0):
         """
         Compute an atom mask using cctbx.masks.  This method accounts for
         map cutouts and origin shifts to match the original qFit behavior,
         by temporarily translating the masked structure to fit in a P1 box
         corresponding to the map extents.
         """
-        xrs = self._get_structure_in_box()
         n_real = self.xmap.n_real()
         sites_frac = xrs.sites_frac()
         # this mask is inverted, i.e. the region of interest has value 0
@@ -126,42 +145,41 @@ class Transformer:
         assert len(coor_set) > 0
         self.reset(full=True)
         logger.debug(f"Masking {len(coor_set)} conformations")
+        xrs, dxyz = self._get_xray_structure_in_box()
         for coor in coor_set:
-            self.structure.coor = coor
-            self.mask(rmax)
+            # XXX the active selection may be smaller the coordinate array!
+            if coor.size != xrs.scatterers().size():
+                coor = coor[self.structure.active]
+            xrs.set_sites_cart(flex_array.vec3_double((coor + dxyz).tolist()))
+            self._mask_cctbx(xrs, rmax)
         mask = self.xmap.array > 0
         self.reset(full=True)
         return mask
 
-    def get_conformer_density(self, coor, b):
-        self.structure.coor = coor
-        self.structure.b = b
-        self.density()
-        return self.xmap.array
+    def get_conformers_densities(self, coor_set, b_set):
+        """
+        Iterate over paired lists of candidate conformation coordinates and
+        B-factors and compute the density for each, without duplicating
+        memory or array operations.
+        """
+        xrs, dxyz = self._get_xray_structure_in_box()
+        for (coor, b) in zip(coor_set, b_set):
+            if coor.size != xrs.scatterers().size():
+                coor = coor[self.structure.active]
+                b = b[self.structure.active]
+            xrs.set_sites_cart(flex_array.vec3_double((coor + dxyz).tolist()))
+            xrs.set_b_iso(values=flex_array.double(b))
+            yield self.density(xrs)
+            self.reset(full=True)
 
-    # XXX unused, for API compatibility
-    def initialize(self):
-        ...
-
-    def reset(self, rmax=None, full=False):
-        if full:
-            self.xmap.array.fill(0)
-        else:
-            self.mask(rmax=rmax, value=0.0)
-
-    # TODO figure out why this produces inferior results
-    def density(self):
+    # TODO figure out why this produces inferior results versus FFT
+    def density(self, xrs=None):
         """
         Compute the current model electron density using cctbx.xray map
         sampling function, without any FFTs
         """
-        xrs = self._get_structure_in_box()
-        if self.em:
-            #logger.debug("Switching to electron structure factor table")
-            xrs.discard_scattering_type_registry()
-            xrs.scattering_type_registry(table="electron")
-        else:
-            xrs.scattering_type_registry(table="n_gaussian")
+        if not xrs:
+            xrs, _ = self._get_xray_structure_in_box()
         n_real = self.xmap.n_real()
         u_base = xray_ext.calc_u_base(
             d_min=self.xmap.resolution.high,
@@ -181,8 +199,10 @@ class Transformer:
             tolerance_positive_definite=1e-5)
         real_map = sampled_density.real_map_unpadded()
         self.xmap.set_values_from_flex_array(real_map)
+        return self.xmap.array
 
 
+# XXX this is much slower, but it's useful as a reference implementation
 class FFTTransformer(Transformer):
     """
     Alternative transformer for cases where we want to use the same set of
@@ -197,21 +217,18 @@ class FFTTransformer(Transformer):
         assert hkl is not None
         self.hkl = hkl
 
-    def density(self):
+    def density(self, xrs=None):
         """
         Compute the electron density using via CCTBX structure factor FFT.
         """
-        xrs = self.structure.to_xray_structure(active_only=True)
-        if self.em:
-            logger.debug("Switching to electron structure factor table")
-            xrs.discard_scattering_type_registry()
-            xrs.scattering_type_registry(table="electron")
         assert self.structure.crystal_symmetry is not None
+        if not xrs:
+            xrs = self._get_xray_structure()
         reflections = miller.set(xrs.crystal_symmetry(),
                                  flex_array.miller_index(self.hkl),
                                  anomalous_flag=False)
-        # XXX This is currently in closer agreement with the old "classic"
-        # implementation below, which does not use FFT, but it is much slower
+        # XXX This is currently in closer agreement with the previous
+        # implementation, which did not use FFT, but it is much slower
         sfs = structure_factors.from_scatterers(
             crystal_symmetry=xrs.crystal_symmetry(),
             d_min=self.xmap.resolution.high,
@@ -232,6 +249,7 @@ class FFTTransformer(Transformer):
             fourier_coefficients = sfs.f_calc())
         real_map = fcalc_map.apply_volume_scaling().real_map_unpadded()
         self.xmap.set_values_from_flex_array(real_map)
+        return self.xmap.array
 
 
 def get_transformer(impl_name="cctbx", *args, **kwds):

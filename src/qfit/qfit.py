@@ -21,7 +21,7 @@ from .structure.math import adp_ellipsoid_axes
 from .structure.residue import residue_type
 from .structure.rotamers import ROTAMERS
 from .validator import Validator
-from .xtal.transformer import get_transformer
+from .xtal.transformer import Transformer
 
 # XXX deliberately importing this after the CCTBX modules
 from rdkit import Chem
@@ -54,7 +54,6 @@ class QFitOptions:
         self.em = False
         self.scale_info = None
         self.cryst_info = None
-        self.transformer = "cctbx"
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -177,8 +176,6 @@ class _BaseQFit(ABC):
         self._coor_set = [self.conformer.coor]
         self._occupancies = [self.conformer.q]
         self._bs = [self.conformer.b]
-        self._smax = None
-        self._simple = True
         self._rmask = 1.5
         self._cd = lambda: NotImplemented
         reso = None
@@ -188,15 +185,7 @@ class _BaseQFit(ABC):
             reso = self.options.resolution
 
         if reso is not None:
-            self._smax = 1 / (2 * reso)
-            self._simple = False
             self._rmask = 0.5 + reso / 3.0
-
-        self._smin = None
-        if self.xmap.resolution.low is not None:
-            self._smin = 1 / (2 * self.xmap.resolution.low)
-        elif self.options.resolution_min is not None:
-            self._smin = 1 / (2 * self.options.resolution_min)
 
         self._xmap_model = self.xmap.zeros_like(self.xmap)
         self._xmap_model2 = self.xmap.zeros_like(self.xmap)
@@ -234,23 +223,16 @@ class _BaseQFit(ABC):
             conformers.append(conformer)
         return conformers
 
-    def _get_transformer(self, *args, **kwds):
-        return get_transformer(self.options.transformer, *args, **kwds)
-
     def _update_transformer(self, conformer):
         self.conformer = conformer
-        self._transformer = self._get_transformer(
+        self._transformer = Transformer(
             conformer,
             self._xmap_model,
-            smax=self._smax,
-            smin=self._smin,
-            simple=self._simple,
             em=self.options.em,
         )
         logger.debug(
             "[_BaseQFit._update_transformer]: Initializing radial density lookup table."
         )
-        self._transformer.initialize()
 
     def _subtract_transformer(self, residue, structure):
         # Select the atoms whose density we are going to subtract:
@@ -259,15 +241,11 @@ class _BaseQFit(ABC):
             subtract_structure = subtract_structure.extract("resn", "HOH", "!=")
 
         # Calculate the density that we are going to subtract:
-        self._subtransformer = self._get_transformer(
+        self._subtransformer = Transformer(
             subtract_structure,
             self._xmap_model2,
-            smax=self._smax,
-            smin=self._smin,
-            simple=self._simple,
             em=self.options.em,
         )
-        self._subtransformer.initialize()
         self._subtransformer.reset(full=True)
         self._subtransformer.density()
         if self.options.em == False:
@@ -305,8 +283,8 @@ class _BaseQFit(ABC):
         nmodels = len(self._coor_set)
         maxpool_size = len(range(0, nvalues, stride))
         self._models = np.zeros((nmodels, maxpool_size), float)
-        for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
-            density = self._transformer.get_conformer_density(coor, b)
+        for n, density in enumerate(self._transformer.get_conformers_densities(
+                                    self._coor_set, self._bs)):
             model = self._models[n]
             # Apply maxpooling to the map similar to self._target
             map_values = density[mask]
@@ -317,7 +295,6 @@ class _BaseQFit(ABC):
                     pooled_map_values.append(np.max(current_window))
             model[:] = np.array(pooled_map_values)
             np.maximum(model, self.options.bulk_solvent_level, out=model)
-            self._transformer.reset(full=True)
 
     def _solve_qp(self):
         # Create and run solver
@@ -503,6 +480,7 @@ class _BaseQFit(ABC):
         else:
             ext = "mrc"
 
+        # TODO check that this still behaves as expected post-cctbx conversion
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             self.conformer.q = q
             self.conformer.coor = coor
@@ -864,7 +842,7 @@ class QFitRotamericResidue(_BaseQFit):
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
         validator = Validator(
-            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em, transformer=self.options.transformer
+            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em
         )
 
         if self.xmap.resolution.high < 3.0:
@@ -1225,7 +1203,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_1_bs
 
                 # QP score the first section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}1_qp")
 
                 # Save results from the first section
                 qp_temp_coor = self._coor_set
@@ -1236,7 +1217,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_2_bs
 
                 # QP score the second section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}2_qp")
 
                 # Save results from the second section
                 qp_2_temp_coor = self._coor_set
