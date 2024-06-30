@@ -79,6 +79,7 @@ def main():
             "scripts/post/find_close_residues.py",
             "scripts/post/get_seq.py",
             "scripts/post/calc_rscc.py",
+            "scripts/post/create_restraints_file.py",
         ],
     )
 
