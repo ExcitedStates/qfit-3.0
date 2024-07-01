@@ -172,7 +172,6 @@ class Transformer:
             yield self.density(xrs)
             self.reset(full=True)
 
-    # TODO figure out why this produces inferior results versus FFT
     def density(self, xrs=None):
         """
         Compute the current model electron density using cctbx.xray map

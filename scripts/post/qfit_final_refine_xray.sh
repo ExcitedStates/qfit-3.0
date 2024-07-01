@@ -108,12 +108,10 @@ remove_duplicates "${multiconf}"
 redistribute_cull_low_occupancies -occ 0.09 "${multiconf}_fixed.pdb"
 mv -v "${multiconf}_fixed_norm.pdb" "${multiconf}_fixed.pdb"
 
-
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}_fixed.pdb"
 
 #__________________________________GET CIF FILE__________________________________
-
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}_fixed_modified.pdb"
@@ -138,6 +136,8 @@ phenix.refine  "${multiconf}_fixed_modified.updated.pdb" \
                "${pdb_name}.mtz" \
                "${pdb_name}_refine.params" \
                --overwrite
+
+create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
