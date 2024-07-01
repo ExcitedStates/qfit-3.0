@@ -36,7 +36,6 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             "FWT,PHIFWT",
             "--rmsd-cutoff", "0.1",
             "--debug",
-            "--transformer", "cctbx"
         ] + list(extra_args)
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
