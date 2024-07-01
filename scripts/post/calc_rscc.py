@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import csv
-from qfit.structure.structure import Structure
+from qfit.structure import Structure
 from qfit.xtal.volume import XMap
 from qfit.validator import Validator
 
