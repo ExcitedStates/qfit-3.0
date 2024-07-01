@@ -18,8 +18,8 @@ import sys
 
 import numpy as np
 import pandas as pd
-from qfit.structure.structure import Structure
-from qfit.structure.structure.rotamers import ROTAMERS
+from qfit.structure import Structure
+from qfit.structure.rotamers import ROTAMERS
 
 Dict = {
     "HOH": 0,
