@@ -17,7 +17,7 @@ b_factor.py pdb.pdb --pdb pdb_name --sidechain
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
-from qfit.structure.structure import Structure
+from qfit.structure import Structure
 
 
 def build_argparser():
