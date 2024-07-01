@@ -3,8 +3,8 @@
 import argparse
 import os
 
-from qfit.structure.structure import Structure
-from qfit.structure.structure.rotamers import ROTAMERS
+from qfit.structure import Structure
+from qfit.structure.rotamers import ROTAMERS
 
 
 def parse_args():
