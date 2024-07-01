@@ -16,7 +16,7 @@ import os
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
-from qfit.structure.structure import Structure
+from qfit.structure import Structure
 
 
 def parse_args():
