@@ -1185,11 +1185,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-            if len(self._coor_set) > MAX_CONFORMERS:
-                logger.warning(
-                    f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
-                )
-
             if not self._coor_set:
                 msg = (
                     "No conformers could be generated. Check for initial "
