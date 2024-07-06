@@ -3,9 +3,8 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import csv
-from qfit.scaler import MapScaler
 from qfit.structure import Structure
-from qfit.volume import XMap
+from qfit.xtal.volume import XMap
 from qfit.validator import Validator
 
 """
@@ -47,10 +46,7 @@ def main():
 
     # Load and process the electron density map:
     xmap = XMap.fromfile(options.map, label="2FOFCWT,PH2FOFCWT")
-    scaler = MapScaler(xmap)
     xmap = xmap.canonical_unit_cell()
-    footprint = ligand
-    scaler.scale(footprint, radius=1.5)
 
     xmap = xmap.extract(ligand.coor, padding=8)
 
