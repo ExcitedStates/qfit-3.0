@@ -80,11 +80,11 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
 
-`qfit_protein example/qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/3k0n_refine.pdb`
+`qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_xray.sh example/qfit_protein_example/3k0n_structure_factors.mtz example/qfit_protein_example/multiconformer_model2.pdb`
+`qfit_final_refine_xray.sh example/qfit_protein_example/1G8A.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
 Additionally, the qFit_occupancy.params file must exist in the folder.
 
