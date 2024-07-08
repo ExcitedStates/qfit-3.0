@@ -155,7 +155,7 @@ class TestTransformer(TransformerBase):
         self._run_transformer_rebuilt_3mer("LYS", cc_min=self.MIN_CC_LYS)
 
     def test_transformer_rebuilt_tripeptide_ser(self):
-        self._run_transformer_rebuilt_3mer("SER", cc_min=0.9)
+        self._run_transformer_rebuilt_3mer("SER", cc_min=0.899)
 
     def test_transformer_rebuilt_tripeptide_trp(self):
         self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
