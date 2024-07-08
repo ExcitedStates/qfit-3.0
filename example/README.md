@@ -6,12 +6,12 @@ Some of the advanced and specialized options available in qFit are demonstrated 
 
 `qfit_residue [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
 
-Using the example 3K0N:
+Using the example 1G8A:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113`
+`qfit_residue qfit_residue_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A.pdb A,175`
 
 This will produce a parsimonious model containing up to 5 alternate conformers
-for residue 113 of chain A of 3K0N.
+for residue 175 of chain A of 1G8A.
 
 
 ### 2. Running qFit on cyro-EM structures. 
@@ -59,7 +59,7 @@ the cost of precision:
 
 Using the example 3K0N:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_residue qfit_residue_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
@@ -70,7 +70,7 @@ For a full list of options, run:
 
 Using the example 3K0N:
 
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 ### 6.  Parallelization:
 
@@ -79,8 +79,7 @@ can be adjusted using the *-p* flag.
 
 Using the example 3K0N, spawning 30 parallel processes:
 
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -p 30`
-
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A.pdb -p 30`
 
 ### 7. Modeling alternate conformers of a ligand
 
