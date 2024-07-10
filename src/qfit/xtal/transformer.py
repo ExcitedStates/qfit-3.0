@@ -1,4 +1,6 @@
 import logging
+
+from cctbx import maptbx
 import numpy as np
 import copy
 from numpy.fft import fftn, ifftn, rfftn, irfftn
@@ -8,6 +10,27 @@ from .atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
 from .._extensions import dilate_points, mask_points, correlation_gradients 
 
 logger = logging.getLogger(__name__)
+
+def fft_map_coefficients(map_coeffs, nyquist=2):
+    """
+    Transform CCTBX map coefficients (e.g. from an MTZ file) to a real map,
+    using symmetry-aware FFT gridding.  Returns the equivalent 3D numpy array.
+    """
+    fft_map = map_coeffs.fft_map(
+        resolution_factor=1/(2*nyquist),
+        symmetry_flags=maptbx.use_space_group_symmetry)
+    real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
+    logger.info(f"FFT map dimensions from CCTBX: {real_map.focus()}")
+    return real_map.as_numpy_array()
+
+def get_transformer(impl_name="cctbx", *args, **kwds):
+    """
+    Instantiate a Transformer class using the specified implementation.
+    """
+    if impl_name == "fft":
+        return FFTTransformer(*args, **kwds)
+    else:
+        return Transformer(*args, **kwds)
 
 class FFTTransformer:
 
@@ -52,7 +75,7 @@ class FFTTransformer:
         if self.b_add is not None:
             b_original = self.structure.b
             self.structure.b += self.b_add
-        self._transformer = original_Transformer(
+        self._transformer = Transformer(
             self.structure, self.xmap, simple=True, em=self.em
         )
         self._transformer.initialize()
@@ -354,5 +377,3 @@ class Transformer:
             ar2 = ar * ar
             a3 = a * a * a
             return w * a3 * r * (ar2 - 8) / 24.0
-    else:
-        return Transformer(*args, **kwds)
