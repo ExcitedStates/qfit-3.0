@@ -1,7 +1,7 @@
 import os
 import logging
 
-from qfit.qfit_ligand import (
+from qfit.command_line.qfit_ligand import (
     QFitOptions,
     prepare_qfit_ligand,
     build_argparser,
