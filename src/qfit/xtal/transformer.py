@@ -32,6 +32,64 @@ def get_transformer(impl_name="cctbx", *args, **kwds):
     else:
         return Transformer(*args, **kwds)
 
+class SFTransformer:
+    def __init__(self, hkl, f, phi, unit_cell):
+        self.hkl = hkl
+        self.f = f
+        self.phi = phi
+
+        self.unit_cell = unit_cell
+        self.space_group = unit_cell.space_group
+
+        abc = self.unit_cell.abc
+        hkl_max = np.abs(hkl).max(axis=0)
+        self._resolution = np.min(abc / hkl_max)
+
+    def __call__(self, nyquist=2):
+        h, k, l = self.hkl.T
+
+        naive_voxelspacing = self._resolution / (2 * nyquist)
+        naive_shape = np.ceil(self.unit_cell.abc / naive_voxelspacing)
+        naive_shape = naive_shape[::-1].astype(int)
+        shape = naive_shape
+        # TODO make grid of unit cell a multiple of small primes
+        # efficient_multiples = [2, 3, 5, 7, 11, 13]
+        # shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
+        fft_grid = np.zeros(shape, dtype=np.complex128)
+
+        start_sf = self._f_phi_to_complex(self.f, self.phi)
+        symops = self.space_group.symop_list[: self.space_group.num_primitive_sym_equiv]
+        two_pi = 2 * np.pi
+        hsym = np.zeros_like(h)
+        ksym = np.zeros_like(k)
+        lsym = np.zeros_like(l)
+        for symop in symops:
+            for n, msym in enumerate((hsym, ksym, lsym)):
+                msym.fill(0)
+                rot = np.asarray(symop.R.T)[n]
+                for r, m in zip(rot, (h, k, l)):
+                    if r != 0:
+                        msym += int(r) * m
+            if np.allclose(symop.t, 0):
+                sf = start_sf
+            else:
+                delta_phi = np.rad2deg(np.inner((-two_pi * symop.t), self.hkl))
+                delta_phi = np.asarray(delta_phi).ravel()
+                sf = self._f_phi_to_complex(self.f, self.phi + delta_phi)
+            fft_grid[lsym, ksym, hsym] = sf
+            fft_grid[-lsym, -ksym, -hsym] = sf.conj()
+        # grid = np.fft.ifftn(fft_grid)
+        nx = shape[-1]
+        grid = np.fft.irfftn(fft_grid[:, :, : nx // 2 + 1])
+        grid -= grid.mean()
+        grid /= grid.std()
+        return grid
+
+    def _f_phi_to_complex(self, f, phi):
+        sf = np.nan_to_num((f * np.exp(-1j * np.deg2rad(phi))).astype(np.complex64))
+        return sf
+
+
 class FFTTransformer:
 
     """Transform a structure in a map via FFT"""
