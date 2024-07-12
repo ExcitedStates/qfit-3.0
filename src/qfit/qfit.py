@@ -543,6 +543,23 @@ class _BaseQFit(ABC):
                  (self.detect_clashes() or self.primary_entity.clashes() > 0)) or
                 (self.primary_entity.clashes() > 0))
 
+    def _solve_qp_and_update(self, prefix, stride=1, pool_size=1):
+        """QP score conformer occupancy"""
+        self._convert(stride, pool_size)
+        self._solve_qp()
+        self._update_conformers()
+        self._save_intermediate(prefix)
+
+    def _solve_miqp_and_update(self, prefix, stride=1, pool_size=1):
+        # MIQP score conformer occupancy
+        self._convert(stride, pool_size)
+        self._solve_miqp(
+            threshold=self.options.threshold,
+            cardinality=self.options.cardinality)
+        self._update_conformers()
+        self._save_intermediate(prefix=prefix)
+
+
     def is_same_rotamer(self, rotamer, chis):
         # Check if the residue configuration corresponds to the
         # current rotamer
