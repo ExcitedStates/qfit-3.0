@@ -553,7 +553,8 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
         self._run_rebuilt_multi_conformer_tripeptide("PHE", d_min=1.3)
 
     def test_qfit_protein_rebuilt_tripeptide_ser(self):
-        self._run_rebuilt_multi_conformer_tripeptide("SER", d_min=1.4)
+        self._run_rebuilt_multi_conformer_tripeptide("SER", d_min=1.3,
+            set_b_iso=2)
 
     def test_qfit_protein_rebuilt_tripeptide_thr(self):
         self._run_rebuilt_multi_conformer_tripeptide("THR")

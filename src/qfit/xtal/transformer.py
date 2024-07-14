@@ -1,4 +1,5 @@
 import logging
+import time
 
 from cctbx import maptbx, masks, miller
 from cctbx.sgtbx import space_group_info
@@ -41,8 +42,11 @@ class Transformer:
         self.xmap = xmap
         self.rmax = rmax
         self.em = em
+        # internal profiling variables
+        self._t_dens = self._t_conv = 0
 
     def reset(self, rmax=None, full=False):
+        self._t_dens = self._t_conv = 0
         if full:
             self.xmap.array.fill(0)
         else:
@@ -61,7 +65,8 @@ class Transformer:
         if rmax is None:
             rmax = self.rmax
         xrs, _ = self._get_xray_structure_in_box()
-        return self._mask_cctbx(xrs, rmax, value)
+        mask_sel = self._get_cctbx_mask(xrs, rmax)
+        self.xmap.mask_with_value(mask_sel, value)
 
     def _get_xray_structure(self):
         symm = self.structure.crystal_symmetry
@@ -117,25 +122,28 @@ class Transformer:
         xrs_shifted.set_sites_frac(sites_frac)
         return xrs_shifted, delta_xyz_cart
 
-    def _mask_cctbx(self, xrs, rmax, value=1.0):
+    def _get_cctbx_mask(self, xrs, rmax, sites_cart=None):
         """
-        Compute an atom mask using cctbx.masks.  This method accounts for
-        map cutouts and origin shifts to match the original qFit behavior,
-        by temporarily translating the masked structure to fit in a P1 box
-        corresponding to the map extents.
+        Compute an atom mask using cctbx.masks.  This method assumes that
+        translations to account for boxed maps have already been performed.
         """
         n_real = self.xmap.n_real()
-        sites_frac = xrs.sites_frac()
+        if sites_cart is not None:
+            sites_frac = xrs.unit_cell().fractionalize(sites_cart)
+        else:
+            sites_frac = xrs.sites_frac()
+        if isinstance(rmax, float):
+            rmax = flex_array.double(sites_frac.size(), rmax)
         # this mask is inverted, i.e. the region of interest has value 0
         mask_sel = masks.around_atoms(
             xrs.unit_cell(),
             1,
             sites_frac,
-            flex_array.double(sites_frac.size(), rmax),
+            rmax,
             n_real,
             0,
             0).data == 0
-        self.xmap.mask_with_value(mask_sel, value)
+        return mask_sel
 
     def get_conformers_mask(self, coor_set, rmax):
         """
@@ -146,12 +154,21 @@ class Transformer:
         self.reset(full=True)
         logger.debug(f"Masking {len(coor_set)} conformations")
         xrs, dxyz = self._get_xray_structure_in_box()
+        n_sites = xrs.scatterers().size()
+        rmax = flex_array.double(n_sites, rmax)
+        total_sel = None
+        active_flag = self.structure.active
         for coor in coor_set:
             # XXX the active selection may be smaller the coordinate array!
-            if coor.size != xrs.scatterers().size():
-                coor = coor[self.structure.active]
-            xrs.set_sites_cart(flex_array.vec3_double((coor + dxyz).tolist()))
-            self._mask_cctbx(xrs, rmax)
+            if coor.size != n_sites:
+                coor = coor[active_flag]
+            sites_cart = flex_array.vec3_double(coor.tolist()) + dxyz
+            mask_sel = self._get_cctbx_mask(xrs, rmax, sites_cart)
+            if total_sel is None:
+                total_sel = mask_sel
+            else:
+                total_sel |= mask_sel
+        self.xmap.mask_with_value(total_sel, 1.0)
         mask = self.xmap.array > 0
         self.reset(full=True)
         return mask
@@ -163,14 +180,19 @@ class Transformer:
         memory or array operations.
         """
         xrs, dxyz = self._get_xray_structure_in_box()
+        active_flag = self.structure.active
+        self._t_dens = self._t_conv = 0
         for (coor, b) in zip(coor_set, b_set):
             if coor.size != xrs.scatterers().size():
-                coor = coor[self.structure.active]
-                b = b[self.structure.active]
-            xrs.set_sites_cart(flex_array.vec3_double((coor + dxyz).tolist()))
+                coor = coor[active_flag]
+                b = b[active_flag]
+            sites_cart = flex_array.vec3_double(coor.tolist())
+            xrs.set_sites_cart(sites_cart + dxyz)
             xrs.set_b_iso(values=flex_array.double(b))
             yield self.density(xrs)
             self.reset(full=True)
+        logger.debug(f"density summation: {self._t_dens:.3f}s")
+        logger.debug(f"array conversion: {self._t_conv:.3f}s")
 
     def density(self, xrs=None):
         """
@@ -183,6 +205,7 @@ class Transformer:
         u_base = xray_ext.calc_u_base(
             d_min=self.xmap.resolution.high,
             grid_resolution_factor=0.25)
+        t0 = time.time()
         sampled_density = xray_ext.sampled_model_density(
             unit_cell=xrs.unit_cell(),
             scatterers=xrs.scatterers(),
@@ -196,8 +219,11 @@ class Transformer:
             use_u_base_as_u_extra=True,
             sampled_density_must_be_positive=False,
             tolerance_positive_definite=1e-5)
+        self._t_dens += time.time() - t0
+        t0 = time.time()
         real_map = sampled_density.real_map_unpadded()
         self.xmap.set_values_from_flex_array(real_map)
+        self._t_conv += time.time() - t0
         return self.xmap.array
 
 
