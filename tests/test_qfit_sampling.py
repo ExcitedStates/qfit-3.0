@@ -228,20 +228,17 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         """
         Test the performance of qfit._convert() with large samples.
         """
-        # the choice of cutoffs here is arbitrary: the point is to get
-        # sufficiently long runtimes that we can test implementation
-        # differences, but short enough that don't waste too much time
-        # waiting for tests to run, and enough flexibility to trigger
-        # failures deliberately for benchmarking purposes.  500 conformers
-        # seems like a good target for manual testing of code improvements.
+        # NOTE see unit/test_xtal_transformer.py:TestTransformerBenchmark
+        PEPTIDE = "AFA"
         NCONFS = int(os.environ.get("QFIT_TEST_NCONFS", 50))
-        T_MAX = int(os.environ.get("QFIT_TEST_MAX_RUNTIME_SECONDS", 10))
-        pdb_multi, pdb_single = self._get_start_models("AFA")
-        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=1.0)
-        options = self._get_qfit_options()
-        structure, xmap = self._load_qfit_inputs(pdb_single, fmodel_mtz)
-        residue = list(structure.residues)[1]
+        T_MAX = float(os.environ.get("QFIT_TEST_MAX_RUNTIME_SECONDS", 10))
+        D_MIN = float(os.environ.get("QFIT_TEST_DMIN", 1.0))
         with self._run_in_tmpdir():
+            pdb_multi, pdb_single = self._get_start_models(PEPTIDE)
+            fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=D_MIN)
+            options = self._get_qfit_options()
+            structure, xmap = self._load_qfit_inputs(pdb_single, fmodel_mtz)
+            residue = list(structure.residues)[1]
             runner = QFitRotamericResidue(residue, structure, xmap, options)
             for i in range(NCONFS):
                 runner._coor_set.append(residue.coor)
@@ -251,4 +248,4 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
             t2 = time.time()
             t_elapsed = t2 - t1
             assert t_elapsed <= T_MAX, \
-                f"qfit._convert(): {t_elapsed:.3f} seconds"
+                f"QFitRotamericResidue._convert(): {t_elapsed:.3f} seconds"
