@@ -113,7 +113,6 @@ def create_fmodel(pdb_file_name, high_resolution, output_file=None,
         from mmtbx.programs import fmodel as fmodel_program
         run_program(program_class=fmodel_program.Program,
                     args=fmodel_args,
-                    hide_parsing_output=True,
                     logger=null_out())
     return output_file
 

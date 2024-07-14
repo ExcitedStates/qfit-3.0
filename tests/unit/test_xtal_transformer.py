@@ -1,3 +1,6 @@
+import time
+import os
+
 import numpy as np
 import pytest
 
@@ -244,3 +247,58 @@ class TestCompareTransformers(TransformerBase):
         for pdb_multi, pdb_single in self._get_all_serine_monomer_crystals():
             fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=1.4)
             self._run_fft_transformer(pdb_multi, fmodel_mtz, 0.86)
+
+
+class TestTransformerBenchmark(TransformerBase):
+    """
+    Supplemental tests for performance-tuning the Transformer class
+    """
+    # NOTE The choice of cutoffs here is arbitrary: the point is to
+    # get sufficiently long runtimes that we can test implementation
+    # differences, but short enough that don't waste too much time
+    # waiting for tests to run, and enough flexibility to trigger
+    # failures deliberately for benchmarking purposes.  500 to 2000
+    # conformers seems like a good target for manual testing of code
+    # improvements.  The current defaults are deliberately very
+    # generous to avoid test noise, but could be made much stricter.
+    PEPTIDE = "AFA"
+    NCONFS = int(os.environ.get("QFIT_TEST_NCONFS", 50))
+    T_MAX = float(os.environ.get("QFIT_TEST_MAX_RUNTIME_SECONDS", 10))
+    D_MIN = float(os.environ.get("QFIT_TEST_DMIN", 1.0))
+
+    def _get_inputs_for_benchmark(self):
+        pdb_multi, pdb_single = self._get_start_models(self.PEPTIDE)
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=self.D_MIN)
+        structure, xmap = self._load_qfit_inputs(pdb_single, fmodel_mtz)
+        residue = list(structure.residues)[1]
+        xsub = xmap.extract(residue.coor, padding=8.0)
+        tf = self._get_transformer(residue, xsub)
+        return tf
+
+    def test_transformer_get_conformers_mask_runtime(self):
+        """
+        Test runtime of Transformer.get_conformers_mask()
+        """
+        tf = self._get_inputs_for_benchmark()
+        coor_set = [tf.structure.coor for i in range(self.NCONFS)]
+        t1 = time.time()
+        tf.get_conformers_mask(coor_set, 1.0)
+        t2 = time.time()
+        t_elapsed = t2 - t1
+        assert t_elapsed < self.T_MAX, \
+            f"Transformer.get_conformers_mask(): {t_elapsed:.3f} seconds"
+
+    def test_transformer_get_conformers_densities_runtime(self):
+        """
+        Test runtime of Transformer.get_conformers_densities()
+        """
+        tf = self._get_inputs_for_benchmark()
+        coor_set = [tf.structure.coor for i in range(self.NCONFS)]
+        bs = [tf.structure.b for i in range(self.NCONFS)]
+        t1 = time.time()
+        for _ in tf.get_conformers_densities(coor_set, bs):
+            pass
+        t2 = time.time()
+        t_elapsed = t2 - t1
+        assert t_elapsed < self.T_MAX, \
+            f"Transformer.get_conformers_densities(): {t_elapsed:.3f} seconds"
