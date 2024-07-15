@@ -1,5 +1,6 @@
 import logging
-import time
+
+import numpy as np
 
 from cctbx import maptbx, masks, miller
 from cctbx.sgtbx import space_group_info
@@ -42,11 +43,8 @@ class Transformer:
         self.xmap = xmap
         self.rmax = rmax
         self.em = em
-        # internal profiling variables
-        self._t_dens = self._t_conv = 0
 
     def reset(self, rmax=None, full=False):
-        self._t_dens = self._t_conv = 0
         if full:
             self.xmap.array.fill(0)
         else:
@@ -176,12 +174,11 @@ class Transformer:
     def get_conformers_densities(self, coor_set, b_set):
         """
         Iterate over paired lists of candidate conformation coordinates and
-        B-factors and compute the density for each, without duplicating
-        memory or array operations.
+        B-factors and compute the density for each, without modifying the
+        internal data structures.
         """
         xrs, dxyz = self._get_xray_structure_in_box()
         active_flag = self.structure.active
-        self._t_dens = self._t_conv = 0
         for (coor, b) in zip(coor_set, b_set):
             if coor.size != xrs.scatterers().size():
                 coor = coor[active_flag]
@@ -189,15 +186,14 @@ class Transformer:
             sites_cart = flex_array.vec3_double(coor.tolist())
             xrs.set_sites_cart(sites_cart + dxyz)
             xrs.set_b_iso(values=flex_array.double(b))
-            yield self.density(xrs)
-            self.reset(full=True)
-        logger.debug(f"density summation: {self._t_dens:.3f}s")
-        logger.debug(f"array conversion: {self._t_conv:.3f}s")
+            # FIXME workaround to match behavior in volume.py
+            yield np.swapaxes(self.get_density(xrs).as_numpy_array(), 0, 2)
 
-    def density(self, xrs=None):
+    def get_density(self, xrs=None):
         """
         Compute the current model electron density using cctbx.xray map
-        sampling function, without any FFTs
+        sampling function, without any FFTs, and return the density grid
+        as a 3D numpy array.  Does not modify the internal data structures.
         """
         if not xrs:
             xrs, _ = self._get_xray_structure_in_box()
@@ -205,7 +201,6 @@ class Transformer:
         u_base = xray_ext.calc_u_base(
             d_min=self.xmap.resolution.high,
             grid_resolution_factor=0.25)
-        t0 = time.time()
         sampled_density = xray_ext.sampled_model_density(
             unit_cell=xrs.unit_cell(),
             scatterers=xrs.scatterers(),
@@ -219,11 +214,12 @@ class Transformer:
             use_u_base_as_u_extra=True,
             sampled_density_must_be_positive=False,
             tolerance_positive_definite=1e-5)
-        self._t_dens += time.time() - t0
-        t0 = time.time()
-        real_map = sampled_density.real_map_unpadded()
-        self.xmap.set_values_from_flex_array(real_map)
-        self._t_conv += time.time() - t0
+        return sampled_density.real_map_unpadded()
+
+    def density(self, xrs=None):
+        """Compute the electron density and update the internal map object"""
+        map_array = self.get_density(xrs)
+        self.xmap.set_values_from_flex_array(map_array)
         return self.xmap.array
 
 
