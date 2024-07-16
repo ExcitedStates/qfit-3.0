@@ -222,7 +222,10 @@ class _BaseQFit(ABC):
         return path_fields[-1]
 
     def get_conformers(self):
-        conformers = []
+        if len(self._occupancies) < len(self._coor_set):
+            # Generate an array filled with 1.0 to match the length of the coordinate set
+            self._occupancies = [1.0] * len(self._coor_set)
+        conformers = []  
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             conformer = self.conformer.copy()
             conformer = conformer.extract(
@@ -474,10 +477,10 @@ class _BaseQFit(ABC):
         logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
 
     def _write_intermediate_conformers(self, prefix="conformer"):
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
+        conformers = self.get_conformers()
+        for n, conformer in enumerate(conformers, start = 1):
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-            self.conformer.get_selected_structure(self.conformer.active).tofile(fname)
+            conformer.tofile(fname)
 
     def _save_intermediate(self, prefix):
         if self.options.write_intermediate_conformers:
