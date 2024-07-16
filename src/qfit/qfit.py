@@ -1632,6 +1632,9 @@ class QFitLigand(_BaseQFit):
 
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
+        # Make sure the b-facor array is of the same length as the coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.resize(self._bs, (len(self._coor_set), self._bs.shape[1]))
         self._convert()
         logger.info("Solving QP within run.")
         self._solve_qp()
@@ -1644,7 +1647,10 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
-        self.sample_b()
+        # Make sure the b-facor array is of the same length as the coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.resize(self._bs, (len(self._coor_set), self._bs.shape[1]))
+        #self.sample_b()
         self._convert()
         if self.options.ligand_bic:
             self._solve_miqp(
