@@ -36,7 +36,7 @@ MIQPSolutionStats = namedtuple(
 )
 
 DEFAULT_RMSD_CUTOFF = 0.01
-MAX_CONFORMERS = 15000
+MAX_CONFORMERS = 10000
 MIN_OCCUPANCY = 0.002
 
 class QFitOptions:
@@ -1204,13 +1204,13 @@ class QFitRotamericResidue(_BaseQFit):
             )
             self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}")
             
-            if len(self._coor_set) <= 15000:
+            if len(self._coor_set) <= 10000:
                 # If <15000 conformers are generated, QP score conformer occupancy normally
                 self._convert(stride_, pool_size_)
                 self._solve_qp()
                 self._update_conformers()
                 self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}_qp")
-            if len(self._coor_set) > 15000:
+            else:
                 # If >15000 conformers are generated, split the QP conformer scoring into two
                 temp_coor_set = self._coor_set
                 temp_bs = self._bs
