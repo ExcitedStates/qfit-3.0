@@ -112,6 +112,12 @@ def build_argparser():
         default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action='store_true',
+        help="Turn on Ligand RMSD cutoff",
+    )
     return p
 
 
