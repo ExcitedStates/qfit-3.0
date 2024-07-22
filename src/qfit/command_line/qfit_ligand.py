@@ -115,7 +115,7 @@ def build_argparser():
     p.add_argument(
         "--ligand_rmsd",
         dest="ligand_rmsd",
-        action='store_true',
+        action='store_false',
         help="Turn on Ligand RMSD cutoff",
     )
     return p
