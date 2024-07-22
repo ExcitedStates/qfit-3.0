@@ -124,6 +124,7 @@ class QFitOptions:
         self.numConf = None
         self.smiles = None
         self.ligand_bic = None
+        self.ligand_rmsd = None
         self.rot_range = None
         self.trans_range = None
         self.rotation_step = None
@@ -1635,7 +1636,8 @@ class QFitLigand(_BaseQFit):
         logger.debug("Converting densities within run.")
         # Make sure the b-facor array is of the same length as the coordinate array
         if len(self._bs) != len(self._coor_set):
-            self._bs = np.resize(self._bs, (len(self._coor_set), self._bs.shape[1]))
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+            
         self._convert()
         logger.info("Solving QP within run.")
         self._solve_qp()
@@ -1650,7 +1652,8 @@ class QFitLigand(_BaseQFit):
         logger.info("Solving MIQP within run.")
         # Make sure the b-facor array is of the same length as the coordinate array
         if len(self._bs) != len(self._coor_set):
-            self._bs = np.resize(self._bs, (len(self._coor_set), self._bs.shape[1]))
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+            
         #self.sample_b()
         self._convert()
         if self.options.ligand_bic:
@@ -1665,6 +1668,31 @@ class QFitLigand(_BaseQFit):
                 cardinality=self.options.ligand_cardinality,
             )
         self._update_conformers()
+
+        # Ensure there are no duplicate conformers in self._coor_set
+        if self.options.ligand_rmsd:
+            unique_conformers = []
+            for i in range(len(self._coor_set)):
+                is_duplicate = False
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    print("rmsd", rmsd)
+                    if rmsd < 0.1:
+                        is_duplicate = True
+                        print(f"RMSD value less than 0.1 between conformers {i} and {j}: {rmsd}")
+                        break
+                if not is_duplicate:
+                    unique_conformers.append(self._coor_set[i])
+            self._coor_set = unique_conformers
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+    
+            # Calculate and log the RMSD between all final conformers
+            for i in range(len(self._coor_set)):
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    logger.info(f"Final RMSD between conformers {i} and {j}: {rmsd}")
+
+        
         self._save_intermediate(prefix="miqp_solution")
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
@@ -2127,7 +2155,7 @@ class QFitLigand(_BaseQFit):
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
         mol = Chem.Mol(ligand) 
-        logger.info(f"Generating {self.options.numConf} conformers for long chain search")
+        logger.info(f"Generating {self.num_conf_for_method} conformers for long chain search")
         # Generate conformers
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf_for_method, coordMap=coord_map, useBasicKnowledge=True)
 
@@ -2247,6 +2275,9 @@ class QFitLigand(_BaseQFit):
 
         logger.info(f"Trans/rot  search generated: {len(self._coor_set)} plausible conformers")  
         logger.info(f"bfactor shape = {np.shape(self._bs)}")
+
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
         
         self._convert() 
         logger.info("Solving QP after trans and rot search.")
