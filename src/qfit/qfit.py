@@ -311,6 +311,45 @@ class _BaseQFit(ABC):
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
+    # def _convert(self, stride=1, pool_size=1): #default is to manipulate the maps
+    #     """Convert structures to densities and extract relevant values for (MI)QP."""
+    #     logger.info("Converting conformers to density")
+    #     mask = self._transformer.get_conformers_mask(
+    #         self._coor_set, self._rmask)
+    #     nvalues = mask.sum()
+    #     self._target = self.xmap.array[mask]
+        
+    #     # For a 1D array, we adjust our pooling approach
+    #     pooled_values = []
+    #     for i in range(0, len(self._target), stride):
+    #         # Extract the current window for pooling
+    #         current_window = self._target[i:i+pool_size]
+    #         # Perform max pooling on the current window and append the max value to pooled_values
+    #         if len(current_window) > 0:  # Ensure the window is not empty
+    #             pooled_values.append(np.max(current_window))
+        
+    #     # Convert pooled_values back to a numpy array
+    #     self._target = np.array(pooled_values)
+        
+    #     logger.debug(f"Transforming to density for {nvalues} map points")
+    #     nmodels = len(self._coor_set)
+    #     maxpool_size = len(range(0, nvalues, stride))
+    #     self._models = np.zeros((nmodels, maxpool_size), float)
+    #     for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
+    #         density = self._transformer.get_conformer_density(coor, b)
+    #         model = self._models[n]
+    #         # Apply maxpooling to the map similar to self._target
+    #         map_values = density[mask]
+    #         pooled_map_values = []
+    #         for i in range(0, len(map_values), stride):
+    #             current_window = map_values[i:i+pool_size]
+    #             if len(current_window) > 0:
+    #                 pooled_map_values.append(np.max(current_window))
+    #         model[:] = np.array(pooled_map_values)
+    #         np.maximum(model, self.options.bulk_solvent_level, out=model)
+    #         self._transformer.reset(full=True)
+
+
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
