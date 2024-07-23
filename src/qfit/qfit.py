@@ -467,7 +467,7 @@ class _BaseQFit(ABC):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-            self.conformer.get_selected_structure(self.conformer.active).tofile(fname)
+            self.conformer.tofile(fname)
 
     def _save_intermediate(self, prefix):
         if self.options.write_intermediate_conformers:

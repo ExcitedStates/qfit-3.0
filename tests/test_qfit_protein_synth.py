@@ -10,6 +10,7 @@ import os
 
 from iotbx.file_reader import any_file
 import cctbx.crystal
+import numpy as np
 import pytest
 
 from qfit.qfit import QFitOptions, QFitSegment
@@ -44,6 +45,7 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
         "2",
         "--dihedral-stepsize",
         "10",
+        "--write_intermediate_conformers",
     ]
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
@@ -209,6 +211,30 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         """Build a Ala-Ser-Ala model in parallel"""
         self._run_kmer_and_validate_identical_rotamers("ASA", 1.5,
             chi_radius=15, extra_args=("--nproc", "3"))
+        # XXX also testing --write_intermediate_conformers
+        intermediates = []
+        for fn in os.listdir("A_2"):
+            if fn.startswith("miqp_solution_"):
+                intermediates.append(Structure.fromfile(f"A_2/{fn}"))
+        assert len(intermediates) > 1
+        for s in intermediates:
+            assert len(s.resn) == 6
+            assert np.all(s.resn == "SER")
+            assert np.all(s.resi == 2)
+        for i in range(1, len(intermediates)):
+            dxyz = intermediates[i].coor - intermediates[i-1].coor
+            assert np.abs(np.sum(dxyz)) > 0.1
+        # check intermediates for flanking ALA residues (single-conformer)
+        for x in [1, 3]:
+            intermediates = []
+            for fn in os.listdir(f"A_{x}"):
+                if fn.startswith("miqp_solution_"):
+                    intermediates.append(Structure.fromfile(f"A_{x}/{fn}"))
+            assert len(intermediates) == 1
+            s = intermediates[0]
+            assert len(s.resn) == 5
+            assert np.all(s.resn == "ALA")
+            assert np.all(s.resi == x)
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """
