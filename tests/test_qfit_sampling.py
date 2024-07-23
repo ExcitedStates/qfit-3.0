@@ -1,6 +1,7 @@
 """
 Test protein residue sampling methods in qfit.qfit.QFitRotamericResidue
 """
+import os
 
 import numpy as np
 import pytest
@@ -52,6 +53,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         options.dihedral_stepsize = 10
         # TODO make this the default
         options.transformer = "cctbx"
+        options.write_intermediate_conformers = True
         return options
 
     def _load_qfit_inputs(self, pdb_file, mtz_file):
@@ -62,6 +64,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
     def _run_sample(self, residue, structure, xmap, options):
         with self._run_in_tmpdir():
             runner = QFitRotamericResidue(residue, structure, xmap, options)
+            os.makedirs(runner.directory_name, exist_ok=True)
             runner._sample_sidechain()  # pylint: disable=protected-access
             return runner
 

@@ -133,6 +133,7 @@ class TemporaryDirectoryManager:
 
     def __enter__(self):
         os.chdir(self._dirname)
+        print(f"PWD={self._dirname}")
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
