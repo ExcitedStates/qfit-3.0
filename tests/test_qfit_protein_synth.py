@@ -203,38 +203,43 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         )
         assert len(rotamers) == 3  # just to be certain
 
+    def _check_intermediate_ser_conformers(self):
+        """Exercise for --write_intermediate_conformers"""
+        intermediates = []
+        for prefix in ["miqp_solution_"]:
+            for fn in os.listdir("A_2"):
+                if fn.startswith(prefix):
+                    intermediates.append(Structure.fromfile(f"A_2/{fn}"))
+            assert len(intermediates) > 1
+            for s in intermediates:
+                assert len(s.resn) == 6
+                assert np.all(s.resn == "SER")
+                assert np.all(s.resi == 2)
+            for i in range(1, len(intermediates)):
+                dxyz = intermediates[i].coor - intermediates[i-1].coor
+                assert np.abs(np.sum(dxyz)) > 0.1
+            # check intermediates for flanking ALA residues (single-conformer)
+            for x in [1, 3]:
+                intermediates = []
+                for fn in os.listdir(f"A_{x}"):
+                    if fn.startswith(prefix):
+                        intermediates.append(Structure.fromfile(f"A_{x}/{fn}"))
+                assert len(intermediates) == 1
+                s = intermediates[0]
+                assert len(s.resn) == 5
+                assert np.all(s.resn == "ALA")
+                assert np.all(s.resi == x)
+
     def test_qfit_protein_3mer_ser_p21(self):
         """Build a Ser residue with two rotamers at moderate resolution"""
         self._run_kmer_and_validate_identical_rotamers("ASA", 1.5, chi_radius=15)
+        self._check_intermediate_ser_conformers()
 
     def test_qfit_protein_3mer_ser_p21_parallel(self):
         """Build a Ala-Ser-Ala model in parallel"""
         self._run_kmer_and_validate_identical_rotamers("ASA", 1.5,
             chi_radius=15, extra_args=("--nproc", "3"))
-        # XXX also testing --write_intermediate_conformers
-        intermediates = []
-        for fn in os.listdir("A_2"):
-            if fn.startswith("miqp_solution_"):
-                intermediates.append(Structure.fromfile(f"A_2/{fn}"))
-        assert len(intermediates) > 1
-        for s in intermediates:
-            assert len(s.resn) == 6
-            assert np.all(s.resn == "SER")
-            assert np.all(s.resi == 2)
-        for i in range(1, len(intermediates)):
-            dxyz = intermediates[i].coor - intermediates[i-1].coor
-            assert np.abs(np.sum(dxyz)) > 0.1
-        # check intermediates for flanking ALA residues (single-conformer)
-        for x in [1, 3]:
-            intermediates = []
-            for fn in os.listdir(f"A_{x}"):
-                if fn.startswith("miqp_solution_"):
-                    intermediates.append(Structure.fromfile(f"A_{x}/{fn}"))
-            assert len(intermediates) == 1
-            s = intermediates[0]
-            assert len(s.resn) == 5
-            assert np.all(s.resn == "ALA")
-            assert np.all(s.resi == x)
+        self._check_intermediate_ser_conformers()
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """

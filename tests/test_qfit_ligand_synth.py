@@ -39,7 +39,6 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             "FWT,PHIFWT",
             "--rmsd-cutoff", "0.1",
             "--debug",
-            "--transformer", "cctbx",
             "--write_intermediate_conformers"
         ] + list(extra_args)
         print(" ".join(qfit_args))

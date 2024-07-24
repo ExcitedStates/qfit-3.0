@@ -7,11 +7,16 @@ install:
 test-unit:
 	py.test --verbose -n 4 --durations=10 tests/unit/test_*.py
 
-test-int:
-	py.test --verbose -n 4 --durations=40 tests/test_*.py
+test-int-parallel:
+	env QFIT_DISABLE_LIGAND_TEST=true \
+	  py.test --verbose -n 4 --durations=40 tests/test_*.py
 
 test-int-quick:
 	py.test --verbose -n 4 --durations=20 -m "not slow" tests/test_*.py
+
+test-ci:
+	py.test --verbose --durations=20 -m "not slow" \
+	  tests/test_*.py tests/unit/test_*.py
 
 test: test-unit test-int
 
