@@ -8,7 +8,7 @@ from qfit.xtal.transformer import get_transformer
 from qfit.structure import Structure
 
 class Validator:
-    def __init__(self, xmap, resolution, directory, em=False, transformer="cctbx"):
+    def __init__(self, xmap, resolution, directory, em=False, transformer="qfit"):
         self.xmap = xmap
         self.resolution = resolution
         self.em = em

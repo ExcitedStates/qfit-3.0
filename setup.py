@@ -1,6 +1,7 @@
 import os.path
 from setuptools import setup
 from setuptools import find_packages
+from setuptools.extension import Extension
 import numpy as np
 
 
@@ -13,6 +14,13 @@ def main():
         ]
     }
 
+    ext_modules = [
+        Extension(
+            "qfit._extensions",
+            [os.path.join("src", "_extensions.c")],
+            include_dirs=[np.get_include()],
+        ),
+    ]
     setup_requires = [
         "setuptools_scm",
     ]
@@ -37,6 +45,7 @@ def main():
         package_dir=package_dir,
         packages=packages,
         package_data=package_data,
+        ext_modules=ext_modules,
         setup_requires=setup_requires,
         install_requires=install_requires,
         zip_safe=False,

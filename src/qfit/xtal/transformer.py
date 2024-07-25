@@ -1,5 +1,7 @@
 import logging
 
+import numpy as np
+from scipy.integrate import fixed_quad
 from cctbx import maptbx, masks, miller
 from cctbx.sgtbx import space_group_info
 from cctbx.uctbx import unit_cell
@@ -7,6 +9,9 @@ from cctbx.xray import structure_factors
 from cctbx.array_family import flex as flex_array
 from cctbx.xray import ext as xray_ext
 from mmtbx.utils import shift_origin
+
+from qfit.xtal.atomsf import ATOM_STRUCTURE_FACTORS, ELECTRON_SCATTERING_FACTORS
+from qfit._extensions import dilate_points  # pylint: disable=import-error,no-name-in-module
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +29,7 @@ def fft_map_coefficients(map_coeffs, nyquist=2):
     return real_map.as_numpy_array()
 
 
-class Transformer:
+class CCTBXTransformer:
 
     """
     Manager to transform a structure to a density or equivalent atom mask,
@@ -182,7 +187,7 @@ class Transformer:
         self.xmap.set_values_from_flex_array(real_map)
 
 
-class FFTTransformer(Transformer):
+class FFTTransformer(CCTBXTransformer):
     """
     Alternative transformer for cases where we want to use the same set of
     reflections (h,k,l) as the input map coefficients, and can tolerate the
@@ -233,11 +238,186 @@ class FFTTransformer(Transformer):
         self.xmap.set_values_from_flex_array(real_map)
 
 
-def get_transformer(impl_name="cctbx", *args, **kwds):
+# TODO retire this
+class QfitTransformer(CCTBXTransformer):
+
+    """Transform a structure to a density."""
+
+    def __init__(
+        self,
+        structure,
+        xmap,
+        smin=None,
+        smax=None,
+        rmax=3.0,
+        rstep=0.01,
+        simple=False,
+        em=False,
+    ):
+        super().__init__(structure, xmap, rmax=rmax, em=em)
+        self.smin = smin
+        self.smax = smax
+        self.rstep = rstep
+        self.simple = simple
+        self.asf_range = 6
+        if self.em == True:
+            self.asf_range = 5
+            self._asf = ELECTRON_SCATTERING_FACTORS
+        else:
+            self._asf = ATOM_STRUCTURE_FACTORS
+
+        self._initialized = False
+
+        if not simple and smax is None and self.xmap.resolution.high is not None:
+            self.smax = 1 / (2 * self.xmap.resolution.high)
+        if not simple:
+            rlow = self.xmap.resolution.low
+            if rlow is None:
+                rlow = 1000
+            self.smin = 1 / (2 * rlow)
+
+        # Calculate transforms
+        uc = xmap.unit_cell
+        self.lattice_to_cartesian = uc.frac_to_orth / uc.abc
+        self.cartesian_to_lattice = uc.orth_to_frac * uc.abc.reshape(3, 1)
+        self.grid_to_cartesian = self.lattice_to_cartesian * self.xmap.voxelspacing
+        structure_coor = self.structure.coor
+        self._grid_coor = np.zeros_like(structure_coor)
+        self._grid_coor_rot = np.zeros_like(structure_coor)
+
+    def _coor_to_grid_coor(self):
+        if np.allclose(self.xmap.origin, 0):
+            coor = self.structure.coor
+        else:
+            coor = self.structure.coor - self.xmap.origin
+        np.dot(coor, self.cartesian_to_lattice.T, self._grid_coor)
+        self._grid_coor /= self.xmap.voxelspacing
+        self._grid_coor -= self.xmap.offset
+
+    def initialize(self):
+        self.radial_densities = []
+        for atom in self.structure.atoms:
+            elem = atom.element.strip()
+            if self.simple:
+                rdens = self.simple_radial_density(elem, atom.b)[1]
+            else:
+                rdens = self.radial_density(elem, atom.b)[1]
+            self.radial_densities.append(rdens)
+        self.radial_densities = np.ascontiguousarray(self.radial_densities)
+        self._initialized = True
+
+    def density(self):
+        """Transform structure to a density in a xmap."""
+        if not self._initialized:
+            self.initialize()
+
+        self._coor_to_grid_coor()
+        lmax = np.asarray(
+            [self.rmax / vs for vs in self.xmap.voxelspacing], dtype=np.float64
+        )
+        active = self.structure.active
+        q = self.structure.q
+        for symop in self.xmap.unit_cell.space_group.symop_list:
+            np.dot(self._grid_coor, symop.R.T, self._grid_coor_rot)
+            # FIXME this can't be right...
+            self._grid_coor_rot += symop.t * self.xmap.shape[::-1]
+            dilate_points(
+                self._grid_coor_rot,
+                active,
+                q,
+                lmax,
+                self.radial_densities,
+                self.rstep,
+                self.rmax,
+                self.grid_to_cartesian,
+                self.xmap.array,
+            )
+        #self.xmap.tofile("density_qfit.ccp4")
+
+    def simple_radial_density(self, element, bfactor):
+        """Calculate electron density as a function of radius."""
+
+        # assert bfactor > 0, "B-factor should be bigger than 0"
+
+        try:
+            asf = self._asf[element.capitalize()]
+        except KeyError:
+            print("Unknown element:", element.capitalize())
+            asf = self._asf["C"]
+        four_pi2 = 4 * np.pi * np.pi
+        bw = []
+        for i in range(self.asf_range):
+            divisor = asf[1][i] + bfactor
+            if divisor <= 1e-4:
+                bw.append(0)
+            else:
+                bw.append(-four_pi2 / (asf[1][i] + bfactor))
+        aw = [asf[0][i] * (-bw[i] / np.pi) ** 1.5 for i in range(self.asf_range)]
+        r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
+        r2 = r * r
+        density = np.zeros_like(r2)
+        for i in range(self.asf_range):
+            try:
+                #exp_factor = bw[i] * r2
+                density += aw[i] * np.exp(bw[i] * r2)
+            except FloatingPointError:
+                pass
+        return r, density
+
+    def radial_density(self, element, bfactor):
+        """Calculate electron density as a function of radius."""
+        r = np.arange(0, self.rmax + self.rstep + 1, self.rstep)
+        density = np.zeros_like(r)
+        for n, x in enumerate(r):
+            asf = self._asf[element.capitalize()]
+            args = (x, asf, bfactor, self.em)
+            integrand, _ = fixed_quad(
+                self._scattering_integrand, self.smin, self.smax, args=args, n=50
+            )
+            density[n] = integrand
+        return r, density
+
+    @staticmethod
+    def _scattering_integrand(s, r, asf, bfactor, em):
+        """Integral function to be approximated to obtain radial density."""
+        s2 = s * s
+        if em == True:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+            )
+        else:
+            f = (
+                asf[0][0] * np.exp(-asf[1][0] * s2)
+                + asf[0][1] * np.exp(-asf[1][1] * s2)
+                + asf[0][2] * np.exp(-asf[1][2] * s2)
+                + asf[0][3] * np.exp(-asf[1][3] * s2)
+                + asf[0][4] * np.exp(-asf[1][4] * s2)
+                + asf[0][5]
+            )
+        w = 8 * f * np.exp(-bfactor * s2) * s
+        a = 4 * np.pi * s
+        if r > 1e-4:
+            return w / r * np.sin(a * r)
+        else:
+            # Return 4th order Tayler expansion to prevent singularity
+            return w * a * (1 - a * a * r * r / 6.0)
+
+
+class Transformer(CCTBXTransformer):
+    ...
+
+
+def get_transformer(impl_name="qfit", *args, **kwds):
     """
     Instantiate a Transformer class using the specified implementation.
     """
     if impl_name == "fft":
         return FFTTransformer(*args, **kwds)
+    elif impl_name == "qfit":
+        return QfitTransformer(*args, **kwds)
     else:
-        return Transformer(*args, **kwds)
+        return CCTBXTransformer(*args, **kwds)

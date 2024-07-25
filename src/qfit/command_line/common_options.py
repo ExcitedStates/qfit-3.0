@@ -116,7 +116,7 @@ def get_base_argparser(description,
     )
     p.add_argument(
         "--transformer",
-        choices=["cctbx","fft"],
+        choices=["cctbx","fft","qfit"],
         default="cctbx",
         dest="transformer",
         help="Map sampling algorithm")
