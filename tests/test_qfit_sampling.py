@@ -42,6 +42,7 @@ def _get_multi_conf_residues(multi_conf):
 
 
 class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
+    TRANSFORMER = "cctbx"
 
     def _get_qfit_options(self):
         options = QFitOptions()
@@ -52,8 +53,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
         # XXX default values don't work for Phe and Lys tests
         options.dofs_per_iteration = 2
         options.dihedral_stepsize = 10
-        # TODO make this the default
-        options.transformer = "cctbx"
+        options.transformer = self.TRANSFORMER
         options.write_intermediate_conformers = True
         return options
 
@@ -243,11 +243,28 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
             residue = list(structure.residues)[1]
             runner = QFitRotamericResidue(residue, structure, xmap, options)
             for i in range(NCONFS):
-                runner._coor_set.append(residue.coor)
-                runner._bs.append(residue.b)
+                runner._coor_set.append(residue.coor)  # pylint: disable=protected-access
+                runner._bs.append(residue.b)  # pylint: disable=protected-access
             t1 = time.time()
-            runner._convert()
+            runner._convert()  # pylint: disable=protected-access
             t2 = time.time()
             t_elapsed = t2 - t1
             assert t_elapsed <= T_MAX, \
                 f"QFitRotamericResidue._convert(): {t_elapsed:.3f} seconds"
+
+
+@pytest.mark.slow
+class TestQfitResidueSamplingLegacyTransformer(TestQfitResidueSampling):
+    TRANSFORMER = "qfit"
+
+    def test_sampling_rebuilt_tripeptide_lys(self):
+        pytest.skip("failing with legacy transformer")
+
+    def test_sampling_rebuilt_tripeptide_ser(self):
+        pytest.skip("failing with legacy transformer")
+
+    def test_sampling_rebuilt_tripeptide_thr(self):
+        pytest.skip("failing with legacy transformer")
+
+    def test_sampling_rebuilt_tripeptide_val(self):
+        pytest.skip("failing with legacy transformer")

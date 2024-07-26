@@ -12,8 +12,7 @@ from .base_test_case import UnitBase
 
 
 class TransformerBase(UnitBase):
-    # TODO change this to cctbx
-    IMPLEMENTATION = "qfit"
+    IMPLEMENTATION = None
 
     def _get_transformer(self, *args, **kwds):
         return get_transformer(self.IMPLEMENTATION, *args, **kwds)
@@ -43,6 +42,7 @@ class TransformerBase(UnitBase):
 
 
 class TestTransformer(TransformerBase):
+    IMPLEMENTATION = "cctbx"
 
     def _run_all(self, pdb_multi, d_min, cc_min=0.99):
         fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
@@ -136,9 +136,10 @@ class TestTransformer(TransformerBase):
         xsub = xmap.extract(ssub.coor)
         self._run_transformer(ssub, xsub, cc_min)
 
-    MIN_CC_GLU = 0.94
-    MIN_CC_LYS = 0.945
-    MIN_CC_TRP = 0.95
+    # TODO figure out why these values are lower than in the qfit version
+    MIN_CC_GLU = 0.929
+    MIN_CC_LYS = 0.928
+    MIN_CC_TRP = 0.934
 
     def test_transformer_rebuilt_tripeptide_glu(self):
         self._run_transformer_rebuilt_3mer("GLU", cc_min=self.MIN_CC_GLU)
@@ -153,12 +154,12 @@ class TestTransformer(TransformerBase):
         self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
 
 
-class TestCCTBXTransformer(TestTransformer):
-    IMPLEMENTATION = "cctbx"
-    # TODO figure out why these values are lower
-    MIN_CC_GLU = 0.929
-    MIN_CC_LYS = 0.928
-    MIN_CC_TRP = 0.934
+class TestLegacyTransformer(TestTransformer):
+    IMPLEMENTATION = "qfit"
+    # XXX see note above
+    MIN_CC_GLU = 0.94
+    MIN_CC_LYS = 0.945
+    MIN_CC_TRP = 0.95
 
 
 class TestFFTTransformer(TestTransformer):
@@ -245,8 +246,9 @@ class TestCompareTransformers(TransformerBase):
 
 class TestTransformerBenchmark(TransformerBase):
     """
-    Supplemental tests for performance-tuning the Transformer class
+    Supplemental tests for performance-tuning the Transformer class.
     """
+    IMPLEMENTATION = "cctbx"
     # NOTE The choice of cutoffs here is arbitrary: the point is to
     # get sufficiently long runtimes that we can test implementation
     # differences, but short enough that don't waste too much time

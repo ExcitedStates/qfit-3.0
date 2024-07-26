@@ -1,3 +1,6 @@
+# XXX Parameters for legacy transformer; these do not appear to have any
+# direct analogue in CCTBX
+
 """Cromer-Mann coefficents.
 
 f(s) = SUM_i=1^6 a_i * exp[-b_i * s^2]

@@ -305,8 +305,8 @@ class _BaseQFit(ABC):
         nmodels = len(self._coor_set)
         maxpool_size = len(range(0, nvalues, stride))
         self._models = np.zeros((nmodels, maxpool_size), float)
-        for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
-            density = self._transformer.get_conformer_density(coor, b)
+        for n, density in enumerate(self._transformer.get_conformers_densities(
+                                    self._coor_set, self._bs)):
             model = self._models[n]
             # Apply maxpooling to the map similar to self._target
             map_values = density[mask]
@@ -317,7 +317,6 @@ class _BaseQFit(ABC):
                     pooled_map_values.append(np.max(current_window))
             model[:] = np.array(pooled_map_values)
             np.maximum(model, self.options.bulk_solvent_level, out=model)
-            self._transformer.reset(full=True)
 
     def _solve_qp(self):
         # Create and run solver
@@ -848,8 +847,7 @@ class QFitRotamericResidue(_BaseQFit):
         self._convert()
         self._solve_qp()
         self._update_conformers()
-        if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="qp_solution")
+        self._save_intermediate(prefix="qp_solution")
 
         # MIQP score conformer occupancy
         self.sample_b()
@@ -858,8 +856,7 @@ class QFitRotamericResidue(_BaseQFit):
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
-        if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="miqp_solution")
+        self._save_intermediate(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
@@ -1220,7 +1217,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_1_bs
 
                 # QP score the first section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}1_qp")
 
                 # Save results from the first section
                 qp_temp_coor = self._coor_set
@@ -1231,7 +1231,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_2_bs
 
                 # QP score the second section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}2_qp")
 
                 # Save results from the second section
                 qp_2_temp_coor = self._coor_set

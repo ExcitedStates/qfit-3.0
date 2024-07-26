@@ -17,6 +17,14 @@ from qfit.structure.math import dihedral_angle
 from .test_qfit_protein_synth import SyntheticMapRunner
 
 class TestQfitLigandSyntheticData(SyntheticMapRunner):
+    TRANSFORMER = "cctbx"
+    COMMON_OPTIONS = [
+        "--label",
+        "FWT,PHIFWT",
+        "--rmsd-cutoff", "0.1",
+        "--debug",
+        "--write_intermediate_conformers"
+    ]
 
     def _run_qfit_ligand(self,
                          pdb_file_multi,
@@ -35,13 +43,8 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
             "--smiles", smiles_string,
             "--resolution",
             str(high_resolution),
-            "--label",
-            "FWT,PHIFWT",
-            "--rmsd-cutoff", "0.1",
-            "--debug",
-            "--transformer", "cctbx",
-            "--write_intermediate_conformers"
-        ] + list(extra_args)
+            "--transformer", self.TRANSFORMER,
+        ] + self.COMMON_OPTIONS + list(extra_args)
         print(" ".join(qfit_args))
         subprocess.check_call(qfit_args)
         return fmodel_mtz
@@ -222,3 +225,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         assert len(protein.coor) == 19
         assert np.all(protein.altloc == "")
         self._validate_write_intermediate_conformers_zxi()
+
+
+class TestQfitLigandSyntheticDataLegacy(TestQfitLigandSyntheticData):
+    TRANSFORMER = "qfit"

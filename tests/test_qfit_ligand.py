@@ -13,10 +13,6 @@ from qfit.logtools import (
     setup_logging,
     log_run_info,
 )
-from qfit.solvers import (
-    available_qp_solvers,
-    available_miqp_solvers,
-)
 from qfit.utils.mock_utils import BaseTestRunner, is_github_pull_request
 
 logger = logging.getLogger(__name__)
@@ -71,7 +67,7 @@ class TestQFitLigand(BaseTestRunner):
             selection="B, 801",
             smiles=r"[H]/N=C(\CS(=O)C)/NCCC[C@@H](C(=O)O)N")
         assert qfit_ligand.ligand.natoms == 15
-        output = qfit_ligand.run()
+        qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
         assert len(conformers) == 2
 
@@ -82,6 +78,6 @@ class TestQFitLigand(BaseTestRunner):
             selection="A, 401",
             smiles=r"c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(CP(=O)(O)O)O)O)O)N")
         assert qfit_ligand.ligand.natoms == 31
-        output = qfit_ligand.run()
+        qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
         assert len(conformers) >= 2
