@@ -290,9 +290,9 @@ class _BaseQFit(ABC):
         logger.info("Converting conformers to density")
         mask = self._transformer.get_conformers_mask(
             self._coor_set, self._rmask)
+        # the mask is a boolean array
         nvalues = mask.sum()
-        if nvalues <= 1:
-            logger.warn("Mask covers %d points", nvalues)
+        logger.debug("%d grid points masked out of %s", nvalues, mask.size)
         self._target = self.xmap.array[mask]
 
         assert isinstance(stride, int) and isinstance(pool_size, int)
@@ -307,6 +307,8 @@ class _BaseQFit(ABC):
                     pooled_values.append(np.max(current_window))
             # Convert pooled_values back to a numpy array
             self._target = np.array(pooled_values)
+        logger.debug("Histogram of current target values: %s",
+                     str(np.histogram(self._target)))
         
         logger.debug(f"Transforming to density for {nvalues} map points")
         nmodels = len(self._coor_set)
@@ -327,6 +329,8 @@ class _BaseQFit(ABC):
             else:
                 model[:] = map_values
             np.maximum(model, self.options.bulk_solvent_level, out=model)
+        logger.debug("Histogram of final model values: %s",
+                     str(np.histogram(self._models[-1])))
 
     def _solve_qp(self):
         # Create and run solver

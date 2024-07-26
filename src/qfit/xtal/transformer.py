@@ -150,8 +150,8 @@ class _BaseTransformer(ABC):
             sites_frac = xrs.unit_cell().fractionalize(sites_cart)
         else:
             sites_frac = xrs.sites_frac()
-        if isinstance(rmax, float):
-            rmax = flex_array.double(sites_frac.size(), rmax)
+        if isinstance(rmax, (float, int)):
+            rmax = flex_array.double(sites_frac.size(), float(rmax))
         # this mask is inverted, i.e. the region of interest has value 0
         mask_sel = masks.around_atoms(
             xrs.unit_cell(),
@@ -216,6 +216,8 @@ class Transformer(_BaseTransformer):
             xrs.set_b_iso(values=flex_array.double(b))
             # FIXME workaround to match behavior in volume.py
             yield np.swapaxes(self.get_density(xrs).as_numpy_array(), 0, 2)
+            #yield self.density(xrs)
+            #self.xmap.tofile("density_new.ccp4")
 
     def get_density(self, xrs=None):
         """
@@ -298,8 +300,12 @@ class FFTTransformer(Transformer):
         fcalc_map = miller.fft_map(
             crystal_gridding = grid,
             fourier_coefficients = sfs.f_calc())
+        # FIXME This does not end up on the desired scale
         real_map = fcalc_map.apply_volume_scaling().real_map_unpadded()
+        negative_sel = real_map < 0
+        real_map.set_selected(negative_sel, 0)
         self.xmap.set_values_from_flex_array(real_map)
+        return self.xmap.array
 
 
 class QfitTransformer(Transformer):

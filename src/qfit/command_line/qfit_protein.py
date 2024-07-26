@@ -647,7 +647,9 @@ def prepare_qfit_protein(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(structure, radius=options.scale_rmask * radius)
+        scaler.scale(structure,
+                     radius=options.scale_rmask * radius,
+                     transformer=options.transformer)
 
     if options.qscore is not None:
         with open(

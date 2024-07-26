@@ -197,7 +197,9 @@ def prepare_qfit_ligand(options):
             reso = options.resolution
         if reso is not None:
             radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=options.scale_rmask * radius)
+        scaler.scale(footprint,
+                     radius=options.scale_rmask * radius,
+                     transformer=options.transformer)
 
     xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = ".ccp4"

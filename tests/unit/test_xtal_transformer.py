@@ -203,7 +203,7 @@ class TestCompareTransformers(TransformerBase):
 
     @pytest.mark.fast
     def test_fft_transformer_3mer_ser_p21(self):
-        self._run_all_fft("ASA", 1.5, cc_min=0.999)
+        self._run_all_fft("ASA", 1.5, cc_min=0.992)
 
     @pytest.mark.fast
     def test_fft_transformer_3mer_lys_p21(self):
