@@ -14,4 +14,4 @@ dependencies:
   - cvxopt
   - tqdm
   - cctbx-base
-  - rdkit==2022.9.5
+  - rdkit==2022.9.1
