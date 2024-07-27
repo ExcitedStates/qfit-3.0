@@ -17,9 +17,11 @@ from qfit.qfit import QFitOptions, QFitSegment
 from qfit.solvers import available_qp_solvers, available_miqp_solvers
 from qfit.structure import Structure
 from qfit.xtal.volume import XMap
-from qfit.utils.mock_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner, is_github_pull_request
 
-DISABLE_SLOW = os.environ.get("QFIT_ENABLE_SLOW_TESTS", None) is None
+SKIP_ME = is_github_pull_request() or \
+    os.environ.get("QFIT_ALL_TESTS", "false").lower() == "false"
+POST_MERGE_ONLY = pytest.mark.skipif(SKIP_ME, reason="Skipping post-merge-only ligand tests")
 
 class SyntheticMapRunner(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "data")
@@ -336,7 +338,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
                                   high_resolution=d_min,
                                   cc_min=self.MIN_CC_PHE)
 
-    @pytest.mark.skipif(DISABLE_SLOW, reason="Redundant P21 test for 7-mer building")
+    @POST_MERGE_ONLY
     def test_qfit_protein_7mer_peptide_p21(self):
         """
         Build a 7-mer peptide with multiple residues in double conformations
@@ -380,7 +382,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
 
-    @pytest.mark.skipif(DISABLE_SLOW, reason="Slow P6322 symmetry test disabled")
+    @POST_MERGE_ONLY
     def test_qfit_protein_3mer_lys_p6322_all_sites(self):
         """
         Iterate over all symmetry operators in the P6(3)22 space group and
@@ -517,6 +519,8 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
         pytest.skip("failing for cryo-EM")
 
 
+@POST_MERGE_ONLY
+@pytest.mark.slow
 class TestQfitProteinSyntheticDataLegacy(TestQfitProteinSyntheticData):
     TRANSFORMER = "qfit"
 

@@ -15,13 +15,11 @@ from qfit.logtools import (
 )
 from qfit.utils.mock_utils import BaseTestRunner, is_github_pull_request
 
+from .test_qfit_protein_synth import POST_MERGE_ONLY
+
 logger = logging.getLogger(__name__)
 
 
-SKIP_ME = is_github_pull_request() or \
-    os.environ.get("QFIT_DISABLE_LIGAND_TEST", "false").lower() == "true"
-
-@pytest.mark.skipif(SKIP_ME, reason="Skipping post-merge-only ligand tests")
 @pytest.mark.slow
 class TestQFitLigand(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "qfit_ligand_test")
@@ -61,6 +59,7 @@ class TestQFitLigand(BaseTestRunner):
 
     # FIXME this is currently failing with:
     # 'Generated an exception: No matching found'
+    @POST_MERGE_ONLY
     def test_run_qfit_ligand_5agk(self):
         qfit_ligand = self._mock_main(
             pdb_file_name="5AGK.pdb",
@@ -72,6 +71,7 @@ class TestQFitLigand(BaseTestRunner):
         conformers = qfit_ligand.get_conformers()
         assert len(conformers) == 2
 
+    @POST_MERGE_ONLY
     def test_run_qfit_ligand_5c4o(self):
         qfit_ligand = self._mock_main(
             pdb_file_name="5C40.pdb",

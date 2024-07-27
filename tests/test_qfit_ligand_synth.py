@@ -14,7 +14,8 @@ import pytest
 from qfit.structure import Structure
 from qfit.structure.math import dihedral_angle
 
-from .test_qfit_protein_synth import SyntheticMapRunner
+from .test_qfit_protein_synth import SyntheticMapRunner, POST_MERGE_ONLY
+
 
 class TestQfitLigandSyntheticData(SyntheticMapRunner):
     TRANSFORMER = "cctbx"
@@ -106,33 +107,6 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
                                           "CCC(=O)O", d_min)
         self._validate_ppi(pdb_single, fmodel_in, d_min)
 
-    # not actually slow, just not helpful for quick testing
-    @pytest.mark.skip(reason="No longer working with RDKit")
-    def test_qfit_ligand_ppi_p1_with_cif_chemcomp(self):
-        """
-        Identical to test_qfit_ligand_ppi_p1 except for the addition of a PDB
-        Chemical Components CIF file defining connectivity.
-        """
-        d_min = 1.2
-        (pdb_multi, pdb_single) = self._get_start_models("PPI")
-        fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,1",
-            "CCC(=O)O", d_min,
-            extra_args=("--cif", op.join(self.DATA, "PPI.cif.gz")))
-        self._validate_ppi(pdb_single, fmodel_in, d_min)
-
-    @pytest.mark.skip(reason="No longer working with RDKit")
-    def test_qfit_ligand_ppi_p1_with_cif_monlib(self):
-        """
-        Identical to test_qfit_ligand_ppi_p1 except for the addition of a
-        Refmac Monomer Library CIF file defining connectivity.
-        """
-        d_min = 1.2
-        (pdb_multi, pdb_single) = self._get_start_models("PPI")
-        fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,1",
-            "CCC(=O)O", d_min,
-            extra_args=("--cif", op.join(self.DATA, "PPI_refmac.cif.gz")))
-        self._validate_ppi(pdb_single, fmodel_in, d_min)
-
     #@pytest.mark.slow
     @pytest.mark.skip(reason="FIXME needs more debugging")
     def test_qfit_ligand_trs_p21(self):
@@ -209,6 +183,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         s = self._validate_zxi_conformers()
         self._validate_write_intermediate_conformers_zxi()
 
+    @pytest.mark.slow
     def test_qfit_ligand_zxi_complex_p1(self):
         """
         Build alternate conformers for a 4-Iodobenzylamine (ZXI) molecule
@@ -227,5 +202,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         self._validate_write_intermediate_conformers_zxi()
 
 
+@pytest.mark.slow
+@POST_MERGE_ONLY
 class TestQfitLigandSyntheticDataLegacy(TestQfitLigandSyntheticData):
     TRANSFORMER = "qfit"
