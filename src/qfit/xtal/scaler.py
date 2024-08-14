@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from qfit.xtal.transformer import Transformer, FFTTransformer
+from qfit.xtal.transformer import Transformer, FFTTransformer, QfitTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -14,32 +14,26 @@ class MapScaler:
         self._model_map = xmap.zeros_like(xmap)
         self.em = em
 
-    def subtract(self, structure):
-        if self.xmap.hkl is not None:
-            hkl = self.xmap.hkl
-            transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, em=self.em
+    def _get_model_transformer(self, structure, transformer="cctbx"):
+        if self.xmap.hkl is not None and transformer == "fft":
+            # FIXME this seems like the correct approach, but it currently
+            # produces inferior results
+            logger.info("HKLs available, will perform full FFT")
+            return FFTTransformer(
+                structure, self._model_map, hkl=self.xmap.hkl, em=self.em
             )
-        else:
-            transformer = Transformer(
+        elif transformer == "qfit":
+            logger.warning("Using legacy QFit transformer")
+            return QfitTransformer(
                 structure,
                 self._model_map,
                 simple=True,
                 rmax=3,
-                em=self.em
-            )
-        logger.info("Subtracting density.")
-        transformer.density()
-        self.xmap.array -= self._model_map.array
-
-    def scale(self, structure, radius=1):
-        if self.xmap.hkl is not None:
-            hkl = self.xmap.hkl
-            transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, em=self.em
+                em=self.em,
             )
         else:
-            transformer = Transformer(
+            logger.info("Using simple density transformer")
+            return Transformer(
                 structure,
                 self._model_map,
                 simple=True,
@@ -47,9 +41,18 @@ class MapScaler:
                 em=self.em,
             )
 
+    def scale(self, structure, radius=1, transformer="cctbx"):
+        """
+        Compute and apply in place the transformation required to put the
+        experimental map on the same scale as the model-computed map,
+        and return the scaling factor S and constant k.
+        """
+        transformer = self._get_model_transformer(structure,
+                                                  transformer=transformer)
         # Get all map coordinates of interest:
         transformer.mask(radius)
         mask = self._model_map.array > 0
+        logger.info("Masked %d grid points out of %d", mask.sum(), mask.size)
 
         # Calculate map based on structure:
         transformer.reset(full=True)
@@ -75,7 +78,16 @@ class MapScaler:
         # Scale the observed map to the calculated map
         self.xmap.array = scaling_factor * self.xmap.array + k
         transformer.reset(full=True)
+        return (scaling_factor, k)
 
+    # XXX currently unused
+    def subtract(self, structure):
+        transformer = self._get_model_transformer(structure)
+        logger.info("Subtracting density.")
+        transformer.density()
+        self.xmap.array -= self._model_map.array
+
+    # XXX currently unused
     def cutoff(self, cutoff_value, value=-1):
         cutoff_mask = self.xmap.array < cutoff_value
         self.xmap.array[cutoff_mask] = value

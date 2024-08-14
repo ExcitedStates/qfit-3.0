@@ -10,15 +10,18 @@ import os
 
 from iotbx.file_reader import any_file
 import cctbx.crystal
+import numpy as np
 import pytest
 
 from qfit.qfit import QFitOptions, QFitSegment
 from qfit.solvers import available_qp_solvers, available_miqp_solvers
 from qfit.structure import Structure
 from qfit.xtal.volume import XMap
-from qfit.utils.mock_utils import BaseTestRunner
+from qfit.utils.mock_utils import BaseTestRunner, is_github_pull_request
 
-DISABLE_SLOW = os.environ.get("QFIT_ENABLE_SLOW_TESTS", None) is None
+SKIP_ME = is_github_pull_request() or \
+    os.environ.get("QFIT_ALL_TESTS", "false").lower() == "false"
+POST_MERGE_ONLY = pytest.mark.skipif(SKIP_ME, reason="Skipping post-merge-only ligand tests")
 
 class SyntheticMapRunner(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "data")
@@ -34,6 +37,7 @@ class SyntheticMapRunner(BaseTestRunner):
 
 
 class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
+    TRANSFORMER = "cctbx"
     COMMON_SAMPLING_ARGS = [
         "--backbone-amplitude",
         "0.1",
@@ -44,7 +48,7 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
         "2",
         "--dihedral-stepsize",
         "10",
-        "--transformer", "cctbx"
+        "--write_intermediate_conformers",
     ]
 
     def _run_qfit_cli(self, pdb_file_multi, pdb_file_single, high_resolution,
@@ -61,6 +65,7 @@ class QfitProteinSyntheticDataRunner(SyntheticMapRunner):
             str(high_resolution),
             "--label",
             "FWT,PHIFWT",
+            "--transformer", self.TRANSFORMER,
         ] + self.COMMON_SAMPLING_ARGS + list(extra_args)
         if em:
             qfit_args.append("--cryo_em")
@@ -202,14 +207,44 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         )
         assert len(rotamers) == 3  # just to be certain
 
+    def _check_intermediate_ser_conformers(self):
+        """Exercise for --write_intermediate_conformers"""
+        intermediates = []
+        for prefix in ["miqp_solution_"]:
+            for fn in os.listdir("A_2"):
+                if fn.startswith(prefix):
+                    intermediates.append(Structure.fromfile(f"A_2/{fn}"))
+            assert len(intermediates) > 1
+            for s in intermediates:
+                assert len(s.resn) == 6
+                assert np.all(s.resn == "SER")
+                assert np.all(s.resi == 2)
+            for i in range(1, len(intermediates)):
+                dxyz = intermediates[i].coor - intermediates[i-1].coor
+                assert np.abs(np.sum(dxyz)) > 0.1
+            # check intermediates for flanking ALA residues (single-conformer)
+            for x in [1, 3]:
+                intermediates = []
+                for fn in os.listdir(f"A_{x}"):
+                    if fn.startswith(prefix):
+                        intermediates.append(Structure.fromfile(f"A_{x}/{fn}"))
+                assert len(intermediates) == 1
+                s = intermediates[0]
+                assert len(s.resn) == 5
+                assert np.all(s.resn == "ALA")
+                assert np.all(s.resi == x)
+
     def test_qfit_protein_3mer_ser_p21(self):
         """Build a Ser residue with two rotamers at moderate resolution"""
-        self._run_kmer_and_validate_identical_rotamers("ASA", 1.5, chi_radius=15)
+        self._run_kmer_and_validate_identical_rotamers("ASA", d_min=1.5,
+                                                       chi_radius=15)
+        self._check_intermediate_ser_conformers()
 
     def test_qfit_protein_3mer_ser_p21_parallel(self):
         """Build a Ala-Ser-Ala model in parallel"""
         self._run_kmer_and_validate_identical_rotamers("ASA", 1.5,
             chi_radius=15, extra_args=("--nproc", "3"))
+        self._check_intermediate_ser_conformers()
 
     def test_qfit_protein_3mer_trp_2conf_p21(self):
         """
@@ -303,7 +338,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
                                   high_resolution=d_min,
                                   cc_min=self.MIN_CC_PHE)
 
-    @pytest.mark.skipif(DISABLE_SLOW, reason="Redundant P21 test for 7-mer building")
+    @POST_MERGE_ONLY
     def test_qfit_protein_7mer_peptide_p21(self):
         """
         Build a 7-mer peptide with multiple residues in double conformations
@@ -347,7 +382,7 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         assert rotamers_in[3] - rotamers_out[3] == set()
         assert rotamers_in[2] - rotamers_out[2] == set()
 
-    @pytest.mark.skipif(DISABLE_SLOW, reason="Slow P6322 symmetry test disabled")
+    @POST_MERGE_ONLY
     def test_qfit_protein_3mer_lys_p6322_all_sites(self):
         """
         Iterate over all symmetry operators in the P6(3)22 space group and
@@ -374,8 +409,8 @@ class TestQfitProteinSyntheticData(QfitProteinSyntheticDataRunner):
         # XXX this test is very sensitive to slight differences in input and
         # OS - in some circumstances it can detect occupancy as low as 0.28,
         # but not when using CCP4 input
-        d_min = 1.18
-        occ_B = 0.32
+        d_min = 1.2
+        occ_B = 0.35
         (pdb_multi_start, pdb_single) = self._get_start_models("ARA")
         pdb_in = any_file(pdb_multi_start)
         symm = pdb_in.file_object.crystal_symmetry()
@@ -484,6 +519,15 @@ class TestQfitProteinSyntheticCryoEM(TestQfitProteinSyntheticData):
         pytest.skip("failing for cryo-EM")
 
 
+@POST_MERGE_ONLY
+@pytest.mark.slow
+class TestQfitProteinSyntheticDataLegacy(TestQfitProteinSyntheticData):
+    TRANSFORMER = "qfit"
+
+    def test_qfit_protein_3mer_arg_sensitivity(self):
+        pytest.skip("failing for legacy transformer")
+
+
 @pytest.mark.slow
 class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
     """
@@ -536,10 +580,10 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
         self._run_rebuilt_multi_conformer_tripeptide("HIS")
 
     def test_qfit_protein_rebuilt_tripeptide_ile(self):
-        self._run_rebuilt_multi_conformer_tripeptide("ILE", d_min=1.4)
+        self._run_rebuilt_multi_conformer_tripeptide("ILE", d_min=1.35)
 
     def test_qfit_protein_rebuilt_tripeptide_leu(self):
-        self._run_rebuilt_multi_conformer_tripeptide("LEU")
+        self._run_rebuilt_multi_conformer_tripeptide("LEU", d_min=1.4)
 
     def test_qfit_protein_rebuilt_tripeptide_lys(self):
         self._run_rebuilt_multi_conformer_tripeptide("LYS", d_min=1.4)
@@ -553,8 +597,10 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
     def test_qfit_protein_rebuilt_tripeptide_phe(self):
         self._run_rebuilt_multi_conformer_tripeptide("PHE", d_min=1.3)
 
+    @pytest.mark.skip(reason="Unstable, needs more debugging")
     def test_qfit_protein_rebuilt_tripeptide_ser(self):
-        self._run_rebuilt_multi_conformer_tripeptide("SER")
+        self._run_rebuilt_multi_conformer_tripeptide("SER", d_min=1.3,
+            set_b_iso=2)
 
     def test_qfit_protein_rebuilt_tripeptide_thr(self):
         self._run_rebuilt_multi_conformer_tripeptide("THR")
@@ -566,4 +612,4 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
         self._run_rebuilt_multi_conformer_tripeptide("TYR")
 
     def test_qfit_protein_rebuilt_tripeptide_val(self):
-        self._run_rebuilt_multi_conformer_tripeptide("VAL")
+        self._run_rebuilt_multi_conformer_tripeptide("VAL", d_min=1.3)

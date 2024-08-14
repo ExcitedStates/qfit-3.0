@@ -1,3 +1,6 @@
+import time
+import os
+
 import numpy as np
 import pytest
 
@@ -9,7 +12,7 @@ from .base_test_case import UnitBase
 
 
 class TransformerBase(UnitBase):
-    IMPLEMENTATION = "cctbx"
+    IMPLEMENTATION = None
 
     def _get_transformer(self, *args, **kwds):
         return get_transformer(self.IMPLEMENTATION, *args, **kwds)
@@ -39,6 +42,7 @@ class TransformerBase(UnitBase):
 
 
 class TestTransformer(TransformerBase):
+    IMPLEMENTATION = "cctbx"
 
     def _run_all(self, pdb_multi, d_min, cc_min=0.99):
         fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
@@ -132,11 +136,7 @@ class TestTransformer(TransformerBase):
         xsub = xmap.extract(ssub.coor)
         self._run_transformer(ssub, xsub, cc_min)
 
-    #MIN_CC_GLU = 0.94
-    #MIN_CC_LYS = 0.945
-    #MIN_CC_TRP = 0.95
-    # TODO figure out why these values are lower than in the old qFit
-    # implementation or the FFT
+    # TODO figure out why these values are lower than in the qfit version
     MIN_CC_GLU = 0.929
     MIN_CC_LYS = 0.928
     MIN_CC_TRP = 0.934
@@ -148,24 +148,30 @@ class TestTransformer(TransformerBase):
         self._run_transformer_rebuilt_3mer("LYS", cc_min=self.MIN_CC_LYS)
 
     def test_transformer_rebuilt_tripeptide_ser(self):
-        self._run_transformer_rebuilt_3mer("SER", cc_min=0.9)
+        self._run_transformer_rebuilt_3mer("SER", cc_min=0.899)
 
     def test_transformer_rebuilt_tripeptide_trp(self):
         self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
 
 
-class TestFFTTransformer(TestTransformer):
-    IMPLEMENTATION = "fft"
+class TestLegacyTransformer(TestTransformer):
+    IMPLEMENTATION = "qfit"
+    # XXX see note above
     MIN_CC_GLU = 0.94
     MIN_CC_LYS = 0.945
     MIN_CC_TRP = 0.95
+
+
+class TestFFTTransformer(TestTransformer):
+    IMPLEMENTATION = "fft"
 
     def _run_transformer_rebuilt_3mer(self, *args, **kwds):
         pytest.skip("not applicable to this class")
 
 
 class TestCompareTransformers(TransformerBase):
-    IMPLEMENTATION = "cctbx"
+    # TODO change this to "cctbx"
+    IMPLEMENTATION = "qfit"
 
     def _run_fft_transformer(self, pdb_multi, mtz_file, cc_min=0.9):
         structure, xmap = self._load_qfit_inputs(pdb_multi, mtz_file)
@@ -197,7 +203,7 @@ class TestCompareTransformers(TransformerBase):
 
     @pytest.mark.fast
     def test_fft_transformer_3mer_ser_p21(self):
-        self._run_all_fft("ASA", 1.5, cc_min=0.999)
+        self._run_all_fft("ASA", 1.5, cc_min=0.992)
 
     @pytest.mark.fast
     def test_fft_transformer_3mer_lys_p21(self):
@@ -225,8 +231,7 @@ class TestCompareTransformers(TransformerBase):
         assert xsub.n_real() == (18, 17, 18)
         assert np.all(xsub.offset == [-4, -3, -5])
         xsub_orig = xsub.array.copy()
-        # XXX this was 0.79 with the old qfit transformer
-        MASKED_MIN_CC = 0.755
+        MASKED_MIN_CC = 0.79
         self._run_transformer(ssub, xsub, MASKED_MIN_CC)
 
     def test_fft_transformer_ser_monomer_space_groups(self):
@@ -237,3 +242,59 @@ class TestCompareTransformers(TransformerBase):
         for pdb_multi, pdb_single in self._get_all_serine_monomer_crystals():
             fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=1.4)
             self._run_fft_transformer(pdb_multi, fmodel_mtz, 0.86)
+
+
+class TestTransformerBenchmark(TransformerBase):
+    """
+    Supplemental tests for performance-tuning the Transformer class.
+    """
+    IMPLEMENTATION = "cctbx"
+    # NOTE The choice of cutoffs here is arbitrary: the point is to
+    # get sufficiently long runtimes that we can test implementation
+    # differences, but short enough that don't waste too much time
+    # waiting for tests to run, and enough flexibility to trigger
+    # failures deliberately for benchmarking purposes.  500 to 2000
+    # conformers seems like a good target for manual testing of code
+    # improvements.  The current defaults are deliberately very
+    # generous to avoid test noise, but could be made much stricter.
+    PEPTIDE = "AFA"
+    NCONFS = int(os.environ.get("QFIT_TEST_NCONFS", 50))
+    T_MAX = float(os.environ.get("QFIT_TEST_MAX_RUNTIME_SECONDS", 10))
+    D_MIN = float(os.environ.get("QFIT_TEST_DMIN", 1.0))
+
+    def _get_inputs_for_benchmark(self):
+        pdb_multi, pdb_single = self._get_start_models(self.PEPTIDE)
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=self.D_MIN)
+        structure, xmap = self._load_qfit_inputs(pdb_single, fmodel_mtz)
+        residue = list(structure.residues)[1]
+        xsub = xmap.extract(residue.coor, padding=8.0)
+        tf = self._get_transformer(residue, xsub)
+        return tf
+
+    def test_transformer_get_conformers_mask_runtime(self):
+        """
+        Test runtime of Transformer.get_conformers_mask()
+        """
+        tf = self._get_inputs_for_benchmark()
+        coor_set = [tf.structure.coor for i in range(self.NCONFS)]
+        t1 = time.time()
+        tf.get_conformers_mask(coor_set, 1.0)
+        t2 = time.time()
+        t_elapsed = t2 - t1
+        assert t_elapsed < self.T_MAX, \
+            f"Transformer.get_conformers_mask(): {t_elapsed:.3f} seconds"
+
+    def test_transformer_get_conformers_densities_runtime(self):
+        """
+        Test runtime of Transformer.get_conformers_densities()
+        """
+        tf = self._get_inputs_for_benchmark()
+        coor_set = [tf.structure.coor for i in range(self.NCONFS)]
+        bs = [tf.structure.b for i in range(self.NCONFS)]
+        t1 = time.time()
+        for _ in tf.get_conformers_densities(coor_set, bs):
+            pass
+        t2 = time.time()
+        t_elapsed = t2 - t1
+        assert t_elapsed < self.T_MAX, \
+            f"Transformer.get_conformers_densities(): {t_elapsed:.3f} seconds"

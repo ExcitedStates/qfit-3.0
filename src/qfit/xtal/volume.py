@@ -52,6 +52,7 @@ class _BaseVolume(ABC):
             grid_parameters = GridParameters()
         self.grid_parameters = grid_parameters
         self.origin = np.asarray(origin, np.float64)
+        self._n_real = tuple(int(x) for x in self.array.shape[::-1])
 
     @abstractmethod
     def write_map_file(self, file_name):
@@ -63,7 +64,7 @@ class _BaseVolume(ABC):
 
     def n_real(self):
         """Alternative to 'shape' for CCTBX compatibility"""
-        return tuple(int(x) for x in self.shape[::-1])
+        return self._n_real
 
     @property
     def offset(self):

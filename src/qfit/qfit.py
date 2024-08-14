@@ -281,43 +281,56 @@ class _BaseQFit(ABC):
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
 
-    def _convert(self, stride=1, pool_size=1): #default is to manipulate the maps
-        """Convert structures to densities and extract relevant values for (MI)QP."""
+    def _convert(self, stride=-1, pool_size=-1):
+        """
+        Convert structures to densities and extract relevant values for the
+        (MI)QP solvers.  Pooling will be performed if stride and pool_size
+        are positive integers.
+        """
         logger.info("Converting conformers to density")
         mask = self._transformer.get_conformers_mask(
             self._coor_set, self._rmask)
+        # the mask is a boolean array
         nvalues = mask.sum()
+        logger.debug("%d grid points masked out of %s", nvalues, mask.size)
         self._target = self.xmap.array[mask]
-        
-        # For a 1D array, we adjust our pooling approach
-        pooled_values = []
-        for i in range(0, len(self._target), stride):
-            # Extract the current window for pooling
-            current_window = self._target[i:i+pool_size]
-            # Perform max pooling on the current window and append the max value to pooled_values
-            if len(current_window) > 0:  # Ensure the window is not empty
-                pooled_values.append(np.max(current_window))
-        
-        # Convert pooled_values back to a numpy array
-        self._target = np.array(pooled_values)
+
+        assert isinstance(stride, int) and isinstance(pool_size, int)
+        if stride >= 1 and pool_size >= 1:
+            # For a 1D array, we adjust our pooling approach
+            pooled_values = []
+            for i in range(0, len(self._target), stride):
+                # Extract the current window for pooling
+                current_window = self._target[i:i+pool_size]
+                # Perform max pooling on the current window and append the max value to pooled_values
+                if len(current_window) > 0:  # Ensure the window is not empty
+                    pooled_values.append(np.max(current_window))
+            # Convert pooled_values back to a numpy array
+            self._target = np.array(pooled_values)
+        logger.debug("Histogram of current target values: %s",
+                     str(np.histogram(self._target)))
         
         logger.debug(f"Transforming to density for {nvalues} map points")
         nmodels = len(self._coor_set)
-        maxpool_size = len(range(0, nvalues, stride))
+        maxpool_size = len(range(0, nvalues, max(stride, 1)))
         self._models = np.zeros((nmodels, maxpool_size), float)
-        for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
-            density = self._transformer.get_conformer_density(coor, b)
+        for n, density in enumerate(self._transformer.get_conformers_densities(
+                                    self._coor_set, self._bs)):
             model = self._models[n]
-            # Apply maxpooling to the map similar to self._target
             map_values = density[mask]
-            pooled_map_values = []
-            for i in range(0, len(map_values), stride):
-                current_window = map_values[i:i+pool_size]
-                if len(current_window) > 0:
-                    pooled_map_values.append(np.max(current_window))
-            model[:] = np.array(pooled_map_values)
+            if stride >= 1 and pool_size >= 1:
+                # Apply maxpooling to the map similar to self._target
+                pooled_map_values = []
+                for i in range(0, len(map_values), stride):
+                    current_window = map_values[i:i+pool_size]
+                    if len(current_window) > 0:
+                        pooled_map_values.append(np.max(current_window))
+                model[:] = np.array(pooled_map_values)
+            else:
+                model[:] = map_values
             np.maximum(model, self.options.bulk_solvent_level, out=model)
-            self._transformer.reset(full=True)
+        logger.debug("Histogram of final model values: %s",
+                     str(np.histogram(self._models[-1])))
 
     def _solve_qp(self):
         # Create and run solver
@@ -490,7 +503,7 @@ class _BaseQFit(ABC):
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
-            self.conformer.get_selected_structure(self.conformer.active).tofile(fname)
+            self.conformer.tofile(fname)
 
     def _save_intermediate(self, prefix):
         if self.options.write_intermediate_conformers:
@@ -848,8 +861,7 @@ class QFitRotamericResidue(_BaseQFit):
         self._convert()
         self._solve_qp()
         self._update_conformers()
-        if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="qp_solution")
+        self._save_intermediate(prefix="qp_solution")
 
         # MIQP score conformer occupancy
         self.sample_b()
@@ -858,8 +870,7 @@ class QFitRotamericResidue(_BaseQFit):
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
         self._update_conformers()
-        if self.options.write_intermediate_conformers:
-            self._write_intermediate_conformers(prefix="miqp_solution")
+        self._save_intermediate(prefix="miqp_solution")
 
         # Now that the conformers have been generated, the resulting
         # conformations should be examined via GoodnessOfFit:
@@ -1220,7 +1231,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_1_bs
 
                 # QP score the first section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}1_qp")
 
                 # Save results from the first section
                 qp_temp_coor = self._coor_set
@@ -1231,7 +1245,10 @@ class QFitRotamericResidue(_BaseQFit):
                 self._bs = section_2_bs
 
                 # QP score the second section
-                self._solve_qp_and_update(f"sample_sidechain_iter{version}_{iteration}_qp", stride_, pool_size_)
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}2_qp")
 
                 # Save results from the second section
                 qp_2_temp_coor = self._coor_set
