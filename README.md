@@ -14,7 +14,7 @@ Electron density maps obtained from high-resolution X-ray diffraction data are a
    
    git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    
-   cd qfit-3.0
+   cd qfit-3.0 
    
 **3) Create the Conda environment using the downloaded file**
 
