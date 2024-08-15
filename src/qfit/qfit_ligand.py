@@ -105,6 +105,13 @@ def build_argparser():
         help="Run qFit-ligand 180 degree flip sampling function",
     )
 
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action='store_false',
+        help="Turn off Ligand RMSD cutoff",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
