@@ -37,7 +37,6 @@ class TestQFitLigand:
             selection,
             "--smiles", smiles,
             "-l", "2FOFCWT,PH2FOFCWT",
-            "--write_intermediate_conformers",
         ] + list(extra_args)
         # TODO: Add options to reduce computational load
 
