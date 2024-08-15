@@ -1752,13 +1752,13 @@ class QFitLigand(_BaseQFit):
         Chem.rdDistGeom.EmbedMultipleConfs(mol, numConfs=num_conformers, useBasicKnowledge=True, pruneRmsThresh=self.options.rmsd_cutoff)
 
         # Minimize the energy of each conformer to find most stable structure
-        logger.info("Minimizing energy of each conformer")
+        logger.info("Minimizing energy of each conformer with no constraints")
         mp = AllChem.MMFFGetMoleculeProperties(mol)
         for conf_id in mol.GetConformers():
             ff = AllChem.MMFFGetMoleculeForceField(mol, mp, confId=conf_id.GetId())
             ff.Minimize()
 
-        logger.info("Aligning molecules")
+        logger.info("Aligning molecules with no constraints")
         # Align the conformers in "mol" to "ligand" to ensure all structures are properly sitting in the binding site
         ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(ligand)
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
@@ -1820,7 +1820,7 @@ class QFitLigand(_BaseQFit):
             self._coor_set = merged_arr
             self._bs = merged_bs
     
-            logger.info(f"Random search generated: {len(self._coor_set)} plausible conformers")          
+            logger.info(f"After unconstrained search, there are {len(self._coor_set)} plausible conformers")          
     
             if len(self._coor_set) < 1:
                 logger.warning(
@@ -1864,13 +1864,13 @@ class QFitLigand(_BaseQFit):
             logger.error(f"terminal atom constrained search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Minimize the energy of each conformer to find most stable structure
-            logger.info("Minimizing energy of each conformer")
+            logger.info("Minimizing energy of each conformer with terminal atom constraints")
             mp = AllChem.MMFFGetMoleculeProperties(mol)
             for conf_id in mol.GetConformers():
                 ff = AllChem.MMFFGetMoleculeForceField(mol, mp, confId=conf_id.GetId())
                 ff.Minimize()
     
-            logger.info("Aligning molecules")
+            logger.info("Aligning molecules with terminal atom constraints")
             # Align the conformers in "mol" to "ligand" to ensure all structures are properly sitting in the binding site
             ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(ligand)
             mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
@@ -1929,7 +1929,7 @@ class QFitLigand(_BaseQFit):
             self._coor_set = merged_arr
             self._bs = merged_bs
             
-            logger.info(f"Terminal atom search generated: {len(self._coor_set)} plausible conformers")  
+            logger.info(f"After terminal atom search, there are {len(self._coor_set)} plausible conformers")  
     
             if len(self._coor_set) < 1:
                 logger.warning(
@@ -1983,17 +1983,17 @@ class QFitLigand(_BaseQFit):
         ps.useBasicKnowledge = True
         ps.pruneRmsThresh = self.options.rmsd_cutoff
 
-        logger.info(f"Generating {num_conformers} conformers with no/spherical constraints")
+        logger.info(f"Generating {num_conformers} conformers with spherical constraints")
         Chem.rdDistGeom.EmbedMultipleConfs(mol, numConfs=num_conformers, params=ps)
 
         # Minimize the energy of each conformer to find most stable structure
-        logger.info("Minimizing energy of each conformer")
+        logger.info("Minimizing energy of each conformer with spherical constraints")
         mp = AllChem.MMFFGetMoleculeProperties(mol)
         for conf_id in mol.GetConformers():
             ff = AllChem.MMFFGetMoleculeForceField(mol, mp, confId=conf_id.GetId())
             ff.Minimize()
 
-        logger.info("Aligning molecules")
+        logger.info("Aligning molecules with spherical constraints")
         # Align the conformers in "mol" to "ligand" to ensure all structures are properly sitting in the binding site
         ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(ligand)
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
@@ -2009,7 +2009,7 @@ class QFitLigand(_BaseQFit):
             logger.error(f"Spherical search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
-            logger.info("Checking for clashes")
+            logger.info("Checking for clashes with spherical constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
             new_coors = []
@@ -2054,7 +2054,7 @@ class QFitLigand(_BaseQFit):
             self._coor_set = merged_arr
             self._bs = merged_bs
     
-            logger.info(f"Spherical search generated: {len(self._coor_set)} plausible conformers")  
+            logger.info(f"After spherical search, there are {len(self._coor_set)} plausible conformers")  
     
             if len(self._coor_set) < 1:
                 logger.warning(
@@ -2093,20 +2093,20 @@ class QFitLigand(_BaseQFit):
         coord_map = {idx: branching_ligand.GetConformer().GetAtomPosition(idx) for idx in core_atoms}
         # Create a copy of the molecule for conformer generation
         mol_copy = Chem.Mol(branching_ligand)
-        logger.info(f"Generating {num_branched_confs} conformers for branched ligand sampling")
+        logger.info(f"Generating {num_branched_confs} conformers with branched sampling")
         
         # Generate confromers with coordinate map "fixed"
         AllChem.EmbedMultipleConfs(mol_copy, numConfs=num_branched_confs, coordMap=coord_map, useBasicKnowledge=True)
         
         # Minimize energy of each conformer 
-        logger.info("Minimizing energy of new conformers")
+        logger.info("Minimizing energy of new conformers with branched sampling")
         mp = AllChem.MMFFGetMoleculeProperties(mol_copy)
         for conf_id in mol_copy.GetConformers():
             ff = AllChem.MMFFGetMoleculeForceField(mol_copy, mp, confId=conf_id.GetId())
             ff.Minimize()
 
         # Compute Crippen contributions for both molecules to align the generated conformers to each other 
-        logger.info("Aligning molecules for branched ligand sampling")
+        logger.info("Aligning molecules with branched sampling")
         ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(branching_ligand)
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol_copy)
         # Align 
@@ -2121,7 +2121,7 @@ class QFitLigand(_BaseQFit):
         if mol_copy.GetNumConformers() == 0:
             logger.error(f"Branching search generated no conformers. Moving onto next sampling function.")
         if mol_copy.GetNumConformers() != 0:
-            logger.info("Checking for clashes")
+            logger.info("Checking for clashes with branched sampling")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol_copy.GetConformers()
             new_coors = []
@@ -2164,7 +2164,7 @@ class QFitLigand(_BaseQFit):
     
             self._coor_set = merged_arr
             self._bs = merged_bs
-            logger.info(f"Branched search generated: {len(new_coor_set)} plausible conformers")  
+            logger.info(f"After branched search, there are {len(new_coor_set)} plausible conformers")  
 
             return 
 
@@ -2190,18 +2190,18 @@ class QFitLigand(_BaseQFit):
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
         mol = Chem.Mol(ligand) 
-        logger.info(f"Generating {self.num_conf_for_method} conformers for long chain search")
+        logger.info(f"Generating {self.num_conf_for_method} conformers with long chain search")
         # Generate conformers
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf_for_method, coordMap=coord_map, useBasicKnowledge=True)
 
-        logger.info("Minimizing long chain conformers")
+        logger.info("Minimizing long chain conformers with long chain search")
         # Minimize the energy of each conformer to find most stable structure
         mp = AllChem.MMFFGetMoleculeProperties(mol)
         for conf_id in mol.GetConformers():
             ff = AllChem.MMFFGetMoleculeForceField(mol, mp, confId=conf_id.GetId())
             ff.Minimize()
 
-        logger.info("Aligning long chain conformers")
+        logger.info("Aligning molecules with long chain search")
         ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(ligand)
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
 
@@ -2216,7 +2216,7 @@ class QFitLigand(_BaseQFit):
             logger.error(f"Long chain search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
-            logger.info("Checking for clashes")
+            logger.info("Checking for clashes with long chain search")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
             new_coors = []
@@ -2258,16 +2258,11 @@ class QFitLigand(_BaseQFit):
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
     
-    
             self._coor_set = merged_arr
             self._bs = merged_bs
     
-            logger.info(f"Long chain search generated: {len(new_coor_set)} plausible conformers")  
-            logger.info(f"bfactor shape = {np.shape(self._bs)}")
-            
-    
-            # logger.info(f"After long chain QP there are {len(self._coor_set)} conformers")
-    
+            logger.info(f"After long chain search, there are {len(new_coor_set)} plausible conformers")  
+                    
             if len(self._coor_set) < 1:
                 logger.warning(
                     f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
@@ -2308,8 +2303,11 @@ class QFitLigand(_BaseQFit):
         self._coor_set = np.concatenate((new_coor_set, rotated_coor_set, extended_coor_set), axis=0)
         self._bs = np.concatenate((new_bs, rotated_bs, extended_bs), axis=0)
 
-        logger.info(f"Trans/rot  search generated: {len(self._coor_set)} plausible conformers")  
-        logger.info(f"bfactor shape = {np.shape(self._bs)}")
+        logger.info(f"After trans/rot search, there are {len(self._coor_set)} plausible conformers")  
+
+        # Make sure b-factor array is the same length as coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
         
         self._convert() 
         logger.info("Solving QP after trans and rot search.")
