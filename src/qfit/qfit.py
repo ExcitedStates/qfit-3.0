@@ -130,6 +130,8 @@ class QFitOptions:
         self.rot_range = None
         self.trans_range = None
         self.rotation_step = None
+        self.flip_180 = False
+        self.ligand_rmsd = None
 
         ### From QFitSegmentOptions
         self.fragment_length = None
@@ -1632,33 +1634,39 @@ class QFitLigand(_BaseQFit):
                 num_conf_for_method = round(num_gen_conformers / 4)
         self.num_conf_for_method = num_conf_for_method
 
-        # Run conformer generation functions in parallel
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(self.random_unconstrained),
-                executor.submit(self.terminal_atom_const),
-                executor.submit(self.spherical_search)
-            ]
-            if branching_atoms:
-                if length_branching > 30:
-                    futures.append(executor.submit(self.branching_search))
-                    futures.append(executor.submit(self.long_chain_search))
-                elif length_branching <= 30:
-                    futures.append(executor.submit(self.branching_search))
-
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                except Exception as exc:
-                    logger.error(f'Generated an exception: {exc}')
+        if self.options.flip_180:
+                self.flip_180()
+        else:
+            # Run conformer generation functions in parallel
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(self.random_unconstrained),
+                    executor.submit(self.terminal_atom_const),
+                    executor.submit(self.spherical_search)
+                ]
+                if branching_atoms:
+                    if length_branching > 30:
+                        futures.append(executor.submit(self.branching_search))
+                        futures.append(executor.submit(self.long_chain_search))
+                    elif length_branching <= 30:
+                        futures.append(executor.submit(self.branching_search))
+    
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        logger.error(f'Generated an exception: {exc}')
 
         logger.info(f"Number of generated conformers, before scoring: {len(self._coor_set)}")
         
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
-        
-
+            
+        # Make sure b-factor array is the same length as coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+            
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
         self._convert()
@@ -1673,7 +1681,9 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
-        self.sample_b()
+         # Make sure b-factor array is the same length as coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
         self._convert()
         if self.options.ligand_bic:
             self._solve_miqp(
@@ -1687,6 +1697,30 @@ class QFitLigand(_BaseQFit):
                 cardinality=self.options.cardinality,
             )
         self._update_conformers()
+
+        # Ensure there are no duplicate conformers in self._coor_set
+        if self.options.ligand_rmsd:
+            unique_conformers = []
+
+            for i in range(len(self._coor_set)):
+                is_duplicate = False
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    if rmsd < 0.2:
+                        is_duplicate = True
+                        print(f"RMSD value less than 0.01 between conformers {i} and {j}: {rmsd}")
+                        break
+                if not is_duplicate:
+                    unique_conformers.append(self._coor_set[i])
+            self._coor_set = unique_conformers
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+
+            # Calculate and log the RMSD between all final conformers
+            for i in range(len(self._coor_set)):
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    logger.info(f"Final RMSD between conformers {i} and {j}: {rmsd}")
+                    
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
         # self._write_intermediate_conformers(prefix="miqp_solution")
@@ -2153,7 +2187,7 @@ class QFitLigand(_BaseQFit):
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
         mol = Chem.Mol(ligand) 
-        logger.info(f"Generating {self.options.numConf} conformers for long chain search")
+        logger.info(f"Generating {self.num_conf_for_method} conformers for long chain search")
         # Generate conformers
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf_for_method, coordMap=coord_map, useBasicKnowledge=True)
 
