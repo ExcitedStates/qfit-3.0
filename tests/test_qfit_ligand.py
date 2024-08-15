@@ -1,4 +1,5 @@
 import os
+import os.path as op
 import logging
 
 from qfit.qfit_ligand import (
@@ -14,35 +15,35 @@ from qfit.solvers import (
     available_qp_solvers,
     available_miqp_solvers,
 )
-
+from qfit.utils.mock_utils import is_github_pull_request
 
 logger = logging.getLogger(__name__)
 
+SKIP_ME = is_github_pull_request() or \
+    os.environ.get("QFIT_ALL_TESTS", "false").lower() == "false"
+POST_MERGE_ONLY = pytest.mark.skipif(SKIP_ME, reason="Skipping post-merge-only ligand tests")
+
 
 class TestQFitLigand:
-    def mock_main(self):
+    DATA = op.join(op.dirname(__file__), "qfit_ligand_test")
+
+    def _mock_main(self, pdb_file_name, mtz_file_name, selection, smiles,
+                   extra_args=()):
         # Prepare args
         args = [
-            "./tests/qfit_ligand_test/5C40_composite_omit_map.mtz",  # mapfile, using relative directory from tests/
-            "./tests/qfit_ligand_test/5C40.pdb",  # structurefile, using relative directory from tests/
-            "-l",
-            "2FOFCWT,PH2FOFCWT",
-            "A, 401",  # selection
-            "-sm",
-            "c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)OP(=O)(CP(=O)(O)O)O)O)O)N",
-            "-nc",
-            "5000"
-        ]
-
+            op.join(self.DATA, mtz_file_name),
+            op.join(self.DATA, pdb_file_name),
+            selection,
+            "--smiles", smiles,
+            "-l", "2FOFCWT,PH2FOFCWT",
+            "--write_intermediate_conformers",
+        ] + list(extra_args)
         # TODO: Add options to reduce computational load
 
         # Collect and act on arguments
         p = build_argparser()
         args = p.parse_args(args=args)
-        try:
-            os.mkdir(args.directory)
-        except OSError:
-            pass
+        os.makedirs(args.directory, exist_ok=True)
 
         # Apply the arguments to options
         options = QFitOptions()
@@ -59,15 +60,40 @@ class TestQFitLigand:
         qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(
             options=options
         )
-        assert qfit_ligand.ligand.natoms == 31
-
         return qfit_ligand
 
-    def test_run_qfit_ligand(self):
-        qfit_ligand = self.mock_main()
-
-        # Run qfit object
-
-        output = qfit_ligand.run()
+    @POST_MERGE_ONLY
+    def test_run_qfit_ligand_5agk(self):
+        qfit_ligand = self._mock_main(
+            pdb_file_name="5AGK.pdb",
+            mtz_file_name="5AGK_composite_omit_map.mtz",
+            selection="B, 801",
+            smiles=r"[H]/N=C(\CS(=O)C)/NCCC[C@@H](C(=O)O)N")
+        assert qfit_ligand.ligand.natoms == 15
+        qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()
         assert len(conformers) == 2
+
+    @POST_MERGE_ONLY
+    def test_run_qfit_ligand_5c4o(self):
+        qfit_ligand = self._mock_main(
+            pdb_file_name="5C40.pdb",
+            mtz_file_name="5C40_composite_omit_map.mtz",
+            selection="A, 401",
+            smiles=r"c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(CP(=O)(O)O)O)O)O)N")
+        assert qfit_ligand.ligand.natoms == 31
+        qfit_ligand.run()
+        conformers = qfit_ligand.get_conformers()
+        assert len(conformers) >= 2
+
+    def test_run_qfit_ligand_3nm0(self):
+        qfit_ligand = self._mock_main(
+            pdb_file_name="3NM0.pdb",
+            mtz_file_name="3NM0_composite_omit_map.mtz",
+            selection="A,800",
+            smiles="C[C@H]1C[C@H](N=C(C1)N)C[C@@H]2CNC[C@@H]2OCCNCC(c3ccccc3)(F)F",
+            extra_args=["-nc", "100"])
+        assert qfit_ligand.ligand.natoms == 28
+        qfit_ligand.run()
+        conformers = qfit_ligand.get_conformers()
+        assert len(conformers) >= 2
