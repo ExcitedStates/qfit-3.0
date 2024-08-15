@@ -33,6 +33,8 @@ from rdkit.Chem import AllChem
 import random
 from scipy.spatial.transform import Rotation as R
 import math
+from scipy.linalg import svd
+
 
 
 
@@ -2316,6 +2318,84 @@ class QFitLigand(_BaseQFit):
         # self._write_intermediate_conformers(prefix="trans_rot_sol")
 
         logger.info(f"After rotation and translation QP there are {len(self._coor_set)} conformers")
+
+
+        if len(self._coor_set) < 1:
+            logger.warning(
+                f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
+            )
+            return
+
+    def flip_180(self):
+        """
+        For each conformer, rotate the molecule 180 degrees around each axis (x, y, z),
+        and then apply further rotations within +/- 5 degrees.
+        """
+        def define_axes_through_PCA(coor_set):
+            """
+            Determine the principal component axes for the given set of coordinates.
+            """
+            # Center the coordinates around the mean
+            mean = np.mean(coor_set, axis=0)
+            centered_data = coor_set - mean
+
+            # Compute the covariance matrix
+            covariance_matrix = np.cov(centered_data, rowvar=False)
+
+            # Perform singular value decomposition to find the principal components
+            U, s, Vt = svd(covariance_matrix)
+
+            # Principal components are given by the columns of U (or rows of Vt)
+            return Vt.T  # Return the principal axes
+
+        def rotation_matrix_180(axis):
+            """ Generate a rotation matrix for 180 degrees around a given axis. """
+            axis = axis / np.linalg.norm(axis)  # Ensure the axis is a unit vector
+            return np.eye(3) - 2 * np.outer(axis, axis)
+        
+        def apply_rotation(conf, R):
+            """ Apply rotation matrix R to the conformation. """
+            centroid = np.mean(conf, axis=0)
+            centered_conf = conf - centroid
+            rotated_conf = np.dot(centered_conf, R) + centroid
+            return rotated_conf
+
+   
+        coor_set = self._starting_coor_set[0]  
+        # Get the principal axes
+        principal_axes = define_axes_through_PCA(coor_set)
+
+        # Extract each principal axis
+        x_axis, y_axis, z_axis = principal_axes[:, 0], principal_axes[:, 1], principal_axes[:, 2]
+
+        # Rotation matrices for 180 degree rotations around each principal axis
+        Rx = rotation_matrix_180(x_axis)
+        Ry = rotation_matrix_180(y_axis)
+        Rz = rotation_matrix_180(z_axis)
+
+        new_coor = []
+        new_bs = []
+     
+        # Apply these rotations to input conformation
+        logger.info(f"180 degree flipping input ligand")  
+        for conf, b in zip(self._starting_coor_set, self._starting_bs):
+            # Rotate around each principal axis and extend new_coor and new_bs
+            for Rot in [Rx, Ry, Rz]:
+                print("Rotating about ", Rot)
+                # Flip initial conformer
+                flipped_conf = apply_rotation(conf, Rot)
+                # apply further small rotations around each rotated conformation
+                further_rotations_plane = self.apply_rotations(flipped_conf, 10, 2)
+                new_coor.extend(further_rotations_plane)
+                new_bs.extend([b] * len(further_rotations_plane))
+    
+
+        logger.info(f"Generated {len(new_coor)} flipped conformers") 
+
+        self._coor_set = np.array(new_coor)
+        self._bs = np.array(new_bs)
+                    
+        logger.info(f"After Clash Check {len(new_coor)} flipped conformers") 
 
 
         if len(self._coor_set) < 1:
