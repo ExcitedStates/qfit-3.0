@@ -91,6 +91,7 @@ def main():
             "scripts/post/calc_rscc.py",
             "scripts/post/get_smiles.py",
             "scripts/post/split_multiconformer_ligand.py",
+            "scripts/post/compare_rscc_voxel.py",
         ],
     )
 
