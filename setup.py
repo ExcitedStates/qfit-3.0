@@ -90,6 +90,7 @@ def main():
             "scripts/post/get_seq.py",
             "scripts/post/calc_rscc.py",
             "scripts/post/get_smiles.py",
+            "scripts/post/split_multiconformer_ligand.py",
         ],
     )
 
