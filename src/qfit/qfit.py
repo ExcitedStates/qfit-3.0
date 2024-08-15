@@ -91,6 +91,7 @@ class QFitOptions:
         self.qp_solver = None
         self.miqp_solver = None
         self.cardinality = 5
+        self._ligand_cardinality = 3
         self.threshold = 0.20
         self.bic_threshold = True
         self.seg_bic_threshold = True
@@ -1690,13 +1691,13 @@ class QFitLigand(_BaseQFit):
         if self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options.cardinality,
+                cardinality=self.options._ligand_cardinality,
                 do_BIC_selection=True
             )
         if not self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options.cardinality,
+                cardinality=self.options._ligand_cardinality,
             )
         self._update_conformers()
 
