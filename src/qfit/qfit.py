@@ -1775,7 +1775,7 @@ class QFitLigand(_BaseQFit):
             logger.error(f"Unconstrained search generated no conformers. Moving onto next sampling function.")
         if mol.GetNumConformers() != 0:
             # Check for internal/external clashes 
-            logger.info("Checking for clashes")
+            logger.info("Checking for clashes with no constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
             new_coors = []
@@ -1883,7 +1883,7 @@ class QFitLigand(_BaseQFit):
             ligand = Chem.RemoveHs(ligand)
     
             # Check for internal/external clashes 
-            logger.info("Checking for clashes")
+            logger.info("Checking for clashes with terminal atom constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
             new_coors = []
