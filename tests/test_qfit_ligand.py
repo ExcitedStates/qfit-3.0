@@ -1,6 +1,7 @@
 import os
 import os.path as op
 import logging
+import pytest
 
 from qfit.qfit_ligand import (
     QFitOptions,
