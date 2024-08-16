@@ -1711,7 +1711,7 @@ class QFitLigand(_BaseQFit):
                     rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
                     if rmsd < 0.2:
                         is_duplicate = True
-                        print(f"RMSD value less than 0.01 between conformers {i} and {j}: {rmsd}")
+                        print(f"RMSD value less than 0.2 between conformers {i} and {j}: {rmsd}")
                         break
                 if not is_duplicate:
                     unique_conformers.append(self._coor_set[i])
