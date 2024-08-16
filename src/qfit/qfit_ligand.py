@@ -98,6 +98,20 @@ def build_argparser():
         help="Rotation step size for RDKit conformers",
     )
 
+    p.add_argument(
+        "-flip",
+        "--flip_180",
+        action="store_true",
+        help="Run qFit-ligand 180 degree flip sampling function",
+    )
+
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action='store_false',
+        help="Turn off Ligand RMSD cutoff",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
