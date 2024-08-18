@@ -101,7 +101,8 @@ class TestMapScaler(BaseTestRunner):
         structure = Structure.fromfile(self.PDB2)
         xmap = XMap.fromfile(self.MTZ2, label="2FOFCWT,PH2FOFCWT")
         scaler = MapScaler(xmap)
-        (s, k) = scaler.scale(structure)
+        radius = 0.5 + xmap.resolution.high / 3.0
+        (s, k) = scaler.scale(structure, radius=radius)
         assert s == pytest.approx(0.3287, abs=0.001)
         assert k == pytest.approx(0.4180, abs=0.0001)
 

@@ -1,11 +1,13 @@
 import logging
+import os
 
 import numpy as np
 
-from qfit.xtal.transformer import Transformer, FFTTransformer, QfitTransformer
+from qfit.xtal.transformer import get_transformer, get_fft_transformer
 
 
 logger = logging.getLogger(__name__)
+ENABLE_FFT = os.environ.get("QFIT_ENABLE_FFT", "false").lower() == "true"
 
 
 class MapScaler:
@@ -14,26 +16,25 @@ class MapScaler:
         self._model_map = xmap.zeros_like(xmap)
         self.em = em
 
-    def _get_model_transformer(self, structure, transformer="cctbx"):
-        if self.xmap.hkl is not None and transformer == "fft":
+    def _get_model_transformer(self,
+                               structure,
+                               transformer="cctbx",
+                               enable_fft=ENABLE_FFT):
+        if self.xmap.hkl is not None and enable_fft:
             # FIXME this seems like the correct approach, but it currently
-            # produces inferior results
+            # produces inferior results for CCTBX
             logger.info("HKLs available, will perform full FFT")
-            return FFTTransformer(
-                structure, self._model_map, hkl=self.xmap.hkl, em=self.em
-            )
-        elif transformer == "qfit":
-            logger.warning("Using legacy QFit transformer")
-            return QfitTransformer(
+            return get_fft_transformer(
+                transformer,
                 structure,
                 self._model_map,
-                simple=True,
-                rmax=3,
-                em=self.em,
+                hkl=self.xmap.hkl,
+                em=self.em
             )
         else:
             logger.info("Using simple density transformer")
-            return Transformer(
+            return get_transformer(
+                transformer,
                 structure,
                 self._model_map,
                 simple=True,
@@ -50,13 +51,16 @@ class MapScaler:
         transformer = self._get_model_transformer(structure,
                                                   transformer=transformer)
         # Get all map coordinates of interest:
+        logger.info("Masking with radius %f", radius)
         transformer.mask(radius)
+        self._model_map.tofile("scaler_mask.ccp4")
         mask = self._model_map.array > 0
         logger.info("Masked %d grid points out of %d", mask.sum(), mask.size)
 
         # Calculate map based on structure:
         transformer.reset(full=True)
         transformer.density()
+        self._model_map.tofile("scaler_model.ccp4")
 
         # Get all map values of interest
         xmap_masked = self.xmap.array[mask]
@@ -77,6 +81,7 @@ class MapScaler:
 
         # Scale the observed map to the calculated map
         self.xmap.array = scaling_factor * self.xmap.array + k
+        self.xmap.tofile("scaled_map.ccp4")
         transformer.reset(full=True)
         return (scaling_factor, k)
 

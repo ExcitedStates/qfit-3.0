@@ -133,13 +133,17 @@ class XMap(_BaseVolume):
             self.origin = np.asarray(origin)
 
     @staticmethod
-    def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT"):
+    def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT",
+                 transformer="qfit"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in (".ccp4", ".mrc", ".map"):
             return XMap.from_mapfile(fname, resolution)
         elif fmt == ".mtz":
-            return XMap.from_mtz(fname, resolution, label)
+            return XMap.from_mtz(fname,
+                                 resolution=resolution,
+                                 label=label,
+                                 transformer=transformer)
         else:
             raise RuntimeError("File format not recognized.")
 
@@ -183,7 +187,8 @@ class XMap(_BaseVolume):
     def from_mtz(fname,
                  resolution=None,
                  label="FWT,PHWT",
-                 resolution_factor=1/4):
+                 resolution_factor=1/4,
+                 transformer="cctbx"):
         mtz_in = any_reflection_file(fname)
         miller_arrays = {a.info().label_string(): a for a in mtz_in.as_miller_arrays()}
         map_coeffs = miller_arrays.get(label, None)
@@ -192,7 +197,9 @@ class XMap(_BaseVolume):
         unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
         space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        grid = np.swapaxes(fft_map_coefficients(map_coeffs), 0, 2)
+        grid = fft_map_coefficients(map_coeffs,
+                                    nyquist=1/(2*resolution_factor),
+                                    transformer=transformer)
         abc = unit_cell.abc
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")

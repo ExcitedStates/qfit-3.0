@@ -179,7 +179,8 @@ def prepare_qfit_ligand(options):
 
     # Load and process the electron density map:
     xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label
+        options.map, resolution=options.resolution, label=options.label,
+        transformer=options.transformer
     )
     xmap = xmap.canonical_unit_cell()
     if options.scale:

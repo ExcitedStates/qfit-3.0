@@ -632,7 +632,8 @@ def prepare_qfit_protein(options):
 
     # Load map and prepare it
     xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label
+        options.map, resolution=options.resolution, label=options.label,
+        transformer=options.transformer
     )
     xmap = xmap.canonical_unit_cell()
 
