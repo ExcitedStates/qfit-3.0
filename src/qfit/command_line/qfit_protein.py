@@ -639,7 +639,7 @@ def prepare_qfit_protein(options):
 
     # Scale map based on input structure
     if options.scale is True:
-        scaler = MapScaler(xmap, em=options.em)
+        scaler = MapScaler(xmap, em=options.em, debug=options.debug)
         radius = 1.5
         reso = None
         if xmap.resolution.high is not None:

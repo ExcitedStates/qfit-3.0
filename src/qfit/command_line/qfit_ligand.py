@@ -20,7 +20,8 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 def build_argparser():
     p = get_base_argparser(__doc__,
-                           default_enable_external_clash=True)
+                           default_enable_external_clash=True,
+                           default_transformer="qfit")
 
     p.add_argument(
         "-em",
@@ -112,6 +113,12 @@ def build_argparser():
         default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action='store_false',
+        help="Turn on Ligand RMSD cutoff",
+    )
     return p
 
 
@@ -185,7 +192,7 @@ def prepare_qfit_ligand(options):
     xmap = xmap.canonical_unit_cell()
     if options.scale:
         # Prepare X-ray map
-        scaler = MapScaler(xmap, em=options.em)
+        scaler = MapScaler(xmap, em=options.em, debug=options.debug)
         if options.omit:
             footprint = structure_ligand
         else:

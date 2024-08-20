@@ -20,6 +20,8 @@ def fft_map_coefficients(map_coeffs, nyquist=2, transformer="cctbx"):
     transformer.  Returns the equivalent 3D numpy array with the X,Z axes
     swapped.
     """
+    # TODO experiment with effect of transformer behavior - how essential is
+    # the old FFT gridding to reproduce previous results?
     if transformer == "cctbx":
         fft_map = map_coeffs.fft_map(
             resolution_factor=1/(2*nyquist),
@@ -32,6 +34,8 @@ def fft_map_coefficients(map_coeffs, nyquist=2, transformer="cctbx"):
         return qfit.xtal.legacy_transformer.fft_map_coefficients(
             map_coeffs=map_coeffs,
             nyquist=nyquist)
+    else:
+        raise NotImplementedError(f"No transformer for '{transformer}'")
 
 
 class _BaseTransformer(ABC):
@@ -319,15 +323,17 @@ def get_transformer(impl_name="cctbx", *args, **kwds):
     if impl_name == "qfit":
         from qfit.xtal.legacy_transformer import Transformer as QfitTransformer
         return QfitTransformer(*args, **kwds)
-    else:
-        assert impl_name == "cctbx", impl_name
+    elif impl_name == "cctbx":
         return Transformer(*args, **kwds)
+    else:
+        raise NotImplementedError(f"No transformer for '{impl_name}'")
 
 
 def get_fft_transformer(impl_name="cctbx", *args, **kwds):
     if impl_name == "qfit":
         from qfit.xtal.legacy_transformer import FFTTransformer as QfitFFTTransformer
         return QfitFFTTransformer(*args, **kwds)
-    else:
-        assert impl_name == "cctbx"
+    elif impl_name == "cctbx":
         return FFTTransformer(*args, **kwds)
+    else:
+        raise NotImplementedError(f"No transformer for '{impl_name}'")

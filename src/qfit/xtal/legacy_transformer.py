@@ -1,7 +1,13 @@
 """
 Original qFit implementation of structure factors FFT and density summation
-from a model.
+from a model, used with '--transformer qfit'
 """
+
+# FIXME This implementation currently outperforms the CCTBX transformer for
+# unknown reasons.  It has at least three oddities:
+#  - the FFT gridding is not based on small prime numbers
+#  - the FFT gridding does not account for symmetry
+#  - the mask and density calculation both apply symmetry incorrectly
 
 import logging
 
@@ -48,13 +54,11 @@ class SFTransformer:
 
     def __call__(self, nyquist=2):
         h, k, l = self.hkl.T
-
         naive_voxelspacing = self._resolution / (2 * nyquist)
         naive_shape = np.ceil(self.unit_cell.abc / naive_voxelspacing)
         naive_shape = naive_shape[::-1].astype(int)
         shape = naive_shape
         logger.debug("Grid dimensions are %s", tuple(shape))
-        # TODO make grid of unit cell a multiple of small primes
         # efficient_multiples = [2, 3, 5, 7, 11, 13]
         # shape = [closest_upper_multiple(x, efficient_multiples) for x in naive_shape]
         fft_grid = np.zeros(shape, dtype=np.complex128)
@@ -239,6 +243,9 @@ class Transformer:
                 value,
                 self.xmap.array,
             )
+
+    def get_masked_selection(self):
+        return self.xmap.array > 0
 
     def reset(self, rmax=None, full=False):
         if full:

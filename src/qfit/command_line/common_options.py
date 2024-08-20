@@ -13,7 +13,8 @@ from qfit.solvers import available_qp_solvers, available_miqp_solvers
 
 
 def get_base_argparser(description,
-                       default_enable_external_clash=False):
+                       default_enable_external_clash=False,
+                       default_transformer="cctbx"):
     p = argparse.ArgumentParser(
         formatter_class=CustomHelpFormatter, description=description
     )
@@ -117,7 +118,7 @@ def get_base_argparser(description,
     p.add_argument(
         "--transformer",
         choices=["cctbx","qfit"],
-        default="cctbx",
+        default=default_transformer,
         dest="transformer",
         help="Map sampling algorithm")
 

@@ -17,6 +17,7 @@ asu_map_ext = bp.import_ext("cctbx_asymmetric_map_ext")
 from qfit.xtal.unitcell import UnitCell
 from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.transformer import fft_map_coefficients
+from qfit._extensions import extend_to_p1  # pylint: disable=import-error,no-name-in-module
 
 
 logger = logging.getLogger(__name__)
@@ -121,12 +122,14 @@ class XMap(_BaseVolume):
         resolution=None,
         hkl=None,
         origin=None,
+        source_transformer=None,
     ):
         super().__init__(array, grid_parameters)
         self.unit_cell = unit_cell
         self.hkl = hkl
         self.resolution = resolution
         self.cutoff_dict = {}
+        self._source_transformer = source_transformer
         if origin is None:
             self.origin = np.zeros(3, np.float64)
         else:
@@ -134,7 +137,7 @@ class XMap(_BaseVolume):
 
     @staticmethod
     def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT",
-                 transformer="qfit"):
+                 transformer="cctbx"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in (".ccp4", ".mrc", ".map"):
@@ -215,7 +218,8 @@ class XMap(_BaseVolume):
             grid_parameters,
             unit_cell=unit_cell,
             resolution=resolution,
-            hkl=hkl
+            hkl=hkl,
+            source_transformer=transformer
         )
 
     @classmethod
@@ -260,21 +264,58 @@ class XMap(_BaseVolume):
             [int(x) for x in self.unit_cell_shape])
         expanded = asu_map.symmetry_expanded_map()
         maptbx.unpad_in_place(expanded)
+        shape = expanded.focus()
+        logger.info("Expanded map with shape %s to %s", tuple(self.shape),
+                    tuple(shape))
         return XMap.from_cctbx_map(
             map_data=expanded,
-            shape=expanded.focus(),
+            shape=shape,
             unit_cell=self.unit_cell,
             resolution=self.resolution,
             origin=self.origin)
+
+    def _expand_to_p1_non_symmetric(self):
+        """
+        Old qFit implementation of symmetry expansion - this is still run
+        by default when the old transformer is selected, whether or not the
+        map fills a P1 box already.
+        """
+        shape = self.unit_cell.abc / self.grid_parameters.voxelspacing
+        shape = np.round(shape).astype(int)[::-1]
+        logger.info("Expanding map with shape %s to %s", tuple(self.shape),
+                    tuple(shape))
+        array = np.zeros(shape, np.float64)
+        grid_parameters = GridParameters(self.voxelspacing)
+        out = XMap(
+            array,
+            grid_parameters=grid_parameters,
+            unit_cell=self.unit_cell,
+            hkl=self.hkl,
+            resolution=self.resolution,
+            source_transformer=self._source_transformer
+        )
+        offset = np.asarray(self.offset, np.int32)
+        for symop in self.unit_cell.space_group.symop_list:
+            transform = np.hstack((symop.R, symop.t.reshape(3, -1)))
+            transform[:, -1] *= out.shape[::-1]
+            extend_to_p1(self.array, offset, transform, out.array)
+        return out
 
     def canonical_unit_cell(self):
         """
         Perform space group symmetry expansion to fill in density values for
         the entire unit cell.
         """
-        if self.is_canonical_unit_cell():
-            return self
-        return self._expand_to_p1()
+        # TODO experiment with the effect of running the expansion; to
+        # completely reproduce the original behavior of qfit-3.0 we
+        # need to also run extend_to_p1 even if the map is already complete
+        if self._source_transformer == "qfit":
+            return self._expand_to_p1_non_symmetric()
+        else:
+            if self.is_canonical_unit_cell():
+                logger.info("Map already covers the unit cell, no expansion required")
+                return self
+            return self._expand_to_p1()
 
     def is_canonical_unit_cell(self):
         return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and

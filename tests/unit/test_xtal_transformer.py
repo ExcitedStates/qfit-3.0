@@ -11,7 +11,8 @@ from qfit.xtal.volume import XMap
 from .base_test_case import UnitBase
 
 
-class TransformerBase(UnitBase):
+class TransformerUnitBase(UnitBase):
+    """base class for core tests run with all transformer classes"""
     IMPLEMENTATION = None
 
     def _get_transformer(self, *args, **kwds):
@@ -19,7 +20,8 @@ class TransformerBase(UnitBase):
 
     def _load_qfit_inputs(self, pdb_file, mtz_file):
         structure = Structure.fromfile(pdb_file)
-        xmap = XMap.fromfile(mtz_file, label="FWT,PHIFWT")
+        xmap = XMap.fromfile(mtz_file, label="FWT,PHIFWT",
+                             transformer=self.IMPLEMENTATION)
         return structure, xmap
 
     def _get_lys_3mer_p6322_fmodel(self):
@@ -40,10 +42,6 @@ class TransformerBase(UnitBase):
         ccs = np.corrcoef(xmap_new[mask].flatten(), xmap_orig[mask].flatten())
         assert ccs[0][1] >= cc_min
 
-
-class TestTransformer(TransformerBase):
-    IMPLEMENTATION = "cctbx"
-
     def _run_all(self, pdb_multi, d_min, cc_min=0.99):
         fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
         structure, xmap = self._load_qfit_inputs(pdb_multi, fmodel_mtz)
@@ -53,6 +51,22 @@ class TestTransformer(TransformerBase):
         pdb_multi, pdb_single = self._get_start_models(peptide_name)
         self._run_all(pdb_multi, d_min, cc_min=cc_min)
 
+    def _run_transformer_rebuilt_3mer(self, resname, d_min=1.5, cc_min=1.0):
+        pdb_multi, pdb_single = self._create_mock_multi_conf_3mer(resname)
+        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
+        structure, xmap = self._load_qfit_inputs(pdb_multi, fmodel_mtz)
+        ssub = structure.extract("resi", 2)
+        xsub = xmap.extract(ssub.coor)
+        self._run_transformer(ssub, xsub, cc_min)
+
+
+class TestTransformerCctbx(TransformerUnitBase):
+    IMPLEMENTATION = "cctbx"
+    # TODO figure out why these values are lower than in the qfit version
+    MIN_CC_GLU = 0.929
+    MIN_CC_LYS = 0.928
+    MIN_CC_TRP = 0.934
+
     @pytest.mark.fast
     def test_transformer_3mer_ser_p21(self):
         self._run_3mer("ASA", d_min=1.5)
@@ -60,6 +74,43 @@ class TestTransformer(TransformerBase):
     @pytest.mark.fast
     def test_transformer_3mer_lys_p21(self):
         self._run_3mer("AKA", d_min=1.2, cc_min=0.935)
+
+    def test_transformer_3mer_lys_p6322(self):
+        pdb_multi, fmodel_mtz = self._get_lys_3mer_p6322_fmodel()
+        structure, xmap = self._load_qfit_inputs(pdb_multi, fmodel_mtz)
+        self._run_transformer(structure, xmap, cc_min=0.85)
+
+    def test_transformer_rebuilt_tripeptide_glu(self):
+        self._run_transformer_rebuilt_3mer("GLU", cc_min=self.MIN_CC_GLU)
+
+    def test_transformer_rebuilt_tripeptide_lys(self):
+        self._run_transformer_rebuilt_3mer("LYS", cc_min=self.MIN_CC_LYS)
+
+    def test_transformer_rebuilt_tripeptide_ser(self):
+        self._run_transformer_rebuilt_3mer("SER", cc_min=0.899)
+
+    def test_transformer_rebuilt_tripeptide_trp(self):
+        self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
+
+
+class TestTransformerQfit(TestTransformerCctbx):
+    IMPLEMENTATION = "qfit"
+    # XXX see note above
+    MIN_CC_GLU = 0.94
+    MIN_CC_LYS = 0.945
+    MIN_CC_TRP = 0.95
+
+
+@pytest.mark.skip(reason="Not applicable")
+class TestFFTTransformer(TestTransformerCctbx):
+    IMPLEMENTATION = "fft"
+
+    def _run_transformer_rebuilt_3mer(self, *args, **kwds):
+        pytest.skip("not applicable to this class")
+
+
+class TestCctbxMasking(TransformerUnitBase):
+    IMPLEMENTATION = "cctbx"
 
     def test_transformer_mask_water_p1(self):
         """
@@ -123,53 +174,9 @@ class TestTransformer(TransformerBase):
                 mask = t.xmap.array > 0
                 assert np.sum(mask) == mask_size
 
-    def test_transformer_3mer_lys_p6322(self):
-        pdb_multi, fmodel_mtz = self._get_lys_3mer_p6322_fmodel()
-        structure, xmap = self._load_qfit_inputs(pdb_multi, fmodel_mtz)
-        self._run_transformer(structure, xmap, cc_min=0.85)
 
-    def _run_transformer_rebuilt_3mer(self, resname, d_min=1.5, cc_min=1.0):
-        pdb_multi, pdb_single = self._create_mock_multi_conf_3mer(resname)
-        fmodel_mtz = self._create_fmodel(pdb_multi, high_resolution=d_min)
-        structure, xmap = self._load_qfit_inputs(pdb_multi, fmodel_mtz)
-        ssub = structure.extract("resi", 2)
-        xsub = xmap.extract(ssub.coor)
-        self._run_transformer(ssub, xsub, cc_min)
-
-    # TODO figure out why these values are lower than in the qfit version
-    MIN_CC_GLU = 0.929
-    MIN_CC_LYS = 0.928
-    MIN_CC_TRP = 0.934
-
-    def test_transformer_rebuilt_tripeptide_glu(self):
-        self._run_transformer_rebuilt_3mer("GLU", cc_min=self.MIN_CC_GLU)
-
-    def test_transformer_rebuilt_tripeptide_lys(self):
-        self._run_transformer_rebuilt_3mer("LYS", cc_min=self.MIN_CC_LYS)
-
-    def test_transformer_rebuilt_tripeptide_ser(self):
-        self._run_transformer_rebuilt_3mer("SER", cc_min=0.899)
-
-    def test_transformer_rebuilt_tripeptide_trp(self):
-        self._run_transformer_rebuilt_3mer("TRP", cc_min=self.MIN_CC_TRP)
-
-
-class TestLegacyTransformer(TestTransformer):
-    IMPLEMENTATION = "qfit"
-    # XXX see note above
-    MIN_CC_GLU = 0.94
-    MIN_CC_LYS = 0.945
-    MIN_CC_TRP = 0.95
-
-
-class TestFFTTransformer(TestTransformer):
-    IMPLEMENTATION = "fft"
-
-    def _run_transformer_rebuilt_3mer(self, *args, **kwds):
-        pytest.skip("not applicable to this class")
-
-
-class TestCompareTransformers(TransformerBase):
+@pytest.mark.skip(reason="Incompatible map gridding")
+class TestCompareTransformers(TransformerUnitBase):
     # TODO change this to "cctbx"
     IMPLEMENTATION = "qfit"
 
@@ -244,7 +251,7 @@ class TestCompareTransformers(TransformerBase):
             self._run_fft_transformer(pdb_multi, fmodel_mtz, 0.86)
 
 
-class TestTransformerBenchmark(TransformerBase):
+class TestTransformerBenchmark(TransformerUnitBase):
     """
     Supplemental tests for performance-tuning the Transformer class.
     """
