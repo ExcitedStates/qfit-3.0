@@ -6,13 +6,11 @@ Some of the advanced and specialized options available in qFit are demonstrated 
 
 `qfit_residue [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
 
-Using the example 3K0N:
+Using the example 1G8A:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A_refine.pdb --residue A,58`
 
-This will produce a parsimonious model containing up to 5 alternate conformers
-for residue 113 of chain A of 3K0N.
-
+This will produce a multiconformer model of residue 58 of chain A of 1G8A. 
 
 ### 2. Running qFit on cyro-EM structures. 
 
@@ -44,7 +42,7 @@ of the [Phenix software suite](https://phenix-online.org/).
 
 ### 4. Deactivate backbone sampling and bond angle sampling to model alternate conformers for a single residue of interest (faster, less precise)
 
-In its default mode, *qfit_residue* and *qfit_protein* samples backbone conformations
+In its default mode, *qfit_protein* samples backbone conformations
 using our KGS routine. This can be disabled using the *--no-backbone* flag.
 
 For even faster (and less precise) results, one can also disable the sampling of
@@ -57,9 +55,9 @@ the cost of precision:
 * Decrease range/neighborhood of sampling about preferred rotamers: *-rn* flag (default: 60)
 * Disable parsimonious selection of the number of conformers output by qFit using the Bayesian Information Criterion (BIC): *--no-threshold-selection* flag.
 
-Using the example 3K0N:
+Using the example 1G8A:
 
-`qfit_residue qfit_residue_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/3k0n_refine.pdb A,113 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --residue A,58 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
@@ -68,18 +66,18 @@ For a full list of options, run:
 
 ### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
 
-Using the example 3K0N:
+Using the example 1G8A:
 
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 ### 6.  Parallelization:
 
 The *qfit_protein* program can be executed in parallel and the number of concurrent processes
 can be adjusted using the *-p* flag.
 
-Using the example 3K0N, spawning 30 parallel processes:
+Using the example 18GA, spawning 30 parallel processes:
 
-`qfit_protein qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/3k0n_refine.pdb -p 30`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb -p 30`
 
 
 ### 7. Modeling alternate conformers of a ligand
@@ -91,7 +89,6 @@ should be used:
 
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number). The main output file is named *multiconformer_ligand_bound_with_protein.pdb*
-
 
 If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
 
