@@ -8,9 +8,9 @@ Some of the advanced and specialized options available in qFit are demonstrated 
 
 Using the example 1G8A:
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A_refine.pdb --residue A,67`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A_refine.pdb --residue A,58`
 
-This will produce a multiconformer model of residue 67 of chain A of 1G8A. 
+This will produce a multiconformer model of residue 58 of chain A of 1G8A. 
 
 ### 2. Running qFit on cyro-EM structures. 
 
@@ -57,7 +57,7 @@ the cost of precision:
 
 Using the example 1G8A:
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --residue A,67 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --residue A,58 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
