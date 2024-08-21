@@ -49,14 +49,14 @@ Once dependencies are installed, you can clone the qFit source, and install to y
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please refer below for a basic usage example. More specialized and advanced use case examples
-are shown in [TUTORIAL](example/README.md) in the [example](example/) directory.
+are shown in [example](example/README.md) directory.
 
 To remove single-conformer model bias, qFit should be used with a composite omit
 map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
-An example test case (3K0N) can be found in the [qfit protein example](example/qfit_protein_example/) directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
+An example test case (1G8A) can be found in the [qfit protein example](example/qfit_protein_example/) directory. Additionally, you can find the [cyroEM protein example](example/qfit_cryoem_example/)(PDB: 7A4M) and the [ligand example](example/qfit_ligand_example/) qFit-ligand example (PDB: 4MS6) in the *example* directory. 
 
 
 ### Recommended settings
@@ -79,15 +79,14 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 3K0N:
 
-`qfit_protein example/qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/3k0n_refine.pdb`
+`qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A_refine.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_xray.sh example/qfit_protein_example/3k0n_structure_factors.mtz example/qfit_protein_example/multiconformer_model2.pdb`
+`qfit_final_refine_xray.sh example/qfit_protein_example/18GA.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
-Additionally, the qFit_occupancy.params file must exist in the folder.
+Additionally, the qFit_occupancy.params file must exist in the folder (this is an output of qFit protein).
 
-(A pre-generated multiconformer_model2.pdb file is available in the [qfit protein example](example/qfit_protein_example/) folder)
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
@@ -96,10 +95,11 @@ To model alternate conformers for all residues in a *Cryo-EM* model using qFit,
 the following command should be used:
 
 `qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
+`qfit_protein example/qfit_cryoem_example/7A4M_box.ccp4 -r 1.7 example/qfit_cryoem_example/7A4M_box.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
+`qfit_final_refine_cryoEM.sh example/qfit_cryoem_example/7A4M_box.ccp4 example/qfit_cryoem_example/multiconformer_model2.pdb example/qfit_cryoem_example/7A4M_box.pdb`
 
 More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
 
@@ -124,7 +124,7 @@ To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following comm
 
 ## Citations
 If you use this software, please cite: 
-- [Wankowicz SA, Ravikumar A, Sharma S, Riley BT, Raju A, Hogan DW, van den Bedem H, Keedy DA, & Fraser JS. Uncovering Protein Ensembles: Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM. bioRxiv. (2023).](https://www.biorxiv.org/content/10.1101/2023.06.28.546963v2.abstract)
+- [Wankowicz SA, et al. Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM eLife (2024)](https://elifesciences.org/articles/90606v1)
 - [Riley BT, Wankowicz SA, et al. qFit 3: Protein and ligand multiconformer modeling for X-ray crystallographic and single-particle cryo-EM density maps. Protein Sci. 30, 270–285 (2021)](https://dx.doi.org/10.1002/pro.4001)
 - [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
