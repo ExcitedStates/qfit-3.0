@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script works with Phenix version 1.20.
+# This script works with Phenix version 1.21.2.
 
 qfit_usage() {
   echo >&2 "Usage:";
@@ -108,12 +108,10 @@ remove_duplicates "${multiconf}"
 redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
 mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 
-
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
 #__________________________________GET CIF FILE__________________________________
-
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
@@ -124,6 +122,8 @@ fi
 if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
 fi
+
+create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
 # Write refinement parameters into parameters file
