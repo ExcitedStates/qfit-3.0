@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script works with Phenix version 1.20.
+# This script works with Phenix version 1.21.2.
 
 qfit_usage() {
   echo >&2 "Usage:";
