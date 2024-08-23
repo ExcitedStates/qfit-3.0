@@ -409,7 +409,7 @@ class _BaseQFit:
         self._coor_set = new_coor
         self._bs = new_bfactor
 
-    def _zero_out_most_similar_conformer(self):
+    def _zero_out_most_similar_conformer(self, merge=False):
         """Zero-out the lowest occupancy, most similar conformer.
 
         Find the most similar pair of conformers, based on backbone RMSD.
@@ -455,6 +455,12 @@ class _BaseQFit:
             self.options.write_intermediate_conformers
         ):  # Output all conformations before we remove them
             self._write_intermediate_conformers(prefix="qp_remove")
+
+        # Conditionally add the occupancy of the removed conformer to the kept one
+        if merge:
+            self._occupancies[idx_to_keep] += self._occupancies[idx_to_zero]
+            
+        # Set the occupancy of the removed conformer to 0
         self._occupancies[idx_to_zero] = 0
 
     def _update_conformers(self, cutoff=0.002):
@@ -1684,7 +1690,7 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
-         # Make sure b-factor array is the same length as coordinate array
+        # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
         self._convert()
@@ -1703,21 +1709,22 @@ class QFitLigand(_BaseQFit):
 
         # Ensure there are no duplicate conformers in self._coor_set
         if self.options.ligand_rmsd:
-            unique_conformers = []
+            has_duplicates = False  # Track if duplicates are found
 
             for i in range(len(self._coor_set)):
-                is_duplicate = False
                 for j in range(i + 1, len(self._coor_set)):
                     rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
                     if rmsd < 0.2:
-                        is_duplicate = True
+                        has_duplicates = True
                         print(f"RMSD value less than 0.2 between conformers {i} and {j}: {rmsd}")
-                        break
-                if not is_duplicate:
-                    unique_conformers.append(self._coor_set[i])
-            self._coor_set = unique_conformers
-            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+                        break  # Exit the inner loop if a duplicate is found
+                if has_duplicates:
+                    break  # Exit the outer loop if a duplicate is found
 
+            # If duplicates are found, call _zero_out_most_similar_conformer()
+            if has_duplicates:
+                self._zero_out_most_similar_conformer(merge=True)
+                self._update_conformers()
             # Calculate and log the RMSD between all final conformers
             for i in range(len(self._coor_set)):
                 for j in range(i + 1, len(self._coor_set)):
