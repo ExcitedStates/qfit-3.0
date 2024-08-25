@@ -38,7 +38,7 @@ def main():
     setup(
         name="qfit",
         use_scm_version=True,
-        author="Stephanie A. Wankowicz, Blake Riley, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
+        author="Stephanie A. Wankowicz, Blake Riley, Jessica Flowers, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
         author_email="mullane.stephanie@gmail.com",
         project_urls={"Documentation": "https://github.com/ExcitedStates/qfit-3.0/"},
         package_dir=package_dir,
@@ -70,8 +70,10 @@ def main():
         },
         scripts=[
             "scripts/post/qfit_final_refine_xray.sh",
+            "scripts/post/qfit_final_refine_xray_OLD.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
             "scripts/post/qfit_final_refine_ligand.sh",
+            "scripts/post/qfit_final_refine_ligand_OLD.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",
@@ -92,6 +94,7 @@ def main():
             "scripts/post/get_smiles.py",
             "scripts/post/split_multiconformer_ligand.py",
             "scripts/post/compare_rscc_voxel.py",
+            "scripts/post/create_restraints_file.py",
         ],
     )
 

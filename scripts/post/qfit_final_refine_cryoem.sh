@@ -1,7 +1,7 @@
 #!/bin/bash
 
 '''
-This script works with Phenix version 1.21dev.
+This script works with Phenix version 1.21.2.
 '''
 
 qfit_usage() {
