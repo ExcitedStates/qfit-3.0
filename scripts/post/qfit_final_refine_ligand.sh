@@ -138,8 +138,8 @@ fi
 
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_refine.params
-echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_refine.params
-echo "refinement.output.serial=2"                >> ${pdb_name}_refine.params
+echo "output.prefix=${pdb_name}"                 >> ${pdb_name}_refine.params
+echo "output.serial=2"                           >> ${pdb_name}_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_refine.params
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_refine.params
@@ -153,8 +153,18 @@ echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'"
 
 phenix.refine  "${multiconf}.f_modified.pdb" \
                "${pdb_name}.mtz" \
-               "${pdb_name}_refine.params" \
-               --overwrite
+               "refine.strategy=*individual_sites *individual_adp *occupancies" \
+               "output.prefix=${pdb_name}" \
+               "output.serial=2" \
+               "refinement.main.number_of_macro_cycles=5" \
+               "refinement.main.nqh_flips=True" \
+               "refinement.refine.${adp}" \
+               "refinement.hydrogens.refine=riding" \
+               "refinement.main.ordered_solvent=True" \
+               "refinement.target_weights.optimize_xyz_weight=true" \
+               "refinement.target_weights.optimize_adp_weight=true" \
+               "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+                --overwrite
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit_ligand.pdb"
