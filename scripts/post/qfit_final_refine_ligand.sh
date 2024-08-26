@@ -158,6 +158,7 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "output.serial=2" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=True" \
+               "xray_data.r_free_flags.generate=True" \
                "refinement.refine.${adp}" \
                "refinement.hydrogens.refine=riding" \
                "refinement.main.ordered_solvent=True" \
