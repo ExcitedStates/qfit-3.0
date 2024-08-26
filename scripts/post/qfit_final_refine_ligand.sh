@@ -166,6 +166,10 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
                 --overwrite
 
+#______________________________REMOVE AND REDISTRIBUTE LOW OCC_____________________
+redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_002.pdb"
+mv -v "${pdb_name}_002_norm.pdb" "${pdb_name}_002.pdb"
+
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit_ligand.pdb"
 cp -v "${pdb_name}_002.mtz" "${pdb_name}_qFit_ligand.mtz"
