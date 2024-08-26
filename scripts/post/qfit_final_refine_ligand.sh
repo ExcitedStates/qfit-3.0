@@ -158,6 +158,7 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "output.serial=2" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=True" \
+               "xray_data.r_free_flags.generate=True" \
                "refinement.refine.${adp}" \
                "refinement.hydrogens.refine=riding" \
                "refinement.main.ordered_solvent=True" \
@@ -165,6 +166,10 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "refinement.target_weights.optimize_adp_weight=true" \
                "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
                 --overwrite
+
+#______________________________REMOVE AND REDISTRIBUTE LOW OCC_____________________
+redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_002.pdb"
+mv -v "${pdb_name}_002_norm.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit_ligand.pdb"
