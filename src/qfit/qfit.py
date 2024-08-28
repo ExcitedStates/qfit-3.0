@@ -263,10 +263,8 @@ class _BaseQFit:
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
 
-    def _convert(self, stride=-1, pool_size=-1): #default is to manipulate the maps
-        """Convert structures to densities and extract relevant values for (MI)QP.
-        Pooling will be performed if stride and pool_size are positive integers."""
-        
+    def _convert(self, stride=1, pool_size=1): #default is to manipulate the maps
+        """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting conformers to density")
         logger.debug("Masking")
         self._transformer.reset(full=True)
@@ -275,45 +273,39 @@ class _BaseQFit:
             self._transformer.mask(self._rmask)
         mask = self._transformer.xmap.array > 0
         self._transformer.reset(full=True)
+
         nvalues = mask.sum()
-        if nvalues <= 1:
-            logger.warn("Mask covers %d points", nvalues)
-        
         self._target = self.xmap.array[mask]
         
-        assert isinstance(stride, int) and isinstance(pool_size, int)
-        if stride >= 1 and pool_size >= 1:
-            pooled_values = []
-            for i in range(0, len(self._target), stride):
-                # Extract the current window for pooling
-                current_window = self._target[i:i+pool_size]
-                # Perform max pooling on the current window and append the max value to pooled_values
-                if len(current_window) > 0:  # Ensure the window is not empty
-                    pooled_values.append(np.max(current_window))
-            
-            # Convert pooled_values back to a numpy array
-            self._target = np.array(pooled_values)
+        # For a 1D array, we adjust our pooling approach
+        pooled_values = []
+        for i in range(0, len(self._target), stride):
+            # Extract the current window for pooling
+            current_window = self._target[i:i+pool_size]
+            # Perform max pooling on the current window and append the max value to pooled_values
+            if len(current_window) > 0:  # Ensure the window is not empty
+                pooled_values.append(np.max(current_window))
+        
+        # Convert pooled_values back to a numpy array
+        self._target = np.array(pooled_values)
         
         logger.debug("Density")
         nmodels = len(self._coor_set)
-        maxpool_size = len(range(0, nvalues, max(stride, 1)))
+        maxpool_size = len(range(0, nvalues, stride))
         self._models = np.zeros((nmodels, maxpool_size), float)
-        for n, (coor, b) in enumerate(zip(self._coor_set, self._bs)):
+        for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
-            self.conformer.b = b
+            self.conformer.b = self._bs[n]
             self._transformer.density()
             model = self._models[n]
+            # Apply maxpooling to the map similar to self._target
             map_values = self._transformer.xmap.array[mask]
-            if stride >= 1 and pool_size >= 1:
-                pooled_map_values = []
-                for i in range(0, len(map_values), stride):
-                    current_window = map_values[i:i+pool_size]
-                    if len(current_window) > 0:
-                        pooled_map_values.append(np.max(current_window))
-                model[:] = np.array(pooled_map_values)
-            else:
-                model[:] = map_values
-                
+            pooled_map_values = []
+            for i in range(0, len(map_values), stride):
+                current_window = map_values[i:i+pool_size]
+                if len(current_window) > 0:
+                    pooled_map_values.append(np.max(current_window))
+            model[:] = np.array(pooled_map_values)
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
 
@@ -792,7 +784,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._bs = new_bs
 
         # QP score conformer occupancy
-        self._convert(1,1)
+        self._convert()
         self._solve_qp()
         self._update_conformers()
         if self.options.write_intermediate_conformers:
@@ -800,7 +792,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # MIQP score conformer occupancy
         self.sample_b()
-        self._convert(1,1)
+        self._convert()
         self._solve_miqp(
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
@@ -1026,7 +1018,7 @@ class QFitRotamericResidue(_BaseQFit):
         opt = self.options
         start_chi_index = 1
         if self.residue.resn[0] != "PRO":
-            if version == 0:
+            if version == 0: #version 0 should be the first go through with maxpooling
                 stride_ = 2
                 pool_size_ = 2
                 sampling_window = np.arange(
@@ -1035,8 +1027,8 @@ class QFitRotamericResidue(_BaseQFit):
                     24,
                 )
             else:
-                stride_ = 1
-                pool_size_ = 1
+                stride_ = -1
+                pool_size_ = -1
                 sampling_window = np.arange(
                     -opt.rotamer_neighborhood,
                     opt.rotamer_neighborhood,
@@ -1044,18 +1036,21 @@ class QFitRotamericResidue(_BaseQFit):
                 )
         else:
             sampling_window = [0]
-            stride_ = 1
-            pool_size_ = 1
+            stride_ = -1
+            pool_size_ = -1
 
         rotamers = self.residue.rotamers
         rotamers.append(
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
+        print(f'version: {version}')
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
+            print(iteration)
+            print(chis_to_sample)
             end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
             iter_b_set = (
@@ -1092,7 +1087,6 @@ class QFitRotamericResidue(_BaseQFit):
                                 rotamer = [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
                             else:
                                 rotamer = [rotamer for rotamer in rotamers]
-                            rotamer = [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
                             sampled_rotamers.append(rotamer)
                     if self.residue.nchi > 1:
                         new_rotamers = [[sampled_rotamer[0], rotamer[1]] for sampled_rotamer in sampled_rotamers for rotamer in rotamers]
@@ -1105,6 +1099,7 @@ class QFitRotamericResidue(_BaseQFit):
                     chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
                     # Try each rotamer in the library for this backbone conformation:
                     for rotamer in rotamers:
+                        print(rotamer)
                         # Check if the current sidechain configuration for this residue
                         # closely matches the rotamer being considered from the library
                         is_this_same_rotamer = True
