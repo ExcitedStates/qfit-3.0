@@ -356,7 +356,7 @@ class _BaseQFit:
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
-                    model_params_per_atom * natoms * nconfs * 1.5
+                    model_params_per_atom * natoms * nconfs * 0.8
                 )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
@@ -784,7 +784,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._bs = new_bs
 
         # QP score conformer occupancy
-        self._convert(1,1)
+        self._convert()
         self._solve_qp()
         self._update_conformers()
         if self.options.write_intermediate_conformers:
@@ -792,7 +792,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # MIQP score conformer occupancy
         self.sample_b()
-        self._convert(1,1)
+        self._convert()
         self._solve_miqp(
             threshold=self.options.threshold, cardinality=self.options.cardinality
         )
@@ -815,9 +815,7 @@ class QFitRotamericResidue(_BaseQFit):
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
         # End of processing
-        end_time = timeit.default_timer()
-        print(f"Processing time: {end_time - start_time} seconds")
-
+        
 
 
     def _sample_backbone(self):
@@ -1013,12 +1011,12 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-
-    def _sample_sidechain(self, version=0):
+        
+    def _sample_sidechain(self, version=1):
         opt = self.options
         start_chi_index = 1
         if self.residue.resn[0] != "PRO":
-            if version == 0:
+            if version == 0: #version 0 should be the first go through with maxpooling
                 stride_ = 2
                 pool_size_ = 2
                 sampling_window = np.arange(
@@ -1044,11 +1042,27 @@ class QFitRotamericResidue(_BaseQFit):
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
         iteration = 0
+        if version == 1:
+            if self.residue.nchi < 2:
+                start_chi_index = 1
+            else:
+                start_chi_index = 2
+        else:
+            start_chi_index = 1
         while True:
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
-            end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
+            if version == 0:
+                # Sample only the first chi angle
+                if iteration == 0:
+                    end_chi_index = start_chi_index + 1
+                
+            if version == 1:
+                # Sample all the rest of the chis
+                if iteration == 0:
+                    end_chi_index = self.residue.nchi + 1
+            
             iter_coor_set = []
             iter_b_set = (
                 []
@@ -1079,17 +1093,13 @@ class QFitRotamericResidue(_BaseQFit):
                 if version == 1:
                     sampled_rotamers = []
                     for coor in self._coor_set:
-                            self.residue.coor = coor
-                            if chi_index in [1, 2]:
-                                rotamer = [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
-                            else:
-                                rotamer = [rotamer for rotamer in rotamers]
-                            rotamer = [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
-                            sampled_rotamers.append(rotamer)
-                    if self.residue.nchi > 1:
-                        new_rotamers = [[sampled_rotamer[0], rotamer[1]] for sampled_rotamer in sampled_rotamers for rotamer in rotamers]
-                    else:
-                        new_rotamers = sampled_rotamers
+                        self.residue.coor = coor
+                        first_chi = [self.residue.get_chi(1)]
+                        subsequent_chis = [rotamer[1:] for rotamer in self.residue.rotamers]
+                        for subsequent_chi in subsequent_chis:
+                            combined_rotamer = first_chi + subsequent_chi
+                            sampled_rotamers.append(combined_rotamer)
+                    rotamers = sampled_rotamers
 
                 for coor, b in zip(self._coor_set, self._bs):
                     self.residue.coor = coor
@@ -1173,6 +1183,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
+
             if len(self._coor_set) > 15000:
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
@@ -1192,8 +1203,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"sample_sidechain_iter{version}_{iteration}"
                 )
-
-
 
             if len(self._coor_set) <= 15000:
                 # If <15000 conformers are generated, QP score conformer occupancy normally
@@ -1243,7 +1252,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
                     self._write_intermediate_conformers(
-                        prefix=f"sample_sidechain_iter_{version}_{iteration}_qp"
+                        prefix=f"sample_sidechain_ver{version}_iter{iteration}_qp"
                     )
 
                 # Save results from the second section
@@ -1265,24 +1274,27 @@ class QFitRotamericResidue(_BaseQFit):
             self._update_conformers()
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers(
-                    prefix=f"sample_sidechain_iter{version}_{iteration}_miqp"
+                    prefix=f"sample_sidechain_ver{version}_iteration{iteration}_miqp"
                 )
 
             # Check if we are done
-            if chi_index == self.residue.nchi:
+            if version == 0:
+                break
+            elif chi_index == self.residue.nchi:
                 break
 
             # Use the next chi angle as starting point, except when we are in
             # the first iteration and have selected backbone sampling and we
             # are sampling more than 1 dof per iteration
             increase_chi = not (
-                (opt.sample_backbone or opt.sample_angle)
+                (opt.sample_backbone or opt.sample_angle) 
                 and iteration == 0
                 and opt.dofs_per_iteration > 1
             )
             if increase_chi:
                 start_chi_index += 1
             iteration += 1
+   
 
     def tofile(self):
         # Save the individual conformers
@@ -2387,7 +2399,6 @@ class QFitLigand(_BaseQFit):
         for conf, b in zip(self._starting_coor_set, self._starting_bs):
             # Rotate around each principal axis and extend new_coor and new_bs
             for Rot in [Rx, Ry, Rz]:
-                print("Rotating about ", Rot)
                 # Flip initial conformer
                 flipped_conf = apply_rotation(conf, Rot)
                 # apply further small rotations around each rotated conformation
