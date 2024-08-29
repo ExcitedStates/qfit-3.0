@@ -1043,7 +1043,10 @@ class QFitRotamericResidue(_BaseQFit):
         )
         iteration = 0
         if version == 1:
-            start_chi_index = 2
+            if self.residue.nchi < 2:
+                start_chi_index = 1
+            else:
+                start_chi_index = 2
         else:
             start_chi_index = 1
         while True:
