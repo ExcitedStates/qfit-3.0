@@ -1013,7 +1013,286 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
+        
+    def _sample_sidechain(self, version=1):
+        opt = self.options
+        start_chi_index = 1
+        if self.residue.resn[0] != "PRO":
+            if version == 0: #version 0 should be the first go through with maxpooling
+                stride_ = 2
+                pool_size_ = 2
+                sampling_window = np.arange(
+                    -opt.rotamer_neighborhood,
+                    opt.rotamer_neighborhood,
+                    24,
+                )
+            else:
+                stride_ = 1
+                pool_size_ = 1
+                sampling_window = np.arange(
+                    -opt.rotamer_neighborhood,
+                    opt.rotamer_neighborhood,
+                    opt.dihedral_stepsize,
+                )
+        else:
+            sampling_window = [0]
+            stride_ = 1
+            pool_size_ = 1
 
+        rotamers = self.residue.rotamers
+        rotamers.append(
+            [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
+        )
+        iteration = 0
+        if version == 1:
+            start_chi_index = 2
+        else:
+            start_chi_index = 1
+        while True:
+            chis_to_sample = opt.dofs_per_iteration
+            if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
+                chis_to_sample = max(1, opt.dofs_per_iteration - 1)
+            if version == 0:
+                # Sample only the first chi angle
+                if iteration == 0:
+                    end_chi_index = start_chi_index + 1
+                
+            if version == 1:
+                # Sample all the rest of the chis
+                if iteration == 0:
+                    end_chi_index = self.residue.nchi + 1
+            
+            iter_coor_set = []
+            iter_b_set = (
+                []
+            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
+            for chi_index in range(start_chi_index, end_chi_index):
+                # Set active and passive atoms, since we are iteratively
+                # building up the sidechain. This updates the internal
+                # clash mask.
+                self.residue.active = True
+                if chi_index < self.residue.nchi:
+                    current = self.residue._rotamers["chi-rotate"][chi_index]
+                    deactivate = self.residue._rotamers["chi-rotate"][chi_index + 1]
+                    selection = self.residue.select("name", deactivate)
+                    self.residue._active[selection] = False
+                    bs_atoms = list(set(current) - set(deactivate))
+                else:
+                    bs_atoms = self.residue._rotamers["chi-rotate"][chi_index]
+
+                self.residue.update_clash_mask()
+                active = self.residue.active
+
+                logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
+                new_coor_set = []
+                new_bs = []
+                n = 0
+                ex = 0
+                # For each backbone conformation so far:
+                if version == 1:
+                    sampled_rotamers = []
+                    for coor in self._coor_set:
+                        self.residue.coor = coor
+                        first_chi = [self.residue.get_chi(1)]
+                        subsequent_chis = [rotamer[1:] for rotamer in self.residue.rotamers]
+                        for subsequent_chi in subsequent_chis:
+                            combined_rotamer = first_chi + subsequent_chi
+                            sampled_rotamers.append(combined_rotamer)
+                    rotamers = sampled_rotamers
+
+                for coor, b in zip(self._coor_set, self._bs):
+                    self.residue.coor = coor
+                    self.residue.b = b
+                    chis = [self.residue.get_chi(i) for i in range(1, chi_index)]
+                    # Try each rotamer in the library for this backbone conformation:
+                    for rotamer in rotamers:
+                        # Check if the current sidechain configuration for this residue
+                        # closely matches the rotamer being considered from the library
+                        is_this_same_rotamer = True
+                        for curr_chi, rotamer_chi in zip(chis, rotamer):
+                            diff_chi = abs(curr_chi - rotamer_chi)
+                            if (
+                                360 - opt.rotamer_neighborhood
+                                > diff_chi
+                                > opt.rotamer_neighborhood
+                            ):
+                                is_this_same_rotamer = False
+                                break
+                        if not is_this_same_rotamer:
+                            continue
+                        # Set the chi angle to the standard rotamer value.
+                        self.residue.set_chi(chi_index, rotamer[chi_index - 1])
+
+                        # Sample around the neighborhood of the rotamer
+                        chi_rotator = ChiRotator(self.residue, chi_index)
+
+                        for angle in sampling_window:
+                            # Rotate around the chi angle, hitting each of the angle values
+                            # in our predetermined, generic chi-angle sampling window
+                            n += 1
+                            chi_rotator(angle)
+                            coor = self.residue.coor
+
+                            # See if this (partial) conformer clashes,
+                            # based on a density mask
+                            if opt.remove_conformers_below_cutoff:
+                                values = self.xmap.interpolate(coor[active])
+                                mask = self.residue.e[active] != "H"
+                                if np.min(values[mask]) < self.options.density_cutoff:
+                                    ex += 1
+                                    continue
+
+                            # See if this (partial) conformer clashes (so far),
+                            # based on all-atom sterics (if the user wanted that)
+                            keep_coor_set = False
+                            if self.options.external_clash:
+                                if not self._cd() and self.residue.clashes() == 0:
+                                    keep_coor_set = True
+                            elif self.residue.clashes() == 0:
+                                keep_coor_set = True
+
+                            # Based on that, decide whether to keep or reject this (partial) conformer
+                            if keep_coor_set:
+                                if new_coor_set:
+                                    delta = np.array(new_coor_set) - np.array(
+                                        self.residue.coor
+                                    )
+                                    if (
+                                        np.sqrt(
+                                            min(
+                                                np.square((delta))
+                                                .sum(axis=2)
+                                                .sum(axis=1)
+                                            )
+                                        )
+                                        >= 0.01
+                                    ):
+                                        new_coor_set.append(self.residue.coor)
+                                        new_bs.append(b)
+                                    else:
+                                        ex += 1
+                                else:
+                                    new_coor_set.append(self.residue.coor)
+                                    new_bs.append(b)
+                            else:
+                                ex += 1
+
+                iter_coor_set.append(new_coor_set)
+                iter_b_set.append(new_bs)
+                self._coor_set = new_coor_set
+                self._bs = new_bs
+
+
+            if len(self._coor_set) > 15000:
+                logger.warning(
+                    f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
+                )
+
+            if not self._coor_set:
+                msg = (
+                    "No conformers could be generated. Check for initial "
+                    "clashes and density support."
+                )
+                raise RuntimeError(msg)
+
+            logger.debug(
+                f"Side chain sampling generated {len(self._coor_set)} conformers"
+            )
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(
+                    prefix=f"sample_sidechain_iter{version}_{iteration}"
+                )
+
+            if len(self._coor_set) <= 15000:
+                # If <15000 conformers are generated, QP score conformer occupancy normally
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers() #should this be more lenient?
+                if self.options.write_intermediate_conformers:
+                    self._write_intermediate_conformers(
+                        prefix=f"sample_sidechain_iter{version}_{iteration}_qp"
+                    )
+            if len(self._coor_set) > 15000:
+                # If >15000 conformers are generated, split the QP conformer scoring into two
+                temp_coor_set = self._coor_set
+                temp_bs = self._bs
+
+                # Splitting the arrays into two sections
+                half_index = len(temp_coor_set) // 2  # Integer division for splitting
+                section_1_coor = temp_coor_set[:half_index]
+                section_1_bs = temp_bs[:half_index]
+                section_2_coor = temp_coor_set[half_index:]
+                section_2_bs = temp_bs[half_index:]
+
+                # Process the first section
+                self._coor_set = section_1_coor
+                self._bs = section_1_bs
+
+                # QP score the first section
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                if self.options.write_intermediate_conformers:
+                    self._write_intermediate_conformers(
+                        prefix=f"sample_sidechain_iter_{version}_{iteration}_qp"
+                    )
+
+                # Save results from the first section
+                qp_temp_coor = self._coor_set
+                qp_temp_bs = self._bs
+
+                # Process the second section
+                self._coor_set = section_2_coor
+                self._bs = section_2_bs
+
+                # QP score the second section
+                self._convert(stride_, pool_size_)
+                self._solve_qp()
+                self._update_conformers()
+                if self.options.write_intermediate_conformers:
+                    self._write_intermediate_conformers(
+                        prefix=f"sample_sidechain_ver{version}_iter{iteration}_qp"
+                    )
+
+                # Save results from the second section
+                qp_2_temp_coor = self._coor_set
+                qp_2_temp_bs = self._bs
+
+                # Concatenate the results from both sections
+                self._coor_set = np.concatenate((qp_temp_coor, qp_2_temp_coor), axis=0)
+                self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
+
+            # MIQP score conformer occupancy
+            self.sample_b()
+            self._convert(stride_, pool_size_)
+            self._solve_miqp(
+                threshold=self.options.threshold,
+                cardinality=None,  # don't enforce strict cardinality constraint, just less-than 1/threshold
+                do_BIC_selection=False,  # override (cancel) BIC selection during chi sampling
+            )
+            self._update_conformers()
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(
+                    prefix=f"sample_sidechain_ver{version}_iteration{iteration}_miqp"
+                )
+
+            # Check if we are done
+            if version == 0:
+                break
+            elif chi_index == self.residue.nchi:
+                break
+
+            # Use the next chi angle as starting point, except when we are in
+            # the first iteration and have selected backbone sampling and we
+            # are sampling more than 1 dof per iteration
+            increase_chi = not (
+                (opt.sample_backbone or opt.sample_angle) 
+                and iteration == 0
+                and opt.dofs_per_iteration > 1
+            )
+            if increase_chi:
+                start_chi_index += 1
+            iteration += 1
    
 
     def tofile(self):
