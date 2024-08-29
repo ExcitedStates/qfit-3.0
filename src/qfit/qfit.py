@@ -356,7 +356,7 @@ class _BaseQFit:
                 nconfs = np.sum(solver.weights >= 0.002)
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
-                    model_params_per_atom * natoms * nconfs * 1.5
+                    model_params_per_atom * natoms * nconfs * 0.8
                 )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
@@ -815,9 +815,7 @@ class QFitRotamericResidue(_BaseQFit):
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
         # End of processing
-        end_time = timeit.default_timer()
-        print(f"Processing time: {end_time - start_time} seconds")
-
+        
 
 
     def _sample_backbone(self):
@@ -2398,7 +2396,6 @@ class QFitLigand(_BaseQFit):
         for conf, b in zip(self._starting_coor_set, self._starting_bs):
             # Rotate around each principal axis and extend new_coor and new_bs
             for Rot in [Rx, Ry, Rz]:
-                print("Rotating about ", Rot)
                 # Flip initial conformer
                 flipped_conf = apply_rotation(conf, Rot)
                 # apply further small rotations around each rotated conformation
