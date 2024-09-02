@@ -9,7 +9,6 @@ import subprocess
 import numpy as np
 import tqdm
 import timeit
-import time
 import concurrent.futures
 
 
@@ -1186,7 +1185,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-            if len(self._coor_set) > 1500:
+            if len(self._coor_set) > 10000:
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
@@ -1206,8 +1205,8 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"sample_sidechain_iter{version}_{iteration}"
                 )
 
-            if len(self._coor_set) <= 1500:
-                # If <15000 conformers are generated, QP score conformer occupancy normally
+            if len(self._coor_set) <= 10000:
+                # If <10000 conformers are generated, QP score conformer occupancy normally
                 self._convert(stride_, pool_size_)
                 self._solve_qp()
                 self._update_conformers() #should this be more lenient?
@@ -1215,8 +1214,8 @@ class QFitRotamericResidue(_BaseQFit):
                     self._write_intermediate_conformers(
                         prefix=f"sample_sidechain_iter{version}_{iteration}_qp"
                     )
-            if len(self._coor_set) > 1500:
-                # If >15000 conformers are generated, split the QP conformer scoring into two
+            if len(self._coor_set) > 10000:
+                # If >10000 conformers are generated, split the QP conformer scoring into two
                 temp_coor_set = self._coor_set
                 temp_bs = self._bs
 
