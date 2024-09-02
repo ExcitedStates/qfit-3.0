@@ -9,6 +9,7 @@ import subprocess
 import numpy as np
 import tqdm
 import timeit
+import time
 import concurrent.futures
 
 
@@ -1013,6 +1014,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._write_intermediate_conformers(prefix=f"sample_angle")
         
     def _sample_sidechain(self, version=1):
+        
         opt = self.options
         start_chi_index = 1
         if self.residue.resn[0] != "PRO":
@@ -1037,10 +1039,12 @@ class QFitRotamericResidue(_BaseQFit):
             stride_ = 1
             pool_size_ = 1
 
+
         rotamers = self.residue.rotamers
         rotamers.append(
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
         )
+
         iteration = 0
         if version == 1:
             if self.residue.nchi < 2:
@@ -1050,6 +1054,7 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             start_chi_index = 1
         while True:
+
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
@@ -1063,11 +1068,12 @@ class QFitRotamericResidue(_BaseQFit):
                 if iteration == 0:
                     end_chi_index = self.residue.nchi + 1
             
+            logger.debug(f"Sampling chi angles from {start_chi_index} to {end_chi_index}")
+
             iter_coor_set = []
-            iter_b_set = (
-                []
-            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
+            iter_b_set = []  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
+                logger.debug(f"Sampling chi: {chi_index} ({self.residue.nchi})")
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
                 # clash mask.
@@ -1083,11 +1089,9 @@ class QFitRotamericResidue(_BaseQFit):
 
                 self.residue.update_clash_mask()
                 active = self.residue.active
-
-                logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
                 new_coor_set = []
                 new_bs = []
-                n = 0
+                n = 0  # Reset n for each iteration
                 ex = 0
                 # For each backbone conformation so far:
                 if version == 1:
@@ -1098,7 +1102,8 @@ class QFitRotamericResidue(_BaseQFit):
                         subsequent_chis = [rotamer[1:] for rotamer in self.residue.rotamers]
                         for subsequent_chi in subsequent_chis:
                             combined_rotamer = first_chi + subsequent_chi
-                            sampled_rotamers.append(combined_rotamer)
+                            if combined_rotamer not in sampled_rotamers:
+                                sampled_rotamers.append(combined_rotamer)
                     rotamers = sampled_rotamers
 
                 for coor, b in zip(self._coor_set, self._bs):
@@ -1126,7 +1131,6 @@ class QFitRotamericResidue(_BaseQFit):
 
                         # Sample around the neighborhood of the rotamer
                         chi_rotator = ChiRotator(self.residue, chi_index)
-
                         for angle in sampling_window:
                             # Rotate around the chi angle, hitting each of the angle values
                             # in our predetermined, generic chi-angle sampling window
@@ -1177,14 +1181,12 @@ class QFitRotamericResidue(_BaseQFit):
                                     new_bs.append(b)
                             else:
                                 ex += 1
-
                 iter_coor_set.append(new_coor_set)
                 iter_b_set.append(new_bs)
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-
-            if len(self._coor_set) > 15000:
+            if len(self._coor_set) > 1500:
                 logger.warning(
                     f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                 )
@@ -1204,7 +1206,7 @@ class QFitRotamericResidue(_BaseQFit):
                     prefix=f"sample_sidechain_iter{version}_{iteration}"
                 )
 
-            if len(self._coor_set) <= 15000:
+            if len(self._coor_set) <= 1500:
                 # If <15000 conformers are generated, QP score conformer occupancy normally
                 self._convert(stride_, pool_size_)
                 self._solve_qp()
@@ -1213,7 +1215,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._write_intermediate_conformers(
                         prefix=f"sample_sidechain_iter{version}_{iteration}_qp"
                     )
-            if len(self._coor_set) > 15000:
+            if len(self._coor_set) > 1500:
                 # If >15000 conformers are generated, split the QP conformer scoring into two
                 temp_coor_set = self._coor_set
                 temp_bs = self._bs
@@ -1263,6 +1265,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = np.concatenate((qp_temp_coor, qp_2_temp_coor), axis=0)
                 self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
 
+
             # MIQP score conformer occupancy
             self.sample_b()
             self._convert(stride_, pool_size_)
@@ -1276,8 +1279,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._write_intermediate_conformers(
                     prefix=f"sample_sidechain_ver{version}_iteration{iteration}_miqp"
                 )
-
-            # Check if we are done
             if version == 0:
                 break
             elif chi_index == self.residue.nchi:
@@ -1294,7 +1295,6 @@ class QFitRotamericResidue(_BaseQFit):
             if increase_chi:
                 start_chi_index += 1
             iteration += 1
-   
 
     def tofile(self):
         # Save the individual conformers
@@ -3110,4 +3110,3 @@ class QFitCovalentLigand(_BaseQFit):
             conformer.b = b
             conformers.append(conformer)
         return conformers
-
