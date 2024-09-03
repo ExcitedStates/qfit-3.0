@@ -72,7 +72,7 @@ class TestQFitProtein:
         # simplify to only run on two residues (reduce computational load)
         qfit.structure = qfit.structure.extract("resi", (58, 69, 175), "==")  #leucine and phe and met 
         qfit.structure = qfit.structure.reorder()
-        assert len(list(qfit.structure.single_conformer_residues)) == 2
+        assert len(list(qfit.structure.single_conformer_residues)) == 3
 
         return qfit
 
@@ -83,4 +83,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 2  # Expect: 2*Leu58, 2*Phe69 2*Met175
+        assert len(mconformer_list) == 6  # Expect: 2*Leu58, 2*Phe69 2*Met175
