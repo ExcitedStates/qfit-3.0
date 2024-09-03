@@ -242,7 +242,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
-            "output.serial=3" \
+            "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
             "refinement.main.nqh_flips=True" \
             "refinement.refine.${adp}" \
@@ -258,7 +258,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
-            "output.serial=3" \
+            "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
             "refinement.main.nqh_flips=True" \
             "refinement.refine.${adp}" \
@@ -290,7 +290,7 @@ if [ -f "reduce_failure.pdb" ]; then
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
-            "output.serial=3" \
+            "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
             "refinement.main.nqh_flips=False" \
             "refinement.refine.${adp}" \
@@ -306,7 +306,7 @@ if [ -f "reduce_failure.pdb" ]; then
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
-            "output.serial=3" \
+            "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
             "refinement.main.nqh_flips=False" \
             "refinement.refine.${adp}" \

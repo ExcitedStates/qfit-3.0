@@ -32,8 +32,8 @@ class TestQFitProtein:
     def mock_main(self):
         # Prepare args
         args = [
-            "./tests/basic_qfit_protein_test/3k0n_map.mtz",  # mapfile, using relative directory from tests/
-            "./tests/basic_qfit_protein_test/3k0n_refine.pdb",  # structurefile, using relative directory from tests/
+            "./tests/basic_qfit_protein_test/composite_omit_map.mtz",  # mapfile, using relative directory from tests/
+            "./tests/basic_qfit_protein_test/1G8A_refined.pdb",  # structurefile, using relative directory from tests/
             "-l",
             "2FOFCWT,PH2FOFCWT",
         ]
@@ -70,10 +70,9 @@ class TestQFitProtein:
 
         # Reach into QFitProtein job,
         # simplify to only run on two residues (reduce computational load)
-        qfit.structure = qfit.structure.extract("resi", (99, 113), "==")
+        qfit.structure = qfit.structure.extract("resi", (58, 69, 175), "==")  #leucine and phe and met 
         qfit.structure = qfit.structure.reorder()
-        assert len(list(qfit.structure.single_conformer_residues)) == 2
-
+        assert len(list(qfit.structure.single_conformer_residues)) == 3
         return qfit
 
     def test_run_qfit_residue_parallel(self):
@@ -83,4 +82,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        assert len(mconformer_list) == 2  # Expect: 1*Ser99, 1*Phe113
+        assert len(mconformer_list) == 6  # Expect: 2*Leu58, 2*Phe69 2*Met175

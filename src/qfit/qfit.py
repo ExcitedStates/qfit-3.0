@@ -3086,4 +3086,3 @@ class QFitCovalentLigand(_BaseQFit):
             conformer.b = b
             conformers.append(conformer)
         return conformers
-
