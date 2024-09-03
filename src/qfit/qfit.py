@@ -358,7 +358,7 @@ class _BaseQFit:
                 model_params_per_atom = 3 + int(self.options.sample_bfactors)
                 k = (
                     model_params_per_atom * natoms * nconfs * 0.8
-                )  # hyperparameter 1.5 determined to be the best cut off between too many conformations and improving Rfree
+                )  # hyperparameter 0.8 determined to be the best cut off between too many conformations and improving Rfree
                 if segment is not None:
                     k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
                 if self.options.ligand_bic:
