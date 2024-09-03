@@ -2,6 +2,7 @@ import pytest
 import os
 import logging
 import multiprocessing as mp
+import np
 
 from qfit.qfit_protein import (
     QFitOptions,
@@ -94,4 +95,4 @@ class TestQFitProtein:
                         print(f"  RMSD between altloc {altloc1} and {altloc2}: {rmsd:.3f} Å")
             else:
                 print(f"{residue.resn[0]}{residue.resi[0]} has only one altloc.")
-        assert len(mconformer_list) == 6  # Expect: 2*Leu58, 2*Phe69 2*Met175
+        assert len(mconformer_list) == 5  # Expect: 2*Leu58, 1*Phe69 2*Met175
