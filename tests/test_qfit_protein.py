@@ -2,7 +2,7 @@ import pytest
 import os
 import logging
 import multiprocessing as mp
-import np
+import numpy as np
 
 from qfit.qfit_protein import (
     QFitOptions,
