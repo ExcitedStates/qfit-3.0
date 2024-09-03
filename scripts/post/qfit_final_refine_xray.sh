@@ -94,8 +94,8 @@ rfreetypes="FREE R-free-flags"
 for field in ${rfreetypes}; do
   if grep -F -q -w $field <<< "${mtzmetadata}"; then
     gen_Rfree=False;
-    echo "Rfree column: ${field}";
-    echo "miller_array.labels.name=${field}" >> ${pdb_name}_refine.params
+    echo "Rfree column: ${rfield}";
+    echo "miller_array.labels.name=${rfield}" >> ${pdb_name}_refine.params
     break
   fi
 done
@@ -123,8 +123,6 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
 fi
 
-create_restraints_file.py "${pdb_name}_002.pdb"
-
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
@@ -142,10 +140,11 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=False" \
                "refinement.output.write_maps=False" \
-               "input.xray_data.label=$xray_data_labels" \
-               "xray_data.r_free_flags.generate=${gen_Rfree}" \
-               "miller_array.labels.name=R-free-flags" \
+               "input.xray_data.label=${xray_data_labels}" \
+               "xray_data.r_free_flags.generate=True" \
                --overwrite
+
+create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
@@ -198,6 +197,7 @@ while [ $zeroes -gt 1 ]; do
     exit 1;
   else
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
+    create_restraints_file.py "${pdb_name}_002.pdb"
   fi
 
   if [ $i -ge 50 ]; then
