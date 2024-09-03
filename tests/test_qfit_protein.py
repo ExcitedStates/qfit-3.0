@@ -91,6 +91,8 @@ class TestQFitProtein:
                     for j, altloc2 in enumerate(altlocs[i+1:], start=i+1):
                         coords1 = residue.extract('altloc', altloc1).coor[0]
                         coords2 = residue.extract('altloc', altloc2).coor[0]
+                        print(coords1)
+                        print(coords2)
                         rmsd = np.sqrt(np.mean(np.sum((coords1 - coords2)**2, axis=1)))
                         print(f"  RMSD between altloc {altloc1} and {altloc2}: {rmsd:.3f} Å")
             else:
