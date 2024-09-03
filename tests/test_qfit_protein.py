@@ -2,7 +2,6 @@ import pytest
 import os
 import logging
 import multiprocessing as mp
-import numpy as np
 
 from qfit.qfit_protein import (
     QFitOptions,
@@ -83,18 +82,4 @@ class TestQFitProtein:
         multiconformer = qfit._run_qfit_residue_parallel()
         mconformer_list = list(multiconformer.residues)
         print(mconformer_list)  # If we fail, this gets printed.
-        for residue in mconformer_list:
-            altlocs = residue.altloc
-            if len(altlocs) > 1:
-                print(f"RMSD calculations for {residue.resn[0]}{residue.resi[0]}:")
-                for i, altloc1 in enumerate(altlocs):
-                    for j, altloc2 in enumerate(altlocs[i+1:], start=i+1):
-                        coords1 = residue.extract('altloc', altloc1).coor[0]
-                        coords2 = residue.extract('altloc', altloc2).coor[0]
-                        print(coords1)
-                        print(coords2)
-                        rmsd = np.sqrt(np.mean(np.sum((coords1 - coords2)**2, axis=1)))
-                        print(f"  RMSD between altloc {altloc1} and {altloc2}: {rmsd:.3f} Å")
-            else:
-                print(f"{residue.resn[0]}{residue.resi[0]} has only one altloc.")
         assert len(mconformer_list) == 5  # Expect: 2*Leu58, 1*Phe69 2*Met175
