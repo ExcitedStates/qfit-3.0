@@ -18,7 +18,7 @@ from .test_qfit_protein_synth import SyntheticMapRunner, POST_MERGE_ONLY
 
 
 class TestQfitLigandSyntheticData(SyntheticMapRunner):
-    TRANSFORMER = "cctbx"
+    TRANSFORMER = "qfit"
     COMMON_OPTIONS = [
         "--label",
         "FWT,PHIFWT",
@@ -194,7 +194,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         (pdb_multi, pdb_single) = self._get_start_models("ZXI_complex")
         fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,10",
             "c1cc(ccc1CN)I", d_min)
-        self._validate_new_fmodel(fmodel_in, d_min, expected_correlation=0.99)
+        self._validate_new_fmodel(fmodel_in, d_min, expected_correlation=0.989)
         s = self._validate_zxi_conformers()
         protein = s.extract("resn", "ZXI", "!=")
         assert len(protein.coor) == 19

@@ -2,6 +2,7 @@ import logging
 import os.path as op
 import os
 
+import numpy as np
 import pytest
 
 from qfit.command_line.qfit_ligand import (
@@ -14,6 +15,7 @@ from qfit.logtools import (
     log_run_info,
 )
 from qfit.utils.mock_utils import BaseTestRunner, is_github_pull_request
+from qfit.structure import Structure
 
 from .test_qfit_protein_synth import POST_MERGE_ONLY
 
@@ -23,10 +25,10 @@ logger = logging.getLogger(__name__)
 @pytest.mark.slow
 class TestQFitLigand(BaseTestRunner):
     DATA = op.join(op.dirname(__file__), "qfit_ligand_test")
-    TRANSFORMER = os.environ.get("QFIT_TRANSFORMER", "cctbx")
+    TRANSFORMER = os.environ.get("QFIT_TRANSFORMER", "qfit")
 
     def _mock_main(self, pdb_file_name, mtz_file_name, selection, smiles,
-                   extra_args=()):
+                   extra_args=(), transformer=None):
         pdb_in = op.join(self.DATA, pdb_file_name)
         mtz_in = op.join(self.DATA, mtz_file_name)
         # this allows us to write optional tests using bulky inputs that
@@ -43,7 +45,10 @@ class TestQFitLigand(BaseTestRunner):
             "--smiles", smiles,
             "-l", "2FOFCWT,PH2FOFCWT",
             "--write_intermediate_conformers",
-            "--transformer", self.TRANSFORMER,
+            "--transformer",
+            self.TRANSFORMER if transformer is None else transformer,
+            "--transformer-map-coeffs",
+            self.TRANSFORMER if transformer is None else transformer,
         ] + list(extra_args)
 
         # Collect and act on arguments
@@ -171,3 +176,48 @@ class TestQFitLigand(BaseTestRunner):
             expected_nconfs=3,  # TODO check this
             expected_global_rmsd=1.0,
             expected_atom_rmsds=())
+
+    # FIXME debug QP solver discrepancy
+    #@pytest.mark.skip(reason="FIXME debug CCTBX failure")
+    def test_qfit_ligand_solver_5o3r(self):
+        """
+        Test the performance of the QP and MIQP solvers (as well as the
+        underlying density-handling routines) given a pair of known
+        AMP conformations in 5O3R.
+        """
+        MIN_OCC_QP = {
+            "qfit": [0.269, 0.148],
+            # XXX these numbers are for the CCTBX map summation on the qfit
+            # gridding - when CCTBX gridding is used, the occupancies are
+            # [0.334, 0.028] which is obviously wrong
+            "cctbx": [0.259, 0.134],
+        }
+        OCC_MIQP = {
+            "qfit": [0.221749, 0.2],
+            "cctbx": [0.2, 0.2]
+        }
+        pdb_multi = op.join(self.DATA, "5O3R_multiconformer_ligand_only.pdb")
+        multi_conf = Structure.fromfile(pdb_multi)
+        for transformer in ["qfit", "cctbx"]:
+            qfit_ligand = self._mock_main(
+                pdb_file_name="5O3R_001.pdb.gz",
+                mtz_file_name="5O3R_composite_omit_map.mtz",
+                selection="C,200",
+                smiles="c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",
+                transformer=transformer)
+            qfit_ligand._coor_set = []
+            qfit_ligand._bs = []
+            for altloc in ["A", "B"]:
+                conf = multi_conf.extract("altloc", altloc)
+                assert len(conf.coor) == len(qfit_ligand.ligand.coor)
+                qfit_ligand._coor_set.append(conf.coor)
+                qfit_ligand._bs.append(conf.b)
+            qfit_ligand._convert(save_debug_maps_prefix=transformer)
+            qfit_ligand._solve_qp()
+            assert np.all(qfit_ligand._occupancies >= MIN_OCC_QP[transformer])
+            qfit_ligand._solve_miqp(
+                threshold=qfit_ligand.options.threshold,
+                cardinality=qfit_ligand.options.ligand_cardinality)
+            np.testing.assert_allclose(qfit_ligand._occupancies,
+                                       OCC_MIQP[transformer],
+                                       atol=0.000001)
