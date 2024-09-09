@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import os.path
-from copy import copy
+from copy import copy, deepcopy
 from numbers import Real
 import logging
 
@@ -431,3 +431,26 @@ class XMap(_BaseVolume):
             map_data=density,
             labels=flex.std_string(["qfit"]),
         )
+
+    def save_mask(self, mask, file_name):
+        """
+        (Internal debugging method) Save an atom mask corresponding to the
+        current map as a map file with all masked points set to 1.
+        """
+        tmp_map = deepcopy(self)
+        tmp_map.array[:] = 0.0
+        tmp_map.array[mask] = 1.0
+        logger.debug("Saving atom mask to %s", os.path.abspath(file_name))
+        tmp_map.write_map_file(file_name)
+
+    def save_masked_map(self, mask, file_name, map_data=None):
+        """
+        (Internal debugging method) Save the masked region of the current
+        map (or an equivalently sized array).
+        """
+        tmp_map = deepcopy(self)
+        if map_data is not None:
+            tmp_map.array[:] = map_data
+        tmp_map.array[~mask] = 0.0
+        logger.debug("Saving masked map to %s", os.path.abspath(file_name))
+        tmp_map.write_map_file(file_name)

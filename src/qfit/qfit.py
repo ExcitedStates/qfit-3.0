@@ -294,11 +294,17 @@ class _BaseQFit(ABC):
                      np.histogram(self.xmap.array))
         logger.debug("Histogram of subtracted map: %s",
                      np.histogram(self._subtransformer.xmap.array))
+        if self.options.debug:
+            self.xmap.tofile("before_subtraction.ccp4")
+            logger.debug("Writing subtrated map to subtracted.ccp4")
+            self._subtransformer.xmap.tofile("subtracted.ccp4")
         self.xmap.array -= self._subtransformer.xmap.array
         logger.debug("Histogram of output map: %s",
                      np.histogram(self.xmap.array))
+        if self.options.debug:
+            self.xmap.tofile("after_subtraction.ccp4")
 
-    def _convert(self, stride=-1, pool_size=-1):
+    def _convert(self, stride=-1, pool_size=-1, save_debug_maps_prefix=None):
         """
         Convert structures to densities and extract relevant values for the
         (MI)QP solvers.  Pooling will be performed if stride and pool_size
@@ -311,6 +317,9 @@ class _BaseQFit(ABC):
         nvalues = mask.sum()
         logger.debug("%d grid points masked out of %s", nvalues, mask.size)
         self._target = self.xmap.array[mask]
+        if save_debug_maps_prefix:
+            self.xmap.save_mask(mask, f"{save_debug_maps_prefix}_mask.ccp4")
+            self.xmap.save_masked_map(mask, f"{save_debug_maps_prefix}_target.ccp4")
 
         assert isinstance(stride, int) and isinstance(pool_size, int)
         if stride >= 1 and pool_size >= 1:
@@ -333,6 +342,11 @@ class _BaseQFit(ABC):
         self._models = np.zeros((nmodels, maxpool_size), float)
         for n, density in enumerate(self._transformer.get_conformers_densities(
                                     self._coor_set, self._bs)):
+            if save_debug_maps_prefix:
+                self.xmap.save_masked_map(
+                    mask,
+                    f"{save_debug_maps_prefix}_conformer_{n:05d}.ccp4",
+                    map_data=density)
             model = self._models[n]
             map_values = density[mask]
             if stride >= 1 and pool_size >= 1:
