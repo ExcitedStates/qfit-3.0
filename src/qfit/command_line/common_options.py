@@ -1,6 +1,7 @@
-"""Common argparse setup"""
+"""Common argparse setup and related CLI utility methods"""
 
 import argparse
+import logging
 import os.path
 
 from qfit.command_line.custom_argparsers import (
@@ -10,6 +11,9 @@ from qfit.command_line.custom_argparsers import (
     ValidateStructureFileArgument,
 )
 from qfit.solvers import available_qp_solvers, available_miqp_solvers
+from qfit import MapScaler, XMap
+
+logger = logging.getLogger(__name__)
 
 
 def get_base_argparser(description,
@@ -121,6 +125,12 @@ def get_base_argparser(description,
         default=default_transformer,
         dest="transformer",
         help="Map sampling algorithm")
+    p.add_argument(
+        "--transformer-map-coeffs",
+        choices=["cctbx","qfit"],
+        default=None,
+        dest="transformer_map_coeffs",
+        help="Map coefficients FFT implementation (for testing effect of gridding behavior)")
 
     p.add_argument(
         "--waters-clash",
@@ -238,3 +248,38 @@ def get_base_argparser(description,
     )
     og.add_argument("--pdb", help="Name of the input PDB")
     return p
+
+
+def load_and_scale_map(options, structure):
+    """
+    Load target experimental map (or map coefficients) and apply a scale
+    factor derived from the model-based map.
+    """
+    # Load map and prepare it
+    map_transformer = options.transformer_map_coeffs
+    if map_transformer is None:
+        map_transformer = options.transformer
+    xmap = XMap.fromfile(
+        options.map,
+        resolution=options.resolution,
+        label=options.label,
+        transformer=map_transformer
+    )
+    xmap = xmap.canonical_unit_cell()
+
+    # Scale map based on input structure
+    if options.scale is True:
+        scaler = MapScaler(xmap, em=options.em, debug=options.debug)
+        radius = 1.5
+        reso = None
+        if xmap.resolution.high is not None:
+            reso = xmap.resolution.high
+        elif options.resolution is not None:
+            reso = options.resolution
+        if reso is not None:
+            radius = 0.5 + reso / 3.0
+        logger.info("Scaling with resolution=%.3f radius=%.3f", reso, radius)
+        scaler.scale(structure,
+                     radius=options.scale_rmask * radius,
+                     transformer=options.transformer)
+    return xmap

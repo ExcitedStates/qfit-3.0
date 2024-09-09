@@ -11,7 +11,7 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 
-from qfit.command_line.common_options import get_base_argparser
+from qfit.command_line.common_options import get_base_argparser, load_and_scale_map
 from qfit.command_line.custom_argparsers import ToggleActionFlag
 from qfit.logtools import (
     setup_logging,
@@ -20,7 +20,7 @@ from qfit.logtools import (
     QueueListener,
 )
 from qfit.qfit import (QFitOptions, QFitRotamericResidue, QFitSegment)
-from qfit import MapScaler, Structure, XMap
+from qfit import Structure
 from qfit.structure.rotamers import ROTAMERS
 
 
@@ -630,27 +630,7 @@ def prepare_qfit_protein(options):
     rename.name = "O"
     structure = structure.extract("name", "OXT", "!=").combine(rename)
 
-    # Load map and prepare it
-    xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label,
-        transformer=options.transformer
-    )
-    xmap = xmap.canonical_unit_cell()
-
-    # Scale map based on input structure
-    if options.scale is True:
-        scaler = MapScaler(xmap, em=options.em, debug=options.debug)
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(structure,
-                     radius=options.scale_rmask * radius,
-                     transformer=options.transformer)
+    xmap = load_and_scale_map(options, structure)
 
     if options.qscore is not None:
         with open(

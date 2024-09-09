@@ -159,7 +159,7 @@ class FFTTransformer:
         self._transformer.density()
         fft_grid = rfftn(self.xmap.array)
         fft_grid[self._fft_mask] = 0
-        grid = irfftn(fft_grid)
+        grid = irfftn(fft_grid, s=self.xmap.array.shape)
         if self.b_add is not None:
             pass
         self.xmap.array[:] = grid.real
