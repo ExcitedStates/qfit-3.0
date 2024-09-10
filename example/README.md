@@ -100,3 +100,11 @@ Using the example 4MS6:
 To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
 
 `qfit_final_refine_ligand.sh 4ms6.mtz`
+
+To run *qfit_ligand* on an event map, you must change the labels and include the resolution. 
+
+`qfit_ligand [EVENT_MAP_FILE] -l [LABEL] [PDB_FILE] -r [RESOLUTION] [CHAIN,LIGAND] -sm [SMILES]`
+
+Using the example x3200: 
+
+`qfit_ligand qfit_ligand_example/x3200_event_map.native.ccp4 -l FWT,PHWT qfit_ligand_example/singl_conf_x3200_pandda_model.pdb -r 1.05 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3'`
