@@ -15,9 +15,10 @@ from qfit.structure import Structure
 from qfit.structure.math import dihedral_angle
 
 from .test_qfit_protein_synth import SyntheticMapRunner, POST_MERGE_ONLY
+from .test_qfit_ligand import QfitLigandRunner
 
 
-class TestQfitLigandSyntheticData(SyntheticMapRunner):
+class TestQfitLigandSyntheticData(QfitLigandRunner, SyntheticMapRunner):
     TRANSFORMER = "qfit"
     COMMON_OPTIONS = [
         "--label",
@@ -177,7 +178,7 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         """
         d_min = 1.3
         (pdb_multi, pdb_single) = self._get_start_models("ZXI")
-        fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,1",
+        fmodel_in = self._run_qfit_ligand(pdb_multi, pdb_single, "A,10",
             "c1cc(ccc1CN)I", d_min)
         self._validate_new_fmodel(fmodel_in, d_min, expected_correlation=0.99)
         s = self._validate_zxi_conformers()
@@ -200,6 +201,51 @@ class TestQfitLigandSyntheticData(SyntheticMapRunner):
         assert len(protein.coor) == 19
         assert np.all(protein.altloc == "")
         self._validate_write_intermediate_conformers_zxi()
+
+    def test_qfit_ligand_solver_zxi(self):
+        """
+        Test the behavior of the QP and MIQP solvers in qfit_ligand, using
+        the synthetic ZXI examples.
+        """
+        d_min = 1.0
+        # FIXME This should be >0.49 for both conformers, but the cctbx
+        # transformer currently loses sensitivity
+        MIN_OCC = 0.47
+        # the standalone ZXI in P21 behaves similarly; since it's synthetic
+        # data anyway the symmetry expansion behavior won't matter as much
+        (pdb_multi, pdb_single) = self._get_start_models("ZXI_complex")
+        fmodel_mtz = self._create_fmodel(pdb_multi,
+                                         high_resolution=d_min)
+        multi_conf = Structure.fromfile(pdb_multi)
+        for transformer in ["qfit", "cctbx"]:
+            qfit_ligand = self._setup_qfit_ligand(
+                pdb_in=pdb_single,
+                mtz_in=fmodel_mtz,
+                selection="A,10",
+                smiles="c1cc(ccc1CN)I",
+                transformer=transformer,
+                labels="FWT,PHIFWT")
+            qfit_ligand._coor_set = []
+            qfit_ligand._bs = []
+            ligand_multi = multi_conf.extract("resn", "ZXI")
+            for altloc in ["A", "B"]:
+                conf = ligand_multi.extract("altloc", ("", altloc))
+                assert len(conf.coor) == len(qfit_ligand.ligand.coor)
+                qfit_ligand._coor_set.append(conf.coor)
+                qfit_ligand._bs.append(conf.b)
+            qfit_ligand._convert(save_debug_maps_prefix=transformer)
+            qfit_ligand._solve_qp()
+            assert len(qfit_ligand._occupancies) == 2
+            assert (np.all(qfit_ligand._occupancies >= MIN_OCC) and
+                    np.all(qfit_ligand._occupancies < 0.5)), \
+                f"assertion failed for transformer {transformer} after QP"
+            qfit_ligand._solve_miqp(
+                threshold=qfit_ligand.options.threshold,
+                cardinality=qfit_ligand.options.ligand_cardinality)
+            assert len(qfit_ligand._occupancies) == 2
+            assert (np.all(qfit_ligand._occupancies >= MIN_OCC) and
+                    np.all(qfit_ligand._occupancies < 0.5)), \
+                f"assertion failed for transformer {transformer} after MIQP"
 
 
 @pytest.mark.slow

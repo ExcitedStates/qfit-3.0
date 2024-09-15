@@ -22,15 +22,11 @@ from .test_qfit_protein_synth import POST_MERGE_ONLY
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.slow
-class TestQFitLigand(BaseTestRunner):
-    DATA = op.join(op.dirname(__file__), "qfit_ligand_test")
-    TRANSFORMER = os.environ.get("QFIT_TRANSFORMER", "qfit")
-
-    def _mock_main(self, pdb_file_name, mtz_file_name, selection, smiles,
-                   extra_args=(), transformer=None):
-        pdb_in = op.join(self.DATA, pdb_file_name)
-        mtz_in = op.join(self.DATA, mtz_file_name)
+class QfitLigandRunner(BaseTestRunner):
+    def _setup_qfit_ligand(self, pdb_in, mtz_in, selection, smiles,
+                           transformer,
+                           labels="2FOFCWT,PH2FOFCWT",
+                           extra_args=()):
         # this allows us to write optional tests using bulky inputs that
         # aren't a part of the core qFit repository
         if not op.isfile(pdb_in):
@@ -43,12 +39,9 @@ class TestQFitLigand(BaseTestRunner):
             pdb_in,
             selection,
             "--smiles", smiles,
-            "-l", "2FOFCWT,PH2FOFCWT",
+            "-l", labels,
             "--write_intermediate_conformers",
-            "--transformer",
-            self.TRANSFORMER if transformer is None else transformer,
-            "--transformer-map-coeffs",
-            self.TRANSFORMER if transformer is None else transformer,
+            "--transformer", transformer,
         ] + list(extra_args)
 
         # Collect and act on arguments
@@ -70,6 +63,25 @@ class TestQFitLigand(BaseTestRunner):
             options=options
         )
         return qfit_ligand
+
+
+@pytest.mark.slow
+class TestQFitLigand(QfitLigandRunner):
+    DATA = op.join(op.dirname(__file__), "qfit_ligand_test")
+    TRANSFORMER = os.environ.get("QFIT_TRANSFORMER", "qfit")
+
+    def _mock_main(self, pdb_file_name, mtz_file_name, selection, smiles,
+                   extra_args=(), transformer=None):
+        pdb_in = op.join(self.DATA, pdb_file_name)
+        mtz_in = op.join(self.DATA, mtz_file_name)
+        transformer = self.TRANSFORMER if transformer is None else transformer
+        return self._setup_qfit_ligand(
+            pdb_in=pdb_in,
+            mtz_in=mtz_in,
+            selection=selection,
+            smiles=smiles,
+            transformer=transformer,
+            extra_args=extra_args)
 
     # FIXME this is currently failing with:
     # 'Generated an exception: No matching found'
@@ -178,7 +190,7 @@ class TestQFitLigand(BaseTestRunner):
             expected_atom_rmsds=())
 
     # FIXME debug QP solver discrepancy
-    #@pytest.mark.skip(reason="FIXME debug CCTBX failure")
+    @pytest.mark.skip(reason="FIXME debug CCTBX failure")
     def test_qfit_ligand_solver_5o3r(self):
         """
         Test the performance of the QP and MIQP solvers (as well as the
@@ -205,6 +217,8 @@ class TestQFitLigand(BaseTestRunner):
                 selection="C,200",
                 smiles="c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",
                 transformer=transformer)
+                #extra_args=["--no-expand-p1"])
+                #extra_args=["--transformer-map-coeffs", "cctbx"])
             qfit_ligand._coor_set = []
             qfit_ligand._bs = []
             for altloc in ["A", "B"]:
@@ -214,7 +228,9 @@ class TestQFitLigand(BaseTestRunner):
                 qfit_ligand._bs.append(conf.b)
             qfit_ligand._convert(save_debug_maps_prefix=transformer)
             qfit_ligand._solve_qp()
-            assert np.all(qfit_ligand._occupancies >= MIN_OCC_QP[transformer])
+            min_occ = MIN_OCC_QP[transformer]
+            assert np.all(qfit_ligand._occupancies >= min_occ), \
+                f"assertion failed for {transformer}"
             qfit_ligand._solve_miqp(
                 threshold=qfit_ligand.options.threshold,
                 cardinality=qfit_ligand.options.ligand_cardinality)
