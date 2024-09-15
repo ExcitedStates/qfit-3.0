@@ -77,7 +77,7 @@ using the flag *-d*.
 By default, qFit expects the labels FWT,PHWT to be present in the input map.
 Different labels can be set accordingly using the flag *-l*.
 
-Using the example 3K0N:
+Using the example 18GA:
 
 `qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A_refine.pdb`
 
@@ -86,7 +86,6 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 `qfit_final_refine_xray.sh example/qfit_protein_example/18GA.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
 Additionally, the qFit_occupancy.params file must exist in the folder (this is an output of qFit protein).
-
 
 Bear in mind that this final step currently depends on an existing installation
 of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
@@ -103,7 +102,11 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/TUTORIAL.md).
 
-To model alternate conformations of ligands using qFit, execute the following command:
+To model alternate conformations of ligands using qFit, we recommend running composite omit map excluding bulk solvent with the following command:
+
+`phenix.composite_omit_map input.mtz model.pdb omit-type=refine exclude_bulk_solvent=True`
+
+qFit-ligand can be executed the following command:
 
 `qfit_ligand [COMPOSITE_OMIT_MAP_FILE] [PDB_FILE] -l [LABELS] [SELECTION] -sm [SMILES]`
 
