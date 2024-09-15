@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import os.path
-from copy import copy
+from copy import copy, deepcopy
 from numbers import Real
 import logging
 
@@ -17,6 +17,7 @@ asu_map_ext = bp.import_ext("cctbx_asymmetric_map_ext")
 from qfit.xtal.unitcell import UnitCell
 from qfit.xtal.spacegroups import SpaceGroup
 from qfit.xtal.transformer import fft_map_coefficients
+from qfit._extensions import extend_to_p1  # pylint: disable=import-error,no-name-in-module
 
 
 logger = logging.getLogger(__name__)
@@ -121,25 +122,31 @@ class XMap(_BaseVolume):
         resolution=None,
         hkl=None,
         origin=None,
+        source_transformer=None,
     ):
         super().__init__(array, grid_parameters)
         self.unit_cell = unit_cell
         self.hkl = hkl
         self.resolution = resolution
         self.cutoff_dict = {}
+        self._source_transformer = source_transformer
         if origin is None:
             self.origin = np.zeros(3, np.float64)
         else:
             self.origin = np.asarray(origin)
 
     @staticmethod
-    def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT"):
+    def fromfile(fname, fmt=None, resolution=None, label="FWT,PHWT",
+                 transformer="cctbx"):
         if fmt is None:
             fmt = os.path.splitext(fname)[1]
         if fmt in (".ccp4", ".mrc", ".map"):
             return XMap.from_mapfile(fname, resolution)
         elif fmt == ".mtz":
-            return XMap.from_mtz(fname, resolution, label)
+            return XMap.from_mtz(fname,
+                                 resolution=resolution,
+                                 label=label,
+                                 transformer=transformer)
         else:
             raise RuntimeError("File format not recognized.")
 
@@ -183,7 +190,8 @@ class XMap(_BaseVolume):
     def from_mtz(fname,
                  resolution=None,
                  label="FWT,PHWT",
-                 resolution_factor=1/4):
+                 resolution_factor=1/4,
+                 transformer="cctbx"):
         mtz_in = any_reflection_file(fname)
         miller_arrays = {a.info().label_string(): a for a in mtz_in.as_miller_arrays()}
         map_coeffs = miller_arrays.get(label, None)
@@ -192,7 +200,9 @@ class XMap(_BaseVolume):
         unit_cell = UnitCell(*map_coeffs.unit_cell().parameters())
         space_group = SpaceGroup.from_cctbx(map_coeffs.space_group_info())
         unit_cell.space_group = space_group
-        grid = np.swapaxes(fft_map_coefficients(map_coeffs), 0, 2)
+        grid = fft_map_coefficients(map_coeffs,
+                                    nyquist=1/(2*resolution_factor),
+                                    transformer=transformer)
         abc = unit_cell.abc
         voxelspacing = [x / n for x, n in zip(abc, grid.shape[::-1])]
         logger.debug(f"MTZ unit cell: {unit_cell}")
@@ -208,7 +218,8 @@ class XMap(_BaseVolume):
             grid_parameters,
             unit_cell=unit_cell,
             resolution=resolution,
-            hkl=hkl
+            hkl=hkl,
+            source_transformer=transformer
         )
 
     @classmethod
@@ -253,21 +264,64 @@ class XMap(_BaseVolume):
             [int(x) for x in self.unit_cell_shape])
         expanded = asu_map.symmetry_expanded_map()
         maptbx.unpad_in_place(expanded)
+        shape = expanded.focus()
+        logger.info("Expanded map with shape %s to %s", tuple(self.shape),
+                    tuple(shape))
         return XMap.from_cctbx_map(
             map_data=expanded,
-            shape=expanded.focus(),
+            shape=shape,
             unit_cell=self.unit_cell,
             resolution=self.resolution,
             origin=self.origin)
 
-    def canonical_unit_cell(self):
+    def _expand_to_p1_non_symmetric(self):
+        """
+        Old qFit implementation of symmetry expansion - this is still run
+        by default when the old transformer is selected, whether or not the
+        map fills a P1 box already.
+        """
+        shape = self.unit_cell.abc / self.grid_parameters.voxelspacing
+        shape = np.round(shape).astype(int)[::-1]
+        logger.info("Expanding map with shape %s to %s", tuple(self.shape),
+                    tuple(shape))
+        array = np.zeros(shape, np.float64)
+        grid_parameters = GridParameters(self.voxelspacing)
+        out = XMap(
+            array,
+            grid_parameters=grid_parameters,
+            unit_cell=self.unit_cell,
+            hkl=self.hkl,
+            resolution=self.resolution,
+            source_transformer=self._source_transformer
+        )
+        offset = np.asarray(self.offset, np.int32)
+        for symop in self.unit_cell.space_group.symop_list:
+            transform = np.hstack((symop.R, symop.t.reshape(3, -1)))
+            transform[:, -1] *= out.shape[::-1]
+            extend_to_p1(self.array, offset, transform, out.array)
+        return out
+
+    def canonical_unit_cell(self, no_expand_p1=None):
         """
         Perform space group symmetry expansion to fill in density values for
         the entire unit cell.
         """
-        if self.is_canonical_unit_cell():
-            return self
-        return self._expand_to_p1()
+        # TODO experiment with the effect of running the expansion; to
+        # completely reproduce the original behavior of qfit-3.0 we
+        # need to also run extend_to_p1 even if the map is already complete
+        if self._source_transformer == "qfit":
+            if no_expand_p1 != False:
+                assert self.is_canonical_unit_cell(), \
+                    "P1 expansion required when map does not cover unit cell"
+                logger.info("Skipping map extension for qfit transformer")
+                return self
+            else:
+                return self._expand_to_p1_non_symmetric()
+        else:
+            if self.is_canonical_unit_cell():
+                logger.info("Map already covers the unit cell, no expansion required")
+                return self
+            return self._expand_to_p1()
 
     def is_canonical_unit_cell(self):
         return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and
@@ -383,3 +437,26 @@ class XMap(_BaseVolume):
             map_data=density,
             labels=flex.std_string(["qfit"]),
         )
+
+    def save_mask(self, mask, file_name):
+        """
+        (Internal debugging method) Save an atom mask corresponding to the
+        current map as a map file with all masked points set to 1.
+        """
+        tmp_map = deepcopy(self)
+        tmp_map.array[:] = 0.0
+        tmp_map.array[mask] = 1.0
+        logger.debug("Saving atom mask to %s", os.path.abspath(file_name))
+        tmp_map.write_map_file(file_name)
+
+    def save_masked_map(self, mask, file_name, map_data=None):
+        """
+        (Internal debugging method) Save the masked region of the current
+        map (or an equivalently sized array).
+        """
+        tmp_map = deepcopy(self)
+        if map_data is not None:
+            tmp_map.array[:] = map_data
+        tmp_map.array[~mask] = 0.0
+        logger.debug("Saving masked map to %s", os.path.abspath(file_name))
+        tmp_map.write_map_file(file_name)

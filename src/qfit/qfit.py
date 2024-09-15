@@ -36,7 +36,7 @@ MIQPSolutionStats = namedtuple(
 )
 
 DEFAULT_RMSD_CUTOFF = 0.01
-MAX_CONFORMERS = 15000
+MAX_CONFORMERS = 10000
 MIN_OCCUPANCY = 0.002
 
 class QFitOptions:
@@ -55,6 +55,10 @@ class QFitOptions:
         self.scale_info = None
         self.cryst_info = None
         self.transformer = "cctbx"
+        # the FFT routine is different for qfit as well - this flag allows us
+        # to experiment with gridding
+        self.transformer_map_coeffs = "cctbx"
+        self.no_expand_p1 = None
 
         # Density preparation options
         self.density_cutoff = 0.3
@@ -85,6 +89,7 @@ class QFitOptions:
         self.qp_solver = None
         self.miqp_solver = None
         self.cardinality = 5
+        self.ligand_cardinality = 3
         self.threshold = 0.20
         self.bic_threshold = True
         self.seg_bic_threshold = True
@@ -123,6 +128,7 @@ class QFitOptions:
         self.numConf = None
         self.smiles = None
         self.ligand_bic = None
+        self.ligand_rmsd = None
         self.rot_range = None
         self.trans_range = None
         self.rotation_step = None
@@ -222,6 +228,9 @@ class _BaseQFit(ABC):
         return path_fields[-1]
 
     def get_conformers(self):
+        if len(self._occupancies) < len(self._coor_set):
+            # Generate an array filled with 1.0 to match the length of the coordinate set
+            self._occupancies = [1.0] * len(self._coor_set)
         conformers = []
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             conformer = self.conformer.copy()
@@ -257,6 +266,7 @@ class _BaseQFit(ABC):
         subtract_structure = structure.extract_neighbors(residue, self.options.padding)
         if not self.options.waters_clash:
             subtract_structure = subtract_structure.extract("resn", "HOH", "!=")
+        logger.debug("Subtracting density for %d atoms", subtract_structure.natoms)
 
         # Calculate the density that we are going to subtract:
         self._subtransformer = self._get_transformer(
@@ -272,6 +282,8 @@ class _BaseQFit(ABC):
         self._subtransformer.density()
         if self.options.em == False:
             # Set the lowest values in the map to the bulk solvent level:
+            logger.debug("Setting bulk solvent level %f",
+                         self.options.bulk_solvent_level)
             np.maximum(
                 self._subtransformer.xmap.array,
                 self.options.bulk_solvent_level,
@@ -279,9 +291,21 @@ class _BaseQFit(ABC):
             )
 
         # Subtract the density:
+        logger.debug("Histogram of input map: %s",
+                     np.histogram(self.xmap.array))
+        logger.debug("Histogram of subtracted map: %s",
+                     np.histogram(self._subtransformer.xmap.array))
+        if self.options.debug:
+            self.xmap.tofile("before_subtraction.ccp4")
+            logger.debug("Writing subtrated map to subtracted.ccp4")
+            self._subtransformer.xmap.tofile("subtracted.ccp4")
         self.xmap.array -= self._subtransformer.xmap.array
+        logger.debug("Histogram of output map: %s",
+                     np.histogram(self.xmap.array))
+        if self.options.debug:
+            self.xmap.tofile("after_subtraction.ccp4")
 
-    def _convert(self, stride=-1, pool_size=-1):
+    def _convert(self, stride=-1, pool_size=-1, save_debug_maps_prefix=None):
         """
         Convert structures to densities and extract relevant values for the
         (MI)QP solvers.  Pooling will be performed if stride and pool_size
@@ -294,6 +318,9 @@ class _BaseQFit(ABC):
         nvalues = mask.sum()
         logger.debug("%d grid points masked out of %s", nvalues, mask.size)
         self._target = self.xmap.array[mask]
+        if save_debug_maps_prefix:
+            self.xmap.save_mask(mask, f"{save_debug_maps_prefix}_mask.ccp4")
+            self.xmap.save_masked_map(mask, f"{save_debug_maps_prefix}_target.ccp4")
 
         assert isinstance(stride, int) and isinstance(pool_size, int)
         if stride >= 1 and pool_size >= 1:
@@ -316,6 +343,11 @@ class _BaseQFit(ABC):
         self._models = np.zeros((nmodels, maxpool_size), float)
         for n, density in enumerate(self._transformer.get_conformers_densities(
                                     self._coor_set, self._bs)):
+            if save_debug_maps_prefix:
+                self.xmap.save_masked_map(
+                    mask,
+                    f"{save_debug_maps_prefix}_conformer_{n:05d}.ccp4",
+                    map_data=density)
             model = self._models[n]
             map_values = density[mask]
             if stride >= 1 and pool_size >= 1:
@@ -334,7 +366,8 @@ class _BaseQFit(ABC):
 
     def _solve_qp(self):
         # Create and run solver
-        logger.info("Solving QP")
+        logger.info("Solving QP for %d target values with %d models",
+                    len(self._target), len(self._models))
         qp_solver_class = get_qp_solver_class(self.options.qp_solver)
         solver = qp_solver_class(self._target, self._models)
         solver.solve_qp()
@@ -361,7 +394,8 @@ class _BaseQFit(ABC):
             do_BIC_selection = self.options.bic_threshold
 
         # Create solver
-        logger.info("Solving MIQP")
+        logger.info("Solving MIQP for %d target values with %d models",
+                    len(self._target), len(self._models))
         miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
         assert len(self._models) > 0
         solver = miqp_solver_class(self._target, self._models)
@@ -1208,14 +1242,14 @@ class QFitRotamericResidue(_BaseQFit):
             )
             self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}")
             
-            if len(self._coor_set) <= 15000:
-                # If <15000 conformers are generated, QP score conformer occupancy normally
+            if len(self._coor_set) <= MAX_CONFORMERS:
+                # If <10000 conformers are generated, QP score conformer occupancy normally
                 self._convert(stride_, pool_size_)
                 self._solve_qp()
                 self._update_conformers()
                 self._save_intermediate(f"sample_sidechain_iter{version}_{iteration}_qp")
-            if len(self._coor_set) > 15000:
-                # If >15000 conformers are generated, split the QP conformer scoring into two
+            else:
+                # If >10000 conformers are generated, split the QP conformer scoring into two
                 temp_coor_set = self._coor_set
                 temp_bs = self._bs
 
@@ -1642,6 +1676,9 @@ class QFitLigand(_BaseQFit):
 
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
+        # Make sure the b-facor array is of the same length as the coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
         self._convert()
         logger.info("Solving QP within run.")
         self._solve_qp()
@@ -1654,22 +1691,48 @@ class QFitLigand(_BaseQFit):
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
-        self.sample_b()
+        # Make sure the b-facor array is of the same length as the coordinate array
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+        #self.sample_b()
         self._convert()
         if self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options.cardinality,
+                cardinality=self.options.ligand_cardinality,
                 do_BIC_selection=True
             )
         if not self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options.cardinality,
+                cardinality=self.options.ligand_cardinality,
             )
         self._update_conformers()
+        # Ensure there are no duplicate conformers in self._coor_set
+        if self.options.ligand_rmsd:
+            unique_conformers = []
+            for i in range(len(self._coor_set)):
+                is_duplicate = False
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    print("rmsd", rmsd)
+                    if rmsd < 0.1:
+                        is_duplicate = True
+                        print(f"RMSD value less than 0.1 between conformers {i} and {j}: {rmsd}")
+                        break
+                if not is_duplicate:
+                    unique_conformers.append(self._coor_set[i])
+            self._coor_set = unique_conformers
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+
+            # Calculate and log the RMSD between all final conformers
+            for i in range(len(self._coor_set)):
+                for j in range(i + 1, len(self._coor_set)):
+                    rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
+                    logger.info(f"Final RMSD between conformers {i} and {j}: {rmsd}")
         self._save_intermediate(prefix="miqp_solution")
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
+
 
     def random_unconstrained(self):
         """
@@ -2130,7 +2193,7 @@ class QFitLigand(_BaseQFit):
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
         mol = Chem.Mol(ligand) 
-        logger.info(f"Generating {self.options.numConf} conformers for long chain search")
+        logger.info(f"Generating {self.num_conf_for_method} conformers for long chain search")
         # Generate conformers
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf_for_method, coordMap=coord_map, useBasicKnowledge=True)
 
@@ -2250,7 +2313,10 @@ class QFitLigand(_BaseQFit):
 
         logger.info(f"Trans/rot  search generated: {len(self._coor_set)} plausible conformers")  
         logger.info(f"bfactor shape = {np.shape(self._bs)}")
-        
+
+        if len(self._bs) != len(self._coor_set):
+            self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+
         self._convert() 
         logger.info("Solving QP after trans and rot search.")
         self._solve_qp()

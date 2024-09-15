@@ -8,9 +8,9 @@ from string import ascii_uppercase
 
 import numpy as np
 
-from qfit.command_line.common_options import get_base_argparser
+from qfit.command_line.common_options import get_base_argparser, load_and_scale_map
 from qfit.command_line.custom_argparsers import ToggleActionFlag
-from qfit import MapScaler, Structure, XMap, Ligand
+from qfit import Structure, Ligand
 from qfit.qfit import QFitLigand, QFitOptions
 from qfit.logtools import setup_logging, log_run_info
 
@@ -20,7 +20,8 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 def build_argparser():
     p = get_base_argparser(__doc__,
-                           default_enable_external_clash=True)
+                           default_enable_external_clash=True,
+                           default_transformer="qfit")
 
     p.add_argument(
         "-em",
@@ -112,6 +113,12 @@ def build_argparser():
         default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action='store_false',
+        help="Turn on Ligand RMSD cutoff",
+    )
     return p
 
 
@@ -178,29 +185,11 @@ def prepare_qfit_ligand(options):
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label
-    )
-    xmap = xmap.canonical_unit_cell()
-    if options.scale:
-        # Prepare X-ray map
-        scaler = MapScaler(xmap, em=options.em)
-        if options.omit:
-            footprint = structure_ligand
-        else:
-            footprint = structure
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(footprint,
-                     radius=options.scale_rmask * radius,
-                     transformer=options.transformer)
-
+    if options.omit:
+        footprint = structure_ligand
+    else:
+        footprint = structure
+    xmap = load_and_scale_map(options, footprint)
     xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = ".ccp4"
 

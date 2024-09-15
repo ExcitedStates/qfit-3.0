@@ -16,7 +16,7 @@ from cctbx.crystal import symmetry
 from scitbx.array_family import flex
 from libtbx.utils import null_out
 
-from qfit.structure import Structure
+from qfit.structure import Structure, calc_rmsd
 
 WATER = """\
 REMARK 1 WATER MOLECULE (NO HYDROGEN) IN P1 BOX
@@ -349,3 +349,26 @@ class BaseTestRunner(unittest.TestCase):
         s_single.tofile(pdb_single)
         print(f"RMSD is {best_rmsd}")
         return (pdb_multi, pdb_single)
+
+    def _check_max_rmsd(self,
+                        conformers,
+                        expected_global_rmsd=0,
+                        expected_atom_rmsds=()):
+        """
+        Check that the maximum pairwise RMSD between conformers (and optionally
+        individual atoms) is at least the expected value.
+        """
+        max_rmsd = 0
+        max_rmsd_by_atom = defaultdict(int)
+        for i in range(len(conformers) - 1):
+            for j in range(i, len(conformers)):
+                xyzA = conformers[i].coor
+                xyzB = conformers[j].coor
+                max_rmsd = max(calc_rmsd(xyzA, xyzB), max_rmsd)
+                for name, _ in expected_atom_rmsds:
+                    sel = conformers[0].name == name
+                    rmsd = calc_rmsd(xyzA[sel], xyzB[sel])
+                    max_rmsd_by_atom[name] = max(max_rmsd_by_atom[name], rmsd)
+        assert max_rmsd > expected_global_rmsd
+        for name, expected_rmsd in expected_atom_rmsds:
+            assert max_rmsd_by_atom[name] >= expected_rmsd
