@@ -3,6 +3,9 @@
 Some of the advanced and specialized options available in qFit are demonstrated below. The PDB and map files for each of the examples are placed within their corresponding folders. 
 
 ### 1. Modelling alternate conformers for a residue of interest
+To generate a composite omit map, we recommend running the following command from [Phenix](https://phenix-online.org/).
+
+`phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
 `qfit_residue [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] [CHAIN,RESIDUE]`
 
@@ -81,6 +84,10 @@ Using the example 18GA, spawning 30 parallel processes:
 
 
 ### 7. Modeling alternate conformers of a ligand
+To generate a composite omit map for ligands, we recommend running without accounting for bulk solvent.
+
+`phenix.composite_omit_map input.mtz model.pdb omit-type=refine exclude_bulk_solvent=True`
+
 
 To model alternate conformers of ligands, the command line tool *qfit_ligand*
 should be used:
