@@ -59,7 +59,8 @@ def main():
                 "qfit_density = qfit.qfit_density:main",
                 "qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main",
                 "edia = qfit.edia:main",
-                "remove_altconfs = qfit.remove_altconfs:main",
+                "remove_altconfs = qfit.remove_altconfs:main", 
+                "event_map_bdc_scaler = qfit.event_map_bdc_scaler:main",
                 "side_chain_remover = qfit.side_chain_remover:main",
                 "redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main",
                 "fix_restraints = qfit.fix_restraints:main",
@@ -96,7 +97,6 @@ def main():
             "scripts/post/split_multiconformer_ligand.py",
             "scripts/post/compare_rscc_voxel.py",
             "scripts/post/create_restraints_file.py", 
-            "scripts/post/event_map_bdc_scaler.py",
         ],
     )
 
