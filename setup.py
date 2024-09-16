@@ -95,7 +95,8 @@ def main():
             "scripts/post/get_smiles.py",
             "scripts/post/split_multiconformer_ligand.py",
             "scripts/post/compare_rscc_voxel.py",
-            "scripts/post/create_restraints_file.py",
+            "scripts/post/create_restraints_file.py", 
+            "scripts/post/event_map_bdc_scaler.py",
         ],
     )
 
