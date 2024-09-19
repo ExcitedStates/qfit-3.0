@@ -60,7 +60,7 @@ def scale_occupancies(pdb_file, ligand_names, BDC):
     print(f"Scaled PDB written to {scaled_pdb}")
     return scaled_pdb
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 4:
         print("Usage: python event_map_bdc_scaler.py <PDB.pdb> <multiconf_lig.pdb> <BDC_value>")
         sys.exit(1)
@@ -77,3 +77,6 @@ if __name__ == "__main__":
     scaled_pdb = scale_occupancies(pdb_file, ligand_names, BDC_value)
     
     sys.exit(0)
+
+if __name__ == "__main__":
+    main()
