@@ -196,7 +196,6 @@ class BisectingAngleRotator:
             R @ self._coor_to_rotate.T
         ).T + self._origin
 
-
 class GlobalRotator:
     """Rotate ligand around its center."""
 

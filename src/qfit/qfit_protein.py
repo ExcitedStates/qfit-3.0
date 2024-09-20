@@ -424,7 +424,6 @@ class QFitProtein:
         # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates
         if self.options.residue is not None:
             chainid, resi = self.options.residue.split(",")
-
         if self.options.residue is not None:  # run qFit residue
             multiconformer = self._run_qfit_residue_parallel()
         elif self.options.only_segment:

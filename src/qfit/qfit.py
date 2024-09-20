@@ -1186,17 +1186,18 @@ class QFitRotamericResidue(_BaseQFit):
                         "No conformers could be generated. Check for initial "
                         "clashes and density support."
                     )
-                    raise RuntimeError(msg)
+                raise RuntimeError(msg)
 
-                logger.debug(
-                    f"Side chain sampling generated {len(self._coor_set)} conformers"
+            logger.debug(
+                f"Side chain sampling generated {len(self._coor_set)} conformers"
+            )
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(
+                    prefix=f"sample_sidechain_iter{iteration}"
                 )
-                if self.options.write_intermediate_conformers:
-                    self._write_intermediate_conformers(
-                        prefix=f"sample_sidechain_iter{iteration}"
-                    )
 
-                if len(self._coor_set) <= 10000:
+
+            if len(self._coor_set) <= 10000:
                     # If <15000 conformers are generated, QP score conformer occupancy normally
                     self._convert(stride_, pool_size_)
                     self._solve_qp()
@@ -1205,7 +1206,7 @@ class QFitRotamericResidue(_BaseQFit):
                         self._write_intermediate_conformers(
                             prefix=f"sample_sidechain_iter{iteration}_qp"
                         )
-                if len(self._coor_set) > 10000:
+            if len(self._coor_set) > 10000:
                     # If >15000 conformers are generated, split the QP conformer scoring into two
                     temp_coor_set = self._coor_set
                     temp_bs = self._bs
@@ -1266,6 +1267,9 @@ class QFitRotamericResidue(_BaseQFit):
                     threshold=self.options.threshold,
                     cardinality=self.options.cardinality,
                 )
+                # QP score the second section
+                self._convert()
+                self._solve_qp()
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
                     self._write_intermediate_conformers(
