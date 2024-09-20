@@ -20,7 +20,12 @@ def parse_args():
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
     p.add_argument("-l", "--ligand")
     p.add_argument("--pdb", help="Name of the input PDB.")
-    p.add_argument("--qFit", action='store_true', default=False, help="Include qFit in output file name if set to True.")
+    p.add_argument(
+        "--qFit",
+        action="store_true",
+        default=False,
+        help="Include qFit in output file name if set to True.",
+    )
 
     args = p.parse_args()
     return args
@@ -52,9 +57,9 @@ def get_occ(structure, ligand, pdb, qfit):
 def main():
     args = parse_args()
     if not args.qFit == None:
-        qfit = '_qFit'
+        qfit = "_qFit"
     else:
-        qfit = ''
+        qfit = ""
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder()
     structure = structure.extract("e", "H", "!=")

@@ -70,7 +70,9 @@ class TestQFitProtein:
 
         # Reach into QFitProtein job,
         # simplify to only run on two residues (reduce computational load)
-        qfit.structure = qfit.structure.extract("resi", (58, 69, 175), "==")  #leucine and phe and met 
+        qfit.structure = qfit.structure.extract(
+            "resi", (58, 69, 175), "=="
+        )  # leucine and phe and met
         qfit.structure = qfit.structure.reorder()
         assert len(list(qfit.structure.single_conformer_residues)) == 3
         return qfit

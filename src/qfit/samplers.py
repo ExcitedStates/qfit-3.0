@@ -7,7 +7,6 @@ from .structure.math import Rz, Ry, gram_schmidt_orthonormal_zx
 
 
 class BackboneRotator:
-
     """Rotate around phi, psi angles."""
 
     def __init__(self, segment):
@@ -199,7 +198,6 @@ class BisectingAngleRotator:
 
 
 class GlobalRotator:
-
     """Rotate ligand around its center."""
 
     def __init__(self, ligand, center=None):
@@ -218,7 +216,6 @@ class GlobalRotator:
 
 
 class PrincipalAxisRotator:
-
     """Rotate ligand along the principal axes."""
 
     def __init__(self, ligand):
@@ -242,7 +239,6 @@ class PrincipalAxisRotator:
 # TODO Make a super class combining the BondRotator with the AngleRotator or at
 # refactorize code.
 class BondAngleRotator:
-
     """Rotate ligand along a bond angle defined by three atoms."""
 
     def __init__(self, ligand, a1, a2, a3, key="name"):
@@ -296,7 +292,6 @@ class BondAngleRotator:
 
 
 class ChiRotator:
-
     """Rotate a residue around a chi-angle"""
 
     def __init__(self, residue, chi_index, covalent=None, length=None):
@@ -347,7 +342,6 @@ class ChiRotator:
 
 
 class CovalentBondRotator:
-
     """Rotate ligand along the bond of two atoms."""
 
     def __init__(self, covalent_residue, ligand, a1, a2, key="name"):
@@ -387,7 +381,6 @@ class CovalentBondRotator:
 
 
 class BondRotator:
-
     """Rotate ligand along the bond of two atoms."""
 
     def __init__(self, ligand, a1, a2, key="name"):

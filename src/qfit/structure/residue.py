@@ -250,7 +250,7 @@ class _RotamerResidue(_BaseResidue):
 
         ref_atom = self._rotamers["connectivity"][atom][0]
         if ref_atom not in self.name:
-            print('ref atom:')
+            print("ref atom:")
             print(ref_atom)
             self.complete_residue_recursive(ref_atom)
         print(self.name)
@@ -622,8 +622,10 @@ class _RotamerResidue(_BaseResidue):
                     np.append(getattr(self, "_" + attr), getattr(self, attr)[-1]),
                 )
                 # Ensure the array and the value being appended are of integer type
-        selection = np.append(self.__dict__["_selection"].astype(int), int(index + 1)) #ensuring this is not a float
-        setattr(self, "_selection", selection) 
+        selection = np.append(
+            self.__dict__["_selection"].astype(int), int(index + 1)
+        )  # ensuring this is not a float
+        setattr(self, "_selection", selection)
         setattr(self, "natoms", self.natoms + 1)
 
     def reorder(self):

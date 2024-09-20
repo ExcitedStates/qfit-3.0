@@ -116,9 +116,9 @@ class PDBFile:
             atomid = 1
             for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
                 record = dict(zip(CoorRecord.fields, record))
-                record[
-                    "atomid"
-                ] = atomid  # Overwrite atomid for consistency within this file.
+                record["atomid"] = (
+                    atomid  # Overwrite atomid for consistency within this file.
+                )
                 # If the element name is a single letter,
                 # PDB specification says the atom name should start one column in.
                 if len(record["e"]) == 1 and not len(record["name"]) == 4:

@@ -6,7 +6,6 @@ import pyparsing as pp
 
 
 class _Selector:
-
     """
     Parse and evaluate selection syntax.
 

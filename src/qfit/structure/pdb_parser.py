@@ -4,7 +4,6 @@ from collections import OrderedDict
 
 
 class PDBFile(object):
-
     """
     PDB file parser.  It considers the PDB file as a tree:
         structure -> model -> chain -> resi -> atom

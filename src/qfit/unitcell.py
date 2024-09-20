@@ -9,7 +9,6 @@ from . import spacegroups
 
 
 class UnitCell:
-
     """Class for storing and performing calculations on unit cell parameters.
     The constructor expects alpha, beta, and gamma to be in degrees.
     """

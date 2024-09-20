@@ -31,7 +31,7 @@ class TestQFitLigand:
             "-sm",
             "c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)OP(=O)(CP(=O)(O)O)O)O)O)N",
             "-nc",
-            "5000"
+            "5000",
         ]
 
         # TODO: Add options to reduce computational load
