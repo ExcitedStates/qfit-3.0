@@ -387,24 +387,13 @@ class _RotamerResidue(_BaseResidue):
             np.ndarray[float, shape=(3,): coords of atom
         """
         # We will try these parameters
-        theta_options_larger = np.sum(
-            np.linspace(theta, theta + sig_theta, 5, endpoint=False, retstep=True)
-        )
-        theta_options_smaller = np.sum(
-            np.linspace(theta, theta - sig_theta, 5, endpoint=False, retstep=True)
-        )
-        theta_options = [
-            theta,
-            *np.ravel(list(zip(theta_options_larger, theta_options_smaller))),
-        ]
+        theta_options_larger = np.linspace(theta, theta + sig_theta, 5, endpoint=False)
+        theta_options_smaller = np.linspace(theta, theta - sig_theta, 5, endpoint=False)[1:]
+        theta_options = [theta, *theta_options_larger, *theta_options_smaller]
 
-        L_options_larger = np.sum(
-            np.linspace(L, L + sig_L, 5, endpoint=False, retstep=True)
-        )
-        L_options_smaller = np.sum(
-            np.linspace(L, L - sig_L, 5, endpoint=False, retstep=True)
-        )
-        L_options = [L, *np.ravel(list(zip(L_options_larger, L_options_smaller)))]
+        L_options_larger = np.linspace(L, L + sig_L, 5, endpoint=False)
+        L_options_smaller = np.linspace(L, L - sig_L, 5, endpoint=False)[1:]
+        L_options = [L, *L_options_larger, *L_options_smaller]
 
         tries = itl.product(theta_options, L_options)
 
@@ -484,7 +473,7 @@ class _RotamerResidue(_BaseResidue):
         #           (( v . ( x × u )) * ‖v‖^2 = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
         #     Rotating the scalar triple product, cancelling ‖v‖^2
         #                       x . ( u × v ) = ‖ u × v ‖ L sinθ sinχ
-        #
+
         #     Let                           w = u × v
         #                                  C2 = ‖ u × v ‖ L sinθ sinχ
         #
