@@ -9,7 +9,6 @@ from .math import aa_to_rotmat
 
 
 class _Ligand(_BaseStructure):
-
     """Ligand class automatically generates a topology on the structure."""
 
     def __init__(self, *args, **kwargs):
@@ -377,7 +376,6 @@ class _Ligand(_BaseStructure):
 
 
 class BondOrder(object):
-
     """Determine bond rotation order given a ligand and root."""
 
     def __init__(self, ligand, atom):
@@ -423,7 +421,6 @@ class BondOrder(object):
 
 
 class Covalent_Ligand(_BaseStructure):
-
     """Covalent Ligand class"""
 
     def __init__(self, *args, **kwargs):
