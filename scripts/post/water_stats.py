@@ -62,9 +62,9 @@ def residue_closest(structure, dist, pdb_name):
                 + str(pdb.chain[dist_pdb == np.amin(dist_pdb)])
                 + str(np.amin(dist_pdb))
             )  # info we want from the protein
-            neighbors[
-                water
-            ] = protein  # add both the water and protein values to the dictionary
+            neighbors[water] = (
+                protein  # add both the water and protein values to the dictionary
+            )
     with open(pdb_name + "_waterclosestresidue.txt", "w") as file:
         for key, value in neighbors.items():
             file.write(value + "," + key + "\n")

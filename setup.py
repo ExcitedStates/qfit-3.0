@@ -32,13 +32,14 @@ def main():
         "pandas>=1.2",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
+        "rdkit",
     ]
 
     setup(
         name="qfit",
         use_scm_version=True,
-        author="Stephanie A. Wankowicz, Blake Riley, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
-        author_email="mullane.stephanie@gmail.com",
+        author="Stephanie A. Wankowicz, Blake Riley, Jessica Flowers, Gydo C.P. van Zundert, Saulo H.P. de Oliveira, and Henry van den Bedem",
+        author_email="stephanie@wankowiczlab.com",
         project_urls={"Documentation": "https://github.com/ExcitedStates/qfit-3.0/"},
         package_dir=package_dir,
         packages=packages,
@@ -59,6 +60,7 @@ def main():
                 "qfit_mtz_to_ccp4 = qfit.mtz_to_ccp4:main",
                 "edia = qfit.edia:main",
                 "remove_altconfs = qfit.remove_altconfs:main",
+                "event_map_bdc_scaler = qfit.event_map_bdc_scaler:main",
                 "side_chain_remover = qfit.side_chain_remover:main",
                 "redistribute_cull_low_occupancies = qfit.redistribute_cull_low_occupancies:main",
                 "fix_restraints = qfit.fix_restraints:main",
@@ -70,6 +72,7 @@ def main():
         scripts=[
             "scripts/post/qfit_final_refine_xray.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
+            "scripts/post/qfit_final_refine_ligand.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",
@@ -84,7 +87,14 @@ def main():
             "scripts/post/lig_occ.py",
             "scripts/post/calc_OP.py",
             "scripts/post/make_methyl_df.py",
+            "scripts/post/find_close_residues.py",
             "scripts/post/get_seq.py",
+            "scripts/post/calc_rscc.py",
+            "scripts/post/calc_rmsd.py",
+            "scripts/post/get_smiles.py",
+            "scripts/post/split_multiconformer_ligand.py",
+            "scripts/post/compare_rscc_voxel.py",
+            "scripts/post/create_restraints_file.py",
         ],
     )
 

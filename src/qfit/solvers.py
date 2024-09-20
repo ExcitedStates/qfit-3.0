@@ -86,8 +86,7 @@ class QPSolver(GenericSolver):
     """
 
     @abstractmethod
-    def solve_qp(self) -> None:
-        ...
+    def solve_qp(self) -> None: ...
 
 
 class MIQPSolver(GenericSolver):
@@ -140,8 +139,7 @@ class MIQPSolver(GenericSolver):
         threshold: Optional[float] = None,
         cardinality: Optional[int] = None,
         exact: bool = False,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 ###############################
@@ -160,12 +158,13 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self.quad_obj = None
         self.lin_obj = None
 
-        self.weights = None
-        self._objective_value = None
-
         self.nconformers = models.shape[0]
         self.valid_indices = []
         self.redundant_indices = []
+
+        self._weights = None
+        self._objective_value = 0
+        self.weights = None
 
     def find_redundant_conformers(self, threshold=1e-6):
         for i in range(self.nconformers):
@@ -200,6 +199,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
                 self.weights.append(self._weights[j])
                 j += 1
         self.weights = np.array(self.weights)
+        self.objective_value = self._objective_value
         assert len(self.weights) == self.nconformers
 
     def solve_miqp(self, threshold=0, cardinality=0):
@@ -225,27 +225,32 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self.objective_value = prob.value
         # I'm not sure why objective_values is calculated this way, but doing
         # so to be compatible with the former CPLEXSolver class
-        self.objective_value = 2 * prob.value + self.target.T @ self.target
+        self._objective_value = 2 * prob.value + self.target.T @ self.target
         self._weights = w.value
         self.construct_weights()
 
-    def solve_qp(self):
+    def solve_qp(self, split_threshold=3000):
         if self.quad_obj is None or self.lin_obj is None:
             self.compute_quadratic_coeffs()
 
-        m = len(self.valid_indices)
-        P = self.quad_obj
-        q = self.lin_obj
-        w = cp.Variable(m)
-        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
-        constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
-        prob = cp.Problem(objective, constraints)
-        prob.solve()
-        self.objective_value = prob.value
-        # I'm not sure why objective_values is calculated this way, but doing
-        # so to be compatible with the former CPLEXSolver class
-        self.objective_value = 2 * prob.value + self.target.T @ self.target
-        self._weights = w.value
+        valid_conformers = len(self.valid_indices)
+        self._weights = np.zeros(valid_conformers)
+        splits = valid_conformers // split_threshold + 1  # number of splits
+        for split in range(splits):
+            # take every splits-th element with split as an offset, guaranteeing full coverage
+            P = self.quad_obj[split::splits, split::splits]
+            q = self.lin_obj[split::splits]
+            m = len(P)
+            w = cp.Variable(m)
+            objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
+            constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
+            prob = cp.Problem(objective, constraints)
+            prob.solve()
+            # I'm not sure why objective_values is calculated this way, but doing
+            # so to be compatible with the former CPLEXSolver class
+            self._objective_value += 2 * prob.value + self.target.T @ self.target
+            self._objective_value /= splits
+            self._weights[split::splits] = w.value / splits
         self.construct_weights()
 
 

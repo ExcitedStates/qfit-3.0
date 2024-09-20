@@ -1,4 +1,5 @@
 """Delete duplicate atom entries"""
+
 import numpy as np
 import argparse
 import logging

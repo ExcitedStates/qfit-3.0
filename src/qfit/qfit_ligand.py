@@ -33,6 +33,14 @@ def build_argparser():
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
 
     p.add_argument(
+        "-em",
+        "--cryo_em",
+        action="store_true",
+        dest="em",
+        help="Run qFit-ligand with EM options",
+    )
+
+    p.add_argument(
         "-cif",
         "--cif_file",
         type=str,
@@ -43,6 +51,65 @@ def build_argparser():
         "selection",
         type=str,
         help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.",
+    )
+
+    # RDKit input options
+    p.add_argument(
+        "-sm",
+        "--smiles",
+        type=str,
+        help="SMILES string for molecule",
+    )
+    p.add_argument(
+        "-nc",
+        "--numConf",
+        type=int,
+        default=10000,
+        help="Number of RDKit conformers to generate",
+    )
+
+    p.add_argument(
+        "-lb",
+        "--ligand_bic",
+        action="store_true",
+        help="Flag to run with ligand BIC on",
+    )
+
+    p.add_argument(
+        "-rr",
+        "--rot_range",
+        type=float,
+        default=15.0,
+        help="Rotation range for RDKit conformers",
+    )
+    p.add_argument(
+        "-tr",
+        "--trans_range",
+        type=float,
+        default=0.3,
+        help="Translation range for RDKit conformers",
+    )
+
+    p.add_argument(
+        "-rs",
+        "--rotation_step",
+        type=float,
+        default=5.0,
+        help="Rotation step size for RDKit conformers",
+    )
+
+    p.add_argument(
+        "-flip",
+        "--flip_180",
+        action="store_true",
+        help="Run qFit-ligand 180 degree flip sampling function",
+    )
+
+    p.add_argument(
+        "--ligand_rmsd",
+        dest="ligand_rmsd",
+        action="store_false",
+        help="Turn off Ligand RMSD cutoff",
     )
 
     # Map input options
@@ -132,21 +199,6 @@ def build_argparser():
         help="Consider waters for soft clash detection",
     )
 
-    # Sampling options
-    p.add_argument(
-        "--build",
-        action=ToggleActionFlag,
-        dest="build",
-        default=True,
-        help="Build ligand",
-    )
-    p.add_argument(
-        "--local",
-        action=ToggleActionFlag,
-        dest="local_search",
-        default=True,
-        help="Perform a local search",
-    )
     p.add_argument(
         "--remove-conformers-below-cutoff",
         action="store_true",
@@ -167,10 +219,10 @@ def build_argparser():
     )
     p.add_argument(
         "-ec",
-        "--external-clash",
-        action="store_true",
+        "--no-external-clash",
+        action="store_false",
         dest="external_clash",
-        help="Enable external clash detection during sampling",
+        help="Turn off external clash detection during sampling",
     )
     p.add_argument(
         "-bs",
@@ -180,22 +232,7 @@ def build_argparser():
         type=float,
         help="Bulk solvent level in absolute values",
     )
-    p.add_argument(
-        "-b",
-        "--dofs-per-iteration",
-        default=2,
-        metavar="<int>",
-        type=int,
-        help="Number of internal degrees that are sampled/built per iteration",
-    )
-    p.add_argument(
-        "-s",
-        "--dihedral-stepsize",
-        default=10,
-        metavar="<float>",
-        type=float,
-        help="Stepsize for dihedral angle sampling in degrees",
-    )
+
     p.add_argument(
         "-c",
         "--cardinality",
@@ -254,14 +291,14 @@ def build_argparser():
     # Solver options
     p.add_argument(
         "--qp-solver",
-        dest="qp_solver_choice",
+        dest="qp_solver",
         choices=available_qp_solvers.keys(),
         default=next(iter(available_qp_solvers.keys())),
         help="Select the QP solver",
     )
     p.add_argument(
         "--miqp-solver",
-        dest="miqp_solver_choice",
+        dest="miqp_solver",
         choices=available_miqp_solvers.keys(),
         default=next(iter(available_miqp_solvers.keys())),
         help="Select the MIQP solver",
@@ -355,6 +392,15 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
+    # save ligand pdb file to working directory
+    try:
+        os.makedirs(options.directory)
+    except OSError:
+        pass
+
+    input_ligand = os.path.join(options.directory, "ligand.pdb")
+    ligand.tofile(input_ligand)
+
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
@@ -389,7 +435,7 @@ def prepare_qfit_ligand(options):
     )  # this should be an option
     xmap.tofile(scaled_fname)
 
-    return QFitLigand(ligand, structure, xmap, options), chainid, resi, icode, receptor
+    return QFitLigand(ligand, receptor, xmap, options), chainid, resi, icode, receptor
 
 
 def main():

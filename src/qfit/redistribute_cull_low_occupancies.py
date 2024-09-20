@@ -219,8 +219,8 @@ def main():
     structure = Structure.fromfile(args.structure)
 
     # seperate het versus atom (het allowed to have <1 occ)
-    hetatm = structure.extract("record", "HETATM", "==")
-    structure = structure.extract("record", "ATOM", "==")
+    water = structure.extract("resn", "HOH", "==")
+    structure = structure.extract("resn", "HOH", "!=")
 
     # Capture LINK records
     link_data = structure.link_data
@@ -242,6 +242,7 @@ def main():
                     if agroup.id[1] != ""
                 ]
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
+                n_removed += 1
 
     # Create structure without low occupancy confs (culling)
     data = {}
@@ -250,7 +251,7 @@ def main():
     structure = Structure(data).reorder()
 
     # add het atoms back in
-    structure = structure.combine(hetatm)
+    structure = structure.combine(water)
     # Reattach LINK records
     structure.link_data = link_data
 

@@ -250,7 +250,10 @@ class _RotamerResidue(_BaseResidue):
 
         ref_atom = self._rotamers["connectivity"][atom][0]
         if ref_atom not in self.name:
+            print("ref atom:")
+            print(ref_atom)
             self.complete_residue_recursive(ref_atom)
+        print(self.name)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
         bond_length, bond_length_sd = self._rotamers["bond_dist"][ref_atom][atom]
@@ -384,24 +387,13 @@ class _RotamerResidue(_BaseResidue):
             np.ndarray[float, shape=(3,): coords of atom
         """
         # We will try these parameters
-        theta_options_larger = np.sum(
-            np.linspace(theta, theta + sig_theta, 5, endpoint=False, retstep=True)
-        )
-        theta_options_smaller = np.sum(
-            np.linspace(theta, theta - sig_theta, 5, endpoint=False, retstep=True)
-        )
-        theta_options = [
-            theta,
-            *np.ravel(list(zip(theta_options_larger, theta_options_smaller))),
-        ]
+        theta_options_larger = np.linspace(theta, theta + sig_theta, 5, endpoint=False)
+        theta_options_smaller = np.linspace(theta, theta - sig_theta, 5, endpoint=False)[1:]
+        theta_options = [theta, *theta_options_larger, *theta_options_smaller]
 
-        L_options_larger = np.sum(
-            np.linspace(L, L + sig_L, 5, endpoint=False, retstep=True)
-        )
-        L_options_smaller = np.sum(
-            np.linspace(L, L - sig_L, 5, endpoint=False, retstep=True)
-        )
-        L_options = [L, *np.ravel(list(zip(L_options_larger, L_options_smaller)))]
+        L_options_larger = np.linspace(L, L + sig_L, 5, endpoint=False)
+        L_options_smaller = np.linspace(L, L - sig_L, 5, endpoint=False)[1:]
+        L_options = [L, *L_options_larger, *L_options_smaller]
 
         tries = itl.product(theta_options, L_options)
 
@@ -481,7 +473,7 @@ class _RotamerResidue(_BaseResidue):
         #           (( v . ( x × u )) * ‖v‖^2 = ‖ u × v ‖ ‖v‖^2 L sinθ sinχ
         #     Rotating the scalar triple product, cancelling ‖v‖^2
         #                       x . ( u × v ) = ‖ u × v ‖ L sinθ sinχ
-        #
+
         #     Let                           w = u × v
         #                                  C2 = ‖ u × v ‖ L sinθ sinχ
         #
@@ -618,7 +610,11 @@ class _RotamerResidue(_BaseResidue):
                     "_" + attr,
                     np.append(getattr(self, "_" + attr), getattr(self, attr)[-1]),
                 )
-        setattr(self, "_selection", np.append(self.__dict__["_selection"], index + 1))
+                # Ensure the array and the value being appended are of integer type
+        selection = np.append(
+            self.__dict__["_selection"].astype(int), int(index + 1)
+        )  # ensuring this is not a float
+        setattr(self, "_selection", selection)
         setattr(self, "natoms", self.natoms + 1)
 
     def reorder(self):
@@ -628,7 +624,7 @@ class _RotamerResidue(_BaseResidue):
             if self.name[idx] != atom2:
                 idx2 = np.argwhere(self.name == atom2)[0]
                 index = np.ndarray((1,), dtype="int")
-                index[0,] = np.array(self.__dict__["_selection"][0], dtype="int")
+                index[0,] = np.array(self.__dict__["_selection"][0])
                 for attr in [
                     "record",
                     "name",

@@ -1,4 +1,5 @@
-# qFit 2024v2
+# qFit 2024v3
+
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -6,6 +7,7 @@
 qFit is a collection of programs for modeling multi-conformer protein structures. 
 
 Electron density maps obtained from high-resolution X-ray diffraction data are a spatial and temporal average of all conformations within the crystal. qFit evaluates an extremely large number of combinations of sidechain conformers, backbone fragments and small-molecule ligands to locally explain the electron density.
+
 
 If you use this software, please cite: 
 - [Wankowicz SA, Ravikumar A, Sharma S, Riley BT, Raju A, Hogan DW, van den Bedem H, Keedy DA, & Fraser JS. Uncovering Protein Ensembles: Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM. eLife. (2023).](https://www.biorxiv.org/content/10.1101/2023.06.28.546963v2.abstract)
@@ -17,61 +19,31 @@ As this software relies on CVXPY, please also cite:
 - [Agrawal, Verschueren, Diamond, & Boyd. A Rewriting System for Convex Optimization Problems. Journal of Control and Decision. (2018).](https://arxiv.org/abs/1709.04494)
 - [Diamond & Boyd. CVXPY: A Python-Embedded Modeling Language for Convex Optimization. Journal of Machine Learning Research. (2016)](https://www.jmlr.org/papers/volume17/15-408/15-408.pdf)
 
-## Installation
 
 ## Installation (conda recommended)
 
 We recommend using the _conda_ package manager to install _qFit_.
 
-You will need the following tools:
-
-* git
-* _conda_ package manager (which you can get by installing [Miniconda3](https://docs.conda.io/en/latest/miniconda.html))
-
-Once these are installed, you can:
-
-1. Create a new conda env & activate it
-   ```bash
-   conda create --name qfit "python>=3.9"
-   conda activate qfit
-   ```
-
-1. Install dependencies
-   ```bash
-   conda install -c anaconda mkl numpy=1.22
-   pip install cvxpy
-   pip install PySCIPOpt
-   ```
-   For some of the post analysis scripts, you will also need sklean
-   conda install -c anaconda scikit-learn
-
 1. Clone the latest release of the qFit source, and install to your conda env
-   ```bash
-   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+
+   bash git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+   
    cd qfit-3.0
-   pip install .
-   ```
+   
+3. Create the Conda environment using the downloaded file:
 
-1. You're now ready to run qFit programs! See [usage examples](#sec:usage-examples) below for some examples.
+   conda env create -f environment.yml
 
-### M1 Macs
+4. After creating the Conda environment, activate it:
 
-Unfortunately, the Anaconda repos don't contain 'osx-arm64' binaries for IBM's CPLEX and Intel's mkl.  
-We don't currently have plans to switch to a different MIQP solver (e.g. Gurobi).
-
-As a workaround, you'll have to force conda to install the 'osx-64' binaries for everything (x86_64).
-macOS's Rosetta 2 translation will handle the Intel→AppleSilicon translation.
-
-Instead of the first step in the above Installation section, use this:
-
-1. Create a new conda env & activate it
-   ```bash
-   CONDA_SUBDIR=osx-64 conda create --name qfit "python>=3.9"
-   conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
    conda activate qfit
-   ```
 
-then follow the rest of the instructions.
+5. If you installing on M1 Mac:
+   
+     conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
+     conda activate qfit
+   
+
 ### Advanced
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
@@ -84,27 +56,19 @@ If you prefer to manage your environments using other methods, qFit has the foll
 Once dependencies are installed, you can clone the qFit source, and install to your env as above.
 
 
-## Contributing
-
-qFit uses [Black](https://github.com/psf/black) to format its code and provides a git hook to verify that code is properly formatted before allowing you to commit.
-
-Before creating a commit, you will have to perform two actions:
-1. Install Black, either through a package manager or by running `python3 -m pip install --user black`
-2. Run `git config core.hooksPath .githooks/` to use the provided pre-commit hook
-
 ## Usage examples
 
 The `qfit` package comes with several command line tools to model alternate
 conformers into electron densities. You should select the command line tool that
 is most suited for your task. Please refer below for a basic usage example. More specialized and advanced use case examples
-are shown in [TUTORIAL](example/README.md) in the [example](example/) directory.
+are shown in [example](example/README.md) directory.
 
 To remove single-conformer model bias, qFit should be used with a composite omit
 map. One way of generating such map is using the [Phenix software suite](https://www.phenix-online.org/):
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine`
 
-An example test case (3K0N) can be found in the [qfit protein example](example/qfit_protein_example/) directory. Additionally, you can find the Cryo-EM example (PDB: 7A4M) and the qFit-ligand example (PDB: 4MS6) in the *example* directory. 
+An example test case (1G8A) can be found in the [qfit protein example](example/qfit_protein_example/) directory. Additionally, you can find the [cyroEM protein example](example/qfit_cryoem_example/)(PDB: 7A4M) and the [ligand example](example/qfit_ligand_example/) qFit-ligand example (PDB: 4MS6) in the *example* directory. 
 
 
 ### Recommended settings
@@ -127,34 +91,61 @@ using the flag *-d*.
 By default, qFit expects the labels FWT,PHWT to be present in the input map.
 Different labels can be set accordingly using the flag *-l*.
 
-Using the example 3K0N:
+Using the example 18GA:
 
-`qfit_protein example/qfit_protein_example/3k0n_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/3k0n_refine.pdb`
+`qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A_refine.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_xray.sh example/qfit_protein_example/3k0n_structure_factors.mtz example/qfit_protein_example/multiconformer_model2.pdb`
+`qfit_final_refine_xray.sh example/qfit_protein_example/18GA.mtz example/qfit_protein_example/multiconformer_model2.pdb`
 
-Additionally, the qFit_occupancy.params file must exist in the folder.
-
-(A pre-generated multiconformer_model2.pdb file is available in the [qfit protein example](example/qfit_protein_example/) folder)
+Additionally, the qFit_occupancy.params file must exist in the folder (this is an output of qFit protein).
 
 Bear in mind that this final step currently depends on an existing installation
-of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
-
-
+of the Phenix software suite. This script is currently written to work with version Phenix 1.21.
 
 To model alternate conformers for all residues in a *cryo-EM* model using qFit,
 the following command should be used:
 
 `qfit_protein [MAP_FILE] -r [RES] [PDB_FILE] -em`
+`qfit_protein example/qfit_cryoem_example/7A4M_box.ccp4 -r 1.7 example/qfit_cryoem_example/7A4M_box.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
-`qfit_final_refine_cryoEM.sh example/qfit_protein_example/em_map.ccp4 example/qfit_protein_example/multiconformer_model2.pdb example/qfit_protein_example/input_pdb_file.pdb`
+`qfit_final_refine_cryoEM.sh example/qfit_cryoem_example/7A4M_box.ccp4 example/qfit_cryoem_example/multiconformer_model2.pdb example/qfit_cryoem_example/7A4M_box.pdb`
 
 More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in [TUTORIAL](example/README.md).
 
+To model alternate conformations of ligands using qFit, we recommend running composite omit map excluding bulk solvent with the following command:
+
+`phenix.composite_omit_map input.mtz model.pdb omit-type=refine exclude_bulk_solvent=True`
+
+qFit-ligand can be executed the following command:
+
+`qfit_ligand [COMPOSITE_OMIT_MAP_FILE] [PDB_FILE] -l [LABELS] [SELECTION] -sm [SMILES]`
+
+This command facilitates the incorporation of alternate ligand conformations into your protein model. The results are outputted to two files: *multiconformer_ligand_bound_with_protein.pdb*, which is the multiconformer model of the protein-ligand complex, and *multiconformer_ligand_only.pdb*, which is the multiconformer model of the ligand alone. 
+
+After running qFit-ligand, it is recommended to perform a final refinement using the script found in [scripts](scripts/post). Run this in the same directory as your models.
+
+If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
+
+Using the example 4MS6:
+
+`qfit_ligand example/qfit_ligand_example/4ms6_composit_map.mtz example/qfit_ligand_example/4ms6.pdb -l 2FOFCWT,PH2FOFCWT A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 10000`
+
+To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
+
+`qfit_final_refine_ligand.sh 4ms6.mtz`
+
+
+## Contributing
+
+qFit uses [Black](https://github.com/psf/black) to format its code and provides a git hook to verify that code is properly formatted before allowing you to commit.
+
+Before creating a commit, you will have to perform two actions:
+1. Install Black, either through a package manager or by running `python3 -m pip install --user black`
+2. Run `git config core.hooksPath .githooks/` to use the provided pre-commit hook
 
 ## License
 

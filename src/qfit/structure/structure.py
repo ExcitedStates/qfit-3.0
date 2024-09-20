@@ -693,7 +693,6 @@ class _Chain(_BaseStructure):
 
 
 class _ResidueGroup(_BaseStructure):
-
     """Guarantees a group with similar resi and icode."""
 
     def __init__(self, data, **kwargs):
@@ -767,7 +766,6 @@ class _Atom:
 
 
 class _Conformer(_BaseStructure):
-
     """Guarantees a single consistent conformer."""
 
     def __init__(self, data, **kwargs):
@@ -899,7 +897,6 @@ class _Conformer(_BaseStructure):
 
 
 class _Segment(_BaseStructure):
-
     """Class that guarantees connected residues and allows
     backbone rotations."""
 

@@ -1,5 +1,4 @@
 [build-system]
-# Minimum requirements for the build system to execute.
 requires = [
 	"setuptools",  # PEP 508 specifications.
 	"wheel",       # PEP 508 specifications.
@@ -8,3 +7,4 @@ requires = [
 	"cvxpy",
 	"pyscipopt",
 ]
+build-backend = "setuptools.build_meta"
