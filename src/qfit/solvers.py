@@ -86,8 +86,7 @@ class QPSolver(GenericSolver):
     """
 
     @abstractmethod
-    def solve_qp(self) -> None:
-        ...
+    def solve_qp(self) -> None: ...
 
 
 class MIQPSolver(GenericSolver):
@@ -140,8 +139,7 @@ class MIQPSolver(GenericSolver):
         threshold: Optional[float] = None,
         cardinality: Optional[int] = None,
         exact: bool = False,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 ###############################
