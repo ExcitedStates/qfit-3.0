@@ -26,19 +26,20 @@ As this software relies on CVXPY, please also cite:
 We recommend using the _conda_ package manager to install _qFit_.
 
 1. Clone the latest release of the qFit source, and install to your conda env
-   ```bash git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+
+   bash git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    
    cd qfit-3.0
    
-2. Create the Conda environment using the downloaded file:
+3. Create the Conda environment using the downloaded file:
 
    conda env create -f environment.yml
 
-3. After creating the Conda environment, activate it:
+4. After creating the Conda environment, activate it:
 
    conda activate qfit
 
-4. If you installing on M1 Mac:
+5. If you installing on M1 Mac:
    
      conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
      conda activate qfit
