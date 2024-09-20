@@ -8,7 +8,9 @@ from qfit.structure.rotamers import ROTAMERS
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Process multiconformer file for refinement.")
+    parser = argparse.ArgumentParser(
+        description="Process multiconformer file for refinement."
+    )
     parser.add_argument("structure", type=str, help="Path to the structure file")
     return parser.parse_args()
 
@@ -31,9 +33,7 @@ def create_refine_restraints(multiconformer):
             if residue.resn[0] in ROTAMERS:
                 if len(residue.extract("name", "CA", "==").q) == 1:
                     # if something exists in the list, print it
-                    if (
-                        len(resi_) > 0
-                    ):  # something exists and we should write it out
+                    if len(resi_) > 0:  # something exists and we should write it out
                         for a in set(altloc_):
                             # create a string from each value in the resi array
                             # resi_str = ','.join(map(str, resi_))
@@ -65,6 +65,7 @@ def create_refine_restraints(multiconformer):
     f.write(" }\n")
     f.write("}\n")
     f.close()
+
 
 def main():
     args = parse_args()
