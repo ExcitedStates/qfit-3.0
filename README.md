@@ -19,7 +19,6 @@ As this software relies on CVXPY, please also cite:
 - [Agrawal, Verschueren, Diamond, & Boyd. A Rewriting System for Convex Optimization Problems. Journal of Control and Decision. (2018).](https://arxiv.org/abs/1709.04494)
 - [Diamond & Boyd. CVXPY: A Python-Embedded Modeling Language for Convex Optimization. Journal of Machine Learning Research. (2016)](https://www.jmlr.org/papers/volume17/15-408/15-408.pdf)
 
-## Installation
 
 ## Installation (conda recommended)
 
