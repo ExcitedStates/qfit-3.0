@@ -52,7 +52,7 @@ def build_argparser():
         type=str,
         help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.",
     )
-    
+
     # RDKit input options
     p.add_argument(
         "-sm",
@@ -108,7 +108,7 @@ def build_argparser():
     p.add_argument(
         "--ligand_rmsd",
         dest="ligand_rmsd",
-        action='store_false',
+        action="store_false",
         help="Turn off Ligand RMSD cutoff",
     )
 
@@ -198,7 +198,7 @@ def build_argparser():
         default=True,
         help="Consider waters for soft clash detection",
     )
-    
+
     p.add_argument(
         "--remove-conformers-below-cutoff",
         action="store_true",
@@ -232,7 +232,7 @@ def build_argparser():
         type=float,
         help="Bulk solvent level in absolute values",
     )
-    
+
     p.add_argument(
         "-c",
         "--cardinality",
@@ -313,9 +313,7 @@ def build_argparser():
         type=os.path.abspath,
         help="Directory to store results",
     )
-    p.add_argument(
-        "-v", "--verbose", action="store_true", help="Be verbose"
-    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
     p.add_argument(
         "--debug", action="store_true", help="Log as much information as possible"
     )
@@ -394,15 +392,13 @@ def prepare_qfit_ligand(options):
     ligand.altloc = ""
     ligand.q = 1
 
-    # save ligand pdb file to working directory 
+    # save ligand pdb file to working directory
     try:
         os.makedirs(options.directory)
     except OSError:
         pass
-        
-    input_ligand = os.path.join(
-        options.directory, "ligand.pdb"
-    )
+
+    input_ligand = os.path.join(options.directory, "ligand.pdb")
     ligand.tofile(input_ligand)
 
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
