@@ -1,4 +1,4 @@
-# qFit 3.2.2
+# qFit 2024.3
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 
@@ -9,7 +9,7 @@ If you use this software, please cite:
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
 ## Refinement
-After *multiconformer_model2.pdb* has been generated, the model must need to be refined. Bear in mind that this final step currently depends on an existing installation of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
+After *multiconformer_model2.pdb* has been generated, the model must need to be refined. Bear in mind that this final step currently depends on an existing installation of the Phenix software suite. This script is currently written to work with version Phenix 1.21.
 
 [Phenix installation](https://phenix-online.org/documentation/install-setup-run.html)
 
