@@ -37,8 +37,6 @@ import math
 from scipy.linalg import svd
 
 
-
-
 logger = logging.getLogger(__name__)
 
 # Create a namedtuple 'class' (struct) which carries info about an MIQP solution
@@ -264,7 +262,7 @@ class _BaseQFit:
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
 
-    def _convert(self, stride=1, pool_size=1): #default is to manipulate the maps
+    def _convert(self, stride=1, pool_size=1):  # default is to manipulate the maps
         """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting conformers to density")
         logger.debug("Masking")
@@ -277,19 +275,19 @@ class _BaseQFit:
 
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
-        
+
         # For a 1D array, we adjust our pooling approach
         pooled_values = []
         for i in range(0, len(self._target), stride):
             # Extract the current window for pooling
-            current_window = self._target[i:i+pool_size]
+            current_window = self._target[i : i + pool_size]
             # Perform max pooling on the current window and append the max value to pooled_values
             if len(current_window) > 0:  # Ensure the window is not empty
                 pooled_values.append(np.max(current_window))
-        
+
         # Convert pooled_values back to a numpy array
         self._target = np.array(pooled_values)
-        
+
         logger.debug("Density")
         nmodels = len(self._coor_set)
         maxpool_size = len(range(0, nvalues, stride))
@@ -303,7 +301,7 @@ class _BaseQFit:
             map_values = self._transformer.xmap.array[mask]
             pooled_map_values = []
             for i in range(0, len(map_values), stride):
-                current_window = map_values[i:i+pool_size]
+                current_window = map_values[i : i + pool_size]
                 if len(current_window) > 0:
                     pooled_map_values.append(np.max(current_window))
             model[:] = np.array(pooled_map_values)
@@ -460,7 +458,7 @@ class _BaseQFit:
         # Conditionally add the occupancy of the removed conformer to the kept one
         if merge:
             self._occupancies[idx_to_keep] += self._occupancies[idx_to_zero]
-            
+
         # Set the occupancy of the removed conformer to 0
         self._occupancies[idx_to_zero] = 0
 
@@ -517,7 +515,7 @@ class _BaseQFit:
 
     def identify_core_and_sidechain(self, mol):
         """
-        Identify branched sections of ligand 
+        Identify branched sections of ligand
         """
         # Get the ring info of the molecule
         ri = mol.GetRingInfo()
@@ -531,23 +529,37 @@ class _BaseQFit:
             # Use the largest ring system as the core
             core_atoms = max(ring_atoms, key=len)
 
-        # Identify terminal atoms, atoms bound to no more than one atom & not in the core 
-        terminal_atoms = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetDegree() == 1 and atom.GetIdx() not in core_atoms]
+        # Identify terminal atoms, atoms bound to no more than one atom & not in the core
+        terminal_atoms = [
+            atom.GetIdx()
+            for atom in mol.GetAtoms()
+            if atom.GetDegree() == 1 and atom.GetIdx() not in core_atoms
+        ]
 
         all_side_chain_atoms = []
         # loop through terminal atoms
         for t_atom in terminal_atoms:
             side_chain_atoms = []
             atom = mol.GetAtomWithIdx(t_atom)
-            while atom.GetIdx() not in core_atoms and atom.GetIdx() not in side_chain_atoms:
+            while (
+                atom.GetIdx() not in core_atoms
+                and atom.GetIdx() not in side_chain_atoms
+            ):
                 # Ensure the atom is not part of a ring
                 if atom.IsInRing():
                     break
                 side_chain_atoms.append(atom.GetIdx())
-                neighbors = [x.GetIdx() for x in atom.GetNeighbors() if x.GetIdx() not in core_atoms and x.GetIdx() not in side_chain_atoms]
+                neighbors = [
+                    x.GetIdx()
+                    for x in atom.GetNeighbors()
+                    if x.GetIdx() not in core_atoms
+                    and x.GetIdx() not in side_chain_atoms
+                ]
                 if not neighbors:  # No more atoms to explore
                     break
-                atom = mol.GetAtomWithIdx(neighbors[0])  # Move to the next atom in the chain
+                atom = mol.GetAtomWithIdx(
+                    neighbors[0]
+                )  # Move to the next atom in the chain
 
             # Check if the side chain is at least 4 atoms long
             if len(side_chain_atoms) >= 4:
@@ -559,25 +571,27 @@ class _BaseQFit:
         translation_range = int(translation_range)
         translated_conformations = []
         # translate conformers in x, y, z directions based on input range
-        for dx in np.linspace(-translation_range, translation_range, num=3):  
+        for dx in np.linspace(-translation_range, translation_range, num=3):
             for dy in np.linspace(-translation_range, translation_range, num=3):
                 for dz in np.linspace(-translation_range, translation_range, num=3):
                     translation_vector = np.array([dx, dy, dz])
                     translated_conformation = conformation + translation_vector
                     translated_conformations.append(translated_conformation)
-        return translated_conformations    
-    
+        return translated_conformations
+
     def apply_rotations(self, conformation, rotation_range, step):
         rotation_range = int(rotation_range)
         step = int(step)
         rotated_conformations = [conformation]  # Include the original conformation
         center = conformation.mean(axis=0)  # Compute the center of the conformation
         for angle in range(-rotation_range, rotation_range + step, step):
-            for axis in ['x', 'y', 'z']:
+            for axis in ["x", "y", "z"]:
                 r = R.from_euler(axis, np.radians(angle), degrees=False)
                 rotation_matrix = r.as_matrix()
                 # Apply rotation around the center
-                rotated_conformation = np.dot(conformation - center, rotation_matrix.T) + center
+                rotated_conformation = (
+                    np.dot(conformation - center, rotation_matrix.T) + center
+                )
                 rotated_conformations.append(rotated_conformation)
         return rotated_conformations
 
@@ -763,8 +777,8 @@ class QFitRotamericResidue(_BaseQFit):
             self._sample_angle()
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
-            self._sample_sidechain(version = 0)
-            self._sample_sidechain(version = 1)
+            self._sample_sidechain(version=0)
+            self._sample_sidechain(version=1)
 
         # Check that there are no self-clashes within a conformer
         self.residue.active = True
@@ -816,8 +830,6 @@ class QFitRotamericResidue(_BaseQFit):
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
         # End of processing
-        
-
 
     def _sample_backbone(self):
         # Check if residue has enough neighboring residues
@@ -1012,7 +1024,7 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-        
+
     def _sample_sidechain(self, version=1):
         opt = self.options
         start_chi_index = 1
@@ -1048,7 +1060,7 @@ class QFitRotamericResidue(_BaseQFit):
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
-            
+
             if version == 0:
                 end_chi_index = start_chi_index + 1
             else:
@@ -1199,7 +1211,9 @@ class QFitRotamericResidue(_BaseQFit):
                     temp_bs = self._bs
 
                     # Splitting the arrays into two sections
-                    half_index = len(temp_coor_set) // 2  # Integer division for splitting
+                    half_index = (
+                        len(temp_coor_set) // 2
+                    )  # Integer division for splitting
                     section_1_coor = temp_coor_set[:half_index]
                     section_1_bs = temp_bs[:half_index]
                     section_2_coor = temp_coor_set[half_index:]
@@ -1240,7 +1254,9 @@ class QFitRotamericResidue(_BaseQFit):
                     qp_2_temp_bs = self._bs
 
                     # Concatenate the results from both sections
-                    self._coor_set = np.concatenate((qp_temp_coor, qp_2_temp_coor), axis=0)
+                    self._coor_set = np.concatenate(
+                        (qp_temp_coor, qp_2_temp_coor), axis=0
+                    )
                     self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
 
                 # MIQP score conformer occupancy
@@ -1248,7 +1264,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._convert(stride_, pool_size_)
                 self._solve_miqp(
                     threshold=self.options.threshold,
-                    cardinality=self.options.cardinality
+                    cardinality=self.options.cardinality,
                 )
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
@@ -1605,19 +1621,18 @@ class QFitLigand(_BaseQFit):
         # Read in ligand pdb file
         self.ligand_pdb_file = "ligand.pdb"
 
-
     def run(self):
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
-        # total number of conformers to generate 
+        # total number of conformers to generate
         num_gen_conformers = self.options.numConf
-        
+
         # check if ligand has long branch/side chain
         logger.debug("Testing branching status of ligand")
         branching_test = self.identify_core_and_sidechain(ligand)
         branching_atoms = branching_test[0]
         length_branching = branching_test[1]
 
-        # run rdkit conformer generator 
+        # run rdkit conformer generator
         logger.info("Starting RDKit conformer generation")
 
         if not branching_atoms:
@@ -1632,14 +1647,14 @@ class QFitLigand(_BaseQFit):
         self.num_conf_for_method = num_conf_for_method
 
         if self.options.flip_180:
-                self.flip_180()
+            self.flip_180()
         else:
             # Run conformer generation functions in parallel
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = [
                     executor.submit(self.random_unconstrained),
                     executor.submit(self.terminal_atom_const),
-                    executor.submit(self.spherical_search)
+                    executor.submit(self.spherical_search),
                 ]
                 if branching_atoms:
                     if length_branching > 30:
@@ -1647,23 +1662,25 @@ class QFitLigand(_BaseQFit):
                         futures.append(executor.submit(self.long_chain_search))
                     elif length_branching <= 30:
                         futures.append(executor.submit(self.branching_search))
-    
+
                 for future in concurrent.futures.as_completed(futures):
                     try:
                         future.result()
                     except Exception as exc:
-                        logger.error(f'Generated an exception: {exc}')
+                        logger.error(f"Generated an exception: {exc}")
 
-        logger.info(f"Number of generated conformers, before scoring: {len(self._coor_set)}")
-        
+        logger.info(
+            f"Number of generated conformers, before scoring: {len(self._coor_set)}"
+        )
+
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
             return
-            
+
         # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
-            
+
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
         self._convert()
@@ -1673,7 +1690,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers within run.")
         self._update_conformers()
 
-        # Only conformeres that pass QP scoring will be rotated and translated for additional sampling 
+        # Only conformeres that pass QP scoring will be rotated and translated for additional sampling
         self.rot_trans()
 
         # MIQP score conformer occupancy
@@ -1686,7 +1703,7 @@ class QFitLigand(_BaseQFit):
             self._solve_miqp(
                 threshold=self.options.threshold,
                 cardinality=self.options._ligand_cardinality,
-                do_BIC_selection=True
+                do_BIC_selection=True,
             )
         if not self.options.ligand_bic:
             self._solve_miqp(
@@ -1704,7 +1721,9 @@ class QFitLigand(_BaseQFit):
                     rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
                     if rmsd < 0.2:
                         has_duplicates = True
-                        print(f"RMSD value less than 0.2 between conformers {i} and {j}: {rmsd}")
+                        print(
+                            f"RMSD value less than 0.2 between conformers {i} and {j}: {rmsd}"
+                        )
                         break  # Exit the inner loop if a duplicate is found
                 if has_duplicates:
                     break  # Exit the outer loop if a duplicate is found
@@ -1718,13 +1737,12 @@ class QFitLigand(_BaseQFit):
                 for j in range(i + 1, len(self._coor_set)):
                     rmsd = calc_rmsd(self._coor_set[i], self._coor_set[j])
                     logger.info(f"Final RMSD between conformers {i} and {j}: {rmsd}")
-                    
+
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
         # self._write_intermediate_conformers(prefix="miqp_solution")
 
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
-
 
     def random_unconstrained(self):
         """
@@ -1732,19 +1750,26 @@ class QFitLigand(_BaseQFit):
         """
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
 
-        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders 
+        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders
         ref_mol = Chem.MolFromSmiles(self.options.smiles)
-        
+
         # Assign bond orders from the template
         ligand = Chem.AllChem.AssignBondOrdersFromTemplate(ref_mol, ligand)
         ligand = Chem.AddHs(ligand)
-        num_conformers = self.num_conf_for_method  # Number of conformers you want to generate
+        num_conformers = (
+            self.num_conf_for_method
+        )  # Number of conformers you want to generate
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
-        mol = Chem.Mol(ligand) 
+        mol = Chem.Mol(ligand)
 
         logger.info(f"Generating {num_conformers} conformers with no constraints")
-        Chem.rdDistGeom.EmbedMultipleConfs(mol, numConfs=num_conformers, useBasicKnowledge=True, pruneRmsThresh=self.options.rmsd_cutoff)
+        Chem.rdDistGeom.EmbedMultipleConfs(
+            mol,
+            numConfs=num_conformers,
+            useBasicKnowledge=True,
+            pruneRmsThresh=self.options.rmsd_cutoff,
+        )
 
         # Minimize the energy of each conformer to find most stable structure
         logger.info("Minimizing energy of each conformer with no constraints")
@@ -1759,17 +1784,25 @@ class QFitLigand(_BaseQFit):
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
 
         for conf_id in mol.GetConformers():
-            o3a = Chem.rdMolAlign.GetCrippenO3A(mol, ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
+            o3a = Chem.rdMolAlign.GetCrippenO3A(
+                mol,
+                ligand,
+                prbCrippenContribs=mol_crippen_contribs,
+                refCrippenContribs=ligand_crippen_contribs,
+                prbCid=conf_id.GetId(),
+            )
             o3a.Align()
 
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
 
-        # Check for internal/external clashes 
+        # Check for internal/external clashes
         if mol.GetNumConformers() == 0:
-            logger.error(f"Unconstrained search generated no conformers. Moving onto next sampling function.")
+            logger.error(
+                f"Unconstrained search generated no conformers. Moving onto next sampling function."
+            )
         if mol.GetNumConformers() != 0:
-            # Check for internal/external clashes 
+            # Check for internal/external clashes
             logger.info("Checking for clashes with no constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
@@ -1777,26 +1810,28 @@ class QFitLigand(_BaseQFit):
             for i, conformer in enumerate(new_conformer):
                 coords = conformer.GetPositions()
                 new_coors.append(coords)
-    
+
             new_idx_set = []
             new_coor_set = []
             new_bs = []
             # loop through each rdkit generated conformer
-            for idx, conf in enumerate(new_coors):  
+            for idx, conf in enumerate(new_coors):
                 b = self._bs
                 self.ligand.coor = conf
                 self.ligand.b = [b[0]]
                 if self.options.external_clash:
                     if not self._cd():
-                        if new_idx_set:  # if there are already conformers in new_idx_set
+                        if (
+                            new_idx_set
+                        ):  # if there are already conformers in new_idx_set
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0])
                         else:
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
-                            new_bs.append(b[0]) 
-                            
+                            new_bs.append(b[0])
+
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -1805,79 +1840,104 @@ class QFitLigand(_BaseQFit):
                     else:
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
-                        new_bs.append(b[0]) 
-    
-            
+                        new_bs.append(b[0])
+
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
-    
+
             self._coor_set = merged_arr
             self._bs = merged_bs
-    
-            logger.info(f"After unconstrained search, there are {len(self._coor_set)} plausible conformers")          
-    
+
+            logger.info(
+                f"After unconstrained search, there are {len(self._coor_set)} plausible conformers"
+            )
+
             if len(self._coor_set) < 1:
                 logger.warning(
                     f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
                 )
                 return
-        
-        return 
+
+        return
 
     def terminal_atom_const(self):
         """
         Identify the terminal atoms of the ligand and learn distances between those atoms and the rest of the molecule. This results in the generated conformers
-        having a more reasonable shape, similar to the deposited model.         
+        having a more reasonable shape, similar to the deposited model.
         """
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
 
-        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders 
+        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders
         ref_mol = Chem.MolFromSmiles(self.options.smiles)
-        
+
         # Assign bond orders from the template
         ligand = Chem.AllChem.AssignBondOrdersFromTemplate(ref_mol, ligand)
 
         # Find the terminal atoms in the ligand, to be used in coordinate map
         terminal_indices = []
         for atom in ligand.GetAtoms():
-            if atom.GetDegree() == 1: # if only one atom is bound to the current atom then it is terminal
+            if (
+                atom.GetDegree() == 1
+            ):  # if only one atom is bound to the current atom then it is terminal
                 terminal_indices.append(atom.GetIdx())
-        
-        ligand = Chem.AddHs(ligand)
-        
-        num_conformers = self.num_conf_for_method  # Number of conformers you want to generate
-        # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
-        mol = Chem.Mol(ligand) 
 
-        logger.info(f"Generating {num_conformers} conformers with terminal atom constraints")
-        # Generate conformers 
-        AllChem.EmbedMultipleConfs(mol, numConfs=num_conformers, useBasicKnowledge=True, pruneRmsThresh=self.options.rmsd_cutoff, 
-                                    coordMap={idx: ligand.GetConformer().GetAtomPosition(idx) for idx in terminal_indices})
-        
+        ligand = Chem.AddHs(ligand)
+
+        num_conformers = (
+            self.num_conf_for_method
+        )  # Number of conformers you want to generate
+        # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
+        mol = Chem.Mol(ligand)
+
+        logger.info(
+            f"Generating {num_conformers} conformers with terminal atom constraints"
+        )
+        # Generate conformers
+        AllChem.EmbedMultipleConfs(
+            mol,
+            numConfs=num_conformers,
+            useBasicKnowledge=True,
+            pruneRmsThresh=self.options.rmsd_cutoff,
+            coordMap={
+                idx: ligand.GetConformer().GetAtomPosition(idx)
+                for idx in terminal_indices
+            },
+        )
+
         if mol.GetNumConformers() == 0:
-            logger.error(f"terminal atom constrained search generated no conformers. Moving onto next sampling function.")
+            logger.error(
+                f"terminal atom constrained search generated no conformers. Moving onto next sampling function."
+            )
         if mol.GetNumConformers() != 0:
             # Minimize the energy of each conformer to find most stable structure
-            logger.info("Minimizing energy of each conformer with terminal atom constraints")
+            logger.info(
+                "Minimizing energy of each conformer with terminal atom constraints"
+            )
             mp = AllChem.MMFFGetMoleculeProperties(mol)
             for conf_id in mol.GetConformers():
                 ff = AllChem.MMFFGetMoleculeForceField(mol, mp, confId=conf_id.GetId())
                 ff.Minimize()
-    
+
             logger.info("Aligning molecules with terminal atom constraints")
             # Align the conformers in "mol" to "ligand" to ensure all structures are properly sitting in the binding site
             ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(ligand)
             mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
-    
+
             for conf_id in mol.GetConformers():
-                o3a = Chem.rdMolAlign.GetCrippenO3A(mol, ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
+                o3a = Chem.rdMolAlign.GetCrippenO3A(
+                    mol,
+                    ligand,
+                    prbCrippenContribs=mol_crippen_contribs,
+                    refCrippenContribs=ligand_crippen_contribs,
+                    prbCid=conf_id.GetId(),
+                )
                 o3a.Align()
-    
+
             mol = Chem.RemoveHs(mol)
             ligand = Chem.RemoveHs(ligand)
-    
-            # Check for internal/external clashes 
+
+            # Check for internal/external clashes
             logger.info("Checking for clashes with terminal atom constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
@@ -1885,28 +1945,29 @@ class QFitLigand(_BaseQFit):
             for i, conformer in enumerate(new_conformer):
                 coords = conformer.GetPositions()
                 new_coors.append(coords)
-    
+
             new_idx_set = []
             new_coor_set = []
             new_bs = []
-        
-    
+
             # loop through each rdkit generated conformer
-            for idx, conf in enumerate(new_coors):  
+            for idx, conf in enumerate(new_coors):
                 b = self._bs
                 self.ligand.coor = conf
                 self.ligand.b = [b[0]]
                 if self.options.external_clash:
                     if not self._cd():
-                        if new_idx_set:  # if there are already conformers in new_idx_set
+                        if (
+                            new_idx_set
+                        ):  # if there are already conformers in new_idx_set
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0])
                         else:
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
-                            new_bs.append(b[0]) 
-                            
+                            new_bs.append(b[0])
+
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -1915,24 +1976,26 @@ class QFitLigand(_BaseQFit):
                     else:
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
-                        new_bs.append(b[0]) 
-              
+                        new_bs.append(b[0])
+
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
-    
+
             self._coor_set = merged_arr
             self._bs = merged_bs
-            
-            logger.info(f"After terminal atom search, there are {len(self._coor_set)} plausible conformers")  
-    
+
+            logger.info(
+                f"After terminal atom search, there are {len(self._coor_set)} plausible conformers"
+            )
+
             if len(self._coor_set) < 1:
                 logger.warning(
                     f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
                 )
                 return
-        
-        return 
+
+        return
 
     def spherical_search(self):
         """
@@ -1946,39 +2009,50 @@ class QFitLigand(_BaseQFit):
         atom_positions = [conf.GetAtomPosition(i) for i in range(ligand.GetNumAtoms())]
 
         # Calculate the geometric center of the molecule
-        geometric_center = np.mean([np.array(atom_position) for atom_position in atom_positions], axis=0)
+        geometric_center = np.mean(
+            [np.array(atom_position) for atom_position in atom_positions], axis=0
+        )
         # Calculate the radius of the sphere (max distance from center to any atom)
-        radius = max(np.linalg.norm(np.array(atom_position) - geometric_center) for atom_position in atom_positions)
+        radius = max(
+            np.linalg.norm(np.array(atom_position) - geometric_center)
+            for atom_position in atom_positions
+        )
 
-        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders 
+        # RDKit is bad at finding the corect bond types from pdb files, but good at doing so from SMILES string. Use SMILES string as templete for corecting bond orders
         ref_mol = Chem.MolFromSmiles(self.options.smiles)
-        
+
         # Assign bond orders from the template
         ligand = Chem.AllChem.AssignBondOrdersFromTemplate(ref_mol, ligand)
         ligand = Chem.AddHs(ligand)
-        num_conformers = self.num_conf_for_method  # Number of conformers you want to generate
+        num_conformers = (
+            self.num_conf_for_method
+        )  # Number of conformers you want to generate
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
-        mol = Chem.Mol(ligand) 
+        mol = Chem.Mol(ligand)
 
         diameter = 2 * radius
         bounds = Chem.rdDistGeom.GetMoleculeBoundsMatrix(ligand)
         # Modify the bounds matrix to set the upper bounds for all atom pairs
         num_atoms = ligand.GetNumAtoms()
         for i in range(num_atoms):
-            for j in range(i+1, num_atoms):  # Only need to do this for the upper triangle
+            for j in range(
+                i + 1, num_atoms
+            ):  # Only need to do this for the upper triangle
                 # Set the upper bound for the distance between atoms i and j
                 bounds[i, j] = min(bounds[i, j], diameter)
 
         # Set up the embedding parameters
         ps = Chem.rdDistGeom.EmbedParameters()
         ps = Chem.rdDistGeom.ETKDGv3()
-        ps.randomSeed = 0xf00d 
+        ps.randomSeed = 0xF00D
         ps.SetBoundsMat(bounds)
         ps.useBasicKnowledge = True
         ps.pruneRmsThresh = self.options.rmsd_cutoff
 
-        logger.info(f"Generating {num_conformers} conformers with spherical constraints")
+        logger.info(
+            f"Generating {num_conformers} conformers with spherical constraints"
+        )
         Chem.rdDistGeom.EmbedMultipleConfs(mol, numConfs=num_conformers, params=ps)
 
         # Minimize the energy of each conformer to find most stable structure
@@ -1994,16 +2068,24 @@ class QFitLigand(_BaseQFit):
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
 
         for conf_id in mol.GetConformers():
-            o3a = Chem.rdMolAlign.GetCrippenO3A(mol, ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
+            o3a = Chem.rdMolAlign.GetCrippenO3A(
+                mol,
+                ligand,
+                prbCrippenContribs=mol_crippen_contribs,
+                refCrippenContribs=ligand_crippen_contribs,
+                prbCid=conf_id.GetId(),
+            )
             o3a.Align()
 
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
-        
+
         if mol.GetNumConformers() == 0:
-            logger.error(f"Spherical search generated no conformers. Moving onto next sampling function.")
+            logger.error(
+                f"Spherical search generated no conformers. Moving onto next sampling function."
+            )
         if mol.GetNumConformers() != 0:
-            # Check for internal/external clashes 
+            # Check for internal/external clashes
             logger.info("Checking for clashes with spherical constraints")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
@@ -2011,25 +2093,27 @@ class QFitLigand(_BaseQFit):
             for i, conformer in enumerate(new_conformer):
                 coords = conformer.GetPositions()
                 new_coors.append(coords)
-    
+
             new_idx_set = []
             new_coor_set = []
             new_bs = []
             # loop through each rdkit generated conformer
-            for idx, conf in enumerate(new_coors):  
+            for idx, conf in enumerate(new_coors):
                 b = self._bs
                 self.ligand.coor = conf
                 self.ligand.b = [b[0]]
                 if self.options.external_clash:
                     if not self._cd():
-                        if new_idx_set:  # if there are already conformers in new_idx_set
+                        if (
+                            new_idx_set
+                        ):  # if there are already conformers in new_idx_set
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0])
                         else:
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
-                            new_bs.append(b[0]) 
+                            new_bs.append(b[0])
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -2038,75 +2122,99 @@ class QFitLigand(_BaseQFit):
                     else:
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
-                        new_bs.append(b[0]) 
-    
-            
+                        new_bs.append(b[0])
+
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
-    
-    
+
             self._coor_set = merged_arr
             self._bs = merged_bs
-    
-            logger.info(f"After spherical search, there are {len(self._coor_set)} plausible conformers")  
-    
+
+            logger.info(
+                f"After spherical search, there are {len(self._coor_set)} plausible conformers"
+            )
+
             if len(self._coor_set) < 1:
                 logger.warning(
                     f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
                 )
                 return
-        
-        return 
+
+        return
 
     def branching_search(self):
         """
         This function is used to directly address cases where the ligand has branching disorder. Identify the atoms belonging to a branch, and fix all non-branch ligands in place
-        (by using coordinate map distance constraints). Allow the branches to randomly sample the conformational space. 
+        (by using coordinate map distance constraints). Allow the branches to randomly sample the conformational space.
         """
         # Make RDKit mol object from the ligand pdb
-        # Starting structure 
+        # Starting structure
         branching_ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
         num_branched_confs = self.num_conf_for_method
 
         # Identify the branching sections of the ligand
         side_chain = self.identify_core_and_sidechain(branching_ligand)
         side_chain_atoms = side_chain[0]
-        
+
         # Define core_atoms as all atoms not in side_chain_atoms
-        core_indices = [atom.GetIdx() for atom in branching_ligand.GetAtoms() if atom.GetIdx() not in side_chain_atoms]
+        core_indices = [
+            atom.GetIdx()
+            for atom in branching_ligand.GetAtoms()
+            if atom.GetIdx() not in side_chain_atoms
+        ]
         core_atoms = tuple(core_indices)
-        
+
         # create reference molecule from smiles string to copy the correct bond order from
         ref_mol = Chem.MolFromSmiles(self.options.smiles)
-        branching_ligand = Chem.AllChem.AssignBondOrdersFromTemplate(ref_mol, branching_ligand)
+        branching_ligand = Chem.AllChem.AssignBondOrdersFromTemplate(
+            ref_mol, branching_ligand
+        )
 
         # add hydrogens
         branching_ligand = Chem.AddHs(branching_ligand)
 
         # Create a coordinate map for the core atoms using the original ligand
-        coord_map = {idx: branching_ligand.GetConformer().GetAtomPosition(idx) for idx in core_atoms}
+        coord_map = {
+            idx: branching_ligand.GetConformer().GetAtomPosition(idx)
+            for idx in core_atoms
+        }
         # Create a copy of the molecule for conformer generation
         mol_copy = Chem.Mol(branching_ligand)
-        logger.info(f"Generating {num_branched_confs} conformers with branched sampling")
-        
+        logger.info(
+            f"Generating {num_branched_confs} conformers with branched sampling"
+        )
+
         # Generate confromers with coordinate map "fixed"
-        AllChem.EmbedMultipleConfs(mol_copy, numConfs=num_branched_confs, coordMap=coord_map, useBasicKnowledge=True)
-        
-        # Minimize energy of each conformer 
+        AllChem.EmbedMultipleConfs(
+            mol_copy,
+            numConfs=num_branched_confs,
+            coordMap=coord_map,
+            useBasicKnowledge=True,
+        )
+
+        # Minimize energy of each conformer
         logger.info("Minimizing energy of new conformers with branched sampling")
         mp = AllChem.MMFFGetMoleculeProperties(mol_copy)
         for conf_id in mol_copy.GetConformers():
             ff = AllChem.MMFFGetMoleculeForceField(mol_copy, mp, confId=conf_id.GetId())
             ff.Minimize()
 
-        # Compute Crippen contributions for both molecules to align the generated conformers to each other 
+        # Compute Crippen contributions for both molecules to align the generated conformers to each other
         logger.info("Aligning molecules with branched sampling")
-        ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(branching_ligand)
+        ligand_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(
+            branching_ligand
+        )
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol_copy)
-        # Align 
+        # Align
         for conf_id in mol_copy.GetConformers():
-            o3a = Chem.rdMolAlign.GetCrippenO3A(mol_copy, branching_ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
+            o3a = Chem.rdMolAlign.GetCrippenO3A(
+                mol_copy,
+                branching_ligand,
+                prbCrippenContribs=mol_crippen_contribs,
+                refCrippenContribs=ligand_crippen_contribs,
+                prbCid=conf_id.GetId(),
+            )
             o3a.Align()
 
         mol_copy = Chem.RemoveHs(mol_copy)
@@ -2114,7 +2222,9 @@ class QFitLigand(_BaseQFit):
 
         # Check for internal/external clashes
         if mol_copy.GetNumConformers() == 0:
-            logger.error(f"Branching search generated no conformers. Moving onto next sampling function.")
+            logger.error(
+                f"Branching search generated no conformers. Moving onto next sampling function."
+            )
         if mol_copy.GetNumConformers() != 0:
             logger.info("Checking for clashes with branched sampling")
             # Store the coordinates of each conformer into numpy array
@@ -2123,26 +2233,28 @@ class QFitLigand(_BaseQFit):
             for i, conformer in enumerate(new_conformer):
                 coords = conformer.GetPositions()
                 new_coors.append(coords)
-    
+
             new_idx_set = []
             new_coor_set = []
             new_bs = []
-            
+
             # loop through each rdkit generated conformer
-            for idx, conf in enumerate(new_coors):  
+            for idx, conf in enumerate(new_coors):
                 b = self._bs
                 self.ligand.coor = conf
                 self.ligand.b = [b[0]]
                 if self.options.external_clash:
                     if not self._cd():
-                        if new_idx_set:  # if there are already conformers in new_idx_set
+                        if (
+                            new_idx_set
+                        ):  # if there are already conformers in new_idx_set
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0])
                         else:
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
-                            new_bs.append(b[0]) 
+                            new_bs.append(b[0])
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -2151,43 +2263,54 @@ class QFitLigand(_BaseQFit):
                     else:
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
-                        new_bs.append(b[0]) 
-    
+                        new_bs.append(b[0])
+
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
-    
+
             self._coor_set = merged_arr
             self._bs = merged_bs
-            logger.info(f"After branched search, there are {len(new_coor_set)} plausible conformers")  
+            logger.info(
+                f"After branched search, there are {len(new_coor_set)} plausible conformers"
+            )
 
-            return 
+            return
 
     def long_chain_search(self):
         """
-        When ligands have long branches with a high number of internal degrees of freedom, a random sampling of the conformational space can lead to 
+        When ligands have long branches with a high number of internal degrees of freedom, a random sampling of the conformational space can lead to
         wildly undersirable configurations (i.e. the generated long branches are not supported by the density). It is useful to implement distance constraints
-        for these sections. 
+        for these sections.
         """
         # Starting strucutre from PDB
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
         # Refenerce mol from smiles, used to assign correct bond order
         ref_mol = Chem.MolFromSmiles(self.options.smiles)
         ligand = Chem.AllChem.AssignBondOrdersFromTemplate(ref_mol, ligand)
-        
-        # Identify the side chain/branched sections of the ligand 
+
+        # Identify the side chain/branched sections of the ligand
         side_chain = self.identify_core_and_sidechain(ligand)
         side_chain_atoms = side_chain[0]
 
         ligand = Chem.AddHs(ligand)
         # Set the coordinate map as the brnaches
-        coord_map = {idx: ligand.GetConformer().GetAtomPosition(idx) for idx in side_chain_atoms}
+        coord_map = {
+            idx: ligand.GetConformer().GetAtomPosition(idx) for idx in side_chain_atoms
+        }
 
         # Create a copy of the 'ligand' object to generate conformers off of. They will later be aligned to 'ligand' object
-        mol = Chem.Mol(ligand) 
-        logger.info(f"Generating {self.num_conf_for_method} conformers with long chain search")
+        mol = Chem.Mol(ligand)
+        logger.info(
+            f"Generating {self.num_conf_for_method} conformers with long chain search"
+        )
         # Generate conformers
-        AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf_for_method, coordMap=coord_map, useBasicKnowledge=True)
+        AllChem.EmbedMultipleConfs(
+            mol,
+            numConfs=self.num_conf_for_method,
+            coordMap=coord_map,
+            useBasicKnowledge=True,
+        )
 
         logger.info("Minimizing long chain conformers with long chain search")
         # Minimize the energy of each conformer to find most stable structure
@@ -2201,16 +2324,24 @@ class QFitLigand(_BaseQFit):
         mol_crippen_contribs = Chem.rdMolDescriptors._CalcCrippenContribs(mol)
 
         for conf_id in mol.GetConformers():
-            o3a = Chem.rdMolAlign.GetCrippenO3A(mol, ligand, prbCrippenContribs=mol_crippen_contribs, refCrippenContribs=ligand_crippen_contribs, prbCid=conf_id.GetId())
+            o3a = Chem.rdMolAlign.GetCrippenO3A(
+                mol,
+                ligand,
+                prbCrippenContribs=mol_crippen_contribs,
+                refCrippenContribs=ligand_crippen_contribs,
+                prbCid=conf_id.GetId(),
+            )
             o3a.Align()
 
         mol = Chem.RemoveHs(mol)
         ligand = Chem.RemoveHs(ligand)
-        
+
         if mol.GetNumConformers() == 0:
-            logger.error(f"Long chain search generated no conformers. Moving onto next sampling function.")
+            logger.error(
+                f"Long chain search generated no conformers. Moving onto next sampling function."
+            )
         if mol.GetNumConformers() != 0:
-            # Check for internal/external clashes 
+            # Check for internal/external clashes
             logger.info("Checking for clashes with long chain search")
             # Store the coordinates of each conformer into numpy array
             new_conformer = mol.GetConformers()
@@ -2218,27 +2349,29 @@ class QFitLigand(_BaseQFit):
             for i, conformer in enumerate(new_conformer):
                 coords = conformer.GetPositions()
                 new_coors.append(coords)
-    
+
             new_idx_set = []
             new_coor_set = []
             new_bs = []
             # loop through each rdkit generated conformer
-            for idx, conf in enumerate(new_coors):  
+            for idx, conf in enumerate(new_coors):
                 b = self._bs
                 self.ligand.coor = conf
                 self.ligand.b = [b[0]]
                 # self._cd()
                 if self.options.external_clash:
                     if not self._cd():
-                        if new_idx_set:  # if there are already conformers in new_idx_set
+                        if (
+                            new_idx_set
+                        ):  # if there are already conformers in new_idx_set
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
                             new_bs.append(b[0])
                         else:
                             new_idx_set.append(idx)
                             new_coor_set.append(conf)
-                            new_bs.append(b[0]) 
-                            
+                            new_bs.append(b[0])
+
                 elif not self.ligand.clashes():
                     if new_idx_set:  # if there are already conformers in new_idx_set
                         new_idx_set.append(idx)
@@ -2247,72 +2380,86 @@ class QFitLigand(_BaseQFit):
                     else:
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
-                        new_bs.append(b[0]) 
-    
+                        new_bs.append(b[0])
+
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
-    
+
             self._coor_set = merged_arr
             self._bs = merged_bs
-    
-            logger.info(f"After long chain search, there are {len(new_coor_set)} plausible conformers")  
-                    
+
+            logger.info(
+                f"After long chain search, there are {len(new_coor_set)} plausible conformers"
+            )
+
             if len(self._coor_set) < 1:
                 logger.warning(
                     f"RDKit conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
                 )
                 return
-        
-        return 
+
+        return
 
     def rot_trans(self):
         """
-        Rotate and translate all conformers that pass QP scoring for further sampling of conformational space. Rotate (by default) 15 degrees by 5 degree increments in x, y, z directions 
-        and translate 0.3 angstroms in x, y, z directions. 
+        Rotate and translate all conformers that pass QP scoring for further sampling of conformational space. Rotate (by default) 15 degrees by 5 degree increments in x, y, z directions
+        and translate 0.3 angstroms in x, y, z directions.
         """
-                
-        # Initialize empty list to store rotated/translated conformers + b-factors 
+
+        # Initialize empty list to store rotated/translated conformers + b-factors
         extended_coor_set = []
-        extended_bs = [] 
+        extended_bs = []
         rotated_coor_set = []
-        rotated_bs = []   
+        rotated_bs = []
         new_coor_set = self._coor_set
         new_bs = self._bs
 
         # rotations
         for conf, b in zip(self._coor_set, self._bs):
             # Apply rotations to each initial conformation
-            rotated_conformations = self.apply_rotations(conf, self.options.rot_range, self.options.rotation_step)
+            rotated_conformations = self.apply_rotations(
+                conf, self.options.rot_range, self.options.rotation_step
+            )
             rotated_coor_set.extend(rotated_conformations)
-            rotated_bs.extend([b] * len(rotated_conformations))  # Extend b values for each rotated conformation
+            rotated_bs.extend(
+                [b] * len(rotated_conformations)
+            )  # Extend b values for each rotated conformation
 
-        # translations 
+        # translations
         for conf, b in zip(self._coor_set, self._bs):
             # Apply translations to each conformation
-            translated_conformations = self.apply_translations(conf, self.options.trans_range)
+            translated_conformations = self.apply_translations(
+                conf, self.options.trans_range
+            )
             extended_coor_set.extend(translated_conformations)
-            extended_bs.extend([b] * len(translated_conformations))  # Extend b values for each translated conformation
+            extended_bs.extend(
+                [b] * len(translated_conformations)
+            )  # Extend b values for each translated conformation
 
-
-        self._coor_set = np.concatenate((new_coor_set, rotated_coor_set, extended_coor_set), axis=0)
+        self._coor_set = np.concatenate(
+            (new_coor_set, rotated_coor_set, extended_coor_set), axis=0
+        )
         self._bs = np.concatenate((new_bs, rotated_bs, extended_bs), axis=0)
 
-        logger.info(f"After trans/rot search, there are {len(self._coor_set)} plausible conformers")  
+        logger.info(
+            f"After trans/rot search, there are {len(self._coor_set)} plausible conformers"
+        )
 
         # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
-        
-        self._convert() 
+
+        self._convert()
         logger.info("Solving QP after trans and rot search.")
         self._solve_qp()
         logger.debug("Updating conformers after trans and rot search.")
         self._update_conformers()
         # self._write_intermediate_conformers(prefix="trans_rot_sol")
 
-        logger.info(f"After rotation and translation QP there are {len(self._coor_set)} conformers")
-
+        logger.info(
+            f"After rotation and translation QP there are {len(self._coor_set)} conformers"
+        )
 
         if len(self._coor_set) < 1:
             logger.warning(
@@ -2325,6 +2472,7 @@ class QFitLigand(_BaseQFit):
         For each conformer, rotate the molecule 180 degrees around each axis (x, y, z),
         and then apply further rotations within +/- 5 degrees.
         """
+
         def define_axes_through_PCA(coor_set):
             """
             Determine the principal component axes for the given set of coordinates.
@@ -2343,24 +2491,27 @@ class QFitLigand(_BaseQFit):
             return Vt.T  # Return the principal axes
 
         def rotation_matrix_180(axis):
-            """ Generate a rotation matrix for 180 degrees around a given axis. """
+            """Generate a rotation matrix for 180 degrees around a given axis."""
             axis = axis / np.linalg.norm(axis)  # Ensure the axis is a unit vector
             return np.eye(3) - 2 * np.outer(axis, axis)
-        
+
         def apply_rotation(conf, R):
-            """ Apply rotation matrix R to the conformation. """
+            """Apply rotation matrix R to the conformation."""
             centroid = np.mean(conf, axis=0)
             centered_conf = conf - centroid
             rotated_conf = np.dot(centered_conf, R) + centroid
             return rotated_conf
 
-   
-        coor_set = self._starting_coor_set[0]  
+        coor_set = self._starting_coor_set[0]
         # Get the principal axes
         principal_axes = define_axes_through_PCA(coor_set)
 
         # Extract each principal axis
-        x_axis, y_axis, z_axis = principal_axes[:, 0], principal_axes[:, 1], principal_axes[:, 2]
+        x_axis, y_axis, z_axis = (
+            principal_axes[:, 0],
+            principal_axes[:, 1],
+            principal_axes[:, 2],
+        )
 
         # Rotation matrices for 180 degree rotations around each principal axis
         Rx = rotation_matrix_180(x_axis)
@@ -2369,9 +2520,9 @@ class QFitLigand(_BaseQFit):
 
         new_coor = []
         new_bs = []
-     
+
         # Apply these rotations to input conformation
-        logger.info(f"180 degree flipping input ligand")  
+        logger.info(f"180 degree flipping input ligand")
         for conf, b in zip(self._starting_coor_set, self._starting_bs):
             # Rotate around each principal axis and extend new_coor and new_bs
             for Rot in [Rx, Ry, Rz]:
@@ -2381,15 +2532,13 @@ class QFitLigand(_BaseQFit):
                 further_rotations_plane = self.apply_rotations(flipped_conf, 10, 2)
                 new_coor.extend(further_rotations_plane)
                 new_bs.extend([b] * len(further_rotations_plane))
-    
 
-        logger.info(f"Generated {len(new_coor)} flipped conformers") 
+        logger.info(f"Generated {len(new_coor)} flipped conformers")
 
         self._coor_set = np.array(new_coor)
         self._bs = np.array(new_bs)
-                    
-        logger.info(f"After Clash Check {len(new_coor)} flipped conformers") 
 
+        logger.info(f"After Clash Check {len(new_coor)} flipped conformers")
 
         if len(self._coor_set) < 1:
             logger.warning(
