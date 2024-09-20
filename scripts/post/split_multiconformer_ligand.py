@@ -29,7 +29,9 @@ from qfit.structure.ligand import _Ligand
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
-    p.add_argument("--residue", type=str, help="Chain_ID, Residue_ID for RSCC to be calculated on")
+    p.add_argument(
+        "--residue", type=str, help="Chain_ID, Residue_ID for RSCC to be calculated on"
+    )
     p.add_argument(
         "-d",
         "--directory",
@@ -42,7 +44,7 @@ def parse_args():
         "--output_name",
         type=str,
         required=True,
-        help="This will affect the output file naming."
+        help="This will affect the output file naming.",
     )
 
     args = p.parse_args()
@@ -57,11 +59,11 @@ chainid, resi = args.residue.split(",")
 
 # Extract the ligand and altlocs
 structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
-altlocs = sorted(set(structure_ligand.altloc) - {''})
+altlocs = sorted(set(structure_ligand.altloc) - {""})
 
 # Handle the case where there are no alternate locations
 if not altlocs:
-    altlocs = ['']  # This will handle the default case
+    altlocs = [""]  # This will handle the default case
 
 # Extract the common part of the ligand (without alternate locations)
 common_structure = structure_ligand.extract("altloc ''")
@@ -81,7 +83,6 @@ for altloc in altlocs:
         for atom, occupancy in zip(structure_altloc, occupancies):
             atom.q = occupancy
 
-
     else:
         # structure_altloc = structure_ligand
         structure_altloc = common_structure
@@ -93,16 +94,22 @@ for altloc in altlocs:
         link_data=structure_altloc.link_data,
     )
     ligand.altloc = ""
-    #ligand.q = 1
+    # ligand.q = 1
 
     # Create a file name for the current altloc
     exte = ".pdb"
-    output_name_prefix = args.output_name  # Set the prefix to 'qfit' or 'depo' based on output_name
+    output_name_prefix = (
+        args.output_name
+    )  # Set the prefix to 'qfit' or 'depo' based on output_name
 
     if altloc:
-        ligand_name = os.path.join(args.directory, f"{output_name_prefix}_ligand_{altloc}{exte}")
+        ligand_name = os.path.join(
+            args.directory, f"{output_name_prefix}_ligand_{altloc}{exte}"
+        )
     else:
-        ligand_name = os.path.join(args.directory, f"{output_name_prefix}_ligand_A{exte}")
+        ligand_name = os.path.join(
+            args.directory, f"{output_name_prefix}_ligand_A{exte}"
+        )
 
     # Save the file
     print(f"saving: {ligand}")
