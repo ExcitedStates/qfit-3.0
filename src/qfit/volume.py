@@ -68,7 +68,6 @@ class _BaseVolume:
 
 
 class EMMap(_BaseVolume):
-
     """A non-periodic volume. Has no notion of a unit cell or space group."""
 
     def __init__(self, array, grid_parameters=None, origin=(0, 0, 0)):
@@ -122,7 +121,6 @@ class EMMap(_BaseVolume):
 
 
 class XMap(_BaseVolume):
-
     """A periodic volume with a unit cell and space group."""
 
     def __init__(
@@ -360,7 +358,6 @@ class XMap(_BaseVolume):
 
 
 class ASU:
-
     """Assymetric Unit Cell"""
 
     def __init__(
