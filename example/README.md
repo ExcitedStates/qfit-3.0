@@ -9,6 +9,8 @@ To generate a composite omit map, we recommend running the following command fro
 `qfit_protein [COMPOSITE_OMIT_MAP_FILE] -l [LABELS] [PDB_FILE] --residue [CHAIN,RESIDUE]`
 
 Using the example 1G8A:
+
+
 `qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_residue_example/1G8A_refine.pdb --residue A,58`
 
 This will produce a multiconformer model of residue 58 of chain A of 1G8A. 
