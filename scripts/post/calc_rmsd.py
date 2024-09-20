@@ -31,19 +31,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-    structure1 = Structure.fromfile(args.structure1) # conformer 1
-    structure2 = Structure.fromfile(args.structure2) # confromer 2
+    structure1 = Structure.fromfile(args.structure1)  # conformer 1
+    structure2 = Structure.fromfile(args.structure2)  # confromer 2
     structure1_coor_set = [structure1.coor]
     structure2_coor_set = [structure2.coor]
 
-    rmsd=calc_rmsd(structure1_coor_set[0], structure2_coor_set[0])
+    rmsd = calc_rmsd(structure1_coor_set[0], structure2_coor_set[0])
     print(rmsd)
 
     # Create a DataFrame to store the result
-    rmsd_data = pd.DataFrame({
-        'pdb': [args.pdb],
-        'rmsd': [rmsd]
-    })
+    rmsd_data = pd.DataFrame({"pdb": [args.pdb], "rmsd": [rmsd]})
 
     # Write to CSV file, name the file as {pdb}_rmsd.csv
     output_file = f"{args.pdb}_rmsd.csv"
