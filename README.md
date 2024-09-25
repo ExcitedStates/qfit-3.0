@@ -32,7 +32,7 @@ We recommend using the _conda_ package manager to install _qFit_.
    
 3. Create the Conda environment using the downloaded file:
 
-   conda env create -f environment.yml
+   mamba env create -f environment.yml
 
 4. After creating the Conda environment, activate it:
 
