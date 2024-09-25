@@ -1,6 +1,5 @@
 name: qfit
 
-channel_priority: strict
 channels:
   - conda-forge
   
