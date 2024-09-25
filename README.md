@@ -26,7 +26,7 @@ We recommend using the _conda_ package manager to install _qFit_.
 
 1. Clone the latest release of the qFit source, and install to your conda env
 
-   bash git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
    
    cd qfit-3.0
    
