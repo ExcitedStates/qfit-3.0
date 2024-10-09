@@ -85,7 +85,7 @@ if [ -z "${xray_data_labels}" ]; then
 else
   echo "data labels: ${xray_data_labels}"
   # Start writing refinement parameters into a parameter file
-  echo "input.xray_data.label=$xray_data_labels" > ${pdb_name}_refine.params
+  echo "data_manager.miller_array.labels.name=$xray_data_labels" > ${pdb_name}_refine.params
 fi
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
@@ -140,7 +140,7 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=False" \
                "refinement.output.write_maps=False" \
-               "input.xray_data.label=${xray_data_labels}" \
+               "data_manager.miller_array.labels.name=${xray_data_labels}" \
                "xray_data.r_free_flags.generate=True" \
                --overwrite
 
