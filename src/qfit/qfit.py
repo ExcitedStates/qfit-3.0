@@ -483,8 +483,12 @@ class _BaseQFit:
 
         logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
 
-    def _write_intermediate_conformers(self, prefix="conformer"):
-        for n, coor in enumerate(self._coor_set):
+    def _write_intermediate_conformers(self, prefix="conformer", coord_array=None):
+        # Use coord_array if provided, otherwise use self._coor_set
+        if coord_array is None:
+            coord_array = self._coor_set
+
+        for n, coor in enumerate(coord_array):
             self.conformer.coor = coor
             fname = os.path.join(self.directory_name, f"{prefix}_{n}.pdb")
 
@@ -1686,7 +1690,8 @@ class QFitLigand(_BaseQFit):
         self._convert()
         logger.info("Solving QP within run.")
         self._solve_qp()
-        # self._write_intermediate_conformers(prefix="pre_qp")
+        if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(prefix="pre_qp")
         logger.debug("Updating conformers within run.")
         self._update_conformers()
 
@@ -1740,7 +1745,6 @@ class QFitLigand(_BaseQFit):
 
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
-        # self._write_intermediate_conformers(prefix="miqp_solution")
 
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
@@ -1841,7 +1845,10 @@ class QFitLigand(_BaseQFit):
                         new_idx_set.append(idx)
                         new_coor_set.append(conf)
                         new_bs.append(b[0])
-
+            
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("unconstrained_sol", new_coor_set)
+                
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
@@ -1978,6 +1985,9 @@ class QFitLigand(_BaseQFit):
                         new_coor_set.append(conf)
                         new_bs.append(b[0])
 
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("terminal_atoms", new_coor_set)
+                
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
@@ -2124,6 +2134,9 @@ class QFitLigand(_BaseQFit):
                         new_coor_set.append(conf)
                         new_bs.append(b[0])
 
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("blob", new_coor_set)
+                
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
@@ -2265,6 +2278,9 @@ class QFitLigand(_BaseQFit):
                         new_coor_set.append(conf)
                         new_bs.append(b[0])
 
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("branching", new_coor_set)
+                
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
@@ -2382,6 +2398,9 @@ class QFitLigand(_BaseQFit):
                         new_coor_set.append(conf)
                         new_bs.append(b[0])
 
+            if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("long_chain", new_coor_set)
+                
             # Save new conformers to self
             merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
             merged_bs = np.concatenate((self._bs, new_bs), axis=0)
@@ -2449,7 +2468,10 @@ class QFitLigand(_BaseQFit):
         # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
-
+            
+        if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers(prefix="trans_rot_sol")
+            
         self._convert()
         logger.info("Solving QP after trans and rot search.")
         self._solve_qp()
@@ -2535,6 +2557,9 @@ class QFitLigand(_BaseQFit):
 
         logger.info(f"Generated {len(new_coor)} flipped conformers")
 
+        if self.options.write_intermediate_conformers:
+                self._write_intermediate_conformers("flip_180", new_coor)
+            
         self._coor_set = np.array(new_coor)
         self._bs = np.array(new_bs)
 
