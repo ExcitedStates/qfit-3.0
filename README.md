@@ -45,6 +45,9 @@ We recommend using the _conda_ package manager to install _qFit_.
    
      conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
      conda activate qfit
+
+6. Install qFit
+   pip install .
    
 
 ### Advanced
