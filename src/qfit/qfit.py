@@ -699,7 +699,7 @@ class QFitRotamericResidue(_BaseQFit):
 
         # Set up the clash detector, exclude the bonded interaction of the N and
         # C atom of the residue
-        if len(self.structure) != len(self.residue):
+        if len(self.structure.record) != len(self.residue.record): #if residue == structure, then we do not need clash detector
             self._setup_clash_detector()
         if options.subtract:
             self._subtract_transformer(self.residue, self.structure)
