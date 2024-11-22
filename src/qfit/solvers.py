@@ -203,31 +203,54 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         assert len(self.weights) == self.nconformers
 
     def solve_miqp(self, threshold=0, cardinality=0):
-        if self.quad_obj is None or self.lin_obj is None:
-            self.compute_quadratic_coeffs()
+        if False:
+            print("Performing using MIQP")
+            if self.quad_obj is None or self.lin_obj is None:
+                self.compute_quadratic_coeffs()
 
-        m = len(self.valid_indices)
-        P = self.quad_obj
-        q = self.lin_obj
+            m = len(self.valid_indices)
+            P = self.quad_obj
+            q = self.lin_obj
 
-        w = cp.Variable(m)
-        z = cp.Variable(m, boolean=True)
-        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
-        constraints = [np.ones(m).T @ w <= 1]
-        if threshold:
-            constraints += [w - z <= 0, w >= threshold * z]
-            # The first constraint requires w_i to be zero if z_i is
-            # The second requires that each non-zero w_i is greater than the threshold
-        if cardinality:
-            constraints += [w - z <= 0, np.ones(m).T @ z <= cardinality]
-        prob = cp.Problem(objective, constraints)
-        prob.solve(solver="SCIP")
-        self.objective_value = prob.value
-        # I'm not sure why objective_values is calculated this way, but doing
-        # so to be compatible with the former CPLEXSolver class
-        self._objective_value = 2 * prob.value + self.target.T @ self.target
-        self._weights = w.value
-        self.construct_weights()
+            w = cp.Variable(m)
+            z = cp.Variable(m, boolean=True)
+            objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
+            constraints = [np.ones(m).T @ w <= 1]
+            if threshold:
+                constraints += [w - z <= 0, w >= threshold * z]
+                # The first constraint requires w_i to be zero if z_i is
+                # The second requires that each non-zero w_i is greater than the threshold
+            if cardinality:
+                constraints += [w - z <= 0, np.ones(m).T @ z <= cardinality]
+            prob = cp.Problem(objective, constraints)
+            prob.solve(solver="SCIP")
+            self.objective_value = prob.value
+            # I'm not sure why objective_values is calculated this way, but doing
+            # so to be compatible with the former CPLEXSolver class
+            self._objective_value = 2 * prob.value + self.target.T @ self.target
+            self._weights = w.value
+            self.construct_weights()
+        else:
+            print("Performing using Custom MIQP")
+            m = self.models.shape[0]
+            w = cp.Variable(self.models.shape[0])
+            z = cp.Variable(m, boolean=True)
+
+            cost = cp.norm1(self.models.T @ w - self.target.squeeze())
+            objective = cp.Minimize(cost)
+            constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
+            constraints = [np.ones(m).T @ w <= 1]
+            if threshold:
+                constraints += [w - z <= 0, w >= threshold * z]
+                # The first constraint requires w_i to be zero if z_i is
+                # The second requires that each non-zero w_i is greater than the threshold
+            if cardinality:
+                constraints += [w - z <= 0, np.ones(m).T @ z <= cardinality]
+            prob = cp.Problem(objective, constraints)
+            prob.solve()
+            self._objective_value = prob.value 
+            self._weights = w.value
+            self.construct_weights()    
 
     def solve_qp(self, split_threshold=3000):
         if self.quad_obj is None or self.lin_obj is None:
@@ -236,23 +259,38 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         valid_conformers = len(self.valid_indices)
         self._weights = np.zeros(valid_conformers)
         splits = valid_conformers // split_threshold + 1  # number of splits
-        for split in range(splits):
-            # take every splits-th element with split as an offset, guaranteeing full coverage
-            P = self.quad_obj[split::splits, split::splits]
-            q = self.lin_obj[split::splits]
-            m = len(P)
-            w = cp.Variable(m)
-            objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
-            constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
-            prob = cp.Problem(objective, constraints)
-            prob.solve()
-            # I'm not sure why objective_values is calculated this way, but doing
-            # so to be compatible with the former CPLEXSolver class
-            self._objective_value += 2 * prob.value + self.target.T @ self.target
-            self._objective_value /= splits
-            self._weights[split::splits] = w.value / splits
-        self.construct_weights()
-
+        if False:
+            print("Performing using QP")
+            for split in range(splits):
+                # take every splits-th element with split as an offset, guaranteeing full coverage
+                P = self.quad_obj[split::splits, split::splits]
+                q = self.lin_obj[split::splits]
+                m = len(P)
+                w = cp.Variable(m)
+                objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
+                constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
+                prob = cp.Problem(objective, constraints)
+                prob.solve()
+                # I'm not sure why objective_values is calculated this way, but doing
+                # so to be compatible with the former CPLEXSolver class
+                self._objective_value += 2 * prob.value + self.target.T @ self.target
+                self._objective_value /= splits
+                self._weights= w.value 
+            self.construct_weights()
+        else:
+            print("Performing using Custom QP")
+            for split in range(splits):
+                m = self.models.shape[0]
+                w = cp.Variable(self.models.shape[0])
+                cost = cp.norm1(self.models.T @ w - self.target.squeeze())
+                objective = cp.Minimize(cost)
+                constraints = [w >= np.zeros(m), np.ones(m).T @ w <= 1]
+                prob = cp.Problem(objective, constraints)
+                prob.solve()
+                self._objective_value += prob.value
+                self._objective_value /= splits
+                self._weights = w.value / splits
+            self.construct_weights()
 
 ###############################
 # Helper methods
