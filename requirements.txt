@@ -1,6 +1,6 @@
 numpy
 cvxpy
-pyscipopt
+pyscipopt==5.1.1
 scipy
 scikit-learn
 rdkit
