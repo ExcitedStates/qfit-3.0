@@ -327,7 +327,7 @@ class _BaseQFit:
         threshold,
         loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
-        segment=None,
+        segment=None, intermediate=None
     ):
         # set loop range differently for EM
         if self.options.em:
@@ -335,6 +335,8 @@ class _BaseQFit:
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
+        if intermediate:
+            loop_range = [0.2]
 
         # Create solver
         logger.info("Solving MIQP")
@@ -1270,6 +1272,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._solve_miqp(
                     threshold=self.options.threshold,
                     cardinality=self.options.cardinality,
+                    terminal=False, do_BIC_selection=False
                 )
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
