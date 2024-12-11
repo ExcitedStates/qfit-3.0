@@ -5,6 +5,6 @@ requires = [
 	"setuptools_scm",
 	"numpy>=1.20,<2",
 	"cvxpy",
-	"pyscipopt",
+	"pyscipopt>=5.1.1",
 ]
 build-backend = "setuptools.build_meta"
