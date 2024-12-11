@@ -8,7 +8,8 @@ dependencies:
   - numpy>=1.20,<2
   - scipy>=1.0
   - cvxpy
-  - pyscipopt==5.1.1
+  - pyscipopt
+  - scip==9.1
   - pandas>=1.2
   - pyparsing>=2.2.0
   - cvxopt
