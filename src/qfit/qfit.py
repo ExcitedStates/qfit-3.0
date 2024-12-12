@@ -327,7 +327,7 @@ class _BaseQFit:
         threshold,
         loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
-        segment=None, intermediate=None
+        segment=None, terminal=True
     ):
         # set loop range differently for EM
         if self.options.em:
@@ -335,8 +335,9 @@ class _BaseQFit:
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
-        if intermediate:
+        if terminal ==  False:
             loop_range = [0.2]
+            do_BIC_slection = False
 
         # Create solver
         logger.info("Solving MIQP")
@@ -1717,7 +1718,7 @@ class QFitLigand(_BaseQFit):
         if not self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options._ligand_cardinality,
+                cardinality=self.options._ligand_cardinality, do_BIC_selection=False
             )
         self._update_conformers()
 
