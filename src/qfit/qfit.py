@@ -1032,8 +1032,8 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-
-   def _sample_sidechain(self, version=1):
+    
+    def _sample_sidechain(self, version=1):
         opt = self.options
         start_chi_index = 1
         
