@@ -1187,7 +1187,7 @@ class QFitRotamericResidue(_BaseQFit):
 
                 if len(self._coor_set) <= 10000:
                     # If <15000 conformers are generated, QP score conformer occupancy normally
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1213,7 +1213,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs = section_1_bs
 
                     # QP score the first section
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1230,7 +1230,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs = section_2_bs
 
                     # QP score the second section
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1250,7 +1250,7 @@ class QFitRotamericResidue(_BaseQFit):
 
                 # MIQP score conformer occupancy
                 self.sample_b()
-                self._convert(stride_, pool_size_)
+                self._convert()
                 self._solve_miqp(
                     threshold=self.options.threshold,
                     cardinality=self.options.cardinality,
