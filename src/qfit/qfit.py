@@ -1033,31 +1033,18 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
 
-    def _sample_sidechain(self, version=1):
+   def _sample_sidechain(self, version=1):
         opt = self.options
         start_chi_index = 1
-
+        
         if self.residue.resn[0] != "PRO":
-            if version == 0:
-                stride_ = 2
-                pool_size_ = 2
-                sampling_window = np.arange(
-                    -opt.rotamer_neighborhood,
-                    opt.rotamer_neighborhood,
-                    24,
-                )
-            else:
-                stride_ = 1
-                pool_size_ = 1
-                sampling_window = np.arange(
-                    -opt.rotamer_neighborhood,
-                    opt.rotamer_neighborhood + opt.dihedral_stepsize,
-                    opt.dihedral_stepsize,
-                )
+            sampling_window = np.arange(
+                -opt.rotamer_neighborhood,
+                opt.rotamer_neighborhood + opt.dihedral_stepsize,
+                opt.dihedral_stepsize,
+            )
         else:
             sampling_window = [0]
-            stride_ = 1
-            pool_size_ = 1
 
         rotamers = self.residue.rotamers
         rotamers.append(
@@ -1068,17 +1055,11 @@ class QFitRotamericResidue(_BaseQFit):
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
-
-            if version == 0:
-                end_chi_index = start_chi_index + 1
-            else:
-                if self.residue.nchi < 2:
-                    end_chi_index = start_chi_index + 1
-                else:
-                    end_chi_index = self.residue.nchi + 1
-
+            end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
-            iter_b_set = []
+            iter_b_set = (
+                []
+            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1273,7 +1254,6 @@ class QFitRotamericResidue(_BaseQFit):
                 self._solve_miqp(
                     threshold=self.options.threshold,
                     cardinality=self.options.cardinality,
-                    terminal=False, do_BIC_selection=False
                 )
                 self._update_conformers()
                 if self.options.write_intermediate_conformers:
