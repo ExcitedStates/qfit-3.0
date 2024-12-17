@@ -262,7 +262,7 @@ class _BaseQFit:
         # Subtract the density:
         self.xmap.array -= self._subtransformer.xmap.array
 
-    def _convert(self, stride=1, pool_size=1):  # default is to manipulate the maps
+    def _convert(self):  # default is to manipulate the maps
         """Convert structures to densities and extract relevant values for (MI)QP."""
         logger.info("Converting conformers to density")
         logger.debug("Masking")
@@ -276,38 +276,18 @@ class _BaseQFit:
         nvalues = mask.sum()
         self._target = self.xmap.array[mask]
 
-        # For a 1D array, we adjust our pooling approach
-        pooled_values = []
-        for i in range(0, len(self._target), stride):
-            # Extract the current window for pooling
-            current_window = self._target[i : i + pool_size]
-            # Perform max pooling on the current window and append the max value to pooled_values
-            if len(current_window) > 0:  # Ensure the window is not empty
-                pooled_values.append(np.max(current_window))
-
-        # Convert pooled_values back to a numpy array
-        self._target = np.array(pooled_values)
-
         logger.debug("Density")
         nmodels = len(self._coor_set)
-        maxpool_size = len(range(0, nvalues, stride))
-        self._models = np.zeros((nmodels, maxpool_size), float)
+        self._models = np.zeros((nmodels, nvalues), float)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
             self._transformer.density()
             model = self._models[n]
-            # Apply maxpooling to the map similar to self._target
-            map_values = self._transformer.xmap.array[mask]
-            pooled_map_values = []
-            for i in range(0, len(map_values), stride):
-                current_window = map_values[i : i + pool_size]
-                if len(current_window) > 0:
-                    pooled_map_values.append(np.max(current_window))
-            model[:] = np.array(pooled_map_values)
+            model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
-
+    
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
@@ -327,7 +307,7 @@ class _BaseQFit:
         threshold,
         loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
         do_BIC_selection=None,
-        segment=None,
+        segment=None, terminal=True
     ):
         # set loop range differently for EM
         if self.options.em:
@@ -335,6 +315,9 @@ class _BaseQFit:
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
+        if terminal ==  False:
+            loop_range = [0.2]
+            do_BIC_slection = False
 
         # Create solver
         logger.info("Solving MIQP")
@@ -1029,32 +1012,19 @@ class QFitRotamericResidue(_BaseQFit):
         logger.debug(f"Bond angle sampling generated {len(self._coor_set)} conformers.")
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
-
+    
     def _sample_sidechain(self, version=1):
         opt = self.options
         start_chi_index = 1
-
+        
         if self.residue.resn[0] != "PRO":
-            if version == 0:
-                stride_ = 2
-                pool_size_ = 2
-                sampling_window = np.arange(
-                    -opt.rotamer_neighborhood,
-                    opt.rotamer_neighborhood,
-                    24,
-                )
-            else:
-                stride_ = 1
-                pool_size_ = 1
-                sampling_window = np.arange(
-                    -opt.rotamer_neighborhood,
-                    opt.rotamer_neighborhood + opt.dihedral_stepsize,
-                    opt.dihedral_stepsize,
-                )
+            sampling_window = np.arange(
+                -opt.rotamer_neighborhood,
+                opt.rotamer_neighborhood + opt.dihedral_stepsize,
+                opt.dihedral_stepsize,
+            )
         else:
             sampling_window = [0]
-            stride_ = 1
-            pool_size_ = 1
 
         rotamers = self.residue.rotamers
         rotamers.append(
@@ -1065,17 +1035,11 @@ class QFitRotamericResidue(_BaseQFit):
             chis_to_sample = opt.dofs_per_iteration
             if iteration == 0 and (opt.sample_backbone or opt.sample_angle):
                 chis_to_sample = max(1, opt.dofs_per_iteration - 1)
-
-            if version == 0:
-                end_chi_index = start_chi_index + 1
-            else:
-                if self.residue.nchi < 2:
-                    end_chi_index = start_chi_index + 1
-                else:
-                    end_chi_index = self.residue.nchi + 1
-
+            end_chi_index = min(start_chi_index + chis_to_sample, self.residue.nchi + 1)
             iter_coor_set = []
-            iter_b_set = []
+            iter_b_set = (
+                []
+            )  # track b-factors so that they can be reset along with the coordinates if too many conformers are generated
             for chi_index in range(start_chi_index, end_chi_index):
                 # Set active and passive atoms, since we are iteratively
                 # building up the sidechain. This updates the internal
@@ -1203,7 +1167,7 @@ class QFitRotamericResidue(_BaseQFit):
 
                 if len(self._coor_set) <= 10000:
                     # If <15000 conformers are generated, QP score conformer occupancy normally
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1229,7 +1193,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs = section_1_bs
 
                     # QP score the first section
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1246,7 +1210,7 @@ class QFitRotamericResidue(_BaseQFit):
                     self._bs = section_2_bs
 
                     # QP score the second section
-                    self._convert(stride_, pool_size_)
+                    self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     if self.options.write_intermediate_conformers:
@@ -1266,7 +1230,7 @@ class QFitRotamericResidue(_BaseQFit):
 
                 # MIQP score conformer occupancy
                 self.sample_b()
-                self._convert(stride_, pool_size_)
+                self._convert()
                 self._solve_miqp(
                     threshold=self.options.threshold,
                     cardinality=self.options.cardinality,
@@ -1729,7 +1693,7 @@ class QFitLigand(_BaseQFit):
         if not self.options.ligand_bic:
             self._solve_miqp(
                 threshold=self.options.threshold,
-                cardinality=self.options._ligand_cardinality,
+                cardinality=self.options._ligand_cardinality, do_BIC_selection=False
             )
         self._update_conformers()
 
