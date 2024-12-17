@@ -1616,6 +1616,21 @@ class QFitLigand(_BaseQFit):
             ligand, receptor, scaling_factor=self.options.clash_scaling_factor
         )
 
+        # set up clash detector with receptor symmetry mates include 
+        receptor_starting_coor = self.structure.coor.copy()
+        iterator = self.xmap.unit_cell.iter_struct_orth_symops
+        for symop in iterator(self.structure, target=self.ligand, cushion=5): # loop through sym mate operations
+            self.structure.rotate(symop.R) # rotate
+            self.structure.translate(symop.t) # translate
+            sym_receptor = receptor.combine(self.structure) # add symm mate operation to the receptor
+            self.structure.coor = receptor_starting_coor # reset self.structure.coor
+
+        self._sym_mate_cd = ClashDetector(
+            ligand,
+            sym_receptor,
+            scaling_factor=self.options.clash_scaling_factor,
+        )
+
         # Initialize the transformer
         if options.subtract:
             self._subtract_transformer(self.ligand, self.receptor)
@@ -1747,6 +1762,28 @@ class QFitLigand(_BaseQFit):
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix="miqp_solution")
 
+        # run symmetry mate clash detector on all conformers out of MIQP
+        miqp_coor_set = self._coor_set
+        final_idx_set = []
+        final_coor_set = []
+        final_bs = []
+
+        for idx, conf in enumerate(miqp_coor_set):
+            b = self._bs
+            self.ligand.coor = conf
+            self.ligand.b = [b[0]]
+            if not self._sym_mate_cd():
+                if final_idx_set: 
+                    final_idx_set.append(idx)
+                    final_coor_set.append(conf)
+                    final_bs.append(b[0])
+                else: 
+                    final_idx_set.append(idx)
+                    final_coor_set.append(conf)
+                    final_bs.append(b[0])
+        self._coor_set = final_coor_set
+        self._bs = final_bs
+    
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
     def random_unconstrained(self):

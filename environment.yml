@@ -9,6 +9,7 @@ dependencies:
   - scipy>=1.0
   - cvxpy
   - pyscipopt
+  - scip==9.1
   - pandas>=1.2
   - pyparsing>=2.2.0
   - cvxopt
