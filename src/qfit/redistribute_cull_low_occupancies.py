@@ -190,6 +190,7 @@ def redistribute_occupancies_by_residue(residue, cutoff):
             redistribution on
         cutoff (float): occupancy threshold
     """
+
     altconfs = dict(
         (agroup.id[1], agroup) for agroup in residue.atom_groups if agroup.id[1] != ""
     )
@@ -199,26 +200,30 @@ def redistribute_occupancies_by_residue(residue, cutoff):
     confs_high = [alt for alt in altconfs.keys() if alt not in confs_low]
 
     # Describe occupancy redistribution intentions
-    print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
-    print(
+    #print(f"{residue.parent.id}/{residue.resn[-1]}{''.join(map(str, residue.id))}")
+    if confs_low:
+      print(
         f"  {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_low]} "
         f"→ {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}"
-    )
+      )
+
+    if len(altconfs) == 0:
+       return residue
 
     # Redistribute occupancy
     if len(confs_high) == 1:
         altconfs[confs_high[0]].q = 1.0
         altconfs[confs_high[0]].altloc = ""
     else:
-        sum_q_high = sum(altconfs[target].q[-1] for target in confs_high)
-        for target in confs_high:
-            q_high = altconfs[target].q[-1]
-            for source in confs_low:
-                q_low = altconfs[source].q[-1]
-                altconfs[target].q += q_low * q_high / sum_q_high
+        q_high = [altconfs[target].q[-1] for target in confs_high]
+        redistributed_occupancies = redistribute_array(q_high)
 
-    # Describe occupancy redistribution results
-    print(f"  ==> {[(alt, round(altconfs[alt].q[-1], 2)) for alt in confs_high]}")
+        # Reassign occupancies to conformers
+        for n, target in enumerate(confs_high):
+            altconfs[target].q = redistributed_occupancies[n]
+
+    return residue
+
 
 
 def main():
