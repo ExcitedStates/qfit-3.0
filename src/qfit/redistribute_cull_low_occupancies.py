@@ -34,6 +34,19 @@ def parse_args():
 
     return args
 
+def redistribute_array(arr):
+    total_sum = np.sum(arr)
+
+    # Using numpy's round function
+    scaled_arr = [np.round(x / total_sum, 2) for x in arr]
+
+    new_sum = np.sum(scaled_arr)
+    if new_sum < 1:
+        diff = 1 - new_sum
+        max_index = np.argmax(scaled_arr)
+        scaled_arr[max_index] += diff
+
+    return scaled_arr
 
 def remove_redistribute_conformer(residue, remove, keep):
     """Redistributes occupancy from altconfs below cutoff to above cutoff.
