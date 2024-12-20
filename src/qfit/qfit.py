@@ -765,8 +765,7 @@ class QFitRotamericResidue(_BaseQFit):
             self._sample_angle()
 
         if self.residue.nchi >= 1 and self.options.sample_rotamers:
-            self._sample_sidechain(version=0)
-            self._sample_sidechain(version=1)
+            self._sample_sidechain()
 
         # Check that there are no self-clashes within a conformer
         self.residue.active = True
@@ -1013,7 +1012,7 @@ class QFitRotamericResidue(_BaseQFit):
         if self.options.write_intermediate_conformers:
             self._write_intermediate_conformers(prefix=f"sample_angle")
     
-    def _sample_sidechain(self, version=1):
+    def _sample_sidechain(self):
         opt = self.options
         start_chi_index = 1
         
