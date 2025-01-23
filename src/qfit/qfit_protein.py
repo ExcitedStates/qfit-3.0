@@ -458,6 +458,8 @@ class QFitProtein:
 
         # Extract non-protein atoms
         self.hetatms = self.structure.extract("record", "HETATM", "==")
+        self.hetatms = self.hetatms.combine(self.structure.extract("resn", "UNK", "==")) #add unknown residues to hetatms to be added to output model
+        
         waters = self.structure.extract("record", "ATOM", "==")
         waters = waters.extract("resn", "HOH", "==")
         self.hetatms = self.hetatms.combine(waters)
