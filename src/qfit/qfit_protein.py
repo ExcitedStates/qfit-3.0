@@ -458,11 +458,9 @@ class QFitProtein:
 
         # Extract non-protein atoms
         self.hetatms = self.structure.extract("record", "HETATM", "==")
-        self.hetatms = self.hetatms.combine(self.structure.extract("resn", "UNK", "==")) #add unknown residues to hetatms to be added to output model
-        
-        waters = self.structure.extract("record", "ATOM", "==")
-        waters = waters.extract("resn", "HOH", "==")
+        waters = self.structure.extract("resn", "HOH", "==")
         self.hetatms = self.hetatms.combine(waters)
+        hetatms = self.hetatms
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
@@ -617,18 +615,22 @@ class QFitProtein:
         else:
             # Otherwise, run this in the MainProcess
             for residue in residues_to_sample:
-                try:
-                    result = QFitProtein._run_qfit_residue(
-                        residue=residue,
-                        structure=self.structure,
-                        xmap=self.get_map_around_substructure(residue),
-                        options=self.options,
-                        logqueue=logqueue,
-                        backbone_coor_dict=backbone_coor_dict,
-                    )
-                    _cb(result)
-                except Exception as e:
-                    _error_cb(e)
+                if residue.resn[0] not in ROTAMERS:
+                   self.hetatms = self.hetatms.combine(residue)
+                   continue
+                else:
+                    try:
+                        result = QFitProtein._run_qfit_residue(
+                            residue=residue,
+                            structure=self.structure,
+                            xmap=self.get_map_around_substructure(residue),
+                            options=self.options,
+                            logqueue=logqueue,
+                            backbone_coor_dict=backbone_coor_dict,
+                        )
+                        _cb(result)
+                    except Exception as e:
+                        _error_cb(e)
 
         # Close the progressbar
         progress.close()
