@@ -23,7 +23,7 @@ Add any other context about the problem here.
 **Software & OS Version:**
  - qFit version: [e.g. v3.1.2-2d21d4d]
  - Python version: [e.g. 3.8.2]
- - OS: [e.g. macOS 10.15.6, Ubuntu Linux 20.04, Windows 10]
+ - OS: [e.g. macOS 10.15.6, Ubuntu Linux 20.04]
 
 **Attach files:**
 - `qfit.log` (debug mode)
