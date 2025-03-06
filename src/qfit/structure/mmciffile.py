@@ -625,6 +625,111 @@ class mmCIFFile(list):
         
         return cif_file
 
+    @classmethod
+    def write(cls, fname, structure):
+        """Write a structure to a mmCIF file.
+    
+        Parameters
+        ----------
+        fname : str
+            Filename to write to
+        structure : Structure
+            A structure object to convert to mmCIF
+        """
+        cif_file = cls()
+        data_block = mmCIFData(os.path.basename(fname).split('.')[0])
+        cif_file.append(data_block)
+    
+        # Create atom_site table
+        atom_site = data_block.new_table("atom_site")
+        atom_site.set_columns([
+            "group_PDB", "id", "type_symbol", "label_atom_id", "label_alt_id",
+            "label_comp_id", "label_asym_id", "label_entity_id", "label_seq_id",
+            "pdbx_PDB_ins_code", "Cartn_x", "Cartn_y", "Cartn_z", "occupancy",
+            "B_iso_or_equiv", "auth_seq_id", "auth_comp_id", "auth_asym_id",
+            "auth_atom_id", "pdbx_PDB_model_num"
+        ])
+    
+        # Add coordinates data
+        for i in range(structure.natoms):
+            row = atom_site.new_row()
+            row["group_PDB"] = structure.record[i]
+            row["id"] = str(structure.atomid[i])
+            row["type_symbol"] = structure.e[i]
+            row["label_atom_id"] = structure.name[i]
+            row["label_alt_id"] = structure.altloc[i] if structure.altloc[i] else "."
+            row["label_comp_id"] = structure.resn[i]
+            row["label_asym_id"] = structure.chain[i]
+            row["label_entity_id"] = "1"  # Default entity ID
+            row["label_seq_id"] = str(structure.resi[i])
+            row["pdbx_PDB_ins_code"] = structure.icode[i] if structure.icode[i] else "?"
+            row["Cartn_x"] = f"{structure.x[i]:.3f}"
+            row["Cartn_y"] = f"{structure.y[i]:.3f}"
+            row["Cartn_z"] = f"{structure.z[i]:.3f}"
+            row["occupancy"] = f"{structure.q[i]:.2f}"
+            row["B_iso_or_equiv"] = f"{structure.b[i]:.2f}"
+            row["auth_seq_id"] = str(structure.resi[i])
+            row["auth_comp_id"] = structure.resn[i]
+            row["auth_asym_id"] = structure.chain[i]
+            row["auth_atom_id"] = structure.name[i]
+            row["pdbx_PDB_model_num"] = "1"
+    
+        # Add cell parameters if available
+        if hasattr(structure, "unit_cell"):
+            cell = data_block.new_table("cell")
+            cell.set_columns(["length_a", "length_b", "length_c", 
+                              "angle_alpha", "angle_beta", "angle_gamma"])
+            row = cell.new_row()
+            row["length_a"] = f"{structure.unit_cell.a:.3f}"
+            row["length_b"] = f"{structure.unit_cell.b:.3f}"
+            row["length_c"] = f"{structure.unit_cell.c:.3f}"
+            row["angle_alpha"] = f"{structure.unit_cell.alpha:.2f}"
+            row["angle_beta"] = f"{structure.unit_cell.beta:.2f}"
+            row["angle_gamma"] = f"{structure.unit_cell.gamma:.2f}"
+            
+            symmetry = data_block.new_table("symmetry")
+            symmetry.set_columns(["space_group_name_H-M"])
+            row = symmetry.new_row()
+            row["space_group_name_H-M"] = structure.unit_cell.spg
+    
+        # Add LINK records if available
+        if structure.link_data and len(structure.link_data.get('record', [])) > 0:
+            struct_conn = data_block.new_table("struct_conn")
+            struct_conn.set_columns([
+                "id", "conn_type_id", 
+                "ptnr1_auth_atom_id", "pdbx_ptnr1_label_alt_id", "ptnr1_auth_comp_id", 
+                "ptnr1_auth_asym_id", "ptnr1_auth_seq_id", "pdbx_ptnr1_PDB_ins_code",
+                "ptnr2_auth_atom_id", "pdbx_ptnr2_label_alt_id", "ptnr2_auth_comp_id", 
+                "ptnr2_auth_asym_id", "ptnr2_auth_seq_id", "pdbx_ptnr2_PDB_ins_code",
+                "pdbx_ptnr1_symmetry", "pdbx_ptnr2_symmetry", "pdbx_dist_value"
+            ])
+            
+            for i in range(len(structure.link_data['record'])):
+                row = struct_conn.new_row()
+                row["id"] = f"link{i+1}"
+                row["conn_type_id"] = structure.link_data['record'][i]
+                row["ptnr1_auth_atom_id"] = structure.link_data['name1'][i]
+                row["pdbx_ptnr1_label_alt_id"] = structure.link_data['altloc1'][i] or "."
+                row["ptnr1_auth_comp_id"] = structure.link_data['resn1'][i]
+                row["ptnr1_auth_asym_id"] = structure.link_data['chain1'][i]
+                row["ptnr1_auth_seq_id"] = str(structure.link_data['resi1'][i])
+                row["pdbx_ptnr1_PDB_ins_code"] = structure.link_data['icode1'][i] or "?"
+                row["ptnr2_auth_atom_id"] = structure.link_data['name2'][i]
+                row["pdbx_ptnr2_label_alt_id"] = structure.link_data['altloc2'][i] or "."
+                row["ptnr2_auth_comp_id"] = structure.link_data['resn2'][i]
+                row["ptnr2_auth_asym_id"] = structure.link_data['chain2'][i]
+                row["ptnr2_auth_seq_id"] = str(structure.link_data['resi2'][i])
+                row["pdbx_ptnr2_PDB_ins_code"] = structure.link_data['icode2'][i] or "?"
+                row["pdbx_ptnr1_symmetry"] = structure.link_data['sym1'][i] or "1_555"
+                row["pdbx_ptnr2_symmetry"] = structure.link_data['sym2'][i] or "1_555"
+                if structure.link_data['length'][i]:
+                    row["pdbx_dist_value"] = f"{structure.link_data['length'][i]:.2f}"
+                else:
+                    row["pdbx_dist_value"] = "?"
+        
+        # Write the CIF file
+        cif_file.save_file(fname)
+
     def _extract_data(self, block: mmCIFData) -> None:
         """Extract data from mmCIF block into PDBFile-compatible structures.
         
