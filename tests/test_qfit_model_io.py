@@ -187,11 +187,10 @@ class TestQFitProtein:
         qfit.structure = qfit.structure.extract("resi", (287, 288, 289), "==")
         assert (np.unique(qfit.structure.resi)[1]) == 288
 
-        # Test 4: Read mmCIF file and map file of cryoEM structure. To be uncommented after cctbx integration is complete
-        """
+        # Test 4: Read mmCIF file and map file of cryoEM structure. To be uncommented after cctbx integration is complete 
         args = [
             "./tests/qfit_io_test/7o9m.map",  # mapfile, using relative directory from tests/
-            "./tests/qfit_io_test/7o9m.pdb",  # structurefile, using relative directory from tests/
+            "./tests/qfit_io_test/7o9m.cif",  # structurefile, using relative directory from tests/
             #"-l", "FWT,PHWT",
         ]
 
@@ -221,7 +220,6 @@ class TestQFitProtein:
         qfit.structure = qfit.structure.extract('chain', chain, '==')
         qfit.structure = qfit.structure.extract('resi',(130,134),"==")
         assert(len(list(qfit.structure.single_conformer_residues))) == 2
-        """
 
         return qfit
 
