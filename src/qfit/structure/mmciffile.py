@@ -1,3 +1,13 @@
+"""
+mmCIF file and mmCIF dictionary parser. Files are parsed into a set of data
+structures where they can be further processed. The data structures can also
+be constructed and written back out as mmCIF. A CIF dictionary parser is also
+included as a specialized version of the mmCIF parser.
+
+Heavily modified from original PyMMLLib mmCIF.py to enable functionality 
+with qFit Structures.
+"""
+
 import re
 import copy
 import itertools
