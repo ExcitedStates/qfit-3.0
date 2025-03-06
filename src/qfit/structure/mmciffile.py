@@ -963,15 +963,26 @@ class mmCIFFileParser(object):
     """
 
     def parse_file(self, fileobj, cif_file):
+        """Parse a mmCIF file and populate the cif_file data structure.
+        
+        Parameters
+        ----------
+        fileobj : file-like object
+            The file object to parse.
+        cif_file : mmCIFFile
+            The file object to populate with parsed data.
+        """
         self.line_number = 0
         token_iter = self.gen_token_iter(fileobj)
 
         try:
             self.parse(token_iter, cif_file)
         except StopIteration:
+            # This is expected at the end of file
             pass
-        else:
-            raise mmCIFError()
+        except Exception as e:
+            # For other exceptions, raise mmCIFError
+            raise mmCIFError(f"Error parsing mmCIF file: {str(e)}")
 
     def syntax_error(self, err):
         raise mmCIFSyntaxError(self.line_number, err)
@@ -1005,201 +1016,214 @@ class mmCIFFileParser(object):
         cif_row = None
         state = ""
 
-        ## ignore anything in the input file until a reserved word is
-        ## found
-        while True:
-            tblx, colx, strx, tokx = next(token_iter)
-            if tokx is None:
-                continue
-            rword, name = self.split_token(tokx)
-            if rword is not None:
-                break
-
-        while True:
-            ##
-            ## PROCESS STATE CHANGES
-            ##
-            if tblx is not None:
-                state = "RD_SINGLE"
-
-            elif tokx is not None:
+        ## ignore anything in the input file until a reserved word is found
+        try:
+            while True:
+                tblx, colx, strx, tokx = next(token_iter)
+                if tokx is None:
+                    continue
                 rword, name = self.split_token(tokx)
-
-                if rword == "loop":
-                    state = "RD_LOOP"
-
-                elif rword == "data":
-                    state = "RD_DATA"
-
-                elif rword == "save":
-                    state = "RD_SAVE"
-
-                elif rword == "stop":
-                    return
-
-                elif rword == "global":
-                    self.syntax_error("unable to handle global_ syntax")
-
-                else:
-                    self.syntax_error("bad token #1: " + str(tokx))
-
-            else:
-                self.syntax_error("bad token #2")
-                return
-
-            ##
-            ## PROCESS DATA IN RD_SINGLE STATE
-            ##
-            if state == "RD_SINGLE":
-                try:
-                    cif_table = cif_table_cache[tblx]
-                except KeyError:
-                    cif_table = cif_table_cache[tblx] = mmCIFTable(tblx)
-
-                    try:
-                        cif_data.append(cif_table)
-                    except AttributeError:
-                        self.syntax_error("section not contained in data_ block")
-                        return
-
-                    cif_row = mmCIFRow()
-                    cif_table.append(cif_row)
-                else:
-                    try:
-                        cif_row = cif_table[0]
-                    except IndexError:
-                        self.syntax_error("bad token #3")
-                        return
-
-                ## check for duplicate entries
-                if colx in cif_table.columns:
-                    self.syntax_error("redefined subsection (column)")
-                    return
-                else:
-                    cif_table.append_column(colx)
-
-                ## get the next token from the file, it should be the data
-                ## keyed by the previous token
-                tx, cx, strx, tokx = next(token_iter)
-                if tx is not None or (strx is None and tokx is None):
-                    self.syntax_error("missing data for _%s.%s" % (tblx, colx))
-
-                if tokx is not None:
-                    ## check token for reserved words
+                if rword is not None:
+                    break
+        except StopIteration:
+            # Empty file or no data blocks
+            return
+    
+        try:
+            while True:
+                # PROCESS STATE CHANGES
+                if tblx is not None:
+                    state = "RD_SINGLE"
+                elif tokx is not None:
                     rword, name = self.split_token(tokx)
-                    if rword is not None:
-                        if rword == "stop":
-                            return
-                        self.syntax_error("unexpected reserved word: %s" % (rword))
-
-                    if tokx != ".":
-                        cif_row[colx] = tokx
-
-                elif strx is not None:
-                    cif_row[colx] = strx
-
-                else:
-                    self.syntax_error("bad token #4")
-
-                tblx, colx, strx, tokx = next(token_iter)
-                continue
-
-            ###
-            ## PROCESS DATA IN RD_LOOP STATE
-            ##
-            ## This is entered upon the beginning of a loop, and
-            ## the loop is read completely before exiting.
-            ###
-            elif state == "RD_LOOP":
-                ## the first section.subsection (tblx.colx) is read
-                ## to create the section(table) name for the entire loop
-                tblx, colx, strx, tokx = next(token_iter)
-
-                if tblx is None or colx is None:
-                    self.syntax_error("bad token #5")
-                    return
-
-                if tblx in cif_table_cache:
-                    self.syntax_error("_loop section duplication")
-                    return
-
-                cif_table = mmCIFTable(tblx)
-
-                try:
-                    cif_data.append(cif_table)
-                except AttributeError:
-                    self.syntax_error("_loop section not contained in data_ block")
-                    return
-
-                cif_table.append_column(colx)
-
-                ## read the remaining subsection definitions for the loop_
-                while True:
-                    tblx, colx, strx, tokx = next(token_iter)
-
-                    if tblx is None:
-                        break
-
-                    if tblx != cif_table.name:
-                        self.syntax_error("changed section names in loop_")
+    
+                    if rword == "loop":
+                        state = "RD_LOOP"
+                    elif rword == "data":
+                        state = "RD_DATA"
+                    elif rword == "save":
+                        state = "RD_SAVE"
+                    elif rword == "stop":
                         return
-
-                    cif_table.append_column(colx)
-
-                ## before starting to read data, check tokx for any control
-                ## tokens
-                if tokx is not None:
-                    rword, name = self.split_token(tokx)
-                    if rword is not None:
-                        if rword == "stop":
+                    elif rword == "global":
+                        self.syntax_error("unable to handle global_ syntax")
+                    else:
+                        self.syntax_error("bad token #1: " + str(tokx))
+                else:
+                    self.syntax_error("bad token #2")
+                    return
+    
+                # PROCESS DATA IN RD_SINGLE STATE
+                if state == "RD_SINGLE":
+                    try:
+                        cif_table = cif_table_cache[tblx]
+                    except KeyError:
+                        cif_table = cif_table_cache[tblx] = mmCIFTable(tblx)
+    
+                        try:
+                            cif_data.append(cif_table)
+                        except AttributeError:
+                            self.syntax_error("section not contained in data_ block")
                             return
-                        else:
-                            self.syntax_error("unexpected reserved word: %s" % (rword))
-
-                ## now read all the data
-                while True:
-                    cif_row = mmCIFRow()
-                    cif_table.append(cif_row)
-
-                    for col in cif_table.columns:
+    
+                        cif_row = mmCIFRow()
+                        cif_table.append(cif_row)
+                    else:
+                        try:
+                            cif_row = cif_table[0]
+                        except IndexError:
+                            self.syntax_error("bad token #3")
+                            return
+    
+                    # Check for duplicate entries
+                    if colx in cif_table.columns:
+                        self.syntax_error("redefined subsection (column)")
+                        return
+                    else:
+                        cif_table.append_column(colx)
+    
+                    # Get the next token from the file
+                    try:
+                        tx, cx, strx, tokx = next(token_iter)
+                        if tx is not None or (strx is None and tokx is None):
+                            self.syntax_error("missing data for _%s.%s" % (tblx, colx))
+    
                         if tokx is not None:
+                            # Check token for reserved words
+                            rword, name = self.split_token(tokx)
+                            if rword is not None:
+                                if rword == "stop":
+                                    return
+                                self.syntax_error("unexpected reserved word: %s" % (rword))
+    
                             if tokx != ".":
-                                cif_row[col] = tokx
+                                cif_row[colx] = tokx
+    
                         elif strx is not None:
-                            cif_row[col] = strx
-
+                            cif_row[colx] = strx
+                        else:
+                            self.syntax_error("bad token #4")
+                    except StopIteration:
+                        self.syntax_error("unexpected end of file")
+                        return
+    
+                    try:
                         tblx, colx, strx, tokx = next(token_iter)
-
-                    ## the loop ends when one of these conditions is met:
-                    ## condition #1: a new table is encountered
-                    if tblx is not None:
-                        break
-
-                    ## condition #2: a reserved word is encountered
-                    if tokx is not None:
-                        rword, name = self.split_token(tokx)
-                        if rword is not None:
-                            break
-
-                continue
-
-            elif state == "RD_DATA":
-                cif_data = mmCIFData(tokx[5:])
-                cif_file.append(cif_data)
-                cif_table_cache = dict()
-                cif_table = None
-
-                tblx, colx, strx, tokx = next(token_iter)
-
-            elif state == "RD_SAVE":
-                cif_data = mmCIFSave(tokx[5:])
-                cif_file.append(cif_data)
-                cif_table_cache = dict()
-                cif_table = None
-
-                tblx, colx, strx, tokx = next(token_iter)
+                    except StopIteration:
+                        return
+                    continue
+    
+                # PROCESS DATA IN RD_LOOP STATE
+                elif state == "RD_LOOP":
+                    try:
+                        # The first section.subsection (tblx.colx) is read
+                        tblx, colx, strx, tokx = next(token_iter)
+    
+                        if tblx is None or colx is None:
+                            self.syntax_error("bad token #5")
+                            return
+    
+                        if tblx in cif_table_cache:
+                            self.syntax_error("_loop section duplication")
+                            return
+    
+                        cif_table = mmCIFTable(tblx)
+    
+                        try:
+                            cif_data.append(cif_table)
+                        except AttributeError:
+                            self.syntax_error("_loop section not contained in data_ block")
+                            return
+    
+                        cif_table.append_column(colx)
+    
+                        # Read the remaining subsection definitions for the loop_
+                        while True:
+                            tblx, colx, strx, tokx = next(token_iter)
+    
+                            if tblx is None:
+                                break
+    
+                            if tblx != cif_table.name:
+                                self.syntax_error("changed section names in loop_")
+                                return
+    
+                            cif_table.append_column(colx)
+    
+                        # Before starting to read data, check tokx for control tokens
+                        if tokx is not None:
+                            rword, name = self.split_token(tokx)
+                            if rword is not None:
+                                if rword == "stop":
+                                    return
+                                else:
+                                    self.syntax_error("unexpected reserved word: %s" % (rword))
+    
+                        # Now read all the data
+                        while True:
+                            cif_row = mmCIFRow()
+                            cif_table.append(cif_row)
+    
+                            for col in cif_table.columns:
+                                if tokx is not None:
+                                    if tokx != ".":
+                                        cif_row[col] = tokx
+                                elif strx is not None:
+                                    cif_row[col] = strx
+    
+                                tblx, colx, strx, tokx = next(token_iter)
+    
+                            # The loop ends with new table or reserved word
+                            if tblx is not None:
+                                break
+    
+                            if tokx is not None:
+                                rword, name = self.split_token(tokx)
+                                if rword is not None:
+                                    break
+                    except StopIteration:
+                        return
+    
+                    continue
+    
+                elif state == "RD_DATA":
+                    cif_data = mmCIFData(tokx[5:])
+                    cif_file.append(cif_data)
+                    cif_table_cache = dict()
+                    cif_table = None
+    
+                    try:
+                        tblx, colx, strx, tokx = next(token_iter)
+                    except StopIteration:
+                        return
+    
+                elif state == "RD_SAVE":
+                    cif_data = mmCIFSave(tokx[5:])
+                    cif_file.append(cif_data)
+                    cif_table_cache = dict()
+                    cif_table = None
+    
+                    try:
+                        tblx, colx, strx, tokx = next(token_iter)
+                    except StopIteration:
+                        return
+        except StopIteration:
+            # Normal end of file
+            return
 
     def gen_token_iter(self, fileobj):
+        """Generate tokens from mmCIF file, handling end-of-file conditions properly.
+        
+        Parameters
+        ----------
+        fileobj : file-like object
+            The file object to read tokens from.
+            
+        Yields
+        ------
+        tuple
+            Token data as (table_name, column_name, string_value, token_value).
+        """
         re_tok = re.compile(
             r"(?:"
             r"(?:_(.+?)[.](\S+))"
@@ -1215,35 +1239,48 @@ class mmCIFFileParser(object):
         file_iter = iter(fileobj)
 
         ## parse file, yielding tokens for self.parser()
-        while True:
-            ln = next(file_iter)
-            self.line_number += 1
-
-            ## skip comments
-            if ln.startswith("#"):
-                continue
-
-            ## semi-colen multi-line strings
-            if ln.startswith(";"):
-                lmerge = [ln[1:]]
-                while True:
+        try:
+            while True:
+                try:
                     ln = next(file_iter)
                     self.line_number += 1
+
+                    ## skip comments
+                    if ln.startswith("#"):
+                        continue
+
+                    ## semi-colon multi-line strings
                     if ln.startswith(";"):
-                        break
-                    lmerge.append(ln)
+                        lmerge = [ln[1:]]
+                        try:
+                            while True:
+                                ln = next(file_iter)
+                                self.line_number += 1
+                                if ln.startswith(";"):
+                                    break
+                                lmerge.append(ln)
+                        except StopIteration:
+                            # Handle EOF in multiline string
+                            self.syntax_error("Unexpected end of file in multiline string")
+                            return
 
-                lmerge[-1] = lmerge[-1].rstrip()
-                yield (None, None, "".join(lmerge), None)
-                continue
+                        lmerge[-1] = lmerge[-1].rstrip()
+                        yield (None, None, "".join(lmerge), None)
+                        continue
 
-            ## split line into tokens
-            tok_iter = re_tok.finditer(ln)
+                    ## split line into tokens
+                    tok_iter = re_tok.finditer(ln)
 
-            for tokm in tok_iter:
-                groups = tokm.groups()
-                if groups != (None, None, None, None):
-                    yield groups
+                    for tokm in tok_iter:
+                        groups = tokm.groups()
+                        if groups != (None, None, None, None):
+                            yield groups
+                except StopIteration:
+                    # End of file - exit gracefully
+                    return
+        except Exception as e:
+            self.syntax_error(f"Error parsing file: {str(e)}")
+
 
 class mmCIFFileWriter(object):
     """Writes out a mmCIF file using the data in the mmCIFData list."""
