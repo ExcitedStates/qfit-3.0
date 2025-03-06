@@ -605,12 +605,14 @@ class mmCIFFile(list):
         return cif_data
 
     @classmethod
-    def read(cls, fname: str) -> "mmCIFFile":
+    def read(cls, fname: str, use_auth: bool = False) -> "mmCIFFile":
         """Read a mmCIF file and construct a mmCIFFile object with attributes
         compatible with PDBFile for use with the Structure class.
 
         Args:
             fname (str): filename of mmCIF file to read
+            use_auth (bool, optional): Use auth_ identifiers instead of label_ identifiers.
+                                       Default False.
 
         Returns:
             mmCIFFile: object containing parsed sections of the mmCIF file
@@ -618,6 +620,7 @@ class mmCIFFile(list):
         # Initialize object
         cif_file = cls()
         cif_file.source = fname
+        cif_file.use_auth = use_auth
 
         # Set up required data structures
         cif_file.coor = defaultdict(list)
@@ -822,9 +825,9 @@ class mmCIFFile(list):
             "id": "atomid",
             "auth_atom_id": "name",
             "label_alt_id": "altloc",
-            "auth_comp_id": "resn",
-            "auth_asym_id": "chain",
-            "auth_seq_id": "resi",
+            "label_comp_id": "resn",
+            "label_asym_id": "chain",
+            "label_seq_id": "resi",
             "pdbx_PDB_ins_code": "icode",
             "Cartn_x": "x",
             "Cartn_y": "y",
@@ -835,10 +838,20 @@ class mmCIFFile(list):
             "pdbx_formal_charge": "charge",
         }
 
+        if self.use_auth:
+            column_map.update({
+                "auth_atom_id": "name",
+                "auth_comp_id": "resn",
+                "auth_asym_id": "chain",
+                "auth_seq_id": "resi",
+            })
+
         # Get atom_site table
         atom_site = block.get_table("atom_site")
         if not atom_site:
             return
+
+        string_fields = {"altloc", "icode", "chain", "resn", "name", "e", "charge", "record"}
 
         # Initialize storage for each column
         for attr in column_map.values():
@@ -848,6 +861,16 @@ class mmCIFFile(list):
         for row in atom_site:
             for cif_col, attr in column_map.items():
                 value = self._get_value_from_row(row, cif_col)
+
+                # If we're using label identifiers by default but a specific value is missing,
+                # try to fall back to the auth identifier if available
+                if not self.use_auth and value is None and cif_col.startswith("label_"):
+                    auth_col = "auth" + cif_col[5:]
+                    value = self._get_value_from_row(row, auth_col)
+
+                if attr in string_fields and value is None:
+                    value = ""
+
                 if attr in ("atomid", "resi"):
                     value = self._try_int(value)
                 elif attr in ("x", "y", "z", "q", "b"):
