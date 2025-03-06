@@ -388,7 +388,9 @@ class _RotamerResidue(_BaseResidue):
         """
         # We will try these parameters
         theta_options_larger = np.linspace(theta, theta + sig_theta, 5, endpoint=False)
-        theta_options_smaller = np.linspace(theta, theta - sig_theta, 5, endpoint=False)[1:]
+        theta_options_smaller = np.linspace(
+            theta, theta - sig_theta, 5, endpoint=False
+        )[1:]
         theta_options = [theta, *theta_options_larger, *theta_options_smaller]
 
         L_options_larger = np.linspace(L, L + sig_L, 5, endpoint=False)

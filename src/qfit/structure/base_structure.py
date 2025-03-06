@@ -201,7 +201,9 @@ class _BaseStructure:
         elif extension == ".cif":
             mmCIFFile.write(fname, self)
         else:
-            raise ValueError(f"fname extension is not valid: {extension} must be one of .cif, .pdb")
+            raise ValueError(
+                f"fname extension is not valid: {extension} must be one of .cif, .pdb"
+            )
 
     def translate(self, translation):
         """Translate atoms"""

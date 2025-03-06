@@ -38,7 +38,9 @@ class Structure(_BaseStructure):
             else:
                 pdbfile = PDBFile.read(fname)
         else:
-            raise ValueError(f"fname extension is not valid: {extension} must be one of .cif, .pdb")  
+            raise ValueError(
+                f"fname extension is not valid: {extension} must be one of .cif, .pdb"
+            )
         dd = pdbfile.coor
         data = {}
         for attr, array in dd.items():
