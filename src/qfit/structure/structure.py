@@ -1,8 +1,9 @@
 import numpy as np
 import copy
 import itertools
+import os
 
-from .base_structure import _BaseStructure, PDBFile
+from .base_structure import _BaseStructure, PDBFile, mmCIFFile
 from .ligand import _Ligand
 from .residue import _Residue, _RotamerResidue, residue_type
 from .rotamers import ROTAMERS
@@ -24,10 +25,22 @@ class Structure(_BaseStructure):
 
     @classmethod
     def fromfile(cls, fname):
-        if isinstance(fname, PDBFile):
-            pdbfile = fname
+        extension = os.path.splitext(fname)[1].lower()
+
+        if extension == ".cif":
+            if isinstance(fname, mmCIFFile):
+                pdbfile = fname
+            else:
+                pdbfile = mmCIFFile.read(fname)
+        elif extension == ".pdb":
+            if isinstance(fname, PDBFile):
+                pdbfile = fname
+            else:
+                pdbfile = PDBFile.read(fname)
         else:
-            pdbfile = PDBFile.read(fname)
+            raise ValueError(
+                f"fname extension is not valid: {extension} must be one of .cif, .pdb"
+            )
         dd = pdbfile.coor
         data = {}
         for attr, array in dd.items():

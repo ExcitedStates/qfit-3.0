@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import defaultdict
 from collections.abc import Iterable
 from operator import eq, gt, ge, le, lt
@@ -8,6 +9,7 @@ import numpy as np
 from .elements import ELEMENTS
 from .math import dihedral_angle
 from .pdbfile import PDBFile
+from .mmciffile import mmCIFFile
 from .selector import _Selector
 
 logger = logging.getLogger(__name__)
@@ -193,7 +195,15 @@ class _BaseStructure:
             self.scale = scale
         if scale != None:
             self.cryst_info = cryst
-        PDBFile.write(fname, self)
+        extension = os.path.splitext(fname)[1]
+        if extension == ".pdb":
+            PDBFile.write(fname, self)
+        elif extension == ".cif":
+            mmCIFFile.write(fname, self)
+        else:
+            raise ValueError(
+                f"fname extension is not valid: {extension} must be one of .cif, .pdb"
+            )
 
     def translate(self, translation):
         """Translate atoms"""

@@ -93,7 +93,7 @@ class ValidateMapFileArgument(argparse.Action):
 class ValidateStructureFileArgument(argparse.Action):
     """Checks that a valid structure file was provided."""
 
-    extension_choices = set((".pdb",))
+    extension_choices = set((".pdb", ".cif"))
 
     def __call__(self, parser, namespace, value, option_string=None):
         fname = Path(value)
