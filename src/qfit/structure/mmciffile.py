@@ -11,6 +11,7 @@ with qFit Structures.
 import re
 import copy
 import itertools
+import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Any, Tuple, Union, Iterator
 
