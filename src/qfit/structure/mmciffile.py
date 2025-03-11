@@ -742,7 +742,7 @@ class mmCIFFile(list):
             symmetry = data_block.new_table("symmetry")
             symmetry.set_columns(["space_group_name_H-M"])
             row = symmetry.new_row()
-            row["space_group_name_H-M"] = structure.unit_cell.spg
+            row["space_group_name_H-M"] = structure.unit_cell.space_group
 
         # Add LINK records if available
         if structure.link_data and len(structure.link_data.get("record", [])) > 0:
