@@ -834,7 +834,7 @@ class mmCIFFile(list):
         column_map = {
             "group_PDB": "record",
             "id": "atomid",
-            "auth_atom_id": "name",
+            "label_atom_id": "name",
             "label_alt_id": "altloc",
             "label_comp_id": "resn",
             "label_asym_id": "chain",
@@ -852,6 +852,7 @@ class mmCIFFile(list):
         if self.use_auth:
             column_map.update({
                 "auth_atom_id": "name",
+                "auth_alt_id": "altloc",
                 "auth_comp_id": "resn",
                 "auth_asym_id": "chain",
                 "auth_seq_id": "resi",
