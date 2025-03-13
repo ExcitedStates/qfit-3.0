@@ -11,6 +11,7 @@ with qFit Structures.
 import re
 import copy
 import itertools
+import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Any, Tuple, Union, Iterator
 
@@ -741,7 +742,7 @@ class mmCIFFile(list):
             symmetry = data_block.new_table("symmetry")
             symmetry.set_columns(["space_group_name_H-M"])
             row = symmetry.new_row()
-            row["space_group_name_H-M"] = structure.unit_cell.spg
+            row["space_group_name_H-M"] = structure.unit_cell.space_group
 
         # Add LINK records if available
         if structure.link_data and len(structure.link_data.get("record", [])) > 0:
@@ -833,7 +834,7 @@ class mmCIFFile(list):
         column_map = {
             "group_PDB": "record",
             "id": "atomid",
-            "auth_atom_id": "name",
+            "label_atom_id": "name",
             "label_alt_id": "altloc",
             "label_comp_id": "resn",
             "label_asym_id": "chain",
@@ -851,6 +852,7 @@ class mmCIFFile(list):
         if self.use_auth:
             column_map.update({
                 "auth_atom_id": "name",
+                "auth_alt_id": "altloc",
                 "auth_comp_id": "resn",
                 "auth_asym_id": "chain",
                 "auth_seq_id": "resi",
