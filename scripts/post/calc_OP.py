@@ -148,9 +148,9 @@ def calc_S2(pdb_file, data_mat, res):
         for i in range(len(p)):  # for every occupancy
             p2_row = []
             # this is for uncorrelated motion between the two points
-            S2ortho -= (
-                (((bfac1[i] + bfac2[i]) / (8 * math.pi * math.pi)) * p[i]) * b
-            ) / (res * 10)
+            scaling_factor = b * (res) * 0.1
+            S2ortho -=((((bfac1[i] + bfac2[i]) / (8 * math.pi * math.pi)) * p[i])/scaling_factor)
+            print(S2ortho)
             b_list.append([bfac1, bfac2])
             struc += 1
             for j in range(len(weight1)):  # for every occupancy
@@ -222,7 +222,6 @@ if __name__ == "__main__":
     else:
         b = args.Bfactor
     output_s2_ortho_and_ang = False
-
     data_mat, s2_expt, resi, resn, chain = parse_input_data(data_file)
     s2_calc, struc_mat, p2_mat, s2_ortho, s2_ang, prob_mat, b_mat = calc_S2(
         pdb_file, data_mat, resolution
@@ -241,6 +240,6 @@ if __name__ == "__main__":
     # scale s2ortho and s2calc from 0-1
     scaler1 = MinMaxScaler(feature_range=(0, 1))
     scaler = StandardScaler()
-    output["s2ortho"] = scaler1.fit_transform(output[["s2ortho"]])
+    #output["s2ortho"] = scaler1.fit_transform(output[["s2ortho"]])
     output["s2calc"] = output["s2ortho"] * output["s2ang"]
     output.to_csv(data_out, index=False)
