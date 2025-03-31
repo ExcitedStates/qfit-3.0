@@ -134,6 +134,7 @@ class QFitOptions:
         self.rotation_step = None
         self.flip_180 = False
         self.ligand_rmsd = None
+        self.parallel_workers = None
 
         ### From QFitSegmentOptions
         self.fragment_length = None
@@ -1633,7 +1634,7 @@ class QFitLigand(_BaseQFit):
             self.flip_180()
         else:
             # Run conformer generation functions in parallel
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.options.parallel_workers) as executor:
                 futures = [
                     executor.submit(self.random_unconstrained),
                     executor.submit(self.terminal_atom_const),
