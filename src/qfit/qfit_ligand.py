@@ -112,6 +112,14 @@ def build_argparser():
         help="Turn off Ligand RMSD cutoff",
     )
 
+    p.add_argument(
+        "-p",
+        "--parallel_workers",
+        type=int,
+        default=None,
+        help="Maximum number of threads that can be run in parallel",
+    )
+
     # Map input options
     p.add_argument(
         "-l",
