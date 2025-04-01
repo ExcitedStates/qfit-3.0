@@ -274,7 +274,6 @@ class CVXPYSolver(QPSolver, MIQPSolver):
             individual_rsccs.append(rscc_value)
             # print(f"RSCC for conformer {i}: {rscc_value:.3f}, with occupancy {filtered_weights[i]}")
             print(f"RSCC for conformer {i}: {weighted_rscc:.3f}, with occupancy {filtered_weights[i]}")
-            logger.info(f"RSCC for conformer {i}: {weighted_rscc:.3f}, with occupancy {filtered_weights[i]}")
 
 
         combined_model = np.dot(filtered_weights, filtered_models)
