@@ -127,6 +127,7 @@ class QFitOptions:
         self.cif_file = None
         # RDKit options
         self.numConf = None
+        self.small_numConf = None
         self.smiles = None
         self.ligand_bic = None
         self.rot_range = None
@@ -1621,6 +1622,8 @@ class QFitLigand(_BaseQFit):
 
         if not branching_atoms:
             # if there are no branches, qFit will not run branching search or long chain search. Therefore, 3 methods of sampling remain
+            num_gen_conformers = self.options.small_numConf
+            logger.info(f'Ligand has no side chains, generating {self.options.small_numConf} conformers instead of {self.options.numConf}')
             num_conf_for_method = round(num_gen_conformers / 3)
         if branching_atoms:
             if length_branching > 30:
