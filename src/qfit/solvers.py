@@ -154,6 +154,8 @@ class CVXPYSolver(QPSolver, MIQPSolver):
     def __init__(self, target, models, nthreads=1):
         self.target = target
         self.models = models
+        self.in_model = in_model
+
 
         self.quad_obj = None
         self.lin_obj = None
@@ -228,6 +230,67 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self._objective_value = 2 * prob.value + self.target.T @ self.target
         self._weights = w.value
         self.construct_weights()
+
+    def rscc_solve_miqp(self, threshold=0, cardinality=0):
+        print('RSCC CALCULATION USING MIQP SOLVER')
+        if self.quad_obj is None or self.lin_obj is None:
+            self.compute_quadratic_coeffs()
+
+        m = len(self.valid_indices)
+        P = self.quad_obj
+        q = self.lin_obj
+
+        w = cp.Variable(m)
+        z = cp.Variable(m, boolean=True)
+        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
+        constraints = [np.ones(m).T @ w <= 1]
+        if threshold:
+            constraints += [w - z <= 0, w >= threshold * z]
+            # The first constraint requires w_i to be zero if z_i is
+            # The second requires that each non-zero w_i is greater than the threshold
+        if cardinality:
+            constraints += [w - z <= 0, np.ones(m).T @ z <= cardinality]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver="SCIP")
+        self.objective_value = prob.value
+        # I'm not sure why objective_values is calculated this way, but doing
+        # so to be compatible with the former CPLEXSolver class
+        self._objective_value = 2 * prob.value + self.target.T @ self.target
+        self._weights = w.value
+
+        # output the correlation coefficient between the QFIT MODEL density and the target density 
+        cutoff=0.002
+        filterarray = self._weights >= cutoff
+        filtered_weights = self._weights[filterarray]
+        filtered_models = self.models[filterarray, :]
+
+        # Calculate RSCC for each individual conformer (without scaling by weights)
+        individual_rsccs = []
+        for i, conformer in enumerate(filtered_models):
+            # Assuming each 'conformer' is a 1D array that can be directly correlated with self.target
+            rscc_value = np.corrcoef(conformer, self.target)[0, 1]
+            weightet_conf = conformer * filtered_weights[i]
+            weighted_rscc = np.corrcoef(weightet_conf, self.target)[0, 1]
+            individual_rsccs.append(rscc_value)
+            # print(f"RSCC for conformer {i}: {rscc_value:.3f}, with occupancy {filtered_weights[i]}")
+            print(f"RSCC for conformer {i}: {weighted_rscc:.3f}, with occupancy {filtered_weights[i]}")
+            logger.info(f"RSCC for conformer {i}: {weighted_rscc:.3f}, with occupancy {filtered_weights[i]}")
+
+
+        combined_model = np.dot(filtered_weights, filtered_models)
+        corr = np.corrcoef(combined_model, self.target)[0, 1]
+        print(f"Correlation of qfit model: {corr}")
+        logger.info(f"Correlation for qfit-ligand ensemble: {corr}")
+
+        # output correlations coefficient between INPUT MODEL density and target density 
+        input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
+        print(f'Correlation of input model = {input_corr} ')
+        logger.info(f"Correlation for input model: {input_corr}")
+            
+
+        self.construct_weights()
+
+
 
     def solve_qp(self, split_threshold=3000):
         if self.quad_obj is None or self.lin_obj is None:
