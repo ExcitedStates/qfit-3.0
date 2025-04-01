@@ -151,7 +151,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
     driver_pkg_name = "cvxpy"
     driver = lazy_load_module_if_available(driver_pkg_name)
 
-    def __init__(self, target, models, nthreads=1):
+    def __init__(self, target, models, in_model=None, nthreads=1):
         self.target = target
         self.models = models
         self.in_model = in_model
