@@ -289,7 +289,132 @@ class _BaseQFit:
             model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
-    
+    def rscc_convert(self, stride=1, pool_size=1):  # default is to manipulate the maps
+        """Convert structures to densities and extract relevant values for (MI)QP."""
+        logger.info("Converting conformers to density")
+        logger.debug("Masking")
+        self._transformer.reset(full=True)
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            self._transformer.mask(self._rmask)
+        mask = self._transformer.xmap.array > 0 # total density converage for the generates ensemble 
+        self._transformer.reset(full=True)
+
+        nvalues = mask.sum()
+        self._target = self.xmap.array[mask] # values of the target map at locations where the generated conformers exist 
+        print('making new target?')
+
+        fname = os.path.join(self.directory_name, f"target.ccp4")
+        self.xmap.tofile(fname)
+
+        # Save the predict_{n} array as a numpy array (.npy) file
+        # npy_fname = os.path.join(self.directory_name, f"target_{n}.npy")
+        # np.save(npy_fname, self.xmap.array)
+
+        # For a 1D array, we adjust our pooling approach
+        pooled_values = []
+        for i in range(0, len(self._target), stride):
+            # Extract the current window for pooling
+            current_window = self._target[i : i + pool_size]
+            # Perform max pooling on the current window and append the max value to pooled_values
+            if len(current_window) > 0:  # Ensure the window is not empty
+                pooled_values.append(np.max(current_window))
+
+        # Convert pooled_values back to a numpy array
+        self._target = np.array(pooled_values)
+        
+        # convert the qfit ensemble into density for the rscc calculation
+        logger.debug("Density")
+        nmodels = len(self._coor_set)
+        maxpool_size = len(range(0, nvalues, stride))
+        self._models = np.zeros((nmodels, maxpool_size), float)
+        print(f'rscc convert = {self._simple}')
+        for n, coor in enumerate(self._coor_set):
+            self.conformer.coor = coor
+            self.conformer.b = self._bs[n]
+            self._transformer.density()
+
+            # #output model map
+            fname = os.path.join(self.directory_name, f"predict_{n}.ccp4")
+            self._transformer.xmap.tofile(fname)
+
+            # Save the predict_{n} array as a numpy array (.npy) file
+            # npy_fname = os.path.join(self.directory_name, f"predict_{n}.npy")
+            # np.save(npy_fname, self._transformer.xmap.array)
+
+            model = self._models[n]
+            # Apply maxpooling to the map similar to self._target
+            map_values = self._transformer.xmap.array[mask]
+            pooled_map_values = []
+            for i in range(0, len(map_values), stride):
+                current_window = map_values[i : i + pool_size]
+                if len(current_window) > 0:
+                    pooled_map_values.append(np.max(current_window))
+            model[:] = np.array(pooled_map_values)
+            np.maximum(model, self.options.bulk_solvent_level, out=model)
+            self._transformer.reset(full=True)    
+
+        # convert the initial input ligand into density for the rscc calulation 
+        # print(f'starting ligand...{np.shape(self._starting_coor_set)}') # self._starting_bs
+        # print(f'qfit ensemble = {np.shape(self._coor_set)}')
+        in_model = len(self._starting_coor_set)
+        # maxpool_size defined earlier... 
+        self._in_model = np.zeros((in_model, maxpool_size), float)
+        for n, coor in enumerate(self._starting_coor_set): # this is just one conformer...?
+            self.conformer.coor = coor
+            self.conformer.b = self._starting_bs[n]
+            self._transformer.density() # is this gonna fuck up the real enemble? 
+            # #output model map
+            fname = os.path.join(self.directory_name, f"input_{n}.ccp4")
+            self._transformer.xmap.tofile(fname)
+
+            # # Save the predict_{n} array as a numpy array (.npy) file
+            # npy_fname = os.path.join(self.directory_name, f"input_{n}.npy")
+            # np.save(npy_fname, self._transformer.xmap.array)
+
+
+            input_model = self._in_model[n]
+            # Apply maxpooling to the map similar to self._target
+            input_map_values = self._transformer.xmap.array[mask] # this is the model maps
+            input_pooled_map_values = []
+            for i in range(0, len(input_map_values), stride):
+                current_window = input_map_values[i : i + pool_size]
+                if len(current_window) > 0:
+                    input_pooled_map_values.append(np.max(current_window))
+            input_model[:] = np.array(input_pooled_map_values)
+            np.maximum(input_model, self.options.bulk_solvent_level, out=input_model)
+            self._transformer.reset(full=True)
+
+        # this gives you target, model, and input model
+    def rscc_solve_miqp(
+        self,
+        cardinality,
+        threshold,
+        loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
+        do_BIC_selection=None,
+        segment=None,
+    ):
+        # set loop range differently for EM
+        if self.options.em:
+            loop_range = [1.0, 0.5, 0.33, 0.25]
+        # Set the default (from options) if it hasn't been passed as an argument
+        if do_BIC_selection is None:
+            do_BIC_selection = self.options.bic_threshold
+
+        # Create solver
+        logger.info("Solving MIQP for rscc calc")
+        miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
+        solver = miqp_solver_class(self._target, self._models, self._in_model)
+
+        # Run solver with specified parameters
+        solver.rscc_solve_miqp(cardinality=cardinality, threshold=threshold)
+
+        # Update occupancies from solver weights
+        self._occupancies = solver.weights
+
+
+        # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
+        return solver.objective_value  
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
@@ -1750,6 +1875,13 @@ class QFitLigand(_BaseQFit):
                     final_bs.append(b[0])
         self._coor_set = final_coor_set
         self._bs = final_bs
+
+        self.rscc_convert()
+        self.rscc_solve_miqp(
+                threshold=self.options.threshold,
+                cardinality=self.options._ligand_cardinality
+            )
+
     
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
