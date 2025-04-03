@@ -85,7 +85,7 @@ phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" \
                   "${pdb_name}.map" \
                   "${multiconf}.f_modified.ligands.cif" \
                   output.prefix="${pdb_name}3" \
-                  macro_cycles=1 \
+                  macro_cycles=5 \
                   resolution=${res} \
                   --overwrite
 
