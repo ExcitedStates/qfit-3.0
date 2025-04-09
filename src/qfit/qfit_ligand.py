@@ -124,7 +124,7 @@ def build_argparser():
         "-p",
         "--parallel_workers",
         type=int,
-        default=None,
+        default=1,
         help="Maximum number of threads that can be run in parallel",
     )
 
