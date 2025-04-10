@@ -127,7 +127,6 @@ class QFitOptions:
         self.cif_file = None
         # RDKit options
         self.numConf = None
-        self.small_numConf = None
         self.smiles = None
         self.ligand_bic = None
         self.rot_range = None
@@ -1700,6 +1699,7 @@ class QFitLigand(_BaseQFit):
         self.options = options
         csf = self.options.clash_scaling_factor
         self._bs = [self.ligand.b]
+        self.num_lig_atoms = ligand.natoms
 
         # External clash detection:
         self._cd = ClashDetector(
@@ -1734,8 +1734,14 @@ class QFitLigand(_BaseQFit):
     def run(self):
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
         # total number of conformers to generate
-        num_gen_conformers = self.options.numConf
-
+        if self.options.numConf:
+            num_gen_conformers = self.options.numConf
+        else: 
+            if self.num_lig_atoms <= 20: 
+                num_gen_conformers = 5000 # default generate 5,000 conformers for small ligands
+            else:
+                num_gen_conformers = 7000 # defulat geenrate 7,000 conformers for ligands that are not small  
+        
         # check if ligand has long branch/side chain
         logger.debug("Testing branching status of ligand")
         branching_test = self.identify_core_and_sidechain(ligand)
