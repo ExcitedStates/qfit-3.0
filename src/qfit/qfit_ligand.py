@@ -64,16 +64,8 @@ def build_argparser():
         "-nc",
         "--numConf",
         type=int,
-        default=7000,
-        help="Number of RDKit conformers to generate if ligand is not small",
-    )
-
-    p.add_argument(
-        "-small_nc",
-        "--small_numConf",
-        type=int,
-        default=5000,
-        help="Number of RDKit conformers to generate if ligand is small",
+        default=None,
+        help="Number of RDKit conformers to generate",
     )
 
     p.add_argument(
