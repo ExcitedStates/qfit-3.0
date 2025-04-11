@@ -58,6 +58,7 @@ class QFitOptions:
         self.residue = None
         self.structure = None
         self.em = False
+        self.cryo_em_ligand = False
         self.scale_info = None
         self.cryst_info = None
 
@@ -1747,6 +1748,10 @@ class QFitLigand(_BaseQFit):
         branching_test = self.identify_core_and_sidechain(ligand)
         branching_atoms = branching_test[0]
         length_branching = branching_test[1]
+
+        # set cardinality for cryo-EM modeling
+        if self.options.cryo_em_ligand:
+            self.options._ligand_cardinality = 2
 
         # run rdkit conformer generator
         logger.info("Starting RDKit conformer generation")
