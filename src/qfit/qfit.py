@@ -1738,7 +1738,7 @@ class QFitLigand(_BaseQFit):
         if self.options.numConf:
             num_gen_conformers = self.options.numConf
         else: 
-            if self.num_lig_atoms <= 20: 
+            if self.num_lig_atoms <= 25: 
                 num_gen_conformers = 5000 # default generate 5,000 conformers for small ligands
             else:
                 num_gen_conformers = 7000 # defulat geenrate 7,000 conformers for ligands that are not small  
