@@ -41,6 +41,13 @@ def build_argparser():
     )
 
     p.add_argument(
+        "-em_lig",
+        "--cryo_em_ligand",
+        action="store_true",
+        help="Reduce the cardinality from 3 to 2 if using cryo-EM input map",
+    )
+
+    p.add_argument(
         "-cif",
         "--cif_file",
         type=str,
