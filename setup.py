@@ -74,7 +74,7 @@ def main():
             "scripts/post/qfit_final_refine_xray.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
             "scripts/post/qfit_final_refine_ligand.sh",
-            "scripts/post/qfit_final_refine_cryoem_ligand.sh"
+            "scripts/post/qfit_final_refine_cryoem_ligand.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",
