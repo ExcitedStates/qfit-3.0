@@ -1750,7 +1750,7 @@ class QFitLigand(_BaseQFit):
         # Pre QP RMSD pruning   
         if self.options.ligand_rmsd:
             logger.debug("RMSD pruning step before QP scoring")
-            threshold = 0.2
+            rmsd_threshold = 0.2
             unique_coor_set = []
             unique_bs = []
             
@@ -1759,7 +1759,7 @@ class QFitLigand(_BaseQFit):
                 duplicate_found = False
                 for unique_coor in unique_coor_set:
                     rmsd = calc_rmsd(coor, unique_coor)
-                    if rmsd < threshold:
+                    if rmsd < rmsd_threshold:
                         duplicate_found = True
                         break
                 if not duplicate_found:
