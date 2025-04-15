@@ -79,7 +79,7 @@ if [ ! -f "${multiconf}.f_modified.ligands.cif" ]; then
   echo "Ligand CIF generation failed"
 fi
 
-cp ${multiconf}.f_modified.pdb ${pdb_name}2_real_space_refined.001.pdb ## error thrown if uses elbow? 
+cp ${multiconf}.f_modified.pdb ${pdb_name}2_real_space_refined.001.pdb 
 #__________________________________REAL SPACE REFINEMENT WITH PHENIX__________________________________
 phenix.real_space_refine "${pdb_name}2_real_space_refined.001.pdb" \
                   "${pdb_name}.map" \
