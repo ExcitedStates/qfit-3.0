@@ -289,9 +289,9 @@ class _BaseQFit:
             model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
-    def rscc_convert(self, stride=1, pool_size=1):  # default is to manipulate the maps
-        """Convert structures to densities and extract relevant values for (MI)QP."""
-        logger.info("Converting conformers to density")
+    def rscc_convert(self):  
+        """Convert structures to densities and extract relevant values for RSCC calculation."""
+        logger.info("Converting conformers to density for RSCC calculation")
         logger.debug("Masking")
         self._transformer.reset(full=True)
         for n, coor in enumerate(self._coor_set):
@@ -302,86 +302,32 @@ class _BaseQFit:
 
         nvalues = mask.sum()
         self._target = self.xmap.array[mask] # values of the target map at locations where the generated conformers exist 
-        print('making new target?')
-
         fname = os.path.join(self.directory_name, f"target.ccp4")
         self.xmap.tofile(fname)
-
-        # Save the predict_{n} array as a numpy array (.npy) file
-        # npy_fname = os.path.join(self.directory_name, f"target_{n}.npy")
-        # np.save(npy_fname, self.xmap.array)
-
-        # For a 1D array, we adjust our pooling approach
-        pooled_values = []
-        for i in range(0, len(self._target), stride):
-            # Extract the current window for pooling
-            current_window = self._target[i : i + pool_size]
-            # Perform max pooling on the current window and append the max value to pooled_values
-            if len(current_window) > 0:  # Ensure the window is not empty
-                pooled_values.append(np.max(current_window))
-
-        # Convert pooled_values back to a numpy array
-        self._target = np.array(pooled_values)
         
         # convert the qfit ensemble into density for the rscc calculation
         logger.debug("Density")
         nmodels = len(self._coor_set)
-        maxpool_size = len(range(0, nvalues, stride))
-        self._models = np.zeros((nmodels, maxpool_size), float)
-        print(f'rscc convert = {self._simple}')
+        self._models = np.zeros((nmodels, nvalues), float)
         for n, coor in enumerate(self._coor_set):
             self.conformer.coor = coor
             self.conformer.b = self._bs[n]
             self._transformer.density()
-
-            # #output model map
-            fname = os.path.join(self.directory_name, f"predict_{n}.ccp4")
-            self._transformer.xmap.tofile(fname)
-
-            # Save the predict_{n} array as a numpy array (.npy) file
-            # npy_fname = os.path.join(self.directory_name, f"predict_{n}.npy")
-            # np.save(npy_fname, self._transformer.xmap.array)
-
             model = self._models[n]
-            # Apply maxpooling to the map similar to self._target
-            map_values = self._transformer.xmap.array[mask]
-            pooled_map_values = []
-            for i in range(0, len(map_values), stride):
-                current_window = map_values[i : i + pool_size]
-                if len(current_window) > 0:
-                    pooled_map_values.append(np.max(current_window))
-            model[:] = np.array(pooled_map_values)
+            model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)    
 
         # convert the initial input ligand into density for the rscc calulation 
-        # print(f'starting ligand...{np.shape(self._starting_coor_set)}') # self._starting_bs
-        # print(f'qfit ensemble = {np.shape(self._coor_set)}')
         in_model = len(self._starting_coor_set)
-        # maxpool_size defined earlier... 
-        self._in_model = np.zeros((in_model, maxpool_size), float)
-        for n, coor in enumerate(self._starting_coor_set): # this is just one conformer...?
+        self._in_model = np.zeros((in_model, nvalues), float)
+        for n, coor in enumerate(self._starting_coor_set): 
             self.conformer.coor = coor
             self.conformer.b = self._starting_bs[n]
-            self._transformer.density() # is this gonna fuck up the real enemble? 
-            # #output model map
-            fname = os.path.join(self.directory_name, f"input_{n}.ccp4")
-            self._transformer.xmap.tofile(fname)
-
-            # # Save the predict_{n} array as a numpy array (.npy) file
-            # npy_fname = os.path.join(self.directory_name, f"input_{n}.npy")
-            # np.save(npy_fname, self._transformer.xmap.array)
-
+            self._transformer.density() 
 
             input_model = self._in_model[n]
-            # Apply maxpooling to the map similar to self._target
-            input_map_values = self._transformer.xmap.array[mask] # this is the model maps
-            input_pooled_map_values = []
-            for i in range(0, len(input_map_values), stride):
-                current_window = input_map_values[i : i + pool_size]
-                if len(current_window) > 0:
-                    input_pooled_map_values.append(np.max(current_window))
-            input_model[:] = np.array(input_pooled_map_values)
+            input_model[:] = self._transformer.xmap.array[mask]
             np.maximum(input_model, self.options.bulk_solvent_level, out=input_model)
             self._transformer.reset(full=True)
 
@@ -1801,6 +1747,30 @@ class QFitLigand(_BaseQFit):
         # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+
+        # Pre QP RMSD pruning   
+        if self.options.ligand_rmsd:
+            logger.debug("RMSD pruning step before QP scoring")
+            threshold = 0.2
+            unique_coor_set = []
+            unique_bs = []
+            
+            # Loop through each conformer and check against accepted ones.
+            for idx, coor in enumerate(self._coor_set):
+                duplicate_found = False
+                for unique_coor in unique_coor_set:
+                    rmsd = calc_rmsd(coor, unique_coor)
+                    if rmsd < threshold:
+                        duplicate_found = True
+                        break
+                if not duplicate_found:
+                    unique_coor_set.append(coor)
+                    unique_bs.append(self._bs[idx])
+            
+            logger.info(f"Reduced number of conformers from {len(self._coor_set)} to {len(unique_coor_set)} after pruning duplicates.")
+            # Update the conformer and b-factor lists.
+            self._coor_set = unique_coor_set
+            self._bs = unique_bs
 
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
