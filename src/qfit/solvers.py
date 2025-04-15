@@ -232,7 +232,6 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self.construct_weights()
 
     def rscc_solve_miqp(self, threshold=0, cardinality=0):
-        print('RSCC CALCULATION USING MIQP SOLVER')
         if self.quad_obj is None or self.lin_obj is None:
             self.compute_quadratic_coeffs()
 
@@ -264,29 +263,14 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         filtered_weights = self._weights[filterarray]
         filtered_models = self.models[filterarray, :]
 
-        # Calculate RSCC for each individual conformer (without scaling by weights)
-        individual_rsccs = []
-        for i, conformer in enumerate(filtered_models):
-            # Assuming each 'conformer' is a 1D array that can be directly correlated with self.target
-            rscc_value = np.corrcoef(conformer, self.target)[0, 1]
-            weightet_conf = conformer * filtered_weights[i]
-            weighted_rscc = np.corrcoef(weightet_conf, self.target)[0, 1]
-            individual_rsccs.append(rscc_value)
-            # print(f"RSCC for conformer {i}: {rscc_value:.3f}, with occupancy {filtered_weights[i]}")
-            print(f"RSCC for conformer {i}: {weighted_rscc:.3f}, with occupancy {filtered_weights[i]}")
-
-
         combined_model = np.dot(filtered_weights, filtered_models)
         corr = np.corrcoef(combined_model, self.target)[0, 1]
-        print(f"Correlation of qfit model: {corr}")
         logger.info(f"Correlation for qfit-ligand ensemble: {corr}")
 
         # output correlations coefficient between INPUT MODEL density and target density 
         input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
-        print(f'Correlation of input model = {input_corr} ')
         logger.info(f"Correlation for input model: {input_corr}")
             
-
         self.construct_weights()
 
 
