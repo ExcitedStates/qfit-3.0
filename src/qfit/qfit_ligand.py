@@ -121,9 +121,10 @@ def build_argparser():
 
     p.add_argument(
         "-p",
-        "--parallel_workers",
+        "--nproc",
         type=int,
         default=1,
+        metavar="<int>",
         help="Maximum number of threads that can be run in parallel",
     )
 
