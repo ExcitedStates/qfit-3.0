@@ -126,6 +126,7 @@ class QFitOptions:
         ### From QFitLigandOptions
         self.selection = None
         self.cif_file = None
+        self.compare_structure = None
         # RDKit options
         self.numConf = None
         self.smiles = None
@@ -288,78 +289,6 @@ class _BaseQFit:
             model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
-    def rscc_convert(self):  
-        """Convert structures to densities and extract relevant values for RSCC calculation."""
-        logger.info("Converting conformers to density for RSCC calculation")
-        logger.debug("Masking")
-        self._transformer.reset(full=True)
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
-            self._transformer.mask(self._rmask)
-        mask = self._transformer.xmap.array > 0 # total density converage for the generates ensemble 
-        self._transformer.reset(full=True)
-
-        nvalues = mask.sum()
-        self._target = self.xmap.array[mask] # values of the target map at locations where the generated conformers exist 
-        fname = os.path.join(self.directory_name, f"target.ccp4")
-        self.xmap.tofile(fname)
-        
-        # convert the qfit ensemble into density for the rscc calculation
-        logger.debug("Density")
-        nmodels = len(self._coor_set)
-        self._models = np.zeros((nmodels, nvalues), float)
-        for n, coor in enumerate(self._coor_set):
-            self.conformer.coor = coor
-            self.conformer.b = self._bs[n]
-            self._transformer.density()
-            model = self._models[n]
-            model[:] = self._transformer.xmap.array[mask]
-            np.maximum(model, self.options.bulk_solvent_level, out=model)
-            self._transformer.reset(full=True)    
-
-        # convert the initial input ligand into density for the rscc calulation 
-        in_model = len(self._starting_coor_set)
-        self._in_model = np.zeros((in_model, nvalues), float)
-        for n, coor in enumerate(self._starting_coor_set): 
-            self.conformer.coor = coor
-            self.conformer.b = self._starting_bs[n]
-            self._transformer.density() 
-
-            input_model = self._in_model[n]
-            input_model[:] = self._transformer.xmap.array[mask]
-            np.maximum(input_model, self.options.bulk_solvent_level, out=input_model)
-            self._transformer.reset(full=True)
-
-        # this gives you target, model, and input model
-    def rscc_solve_miqp(
-        self,
-        cardinality,
-        threshold,
-        loop_range=[1.0, 0.5, 0.33, 0.25, 0.2],
-        do_BIC_selection=None,
-        segment=None,
-    ):
-        # set loop range differently for EM
-        if self.options.em:
-            loop_range = [1.0, 0.5, 0.33, 0.25]
-        # Set the default (from options) if it hasn't been passed as an argument
-        if do_BIC_selection is None:
-            do_BIC_selection = self.options.bic_threshold
-
-        # Create solver
-        logger.info("Solving MIQP for rscc calc")
-        miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
-        solver = miqp_solver_class(self._target, self._models, self._in_model)
-
-        # Run solver with specified parameters
-        solver.rscc_solve_miqp(cardinality=cardinality, threshold=threshold)
-
-        # Update occupancies from solver weights
-        self._occupancies = solver.weights
-
-
-        # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
-        return solver.objective_value  
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
@@ -1854,13 +1783,7 @@ class QFitLigand(_BaseQFit):
         self._coor_set = final_coor_set
         self._bs = final_bs
 
-        self.rscc_convert()
-        self.rscc_solve_miqp(
-                threshold=self.options.threshold,
-                cardinality=self.options._ligand_cardinality
-            )
 
-    
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
     def random_unconstrained(self):
