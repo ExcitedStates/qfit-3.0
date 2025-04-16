@@ -265,11 +265,12 @@ class CVXPYSolver(QPSolver, MIQPSolver):
 
         combined_model = np.dot(filtered_weights, filtered_models)
         corr = np.corrcoef(combined_model, self.target)[0, 1]
-        logger.info(f"Correlation for qfit-ligand ensemble: {corr}")
+        print(f"RSCC for model of interest: {corr}")
 
         # output correlations coefficient between INPUT MODEL density and target density 
-        input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
-        logger.info(f"Correlation for input model: {input_corr}")
+        if self.in_model is not None and self.in_model.size > 0:
+            input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
+            print(f"RSCC for comparision model: {input_corr}")
             
         self.construct_weights()
 
