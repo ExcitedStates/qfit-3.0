@@ -184,15 +184,14 @@ example:
 `water_stats.py pdb.pdb --dist {distance between protein and water} --pdb {pdb name}`
 
 ### 14. Calculate the RSCC of a ligand and density map 
-This script will calculate the RSCC of a ligand (or any residue) defined by their ligand name (--ligand) or residue number and chain id (--resi_chain). 
-It will only work on mtz maps with 2FOFCWT,PH2FOFCWT. 
+This script will calculate the RSCC of a ligand defined by its residue number and chain. This script can either calcualte the RSCC of a single model of interest, or the RSCC of two models against the same density map in the same voxel space.
 
-INPUT: Protein-ligand pdb file, density map MTZ, ligand name, PDB name, directory to store result 
+INPUT: Density map, protein-ligand pdb file, chain, residue number 
 
-OUTPUT: CSV file with the RSCC of the input model and map 
+OUTPUT: RSCC of the input model(s) and map printed to the console 
 
 example: 
-`calc_rscc.py PDB_FILE.pdb MTZ_FILE.mtz --ligand AR6 --pdb PDB_NAME --directory /path/for/output/csv/file`
+`calc_rscc.py MAP_FILE MODEL.pdb CHAIN,RESIDUE_ID -l 2FOFCWT,PH2FOFCWT -comp COMPARISON_MODEL.pdb`
 
 ### 15. Calculate the RMSD between two conformers
 This script calculates the RMSD between two structures (PDB files) using their atomic coordinates. 
