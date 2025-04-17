@@ -96,11 +96,11 @@ should be used:
 Where *LIGAND* corresponds to the numeric identifier of the ligand on the PDB
 (aka res. number). The main output file is named *multiconformer_ligand_bound_with_protein.pdb*
 
-If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 10,000. 
+If you wish to specify the number of ligand conformers for qFit to sample, use the flag `-nc [NUM_CONFS]`. The default number is set to 5,000 for ligands smaller than 25 heavy atoms, and 7,000 otherwise. In addition, the *qfit_ligand* program can be executed in parallel and the number of concurrent processes can be adjusted using the *-p* flag.
 
 Using the example 4MS6:
 
-`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 10000`
+`qfit_ligand qfit_ligand_example/4ms6_composite_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_ligand_example/4ms6.pdb A,702 -sm 'C1C[C@H](NC1)C(=O)CCC(=O)N2CCC[C@H]2C(=O)O' -nc 7000`
 
 
 To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
@@ -114,3 +114,17 @@ To run *qfit_ligand* on an event map, you must change the labels and include the
 Using the example x3200: 
 
 `qfit_ligand qfit_ligand_example/x3200_event_map.native.ccp4 -l FWT,PHWT qfit_ligand_example/singl_conf_x3200_pandda_model.pdb -r 1.05 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3'`
+
+To run *qfit_ligand* on a cryo-EM map, we suggest using the flag `-em_lig [CRYO_EM_LIG]` to reduce the risk of overfitting. You must also include the resolution.
+
+`qfit_ligand [MAP] -l [LABEL] [PDB_FILE] -r [RESOLUTION] [CHAIN,LIGAND] -sm [SMILES] [CRYO_EM_LIG]`
+
+Using the example 8P70:
+
+`qfit_ligand qfit_ligand_example/8P70.map qfit_ligand_example/8P70.pdb -r 2.0 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3' -em_lig`
+
+To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
+
+`qfit_final_refine_cryoem_ligand.sh 8P70.map 2.0`
+
+
