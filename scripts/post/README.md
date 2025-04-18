@@ -186,7 +186,7 @@ example:
 ### 14. Calculate the RSCC of a ligand and density map 
 This script will calculate the RSCC of a ligand defined by its residue number and chain. This script can either calcualte the RSCC of a single model of interest, or the RSCC of two models against the same density map in the same voxel space.
 
-INPUT: Density map, protein-ligand pdb file, chain, residue number 
+INPUT: Density map, protein-ligand pdb file, chain, residue number, map label, (optional second protein-ligand pdb file)
 
 OUTPUT: RSCC of the input model(s) and map printed to the console 
 
