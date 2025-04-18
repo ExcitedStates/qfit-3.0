@@ -121,10 +121,12 @@ To run *qfit_ligand* on a cryo-EM map, we suggest using the flag `-em_lig [CRYO_
 
 Using the example 8P70:
 
-`qfit_ligand qfit_ligand_example/8P70.map qfit_ligand_example/8P70.pdb -r 2.0 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3' -em_lig`
+`qfit_ligand EMD-17513.map qfit_ligand_example/8P70.pdb -r 2.0 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3' -em_lig`
+
+The link the the map can be found here: https://www.ebi.ac.uk/emdb/EMD-17513
 
 To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
 
-`qfit_final_refine_cryoem_ligand.sh 8P70.map 2.0`
+`qfit_final_refine_cryoem_ligand.sh EMD-17513.map 2.0`
 
 
