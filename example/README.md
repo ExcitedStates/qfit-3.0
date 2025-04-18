@@ -115,9 +115,9 @@ Using the example x3200:
 
 `qfit_ligand qfit_ligand_example/x3200_event_map.native.ccp4 -l FWT,PHWT qfit_ligand_example/singl_conf_x3200_pandda_model.pdb -r 1.05 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3'`
 
-To run *qfit_ligand* on a cryo-EM map, we suggest using the flag `-em_lig [CRYO_EM_LIG]` to reduce the risk of overfitting. You must also include the resolution.
+To run *qfit_ligand* on a cryo-EM map, we suggest using the flag `-em_lig` to reduce the risk of overfitting. You must also include the resolution.
 
-`qfit_ligand [MAP] -l [LABEL] [PDB_FILE] -r [RESOLUTION] [CHAIN,LIGAND] -sm [SMILES] [CRYO_EM_LIG]`
+`qfit_ligand [MAP] -l [LABEL] [PDB_FILE] -r [RESOLUTION] [CHAIN,LIGAND] -sm [SMILES] -em_lig`
 
 Using the example 8P70:
 
