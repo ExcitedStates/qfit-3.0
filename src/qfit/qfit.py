@@ -58,6 +58,7 @@ class QFitOptions:
         self.residue = None
         self.structure = None
         self.em = False
+        self.cryo_em_ligand = False
         self.scale_info = None
         self.cryst_info = None
 
@@ -287,7 +288,6 @@ class _BaseQFit:
             model[:] = self._transformer.xmap.array[mask]
             np.maximum(model, self.options.bulk_solvent_level, out=model)
             self._transformer.reset(full=True)
-    
     def _solve_qp(self):
         # Create and run solver
         logger.info("Solving QP")
@@ -1573,6 +1573,7 @@ class QFitLigand(_BaseQFit):
         self.options = options
         csf = self.options.clash_scaling_factor
         self._bs = [self.ligand.b]
+        self.num_lig_atoms = ligand.natoms
 
         # External clash detection:
         self._cd = ClashDetector(
@@ -1607,13 +1608,23 @@ class QFitLigand(_BaseQFit):
     def run(self):
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
         # total number of conformers to generate
-        num_gen_conformers = self.options.numConf
-
+        if self.options.numConf:
+            num_gen_conformers = self.options.numConf
+        else: 
+            if self.num_lig_atoms <= 25: 
+                num_gen_conformers = 5000 # default generate 5,000 conformers for small ligands
+            else:
+                num_gen_conformers = 7000 # defulat geenrate 7,000 conformers for ligands that are not small  
+        
         # check if ligand has long branch/side chain
         logger.debug("Testing branching status of ligand")
         branching_test = self.identify_core_and_sidechain(ligand)
         branching_atoms = branching_test[0]
         length_branching = branching_test[1]
+
+        # set cardinality for cryo-EM modeling
+        if self.options.cryo_em_ligand:
+            self.options._ligand_cardinality = 2
 
         # run rdkit conformer generator
         logger.info("Starting RDKit conformer generation")
@@ -1633,7 +1644,7 @@ class QFitLigand(_BaseQFit):
             self.flip_180()
         else:
             # Run conformer generation functions in parallel
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.options.nproc) as executor:
                 futures = [
                     executor.submit(self.random_unconstrained),
                     executor.submit(self.terminal_atom_const),
@@ -1663,6 +1674,30 @@ class QFitLigand(_BaseQFit):
         # Make sure b-factor array is the same length as coordinate array
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
+
+        # Pre QP RMSD pruning   
+        if self.options.ligand_rmsd:
+            logger.debug("RMSD pruning step before QP scoring")
+            rmsd_threshold = 0.2
+            unique_coor_set = []
+            unique_bs = []
+            
+            # Loop through each conformer and check against accepted ones.
+            for idx, coor in enumerate(self._coor_set):
+                duplicate_found = False
+                for unique_coor in unique_coor_set:
+                    rmsd = calc_rmsd(coor, unique_coor)
+                    if rmsd < rmsd_threshold:
+                        duplicate_found = True
+                        break
+                if not duplicate_found:
+                    unique_coor_set.append(coor)
+                    unique_bs.append(self._bs[idx])
+            
+            logger.info(f"Reduced number of conformers from {len(self._coor_set)} to {len(unique_coor_set)} after pruning duplicates.")
+            # Update the conformer and b-factor lists.
+            self._coor_set = unique_coor_set
+            self._bs = unique_bs
 
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
@@ -1746,7 +1781,8 @@ class QFitLigand(_BaseQFit):
                     final_bs.append(b[0])
         self._coor_set = final_coor_set
         self._bs = final_bs
-    
+
+
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
 
     def random_unconstrained(self):

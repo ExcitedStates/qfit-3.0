@@ -200,6 +200,8 @@ class _BaseStructure:
             PDBFile.write(fname, self)
         elif extension == ".cif":
             mmCIFFile.write(fname, self)
+        elif extension == ".fixed": # include ".fixed" here because our post-qFit refinement scripts write out models with the ".fixed" extension 
+            PDBFile.write(fname, self)
         else:
             raise ValueError(
                 f"fname extension is not valid: {extension} must be one of .cif, .pdb"
