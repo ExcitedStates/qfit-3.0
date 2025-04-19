@@ -126,7 +126,6 @@ class QFitOptions:
         ### From QFitLigandOptions
         self.selection = None
         self.cif_file = None
-        self.compare_structure = None
         # RDKit options
         self.numConf = None
         self.smiles = None
