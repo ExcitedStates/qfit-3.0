@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script works with Phenix version 1.21.2.
+# This script works with Phenix version 2.0.
 
 qfit_usage() {
   echo >&2 "Usage:";
@@ -58,7 +58,7 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)")
+obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)" "F-obs-filtered(+)")
 
 # Get amplitude fields
 ampfields=`grep -E "amplitude|intensity|F\(\+\)|I\(\+\)" <<< "${mtzmetadata}"`
@@ -224,6 +224,8 @@ cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 echo "refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
 echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "output.serial=5"                >> ${pdb_name}_final_refine.params
+echo "include_altlocs=True"           >> ${pdb_name}_final_refine.params
+echo "ordered_solvent.dist_min = 2.0" >> ${pdb_name}_final_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
@@ -232,6 +234,9 @@ echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.par
 echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
 echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine.params
 echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine.params
+echo "refinement.main.ordered_solvent=True" >> ${pdb_name}_final_refine.params
+echo "ordered_solvent.mode=every_macro_cycle" >> ${pdb_name}_final_refine.params
+echo "include_altlocs=True" >> ${pdb_name}_final_refine.params
 
 if [ -f "${pdb_name}_002.ligands.cif" ]; then
   echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
@@ -248,6 +253,9 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
             "refinement.refine.${adp}" \
             "refinement.hydrogens.refine=riding" \
             "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
             "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
@@ -264,6 +272,9 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
             "refinement.refine.${adp}" \
             "refinement.hydrogens.refine=riding" \
             "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
             qFit_occupancy.params \
@@ -276,6 +287,8 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
   echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
   echo "output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "include_altlocs=True"           >> ${pdb_name}_final_refine_noreduce.params
+  echo "ordered_solvent.dist_min = 2.0" >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
@@ -296,6 +309,9 @@ if [ -f "reduce_failure.pdb" ]; then
             "refinement.refine.${adp}" \
             "refinement.hydrogens.refine=riding" \
             "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \ 
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
             "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
@@ -312,12 +328,16 @@ if [ -f "reduce_failure.pdb" ]; then
             "refinement.refine.${adp}" \
             "refinement.hydrogens.refine=riding" \
             "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
+            "ordered_solvent.dist_min = 2.0" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
             qFit_occupancy.params \
             --overwrite
 fi
 fi
+
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"
