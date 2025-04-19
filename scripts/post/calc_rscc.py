@@ -336,6 +336,8 @@ def main():
     # Apply the arguments to options
     options = QFitOptions()
     options.apply_command_args(args)
+    options.compare_structure = args.compare_structure
+
 
     qfit_ = setup_for_calculation(options=options)
 
