@@ -41,6 +41,13 @@ def build_argparser():
     )
 
     p.add_argument(
+        "-em_lig",
+        "--cryo_em_ligand",
+        action="store_true",
+        help="Reduce the cardinality from 3 to 2 if using cryo-EM input map",
+    )
+
+    p.add_argument(
         "-cif",
         "--cif_file",
         type=str,
@@ -64,7 +71,7 @@ def build_argparser():
         "-nc",
         "--numConf",
         type=int,
-        default=10000,
+        default=None,
         help="Number of RDKit conformers to generate",
     )
 
@@ -110,6 +117,15 @@ def build_argparser():
         dest="ligand_rmsd",
         action="store_false",
         help="Turn off Ligand RMSD cutoff",
+    )
+
+    p.add_argument(
+        "-p",
+        "--nproc",
+        type=int,
+        default=1,
+        metavar="<int>",
+        help="Maximum number of threads that can be run in parallel",
     )
 
     # Map input options

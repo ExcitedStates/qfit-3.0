@@ -28,7 +28,7 @@ def main():
         "numpy>=1.20,<2",
         "scipy>=1.0",
         "cvxpy",
-        "pyscipopt",
+        "pyscipopt>=5.1.1",
         "pandas>=1.2",
         "pyparsing>=2.2.0",
         "tqdm>=4.0.0",
@@ -67,12 +67,14 @@ def main():
                 "add_non_rotamer_atoms = qfit.add_non_rotamer_atoms:main",
                 "remove_duplicates = qfit.remove_duplicates:main",
                 "create_rotamer_library = qfit.create_rot_lib:main",
+                "calc_chi = qfit.calc_chi:main",
             ]
         },
         scripts=[
             "scripts/post/qfit_final_refine_xray.sh",
             "scripts/post/qfit_final_refine_cryoem.sh",
             "scripts/post/qfit_final_refine_ligand.sh",
+            "scripts/post/qfit_final_refine_cryoem_ligand.sh",
             "scripts/post/find_largest_ligand.py",
             "scripts/post/find_altlocs_near_ligand.py",
             "scripts/post/get_lig_chain_res.py",

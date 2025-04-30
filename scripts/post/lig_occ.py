@@ -44,12 +44,13 @@ def get_occ(structure, ligand, pdb, qfit):
                     np.amin(np.unique(lig_str.extract("chain", i, "==").q)),
                     np.average(lig_str.extract("chain", i, "==").b),
                     len(set(lig_str.extract("chain", i, "==").altloc)),
+                    len(lig_str.extract("name","H", "!=").b) #any value will do
                 )
             )
         )
     occ = pd.DataFrame(
         lig,
-        columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc"],
+        columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc", "num_atoms"],
     )
     occ.to_csv(pdb + qfit + "_ligand_occupancy.csv", index=False)
 
@@ -68,3 +69,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
