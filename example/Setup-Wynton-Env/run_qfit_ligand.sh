@@ -50,6 +50,6 @@ cp ../${pdb_id}.mtz .
 cp ../composite_omit_map.mtz .
 cp ../${pdb_id}_001.pdb .
 cp ../${pdb_id}.pdb .
-#__________________________________DETERMINE FOBS v IOBS v FP__________________________________
+
 eval $command
 qfit_final_refine_ligand.sh ${pdb_id}.mtz
