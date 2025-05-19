@@ -1,7 +1,7 @@
 #!/bin/bash
 #$ -l h_vmem=4G
 #$ -l mem_free=4G
-#$ -t 1-137
+#$ -t 1-135
 #$ -l h_rt=28:00:00
 #$ -pe smp 8
 
