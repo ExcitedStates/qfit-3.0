@@ -325,14 +325,14 @@ def build_argparser():
         "-placer",
         "--placer_ligs",
         type=str,
-        help="Use input ligand ensemble (PDB with multiple conformers) instead of generating new conformers via RDKit"
+        help="Name of the PDB file for the imported PLACER sampled ligand ensemble. Must be in working directory"
     )
 
     p.add_argument(
         "--target_chain",
         "-targ_chain",
         type=str,
-        help="PLACER can only sample ligands that are in a different chain than the protein, this is listed in the CIF file",
+        help="Chain of the ligand in the imported PLACER sampled ligand ensemble",
     )
 
     # Output options
