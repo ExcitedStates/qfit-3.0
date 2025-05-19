@@ -40,7 +40,7 @@ The important outputs from this script are the refined PDB file, and the composi
 
 Notes: 
 
-* In the shell script header, replace the value **‘137’** with the number of PDBs in your dataset. If you are running on the TP dataset, there is no need to change this value.
+* In the shell script header, replace the value **‘135’** with the number of PDBs in your dataset. If you are running on the TP dataset, there is no need to change this value.
 * Make sure you are sourcing the correct environment in the **SET PATHS** section of this script. 
 
 ### 5. Create the run_qfit_ligand.sh Script
