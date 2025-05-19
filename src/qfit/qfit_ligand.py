@@ -320,6 +320,21 @@ def build_argparser():
         help="Select the MIQP solver",
     )
 
+    # PLACER sampling options
+    p.add_argument(
+        "-placer",
+        "--placer_ligs",
+        type=str,
+        help="Use input ligand ensemble (PDB with multiple conformers) instead of generating new conformers via RDKit"
+    )
+
+    p.add_argument(
+        "--target_chain",
+        "-targ_chain",
+        type=str,
+        help="Chain",
+    )
+
     # Output options
     p.add_argument(
         "-d",
