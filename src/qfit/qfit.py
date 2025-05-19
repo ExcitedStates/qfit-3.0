@@ -144,6 +144,10 @@ class QFitOptions:
         self.nproc = 1
         self.pdb = None
 
+        # PLACER options
+        self.placer_ligs = None
+        self.target_chain = None
+
     def apply_command_args(self, args):
         for key, value in vars(args).items():
             if hasattr(self, key):
@@ -1629,43 +1633,49 @@ class QFitLigand(_BaseQFit):
         # run rdkit conformer generator
         logger.info("Starting RDKit conformer generation")
 
-        if not branching_atoms:
-            # if there are no branches, qFit will not run branching search or long chain search. Therefore, 3 methods of sampling remain
-            num_conf_for_method = round(num_gen_conformers / 3)
-        if branching_atoms:
-            if length_branching > 30:
-                logger.debug("Ligand has long branches, run long chain search")
-                num_conf_for_method = round(num_gen_conformers / 5)
-            elif length_branching <= 30:
-                num_conf_for_method = round(num_gen_conformers / 4)
-        self.num_conf_for_method = num_conf_for_method
+        # run placer sampling 
+        self.placer_ensemble()
 
-        if self.options.flip_180:
-            self.flip_180()
-        else:
-            # Run conformer generation functions in parallel
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.options.nproc) as executor:
-                futures = [
-                    executor.submit(self.random_unconstrained),
-                    executor.submit(self.terminal_atom_const),
-                    executor.submit(self.spherical_search),
-                ]
-                if branching_atoms:
-                    if length_branching > 30:
-                        futures.append(executor.submit(self.branching_search))
-                        futures.append(executor.submit(self.long_chain_search))
-                    elif length_branching <= 30:
-                        futures.append(executor.submit(self.branching_search))
+        # to test this PLACER implementation I just commented out the RDKit sampling. But ideally the user should be able to choose 
+        # which sampler they want to run
 
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        logger.error(f"Generated an exception: {exc}")
+        # if not branching_atoms:
+        #     # if there are no branches, qFit will not run branching search or long chain search. Therefore, 3 methods of sampling remain
+        #     num_conf_for_method = round(num_gen_conformers / 3)
+        # if branching_atoms:
+        #     if length_branching > 30:
+        #         logger.debug("Ligand has long branches, run long chain search")
+        #         num_conf_for_method = round(num_gen_conformers / 5)
+        #     elif length_branching <= 30:
+        #         num_conf_for_method = round(num_gen_conformers / 4)
+        # self.num_conf_for_method = num_conf_for_method
 
-        logger.info(
-            f"Number of generated conformers, before scoring: {len(self._coor_set)}"
-        )
+        # if self.options.flip_180:
+        #     self.flip_180()
+        # else:
+        #     # Run conformer generation functions in parallel
+        #     with concurrent.futures.ThreadPoolExecutor(max_workers=self.options.nproc) as executor:
+        #         futures = [
+        #             executor.submit(self.random_unconstrained),
+        #             executor.submit(self.terminal_atom_const),
+        #             executor.submit(self.spherical_search),
+        #         ]
+        #         if branching_atoms:
+        #             if length_branching > 30:
+        #                 futures.append(executor.submit(self.branching_search))
+        #                 futures.append(executor.submit(self.long_chain_search))
+        #             elif length_branching <= 30:
+        #                 futures.append(executor.submit(self.branching_search))
+
+        #         for future in concurrent.futures.as_completed(futures):
+        #             try:
+        #                 future.result()
+        #             except Exception as exc:
+        #                 logger.error(f"Generated an exception: {exc}")
+
+        # logger.info(
+        #     f"Number of generated conformers, before scoring: {len(self._coor_set)}"
+        # )
 
         if len(self._coor_set) < 1:
             logger.error("qFit-ligand failed to produce a valid conformer.")
@@ -1675,29 +1685,29 @@ class QFitLigand(_BaseQFit):
         if len(self._bs) != len(self._coor_set):
             self._bs = np.tile(self._bs[0], (len(self._coor_set), 1))
 
-        # Pre QP RMSD pruning   
-        if self.options.ligand_rmsd:
-            logger.debug("RMSD pruning step before QP scoring")
-            rmsd_threshold = 0.2
-            unique_coor_set = []
-            unique_bs = []
+        # # Pre QP RMSD pruning   
+        # if self.options.ligand_rmsd:
+        #     logger.debug("RMSD pruning step before QP scoring")
+        #     rmsd_threshold = 0.2
+        #     unique_coor_set = []
+        #     unique_bs = []
             
-            # Loop through each conformer and check against accepted ones.
-            for idx, coor in enumerate(self._coor_set):
-                duplicate_found = False
-                for unique_coor in unique_coor_set:
-                    rmsd = calc_rmsd(coor, unique_coor)
-                    if rmsd < rmsd_threshold:
-                        duplicate_found = True
-                        break
-                if not duplicate_found:
-                    unique_coor_set.append(coor)
-                    unique_bs.append(self._bs[idx])
+        #     # Loop through each conformer and check against accepted ones.
+        #     for idx, coor in enumerate(self._coor_set):
+        #         duplicate_found = False
+        #         for unique_coor in unique_coor_set:
+        #             rmsd = calc_rmsd(coor, unique_coor)
+        #             if rmsd < rmsd_threshold:
+        #                 duplicate_found = True
+        #                 break
+        #         if not duplicate_found:
+        #             unique_coor_set.append(coor)
+        #             unique_bs.append(self._bs[idx])
             
-            logger.info(f"Reduced number of conformers from {len(self._coor_set)} to {len(unique_coor_set)} after pruning duplicates.")
-            # Update the conformer and b-factor lists.
-            self._coor_set = unique_coor_set
-            self._bs = unique_bs
+        #     logger.info(f"Reduced number of conformers from {len(self._coor_set)} to {len(unique_coor_set)} after pruning duplicates.")
+        #     # Update the conformer and b-factor lists.
+        #     self._coor_set = unique_coor_set
+        #     self._bs = unique_bs
 
         # QP score conformer occupancy
         logger.debug("Converting densities within run.")
@@ -1710,7 +1720,7 @@ class QFitLigand(_BaseQFit):
         self._update_conformers()
 
         # Only conformeres that pass QP scoring will be rotated and translated for additional sampling
-        self.rot_trans()
+        # self.rot_trans()
 
         # MIQP score conformer occupancy
         logger.info("Solving MIQP within run.")
@@ -1784,6 +1794,106 @@ class QFitLigand(_BaseQFit):
 
 
         logger.info(f"Number of final conformers: {len(self._coor_set)}")
+    
+    def placer_ensemble(self):
+        """
+        There is probably a way to import the PLACER model directly and use it to sample directly within qFit-ligand (as we do with RDKit). 
+        But for now (just to test the implementation) I used PLACER and qFit seperately. i.e. run PLACER on the strucutre of interest, and then import 
+        the resulting ensemble into qFit. 
+        """
+        reference_names = self.ligand.name
+        reference_elements = self.ligand.e
+
+        # Output file path (same directory, new name)
+        output_file_path = os.path.join(
+            os.path.dirname(self.placer_ligs), # the ensemble sampled by PLACER includes binding pocket residue, but we only want to extract the ligand coordinates
+            'placer_ligs.pdb'
+        )
+
+        # PLACER is most effective (i.e. seems to throw fewer errors) when it samples from the CIF file
+        # I think (?) this is bc PLACER requires the ligand to be in a different chain than the protein binding pocket (which is not true usually in PDBs, but is in CIF files).
+        # You can change the ligand chain in the PDB but it is just easier to use the CIF file for PLACER
+        # But qFit-ligand requires the protein-ligand PDB file to run. So you need to specify the chain/residue number for your ligand both in the PDB file and 
+        # also the imported PLACER ensemble (which should be the same as the CIF file) 
+        chainid, resi = self.options.selection.split(",")  # PDB file
+        target_chain = self.options.target_chain # CIF file
+        target_resnum = int(resi)
+
+        # Read the original PLACER ensemble and write out a new PDB of just the ligands
+        with open(self.placer_ligs, 'r') as infile, open(output_file_path, 'w') as outfile:
+            for line in infile:
+                if line.startswith("ATOM"):
+                    continue
+                elif line.startswith("HETATM"):
+                    chain_id = line[21].strip()
+                    res_num = int(line[22:26].strip())
+                    if chain_id != target_chain or res_num != target_resnum:
+                        continue
+                outfile.write(line)
+
+        mol = Chem.MolFromPDBFile(output_file_path, removeHs=False, sanitize=False)
+        if mol is None:
+            raise ValueError("Failed to read molecule")
+
+        mol_atom_names = [atom.GetPDBResidueInfo().GetName().strip() for atom in mol.GetAtoms()]
+        # print(f'placer names {mol_atom_names}')
+
+        # for some reason when you import the PLACER ensemble it messes up the order of elements in the imported PBD file???
+        # hacky solution to correct this with the 'reference ligand' ie the ligand listed in the protein-ligand PDB file
+        name_to_index = {name: i for i, name in enumerate(mol_atom_names)}
+        reorder_indices = [name_to_index[name] for name in reference_names]
+
+        num_conformers = mol.GetNumConformers()
+        print("Number of conformers:", num_conformers)
+
+        if mol.GetNumConformers() != 0:
+            # Store the coordinates of each conformer into numpy array
+            new_coors = []
+            new_conformer = mol.GetConformers()
+            for i, conformer in enumerate(new_conformer):
+                coords = conformer.GetPositions()
+                reordered = coords[reorder_indices]
+                new_coors.append(reordered)
+
+            new_idx_set = []
+            new_coor_set = []
+            new_bs = []
+            # loop through each generated conformer
+            for idx, conf in enumerate(new_coors):
+                b = self._bs
+                self.ligand.coor = conf
+                self.ligand.b = [b[0]]
+                if (
+                    new_idx_set
+                ):  # if there are already conformers in new_idx_set
+                    new_idx_set.append(idx)
+                    new_coor_set.append(conf)
+                    new_bs.append(b[0])
+                else:
+                    new_idx_set.append(idx)
+                    new_coor_set.append(conf)
+                    new_bs.append(b[0])
+
+            # self._write_intermediate_conformers("placer", new_coor_set)
+
+            # Save new conformers to self
+            merged_arr = np.concatenate((self._coor_set, new_coor_set), axis=0)
+            merged_bs = np.concatenate((self._bs, new_bs), axis=0)
+
+            self._coor_set = merged_arr
+            self._bs = merged_bs
+
+            logger.info(
+                f"After PLACER search, there are {len(self._coor_set)} plausible conformers"
+            )
+
+            if len(self._coor_set) < 1:
+                logger.warning(
+                    f"PLACER conformers not sufficiently diverse. Generated: {len(self._coor_set)} conformers"
+                )
+                return
+
+        return
 
     def random_unconstrained(self):
         """
