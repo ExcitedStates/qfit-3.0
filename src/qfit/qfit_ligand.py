@@ -332,7 +332,7 @@ def build_argparser():
         "--target_chain",
         "-targ_chain",
         type=str,
-        help="Chain",
+        help="PLACER can only sample ligands that are in a different chain than the protein, this is listed in the CIF file",
     )
 
     # Output options
