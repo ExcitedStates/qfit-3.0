@@ -1,7 +1,7 @@
 #!/bin/bash
 #$ -l h_vmem=40G
 #$ -l mem_free=40G
-#$ -t 1-137
+#$ -t 1-135
 #$ -l h_rt=48:00:00
 #$ -pe smp 1
 #$ -R yes
