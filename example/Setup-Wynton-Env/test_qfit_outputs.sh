@@ -48,7 +48,7 @@ cd ${output_dir}
 
 # RSCC
 rscc_output_csv="$output_dir/${pdb_id}_rscc.csv"
-rscc=$(calc_rscc.py ${path}/${pdb_id}_qFit_ligand.mtz ${path}/${pdb_id}_qFit_ligand.pdb ${chain_res} -l 2FOFCWT,PH2FOFCWT -comp ${path}/${pdb_id}.pdb)
+rscc=$(calc_rscc.py ${path}/${pdb_id}_qFit_ligand.mtz ${path}/${pdb_id}_qFit_ligand.pdb ${chain_res} -l 2FOFCWT,PH2FOFCWT -comp ${path}/${pdb_id}.pdb) # this compares to the unrefined (full TP) model. Can also compare to ${path}/${pdb_id}_001.pdb 
 echo $rscc
 qfit_rscc=$(echo "$rscc" | sed -n 's/.*RSCC for model of interest: \([0-9.]*\).*/\1/p')
 depo_rscc=$(echo "$rscc" | sed -n 's/.*RSCC for comparision model: \([0-9.]*\)/\1/p') # this part is optional, and only should be done IF you include the -comp flag in the RSCC calculation
