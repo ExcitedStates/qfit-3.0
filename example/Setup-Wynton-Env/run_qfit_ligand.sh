@@ -36,7 +36,7 @@ echo "smiles = ${smiles}"
 echo "chain_res = ${chain_res}"
 
 # Construct the command
-command="qfit_ligand composite_omit_map.mtz -sm '${smiles}' -l 2FOFCWT,PH2FOFCWT ${pdb_id}_001.pdb ${chain_res}"
+command="qfit_ligand composite_omit_map.mtz -sm '${smiles}' -l 2FOFCWT,PH2FOFCWT ${pdb_id}_001.pdb ${chain_res} -p 5"
 
 # Go to folder containing your data
 cd ${base_dir}/${pdb_id}
