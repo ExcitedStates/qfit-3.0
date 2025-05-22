@@ -101,7 +101,7 @@ To execute,
 
 ### 7. Additional notes that are only relevant if you are trying to make your own dataset
 
-I have included the script **find_altloc_clashes.sh** in this folder, which uses **altloc_clash.py**. The purpose of this script is to identify structures where protein and ligand alternate conformations of opposite labels clash.
+I have included the script **find_altloc_clashes.sh** in this folder, which uses **altloc_clash.py**. The purpose of this script is to identify structures where protein and ligand alternate conformations of opposite labels clash. You must copy **altloc_clash.py** into your working directory in order to execute **find_altloc_clashes.sh**. 
 
 This is the script I used to build the dataset described in my mini-report. While it is mostly only relevant if you are trying to replicate that particular dataset, it may also serve as a useful example for constructing custom datasets more generally. i.e., if you already have your Wynton environment set up and access to a large collection of PDB files, this script can help guide the process of filtering and assembling more targeted datasets.
 
