@@ -43,6 +43,7 @@ set_color gold, [1.0, 0.843, 0.0]
 set_color plum, [0.568, 0.239, 0.527]    
 set_color cool_blue, [0.3412, 0.4587, 0.8833]
 set_color cool_red, [0.8654, 0.4671, 0.3216]
+set_color cool_green, [0.4569, 0.6412, 0.5725]
 
 # OPTIONAL: Set cartoon to loop representation
 # cartoon loop
