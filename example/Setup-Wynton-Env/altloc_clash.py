@@ -22,7 +22,7 @@ if not os.path.isfile(pdb_path):
 parser = PDBParser(QUIET=True)
 structure = parser.get_structure(pdb_id, pdb_path)
 
-# Separate ligand and protein atoms by altloc
+# Separate ligand and protein atoms by altloc (this assumes altlocs are 'A' and 'B' for both protein & ligand, which may not necessarily be true... find better way to make more generalizable?) 
 ligand_atoms_A = []
 ligand_atoms_B = []
 protein_atoms_A = []
