@@ -111,16 +111,25 @@ mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
+#________________________________CLEAN DUPLICATE___________________________________
+echo "Cleaning ${pdb_name}..."
+python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${multiconf}.f_modified.pdb
+mv ${multiconf}.f_modified_cleaned.pdb ${multiconf}.f_modified.pdb
+echo "Done. Cleaned file saved to ${multiconf}.f_modified.pdb"
+
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
+
+phenix.elbow ${pdb_name}_final.pdb --do_all
+
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
 if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
   cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
 fi
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_refine.params
+if [ -f "elbow.${pdb_name}_final_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_final_pdb.all.cif'" >> ${pdb_name}_refine.params
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
@@ -142,6 +151,7 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "refinement.output.write_maps=False" \
                "data_manager.miller_array.labels.name=${xray_data_labels}" \
                "xray_data.r_free_flags.generate=True" \
+               "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
                --overwrite
 
 create_restraints_file.py "${pdb_name}_002.pdb"
@@ -156,8 +166,8 @@ echo "refinement.main.nqh_flips=False"                                >> ${pdb_n
 echo "refinement.refine.${adp}"                                       >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                             >> ${pdb_name}_occ_refine.params
 
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
 zeroes=50
@@ -174,7 +184,7 @@ while [ $zeroes -gt 1 ]; do
                     "refinement.main.number_of_macro_cycles=5" \
                     "refinement.main.nqh_flips=False" \
                     "refinement.refine.${adp}" \
-                    "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+                    "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
                     qFit_occupancy.params \
                     --overwrite
     else
@@ -209,6 +219,12 @@ while [ $zeroes -gt 1 ]; do
   ((i++));
 done
 
+#________________________________CLEAN DUPLICATE___________________________________
+echo "Cleaning ${pdb_name}..."
+python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${pdb_name}_002.pdb
+mv ${pdb_name}_002_cleaned.pdb ${pdb_name}_002.pdb
+echo "Done. Cleaned file saved to ${pdb_name}_002.pdb"
+
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
 # Here we add H with phenix.ready_set. Addition of H to the backbone is important
@@ -238,11 +254,11 @@ echo "refinement.main.ordered_solvent=True" >> ${pdb_name}_final_refine.params
 echo "ordered_solvent.mode=every_macro_cycle" >> ${pdb_name}_final_refine.params
 echo "include_altlocs=True" >> ${pdb_name}_final_refine.params
 
-if [ -f "${pdb_name}_002.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
-if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
@@ -258,7 +274,7 @@ if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
             "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
-            "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
             qFit_occupancy.params \
             --overwrite
  else
@@ -298,7 +314,7 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
 
-  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
@@ -314,7 +330,7 @@ if [ -f "reduce_failure.pdb" ]; then
             "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
-            "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
             qFit_occupancy.params \
             --overwrite
  else
