@@ -1,12 +1,13 @@
 import sys
 import os
-import pkg_resources
 import time
 import logging
 import logging.handlers
 import multiprocessing as mp
 import numpy as np
 import threading
+#import pkg_resources  # deprecated
+from importlib.metadata import version, PackageNotFoundError
 
 from . import LOGGER as MODULELOGGER
 
@@ -57,9 +58,15 @@ def log_run_info(options, logger):
         options (_BaseQFitOptions): A QFitOptions object for this run.
         logger (logging.Logger): The logger that will log the messages.
     """
-    version = pkg_resources.require("qfit")[0].version
+    
+    #version = pkg_resources.require("qfit")[0].version  # deprecated
+    try:
+        qfit_version = version("qfit")
+    except PackageNotFoundError:
+        qfit_version = "unknown"
+
     cmd = " ".join(sys.argv)
-    logger.info(f"===== qFit version: {version} =====")
+    logger.info(f"===== qFit version: {qfit_version} =====")
     logger.info(time.strftime("%c %Z"))
     logger.info(f"{cmd}")
     logger.info(f"===== qFit parameters: =====")
