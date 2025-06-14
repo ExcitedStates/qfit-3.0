@@ -269,7 +269,7 @@ def main():
     structure = Structure(data).reorder()
 
     # add het atoms back in
-    structure = structure.combine(water)
+    structure = structure.combine(hetatms)
     # Reattach LINK records
     structure.link_data = link_data
 
