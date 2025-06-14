@@ -24,32 +24,33 @@ As this software relies on CVXPY, please also cite:
 - [Diamond & Boyd. CVXPY: A Python-Embedded Modeling Language for Convex Optimization. Journal of Machine Learning Research. (2016)](https://www.jmlr.org/papers/volume17/15-408/15-408.pdf)
 
 
-## Installation (conda recommended)
+## Installation
 
-We recommend using the _conda_ package manager to install _qFit_.
+We recommend using the _mamba_ package manager to install _qFit_.
 
-1. Clone the latest release of the qFit source, and install to your conda env
+1. Clone the latest release of the qFit source:
 
-   git clone -b main https://github.com/ExcitedStates/qfit-3.0.git
+`git clone -b main https://github.com/ExcitedStates/qfit-3.0.git`
    
-   cd qfit-3.0
+`cd qfit-3.0`
    
-3. Create the Conda environment using the downloaded file:
+2. Create the mamba environment using the downloaded file:
 
-   mamba env create -f environment.yml
+`mamba env create -f environment.yml`
 
-4. After creating the Conda environment, activate it:
+3. Activate the new mamba environment:
 
-   conda activate qfit
+`mamba activate qfit`
 
-5. If you installing on M1 Mac:
+Note: If you encounter difficulties installing on an M1 Mac, you may try the following:
    
-     conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate
-     conda activate qfit
+`conda activate qfit; conda env config vars set CONDA_SUBDIR=osx-64; conda deactivate`
 
-6. Install qFit
+`conda activate qfit`
 
-   pip install .
+4. Install qFit into the mamba environment:
+
+   `pip install .`
    
 
 ### Advanced
