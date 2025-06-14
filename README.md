@@ -57,7 +57,7 @@ Note: If you encounter difficulties installing on an M1 Mac, you may try the fol
 
 If you prefer to manage your environments using other methods, qFit has the following prerequisites:
 
-* [Python 3.6+](https://python.org)
+* [Python 3.9+](https://python.org)
 * [numpy](https://numpy.org)
 * [scipy](https://scipy.org)
 * [cvxpy](https://www.cvxpy.org)
