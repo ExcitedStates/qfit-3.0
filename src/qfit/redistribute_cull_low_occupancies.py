@@ -237,8 +237,8 @@ def main():
     structure = Structure.fromfile(args.structure)
 
     # seperate het versus atom (het allowed to have <1 occ)
-    water = structure.extract("resn", "HOH", "==")
-    structure = structure.extract("resn", "HOH", "!=")
+    hetatms = structure.extract("record", "HETATM", "==")
+    structure = structure.extract("record", "HETATM", "!=")
 
     # Capture LINK records
     link_data = structure.link_data
