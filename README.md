@@ -16,7 +16,7 @@ If you use this software, please cite:
 - [Keedy DA, Fraser JS, & van den Bedem H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
 qFit-ligand:
-- [Flowers J, Echols N, Correy G, Jaishankar P, Togo T, Renslo A, van den Bedem H, Fraser J, Wankowicz SA. (2024) Expanding Automated Multiconformer Ligand Modeling to Macrocycles and Fragments. bioRxiv.](https://www.biorxiv.org/content/10.1101/2024.09.20.613996)
+- [Flowers J, Echols N, Correy G, Jaishankar P, Togo T, Renslo A, van den Bedem H, Fraser J, Wankowicz SA. (2024) Expanding Automated Multiconformer Ligand Modeling to Macrocycles and Fragments. eLife. 2025](https://elifesciences.org/reviewed-preprints/103797)
 - [van Zundert GCP, Hudson BM, de Oliveira SHP, Keedy DA, Fonseca R, Heliou A, Suresh P, Borrelli K, Day T, Fraser JS, van den Bedem H. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
 
 As this software relies on CVXPY, please also cite:
