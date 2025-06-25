@@ -298,10 +298,11 @@ class XMap(_BaseVolume):
         for symop in self.unit_cell.space_group.symop_list:
             transform = np.hstack((symop.R, symop.t.reshape(3, -1)))
             transform[:, -1] *= out.shape[::-1]
+            logger.debug("Transform for symop %s is %s", symop, transform)
             extend_to_p1(self.array, offset, transform, out.array)
         return out
 
-    def canonical_unit_cell(self, no_expand_p1=None):
+    def canonical_unit_cell(self, expand_to_p1=None):
         """
         Perform space group symmetry expansion to fill in density values for
         the entire unit cell.
@@ -309,19 +310,13 @@ class XMap(_BaseVolume):
         # TODO experiment with the effect of running the expansion; to
         # completely reproduce the original behavior of qfit-3.0 we
         # need to also run extend_to_p1 even if the map is already complete
-        if self._source_transformer == "qfit":
-            if no_expand_p1 != False:
-                assert self.is_canonical_unit_cell(), \
-                    "P1 expansion required when map does not cover unit cell"
-                logger.info("Skipping map extension for qfit transformer")
-                return self
-            else:
-                return self._expand_to_p1_non_symmetric()
+        if self.is_canonical_unit_cell() and expand_to_p1 != True:
+            logger.info("Skipping map extension")
+            return self
         else:
-            if self.is_canonical_unit_cell():
-                logger.info("Map already covers the unit cell, no expansion required")
-                return self
-            return self._expand_to_p1()
+            return self._expand_to_p1_non_symmetric()
+            # CCTBX version
+            #return self._expand_to_p1()
 
     def is_canonical_unit_cell(self):
         return (np.allclose(self.shape, self.unit_cell_shape[::-1]) and

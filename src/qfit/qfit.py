@@ -58,7 +58,7 @@ class QFitOptions:
         # the FFT routine is different for qfit as well - this flag allows us
         # to experiment with gridding
         self.transformer_map_coeffs = "cctbx"
-        self.no_expand_p1 = None
+        self.expand_to_p1 = None
 
         # Density preparation options
         self.density_cutoff = 0.3

@@ -13,7 +13,28 @@ from mmtbx.utils import shift_origin
 logger = logging.getLogger(__name__)
 
 
-def fft_map_coefficients(map_coeffs, nyquist=2, transformer="cctbx"):
+
+def get_naive_shape(map_coeffs, nyquist):
+    import qfit.xtal.legacy_transformer
+    logger.debug("Running legacy QFit FFT to get naive map shape")
+    xmap = qfit.xtal.legacy_transformer.fft_map_coefficients(
+        map_coeffs=map_coeffs,
+        nyquist=nyquist)
+    shape = xmap.shape[::-1]
+    logger.debug("Naive shape from qfit: %s", shape)
+    crystal_gridding = maptbx.crystal_gridding(
+        unit_cell             = map_coeffs.unit_cell(),
+        space_group_info      = map_coeffs.space_group_info(),
+        pre_determined_n_real = shape)
+    logger.debug("Using pre-determined gridding: %s",
+                 crystal_gridding.n_real())
+    return crystal_gridding
+
+
+def fft_map_coefficients(map_coeffs,
+                         nyquist=2,
+                         transformer="cctbx",
+                         use_naive_shape=False):
     """
     Transform CCTBX map coefficients (e.g. from an MTZ file) to a real map,
     using symmetry-aware FFT gridding; alternately, use the legacy Qfit
@@ -22,15 +43,21 @@ def fft_map_coefficients(map_coeffs, nyquist=2, transformer="cctbx"):
     """
     # TODO experiment with effect of transformer behavior - how essential is
     # the old FFT gridding to reproduce previous results?
+    import qfit.xtal.legacy_transformer
     if transformer == "cctbx":
+        crystal_gridding = symmetry_flags = None
+        if use_naive_shape:
+            crystal_gridding = get_naive_shape(map_coeffs, nyquist)
+        else:
+            symmetry_flags = maptbx.use_space_group_symmetry
         fft_map = map_coeffs.fft_map(
             resolution_factor=1/(2*nyquist),
-            symmetry_flags=maptbx.use_space_group_symmetry)
+            crystal_gridding=crystal_gridding,
+            symmetry_flags=symmetry_flags)
         real_map = fft_map.apply_sigma_scaling().real_map_unpadded()
         logger.info(f"FFT map dimensions from CCTBX: {real_map.focus()}")
         return np.swapaxes(real_map.as_numpy_array(), 0, 2)
     elif transformer == "qfit":
-        import qfit.xtal.legacy_transformer
         return qfit.xtal.legacy_transformer.fft_map_coefficients(
             map_coeffs=map_coeffs,
             nyquist=nyquist)
@@ -236,16 +263,13 @@ class Transformer(_BaseTransformer):
         if not xrs:
             xrs, _ = self._get_xray_structure_in_box()
         n_real = self.xmap.n_real()
-        u_base = xray_ext.calc_u_base(
-            d_min=self.xmap.resolution.high,
-            grid_resolution_factor=0.25)
         sampled_density = xray_ext.sampled_model_density(
             unit_cell=xrs.unit_cell(),
             scatterers=xrs.scatterers(),
             scattering_type_registry=xrs.scattering_type_registry(),
             fft_n_real=n_real,
             fft_m_real=n_real,
-            u_base=u_base,
+            u_base=0,
             wing_cutoff=1e-3,
             exp_table_one_over_step_size=-100,
             force_complex=False,
@@ -288,8 +312,8 @@ class FFTTransformer(Transformer):
         reflections = miller.set(xrs.crystal_symmetry(),
                                  flex_array.miller_index(self.hkl),
                                  anomalous_flag=False)
-        # XXX This is currently in closer agreement with the old "classic"
-        # implementation below, which does not use FFT, but it is much slower
+        # XXX This is currently in closer agreement with the old "legacy"
+        # implementation, which does not use FFT, but it is much slower
         sfs = structure_factors.from_scatterers(
             crystal_symmetry=xrs.crystal_symmetry(),
             d_min=reflections.d_min(),

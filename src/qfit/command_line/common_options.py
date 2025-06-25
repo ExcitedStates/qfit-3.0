@@ -132,11 +132,17 @@ def get_base_argparser(description,
         dest="transformer_map_coeffs",
         help="Map coefficients FFT implementation (for testing effect of gridding behavior)")
     p.add_argument(
-        "--no-expand-p1",
+        "--expand-to-p1",
         action="store_true",
-        dest="no_expand_p1",
-        default=False,
-        help="Disable P1 map expansion for QFit transformer only")
+        dest="expand_to_p1",
+        default=None,
+        help="Force P1 map expansion whether the map requires it or not")
+    p.add_argument(
+        "--no-expand-to-p1",
+        action="store_false",
+        dest="expand_to_p1",
+        default=None,
+        help="Disable P1 map expansion when map is already complete")
 
     p.add_argument(
         "--waters-clash",
@@ -271,7 +277,10 @@ def load_and_scale_map(options, structure):
         label=options.label,
         transformer=map_transformer
     )
-    xmap = xmap.canonical_unit_cell(no_expand_p1=options.no_expand_p1)
+    expand_to_p1 = options.expand_to_p1
+    if expand_to_p1 is None:
+        expand_to_p1 = map_transformer == "qfit"
+    xmap = xmap.canonical_unit_cell(expand_to_p1=expand_to_p1)
 
     # Scale map based on input structure
     if options.scale is True:

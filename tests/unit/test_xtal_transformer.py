@@ -63,9 +63,13 @@ class TransformerUnitBase(UnitBase):
 class TestTransformerCctbx(TransformerUnitBase):
     IMPLEMENTATION = "cctbx"
     # TODO figure out why these values are lower than in the qfit version
-    MIN_CC_GLU = 0.929
-    MIN_CC_LYS = 0.928
-    MIN_CC_TRP = 0.934
+    #MIN_CC_GLU = 0.929
+    #MIN_CC_LYS = 0.928
+    #MIN_CC_TRP = 0.934
+        # XXX see note above
+    MIN_CC_GLU = 0.94
+    MIN_CC_LYS = 0.945
+    MIN_CC_TRP = 0.95
 
     @pytest.mark.fast
     def test_transformer_3mer_ser_p21(self):
