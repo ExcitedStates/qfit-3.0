@@ -86,8 +86,7 @@ class QPSolver(GenericSolver):
     """
 
     @abstractmethod
-    def solve_qp(self) -> None:
-        ...
+    def solve_qp(self) -> None: ...
 
 
 class MIQPSolver(GenericSolver):
@@ -140,8 +139,7 @@ class MIQPSolver(GenericSolver):
         threshold: Optional[float] = None,
         cardinality: Optional[int] = None,
         exact: bool = False,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 ###############################
@@ -153,9 +151,11 @@ class CVXPYSolver(QPSolver, MIQPSolver):
     driver_pkg_name = "cvxpy"
     driver = lazy_load_module_if_available(driver_pkg_name)
 
-    def __init__(self, target, models, nthreads=1):
+    def __init__(self, target, models, in_model=None, nthreads=1):
         self.target = target
         self.models = models
+        self.in_model = in_model
+
 
         self.quad_obj = None
         self.lin_obj = None
@@ -230,6 +230,51 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self._objective_value = 2 * prob.value + self.target.T @ self.target
         self._weights = w.value
         self.construct_weights()
+
+    def rscc_solve_miqp(self, threshold=0, cardinality=0):
+        if self.quad_obj is None or self.lin_obj is None:
+            self.compute_quadratic_coeffs()
+
+        m = len(self.valid_indices)
+        P = self.quad_obj
+        q = self.lin_obj
+
+        w = cp.Variable(m)
+        z = cp.Variable(m, boolean=True)
+        objective = cp.Minimize(0.5 * cp.quad_form(w, cp.psd_wrap(P)) + q.T @ w)
+        constraints = [np.ones(m).T @ w <= 1]
+        if threshold:
+            constraints += [w - z <= 0, w >= threshold * z]
+            # The first constraint requires w_i to be zero if z_i is
+            # The second requires that each non-zero w_i is greater than the threshold
+        if cardinality:
+            constraints += [w - z <= 0, np.ones(m).T @ z <= cardinality]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver="SCIP")
+        self.objective_value = prob.value
+        # I'm not sure why objective_values is calculated this way, but doing
+        # so to be compatible with the former CPLEXSolver class
+        self._objective_value = 2 * prob.value + self.target.T @ self.target
+        self._weights = w.value
+
+        # output the correlation coefficient between the QFIT MODEL density and the target density 
+        cutoff=0.002
+        filterarray = self._weights >= cutoff
+        filtered_weights = self._weights[filterarray]
+        filtered_models = self.models[filterarray, :]
+
+        combined_model = np.dot(filtered_weights, filtered_models)
+        corr = np.corrcoef(combined_model, self.target)[0, 1]
+        print(f"RSCC for model of interest: {corr}")
+
+        # output correlations coefficient between INPUT MODEL density and target density 
+        if self.in_model is not None and self.in_model.size > 0:
+            input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
+            print(f"RSCC for comparision model: {input_corr}")
+            
+        self.construct_weights()
+
+
 
     def solve_qp(self, split_threshold=3000):
         if self.quad_obj is None or self.lin_obj is None:

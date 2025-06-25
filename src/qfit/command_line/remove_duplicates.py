@@ -1,4 +1,5 @@
 """Delete duplicate atom entries"""
+
 import argparse
 import os
 

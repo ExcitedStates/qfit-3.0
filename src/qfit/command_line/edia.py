@@ -53,9 +53,7 @@ class Weight:
         # Unknowns: r1,m2,m3,c2
         self.c2 = -(self.b1 - self.b2) / (self.m1 * self.r0)
         self.m2 = (
-            (self.r0**2)
-            * (self.m1**2)
-            / ((self.r0**2) * self.m1 - self.b2 + self.b1)
+            (self.r0**2) * (self.m1**2) / ((self.r0**2) * self.m1 - self.b2 + self.b1)
         )
         self.r1 = (
             self.m2 * self.c2 * self.c3 - self.m2 * self.c2 * self.c2 - self.b2
@@ -314,9 +312,9 @@ class _BaseEDIA:
         self.weighter = Weight(ed_radius)
         # Define a box of grid points that inscribes the sphere of interest
         box = (np.ceil(ed_radius * 2 / self.xmap.voxelspacing)).astype(int)  # (x,y,z)
-        sum_pos_weights = (
-            sum_neg_weights
-        ) = sum_product = sum_pos_product = sum_neg_product = 0.0
+        sum_pos_weights = sum_neg_weights = sum_product = sum_pos_product = (
+            sum_neg_product
+        ) = 0.0
         # Iterate over all grid points in the box and calculate their contribution to the EDIA score.
 
         for i in range(grid[2] - box[2], grid[2] + box[2]):  # z

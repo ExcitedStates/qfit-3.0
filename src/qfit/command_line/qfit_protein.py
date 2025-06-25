@@ -220,6 +220,7 @@ class QFitProtein:
         else:
             multiconformer = self._run_qfit_residue_parallel()
             multiconformer = self._run_qfit_segment(multiconformer)
+        return multiconformer
 
     @property
     def file_ext(self):
@@ -410,18 +411,22 @@ class QFitProtein:
         else:
             # Otherwise, run this in the MainProcess
             for residue in residues_to_sample:
-                try:
-                    result = _run_qfit_residue(
-                        residue=residue,
-                        structure=self.structure,
-                        xmap=self.get_map_around_substructure(residue),
-                        options=self.options,
-                        logqueue=logqueue,
-                        backbone_coor_dict=backbone_coor_dict,
-                    )
-                    _cb(result)
-                except Exception as e:
-                    _error_cb(e)
+                if residue.resn[0] not in ROTAMERS:
+                   self.hetatms = self.hetatms.combine(residue)
+                   continue
+                else:
+                    try:
+                        result = _run_qfit_residue(
+                            residue=residue,
+                            structure=self.structure,
+                            xmap=self.get_map_around_substructure(residue),
+                            options=self.options,
+                            logqueue=logqueue,
+                            backbone_coor_dict=backbone_coor_dict,
+                        )
+                        _cb(result)
+                    except Exception as e:
+                        _error_cb(e)
 
         # Close the progressbar
         progress.close()

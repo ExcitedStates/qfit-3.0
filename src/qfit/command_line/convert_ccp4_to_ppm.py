@@ -53,9 +53,7 @@ class Weight:
         # Unknowns: r1,m2,m3,c2
         self.c2 = -(self.b1 - self.b2) / (self.m1 * self.r0)
         self.m2 = (
-            (self.r0**2)
-            * (self.m1**2)
-            / ((self.r0**2) * self.m1 - self.b2 + self.b1)
+            (self.r0**2) * (self.m1**2) / ((self.r0**2) * self.m1 - self.b2 + self.b1)
         )
         self.r1 = (
             self.m2 * self.c2 * self.c3 - self.m2 * self.c2 * self.c2 - self.b2

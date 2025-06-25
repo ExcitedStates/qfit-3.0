@@ -415,7 +415,6 @@ class Ligand(BaseLigand):
 
 
 class BondOrder(object):
-
     """Determine bond rotation order given a ligand and root."""
 
     def __init__(self, ligand, atom):
@@ -458,3 +457,4 @@ class BondOrder(object):
                         self.depth.append(depth)
                 except UnboundLocalError:
                     pass
+            self._bondorder(n, depth)

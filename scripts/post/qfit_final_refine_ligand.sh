@@ -1,9 +1,9 @@
 #!/bin/bash
-# This script works with Phenix version 1.20.
+# This script works with Phenix version 1.21.2.
 
 qfit_usage() {
   echo >&2 "Usage:";
-  echo >&2 "  $0 mapfile.mtz [multiconformer_ligand_bound_with_protein.pdb] [multiconformer_ligand_only.pdb]";
+  echo >&2 "  $0 mapfile.mtz [multiconformer_ligand_bound_with_protein.pdb] [multiconformer_ligand_only.pdb] [--BDC BDC_value]";
   echo >&2 "";
   echo >&2 "mapfile.mtz, multiconformer_ligand_bound_with_protein.pdb, and multiconformer_ligand_only.pdb MUST exist in this directory.";
   echo >&2 "Outputs will be written to mapfile_qFit.{pdb|mtz|log}.";
@@ -28,13 +28,61 @@ command -v remove_duplicates >/dev/null 2>&1 || {
   exit 1;
 }
 
-# Assert required files exist
-mapfile=$1
-multiconf=${2:-multiconformer_ligand_bound_with_protein.pdb}
-multiconf_lig=${2:-multiconformer_ligand_only.pdb}
+# Initialize variables
+BDC_value=""
+mapfile=""
+multiconf="multiconformer_ligand_bound_with_protein.pdb"
+multiconf_lig="multiconformer_ligand_only.pdb"
+
+# Parse the positional arguments and optional --BDC flag
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --BDC)
+      BDC_value=$2
+      shift 2
+      ;;
+    *.mtz)
+      mapfile=$1
+      shift
+      ;;
+    *.pdb)
+      if [[ -z "$multiconf" ]]; then
+        multiconf=$1
+      elif [[ -z "$multiconf_lig" ]]; then
+        multiconf_lig=$1
+      fi
+      shift
+      ;;
+    *)
+      qfit_usage
+      ;;
+  esac
+done
+
+# Display relevant file information
 echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined ligand model : ${multiconf_lig} $([[ -f ${multiconf_lig} ]] || echo '[NOT FOUND]')";
+
+
+# Call Python script to scale ligand occupancies if BDC is provided
+if [[ -n "$BDC_value" ]]; then
+  echo "BDC provided: ${BDC_value}"
+  echo "Scaling ligand occupancies by 1-BDC..."
+  event_map_bdc_scaler "${multiconf}" "${multiconf_lig}" "${BDC_value}"
+  
+  # Use the scaled PDB file for refinement
+  scaled_pdb="${multiconf%.pdb}_scaled.pdb"
+  if [[ -f "${scaled_pdb}" ]]; then
+    multiconf="${scaled_pdb}"
+    echo "Using scaled PDB file: ${scaled_pdb}"
+  else
+    echo >&2 "Scaled PDB file not found. Exiting."
+    exit 1
+  fi
+else
+  echo "No BDC value provided, proceeding without occupancy scaling."
+fi
 
 
 echo "";
@@ -63,7 +111,7 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)" "FSIM")
+obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)" "FSIM" "IMEAN")
 
 # Get amplitude fields
 ampfields=`grep -E "amplitude|intensity|F\(\+\)|I\(\+\)" <<< "${mtzmetadata}"`
@@ -138,8 +186,8 @@ fi
 
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_refine.params
-echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_refine.params
-echo "refinement.output.serial=2"                >> ${pdb_name}_refine.params
+echo "output.prefix=${pdb_name}"                 >> ${pdb_name}_refine.params
+echo "output.serial=2"                           >> ${pdb_name}_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_refine.params
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_refine.params
@@ -153,8 +201,59 @@ echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'"
 
 phenix.refine  "${multiconf}.f_modified.pdb" \
                "${pdb_name}.mtz" \
-               "${pdb_name}_refine.params" \
+               "refine.strategy=*individual_sites *individual_adp *occupancies" \
+               "output.prefix=${pdb_name}" \
+               "output.serial=2" \
+               "refinement.main.number_of_macro_cycles=5" \
+               "refinement.main.nqh_flips=True" \
+               "xray_data.r_free_flags.generate=True" \
+               "refinement.refine.${adp}" \
+               "refinement.hydrogens.refine=riding" \
+               "refinement.main.ordered_solvent=True" \
+               "refinement.target_weights.optimize_xyz_weight=true" \
+               "refinement.target_weights.optimize_adp_weight=true" \
+               "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+                --overwrite
+
+#________________________________CHECK FOR REDUCE ERRORS______________________________
+
+if [ -f "reduce_failure.pdb" ]; then
+  echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
+  echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "output.serial=2"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.output.write_maps=False"        >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" >> ${pdb_name}_final_refine_noreduce.params
+
+
+phenix.refine  "${multiconf}.f_modified.pdb" \
+               "${pdb_name}.mtz" \
+               "refine.strategy=*individual_sites *individual_adp *occupancies" \
+               "output.prefix=${pdb_name}" \
+               "output.serial=2" \
+               "refinement.main.number_of_macro_cycles=5" \
+               "refinement.main.nqh_flips=False" \
+               "xray_data.r_free_flags.generate=True" \
+               "refinement.refine.${adp}" \
+               "refinement.hydrogens.refine=riding" \
+               "refinement.main.ordered_solvent=True" \
+               "refinement.target_weights.optimize_xyz_weight=true" \
+               "refinement.target_weights.optimize_adp_weight=true" \
+               "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
+               "refinement.input.xray_data.labels=${xray_data_labels}" \
                --overwrite
+
+fi
+
+#______________________________REMOVE AND REDISTRIBUTE LOW OCC_____________________
+redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_002.pdb"
+mv -v "${pdb_name}_002_norm.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_qFit_ligand.pdb"

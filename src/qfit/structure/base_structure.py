@@ -271,7 +271,8 @@ class BaseStructure(ABC):
         return selection
 
     def tofile(self, fname, cryst=None):
-        if fname.endswith(".pdb") or fname.endswith(".pdb.gz"):
+        if (fname.endswith(".pdb") or fname.endswith(".pdb.gz") or
+            fname.endswith(".fixed")):
             return self.to_pdb_file(fname, cryst)
         elif fname.endswith(".cif") or fname.endswith(".cif.gz"):
             return self.to_mmcif_file(fname, cryst)

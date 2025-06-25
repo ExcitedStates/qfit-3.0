@@ -1,14 +1,15 @@
-# qFit 3.2.2
+# qFit 2024.3
 
 ![](https://github.com/ExcitedStates/qfit-3.0/workflows/tests/badge.svg)
 
 If you use this software, please cite:
+- [Wankowicz SA, Ravikumar A, Sharma S, Riley BT, Raju A, Hogan DW, van den Bedem H, Keedy DA, & Fraser JS. Uncovering Protein Ensembles: Automated Multiconformer Model Building for X-ray Crystallography and Cryo-EM. eLife. (2023).](https://www.biorxiv.org/content/10.1101/2023.06.28.546963v2.abstract)
 - [Riley BT, Wankowicz SA, et al. qFit 3: Protein and ligand multiconformer modeling for X-ray crystallographic and single-particle cryo-EM density maps. Protein Sci. 30, 270–285 (2021)](https://dx.doi.org/10.1002/pro.4001)
 - [van Zundert, G. C. P. et al. qFit-ligand Reveals Widespread Conformational Heterogeneity of Drug-Like Molecules in X-Ray Electron Density Maps. J. Med. Chem. 61, 11183–11198 (2018)](https://dx.doi.org/10.1021/acs.jmedchem.8b01292)
 - [Keedy, D. A., Fraser, J. S. & van den Bedem, H. Exposing Hidden Alternative Backbone Conformations in X-ray Crystallography Using qFit. PLoS Comput. Biol. 11, e1004507 (2015)](https://dx.doi.org/10.1371/journal.pcbi.1004507)
 
 ## Refinement
-After *multiconformer_model2.pdb* has been generated, the model must need to be refined. Bear in mind that this final step currently depends on an existing installation of the Phenix software suite. This script is currently written to work with version Phenix 1.20.
+After *multiconformer_model2.pdb* has been generated, the model must need to be refined. Bear in mind that this final step currently depends on an existing installation of the Phenix software suite. This script is currently written to work with version Phenix 1.21.
 
 [Phenix installation](https://phenix-online.org/documentation/install-setup-run.html)
 
@@ -107,6 +108,7 @@ OUTPUT: Text file pdb_name_seq.txt with amino acid sequence as found in PDB
 
 `get_seq.py pdb.pdb --pdb {pdb_name}`
 
+
 ### 8. Get SMILES String
 This script will take in a ligand name and return its SMILES string, as specified on the Protein Data Bank.
 
@@ -127,7 +129,7 @@ OUTPUT: Text file {pdb_name}_ligand_occupancy.csv with ligand occupancy informat
 example:
 `lig_occ.py pdb.pdb --pdb {pdb_name} -l {ligand name}`
 
-## 10. Get Root Mean Squared Flucuations (RMSF) for each residue 
+### 10. Get Root Mean Squared Flucuations (RMSF) for each residue 
 
 This script will take in a PDB and ligand code and return the occupancy and b-factors of each ligand conformer. 
 
@@ -138,7 +140,7 @@ OUTPUT: Text file {pdb_name}_qfit_RMSF.csv with weighted RMSF calculated for eac
 example:
 `qfit_RMSF.py {PDB}_qFit.pdb --pdb={PDB}`
 
-## 11. Relabel chains of matching PDB
+### 11. Relabel chains of matching PDB
 
 This script will rename chains in one PDB (holo) one based how close via RMSD is on corresponding PDB (apo).
 
@@ -149,7 +151,7 @@ OUTPUT: PDB with renamed chain(s)
 example:
 `relabel_chain.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name}`
 
-## 12. Subset structures based on proximity to ligand
+### 12. Subset structures based on proximity to ligand
 This script will take in 2 pdbs and a ligand or geometric point in the PDB and the PDB names and output a list of overlapping ligands and a list of close residues (determined by -distance).
 
 INPUT: 2 PDB, 2 PDB names, ligand (optional: distance)
@@ -160,7 +162,7 @@ example:
 `subset_structure_AH.py holo_pdb.pdb apo_pdb.pdb --holo_name {holo name} --apo_name {holo name} -ls {ligand name}`
 
 
-## 13. Water scripts
+### 13. Water scripts
 
 water_clash.py: This will take in two PDBs, one containing water molecules, one containing only protein or protein/hetatoms.
 It will then determine how many clashes occur between the two and adjust accordingly.
@@ -181,3 +183,22 @@ OUTPUT: Multiple CSV file with output of residues that are close to water molecu
 example: 
 `water_stats.py pdb.pdb --dist {distance between protein and water} --pdb {pdb name}`
 
+### 14. Calculate the RSCC of a ligand and density map 
+This script will calculate the RSCC of a ligand defined by its residue number and chain. This script can either calcualte the RSCC of a single model of interest, or the RSCC of two models against the same density map in the same voxel space.
+
+INPUT: Density map, protein-ligand pdb file, chain, residue number, map label, (optional second protein-ligand pdb file)
+
+OUTPUT: RSCC of the input model(s) and map printed to the console 
+
+example: 
+`calc_rscc.py MAP_FILE MODEL.pdb CHAIN,RESIDUE_ID -l 2FOFCWT,PH2FOFCWT -comp COMPARISON_MODEL.pdb`
+
+### 15. Calculate the RMSD between two conformers
+This script calculates the RMSD between two structures (PDB files) using their atomic coordinates. 
+
+INPUT: 2 PDBs, PDB name
+
+OUTPUT: A CSV file with the calculated RMSD value between the two structures.
+
+example: 
+`calc_rmsd.py conformer1.pdb conformer2.pdb --pdb PDB_NAME`

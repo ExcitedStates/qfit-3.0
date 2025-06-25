@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script works with Phenix version 1.20.
+# This script works with Phenix version 2.0.
 
 qfit_usage() {
   echo >&2 "Usage:";
@@ -58,7 +58,7 @@ fi
 
 #__________________________________DETERMINE FOBS v IOBS v FP__________________________________
 # List of Fo types we will check for
-obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)")
+obstypes=("FP" "FOBS" "F-obs" "I" "IOBS" "I-obs" "F(+)" "I(+)" "F-obs-filtered(+)")
 
 # Get amplitude fields
 ampfields=`grep -E "amplitude|intensity|F\(\+\)|I\(\+\)" <<< "${mtzmetadata}"`
@@ -85,7 +85,7 @@ if [ -z "${xray_data_labels}" ]; then
 else
   echo "data labels: ${xray_data_labels}"
   # Start writing refinement parameters into a parameter file
-  echo "refinement.input.xray_data.labels=$xray_data_labels" > ${pdb_name}_refine.params
+  echo "data_manager.miller_array.labels.name=$xray_data_labels" > ${pdb_name}_refine.params
 fi
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
@@ -94,64 +94,80 @@ rfreetypes="FREE R-free-flags"
 for field in ${rfreetypes}; do
   if grep -F -q -w $field <<< "${mtzmetadata}"; then
     gen_Rfree=False;
-    echo "Rfree column: ${field}";
-    echo "refinement.input.xray_data.r_free_flags.label=${field}" >> ${pdb_name}_refine.params
+    echo "Rfree column: ${rfield}";
+    echo "miller_array.labels.name=${rfield}" >> ${pdb_name}_refine.params
     break
   fi
 done
-echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_name}_refine.params
+echo "xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_name}_refine.params
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
 
 #__________________________________NORMALIZE OCCUPANCIES________________________________________
-redistribute_cull_low_occupancies -occ 0.09 "${multiconf}_fixed.pdb"
-mv -v "${multiconf}_fixed_norm.pdb" "${multiconf}_fixed.pdb"
+redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
+mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}_fixed.pdb"
 
+#________________________________CLEAN DUPLICATE___________________________________
+echo "Cleaning ${pdb_name}..."
+python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${multiconf}.f_modified.pdb
+mv ${multiconf}.f_modified_cleaned.pdb ${multiconf}.f_modified.pdb
+echo "Done. Cleaned file saved to ${multiconf}.f_modified.pdb"
+
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
-                 pdb_file_name="${multiconf}_fixed_modified.pdb"
+                 pdb_file_name="${multiconf}.f_modified.pdb"
+
+phenix.elbow ${pdb_name}_final.pdb --do_all
+
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
 if [ ! -f "${multiconf}_fixed_modified.updated.pdb" ]; then
   cp -v "${multiconf}_fixed_modified.pdb" "${multiconf}_fixed_modified.updated.pdb";
 fi
-if [ -f "${multiconf}_fixed_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}_fixed_modified.ligands.cif'" >> ${pdb_name}_refine.params
+if [ -f "elbow.${pdb_name}_final_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_final_pdb.all.cif'" >> ${pdb_name}_refine.params
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
 # Write refinement parameters into parameters file
 echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
-echo "refinement.output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
-echo "refinement.output.serial=2"                    >> ${pdb_name}_refine.params
+echo "output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
+echo "output.serial=2"                    >> ${pdb_name}_refine.params
 echo "refinement.main.number_of_macro_cycles=5"      >> ${pdb_name}_refine.params
 echo "refinement.main.nqh_flips=False"               >> ${pdb_name}_refine.params
 echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.params
 
 phenix.refine  "${multiconf}_fixed_modified.updated.pdb" \
                "${pdb_name}.mtz" \
-               "${pdb_name}_refine.params" \
+               "refine.strategy=*individual_sites" \
+               "output.prefix=${pdb_name}" \
+               "output.serial=2" \
+               "refinement.main.number_of_macro_cycles=5" \
+               "refinement.main.nqh_flips=False" \
+               "refinement.output.write_maps=False" \
+               "data_manager.miller_array.labels.name=${xray_data_labels}" \
+               "xray_data.r_free_flags.generate=True" \
+               "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
                --overwrite
 
 create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
-echo "refinement.output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
-echo "refinement.output.serial=3"                                                >> ${pdb_name}_occ_refine.params
-echo "refinement.main.number_of_macro_cycles=5"                                  >> ${pdb_name}_occ_refine.params
-echo "refinement.main.nqh_flips=False"                                            >> ${pdb_name}_occ_refine.params
-echo "refinement.refine.${adp}"                                                  >> ${pdb_name}_occ_refine.params
-echo "refinement.output.write_maps=False"                                        >> ${pdb_name}_occ_refine.params
-echo "refinement.hydrogens.refine=riding"                                        >> ${pdb_name}_occ_refine.params
+echo "refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
+echo "output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
+echo "output.serial=3"                                                >> ${pdb_name}_occ_refine.params
+echo "refinement.main.number_of_macro_cycles=5"                       >> ${pdb_name}_occ_refine.params
+echo "refinement.main.nqh_flips=False"                                >> ${pdb_name}_occ_refine.params
+echo "refinement.refine.${adp}"                                       >> ${pdb_name}_occ_refine.params
+echo "refinement.output.write_maps=False"                             >> ${pdb_name}_occ_refine.params
 
-if [ -f "${multiconf}_fixed_modified.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${multiconf}_fixed_modified.ligands.cif'" >> ${pdb_name}_occ_refine.params
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
 zeroes=50
@@ -159,11 +175,30 @@ i=1
 too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
   echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
-  phenix.refine "${pdb_name}_002.pdb" \
-                "${pdb_name}_002.mtz" \
-                "${pdb_name}_occ_refine.params" \
-                qFit_occupancy.params \
-                --overwrite
+  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+      phenix.refine "${pdb_name}_002.pdb" \
+                    "${pdb_name}_002.mtz" \
+                    "refine.strategy=*individual_sites *individual_adp *occupancies" \
+                    "output.prefix=${pdb_name}" \
+                    "output.serial=3" \
+                    "refinement.main.number_of_macro_cycles=5" \
+                    "refinement.main.nqh_flips=False" \
+                    "refinement.refine.${adp}" \
+                    "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
+                    qFit_occupancy.params \
+                    --overwrite
+    else
+        phenix.refine "${pdb_name}_002.pdb" \
+                    "${pdb_name}_002.mtz" \
+                    "refine.strategy=*individual_sites *individual_adp *occupancies" \
+                    "output.prefix=${pdb_name}" \
+                    "output.serial=3" \
+                    "refinement.main.number_of_macro_cycles=5" \
+                    "refinement.main.nqh_flips=False" \
+                    "refinement.refine.${adp}" \
+                    qFit_occupancy.params \
+                    --overwrite
+    fi
 
   zeroes=`redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_003.pdb" | tail -n 1`
   echo "Post refinement zeroes: ${zeroes}"
@@ -172,6 +207,7 @@ while [ $zeroes -gt 1 ]; do
     exit 1;
   else
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
+    create_restraints_file.py "${pdb_name}_002.pdb"
   fi
 
   if [ $i -ge 50 ]; then
@@ -182,6 +218,12 @@ while [ $zeroes -gt 1 ]; do
 
   ((i++));
 done
+
+#________________________________CLEAN DUPLICATE___________________________________
+echo "Cleaning ${pdb_name}..."
+python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${pdb_name}_002.pdb
+mv ${pdb_name}_002_cleaned.pdb ${pdb_name}_002.pdb
+echo "Done. Cleaned file saved to ${pdb_name}_002.pdb"
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
@@ -195,9 +237,11 @@ mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 
 # Write refinement parameters into parameters file
-echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
-echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
-echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine.params
+echo "refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
+echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
+echo "output.serial=5"                >> ${pdb_name}_final_refine.params
+echo "include_altlocs=True"           >> ${pdb_name}_final_refine.params
+echo "ordered_solvent.dist_min = 2.0" >> ${pdb_name}_final_refine.params
 echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine.params
 echo "refinement.main.nqh_flips=True"            >> ${pdb_name}_final_refine.params
 echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine.params
@@ -206,18 +250,61 @@ echo "refinement.hydrogens.refine=riding"        >> ${pdb_name}_final_refine.par
 echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine.params
 echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine.params
 echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine.params
+echo "refinement.main.ordered_solvent=True" >> ${pdb_name}_final_refine.params
+echo "ordered_solvent.mode=every_macro_cycle" >> ${pdb_name}_final_refine.params
+echo "include_altlocs=True" >> ${pdb_name}_final_refine.params
 
-if [ -f "${pdb_name}_002.ligands.cif" ]; then
-  echo "refinement.input.monomers.file_name='${pdb_name}_002.ligands.cif'"  >> ${pdb_name}_final_refine.params
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
-phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine.params" --overwrite 
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+      phenix.refine "${pdb_name}_002.pdb" \
+            "${pdb_name}_002.mtz" \
+            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "output.prefix=${pdb_name}" \
+            "output.serial=5" \
+            "refinement.main.number_of_macro_cycles=5" \
+            "refinement.main.nqh_flips=True" \
+            "refinement.refine.${adp}" \
+            "refinement.hydrogens.refine=riding" \
+            "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
+            "refinement.target_weights.optimize_xyz_weight=true" \
+            "refinement.target_weights.optimize_adp_weight=true" \
+            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
+            qFit_occupancy.params \
+            --overwrite
+ else
+      phenix.refine "${pdb_name}_002.pdb" \
+            "${pdb_name}_002.mtz" \
+            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "output.prefix=${pdb_name}" \
+            "output.serial=5" \
+            "refinement.main.number_of_macro_cycles=5" \
+            "refinement.main.nqh_flips=True" \
+            "refinement.refine.${adp}" \
+            "refinement.hydrogens.refine=riding" \
+            "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
+            "refinement.target_weights.optimize_xyz_weight=true" \
+            "refinement.target_weights.optimize_adp_weight=true" \
+            qFit_occupancy.params \
+            --overwrite
+fi
+
 
 #________________________________CHECK FOR REDUCE ERRORS______________________________
 if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
-  echo "refinement.output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
+  echo "output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
+  echo "include_altlocs=True"           >> ${pdb_name}_final_refine_noreduce.params
+  echo "ordered_solvent.dist_min = 2.0" >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.number_of_macro_cycles=5"  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.main.nqh_flips=False"           >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.refine.${adp}"                  >> ${pdb_name}_final_refine_noreduce.params
@@ -226,10 +313,47 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.main.ordered_solvent=True"      >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
-  
 
-  phenix.refine "${pdb_name}_002.pdb" "${pdb_name}_002.mtz" "${pdb_name}_final_refine_noreduce.params" --overwrite
+  if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+      phenix.refine "${pdb_name}_002.pdb" \
+            "${pdb_name}_002.mtz" \
+            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "output.prefix=${pdb_name}" \
+            "output.serial=5" \
+            "refinement.main.number_of_macro_cycles=5" \
+            "refinement.main.nqh_flips=False" \
+            "refinement.refine.${adp}" \
+            "refinement.hydrogens.refine=riding" \
+            "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.dist_min = 2.0" \ 
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
+            "refinement.target_weights.optimize_xyz_weight=true" \
+            "refinement.target_weights.optimize_adp_weight=true" \
+            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
+            qFit_occupancy.params \
+            --overwrite
+ else
+      phenix.refine "${pdb_name}_002.pdb" \
+            "${pdb_name}_002.mtz" \
+            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "output.prefix=${pdb_name}" \
+            "output.serial=5" \
+            "refinement.main.number_of_macro_cycles=5" \
+            "refinement.main.nqh_flips=False" \
+            "refinement.refine.${adp}" \
+            "refinement.hydrogens.refine=riding" \
+            "refinement.main.ordered_solvent=True" \
+            "ordered_solvent.mode=every_macro_cycle" \
+            "include_altlocs=True" \
+            "ordered_solvent.dist_min = 2.0" \
+            "refinement.target_weights.optimize_xyz_weight=true" \
+            "refinement.target_weights.optimize_adp_weight=true" \
+            qFit_occupancy.params \
+            --overwrite
 fi
+fi
+
 
 #__________________________________NAME FINAL FILES__________________________________
 cp -v "${pdb_name}_005.pdb" "${pdb_name}_qFit.pdb"

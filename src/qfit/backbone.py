@@ -88,7 +88,6 @@ def compute_jacobian(bb_coor):
 
 
 class AtomMoveFunctional:
-
     """Functional for obtaining energy and gradient to move a CB atom"""
 
     def __init__(self, segment, residue_index, atom_name, endpoint):

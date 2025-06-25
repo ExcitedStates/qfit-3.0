@@ -7,7 +7,6 @@ import numpy as np
 
 
 class ClashDetector:
-
     """Detect clashes between ligand and receptor using spatial hashing."""
 
     def __init__(self, ligand, receptor, scaling_factor=0.85, exclude=None):

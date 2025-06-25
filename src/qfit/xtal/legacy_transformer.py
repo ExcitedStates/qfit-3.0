@@ -97,7 +97,6 @@ class SFTransformer:
 
 
 class FFTTransformer:
-
     """Transform a structure in a map via FFT"""
 
     def __init__(self, structure, xmap, hkl=None, em=False, b_add=None):
@@ -166,7 +165,6 @@ class FFTTransformer:
 
 
 class Transformer:
-
     """Transform a structure to a density."""
 
     def __init__(

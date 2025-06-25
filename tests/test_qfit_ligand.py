@@ -103,7 +103,8 @@ class TestQFitLigand(QfitLigandRunner):
             pdb_file_name="5C40.pdb",
             mtz_file_name="5C40_composite_omit_map.mtz",
             selection="A, 401",
-            smiles=r"c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(CP(=O)(O)O)O)O)O)N")
+            smiles=r"c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(CP(=O)(O)O)O)O)O)N",
+            extra_args=["-nc", "5000"])
         assert qfit_ligand.ligand.natoms == 31
         qfit_ligand.run()
         conformers = qfit_ligand.get_conformers()

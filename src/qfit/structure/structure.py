@@ -1,5 +1,6 @@
 from collections import defaultdict
 import itertools
+import os
 
 from scitbx.array_family import flex
 import numpy as np

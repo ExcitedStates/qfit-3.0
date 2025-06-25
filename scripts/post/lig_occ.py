@@ -20,12 +20,18 @@ def parse_args():
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
     p.add_argument("-l", "--ligand")
     p.add_argument("--pdb", help="Name of the input PDB.")
+    p.add_argument(
+        "--qFit",
+        action="store_true",
+        default=False,
+        help="Include qFit in output file name if set to True.",
+    )
 
     args = p.parse_args()
     return args
 
 
-def get_occ(structure, ligand, pdb):
+def get_occ(structure, ligand, pdb, qfit):
     lig_str = structure.extract("resn", ligand, "==")
     lig = []
     for i in np.unique(lig_str.chain):
@@ -38,23 +44,29 @@ def get_occ(structure, ligand, pdb):
                     np.amin(np.unique(lig_str.extract("chain", i, "==").q)),
                     np.average(lig_str.extract("chain", i, "==").b),
                     len(set(lig_str.extract("chain", i, "==").altloc)),
+                    len(lig_str.extract("name","H", "!=").b) #any value will do
                 )
             )
         )
     occ = pd.DataFrame(
         lig,
-        columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc"],
+        columns=["PDB", "ligand_name", "chain", "min_occ", "average_b", "num_altloc", "num_atoms"],
     )
-    occ.to_csv(pdb + "_ligand_occupancy.csv", index=False)
+    occ.to_csv(pdb + qfit + "_ligand_occupancy.csv", index=False)
 
 
 def main():
     args = parse_args()
+    if not args.qFit == None:
+        qfit = "_qFit"
+    else:
+        qfit = ""
     # Load structure and prepare it
     structure = Structure.fromfile(args.structure).reorder()
     structure = structure.extract("e", "H", "!=")
-    get_occ(structure, args.ligand, args.pdb)
+    get_occ(structure, args.ligand, args.pdb, qfit)
 
 
 if __name__ == "__main__":
     main()
+

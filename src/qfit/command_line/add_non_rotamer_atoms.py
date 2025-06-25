@@ -1,4 +1,5 @@
 """Automatically build a multiconformer residue"""
+
 import argparse
 import os
 
