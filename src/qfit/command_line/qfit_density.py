@@ -3,9 +3,9 @@
 import argparse
 import os
 
-from . import XMap, EMMap
-from . import Structure
-from .transformer import FFTTransformer, Transformer
+from qfit import XMap
+from qfit import Structure
+from qfit.xtal.transformer import FFTTransformer, Transformer
 
 
 def parse_args():
@@ -37,20 +37,14 @@ def main():
     args = parse_args()
     
     structure = Structure.fromfile(args.pdb_file)
-    
-    if os.path.splitext(args.xmap)[1] != ".mtz":
-        xmap = XMap.fromfile(args.xmap, resolution=args.resolution)
-    else:
-        xmap = XMap.fromfile(args.xmap)
-
-    resolution = args.resolution
+    xmap = XMap.fromfile(args.xmap, resolution=args.resolution)
     out = XMap.zeros_like(xmap)
 
     if hasattr(xmap, "hkl") and not args.no_fft:
         transformer = FFTTransformer(structure, out, em=args.em)
     else:
         if args.resolution is not None:
-            smax = 0.5 / resolution
+            smax = 0.5 / args.resolution
             simple = False
         else:
             smax = None

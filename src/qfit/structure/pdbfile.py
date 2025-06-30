@@ -1,147 +1,206 @@
-import gzip
-from collections import defaultdict
-import itertools as itl
+from collections import defaultdict, namedtuple
+import itertools
 from math import inf
 import logging
 
+import numpy as np
 
+import iotbx.pdb
+import iotbx.cif.model
+from libtbx import smart_open
+
+__all__ = ["read_pdb", "write_pdb", "read_pdb_or_mmcif", "write_mmcif", "ANISOU_FIELDS"]
 logger = logging.getLogger(__name__)
 
+ANISOU_FIELDS = ("u00", "u11", "u22", "u01", "u02", "u12")
 
-class PDBFile:
-    """Parsed PDB file representation by section. Contains reader and writer.
 
-    Attributes:
-        coor (dict[str, list): coordinate data
-        anisou (dict[str, list]): anisotropic displacement parameter data
-        link (dict[str, list]): link records
-        cryst1 (dict[str, Union[str, float, int]]): cryst1 record
-        scale (array): scale record
-        cryst_info (array): cryst1 record
-        resolution (Optional[float]): resolution of pdb file
+def _extract_record_type(atoms):
+    records = []
+    for atom in atoms:
+        records.append("ATOM" if not atom.hetero else "HETATM")
+    return records
+
+
+def _extract_link_records(pdb_inp):
+    link = defaultdict(list)
+    for line in pdb_inp.extract_LINK_records():
+        try:
+            values = LinkRecord.parse_line(line)
+            for field in LinkRecord.fields:
+                link[field].append(values[field])
+        except Exception as e:
+            logger.error(str(e))
+            logger.error("read_pdb: could not parse LINK data.")
+    return link
+
+
+def _extract_mmcif_links(mmcif_inp):
+    try:
+        _ = mmcif_inp.cif_block[LinkRecord.cif_fields[0]]
+    except KeyError:
+        return {}
+    link = {}
+    for field_name, cif_key, dtype in zip(
+        LinkRecord.fields, LinkRecord.cif_fields, LinkRecord.dtypes
+    ):
+
+        def _to_value(x):
+            if x == "?":
+                return ""
+            else:
+                return dtype(x)
+
+        raw_values = mmcif_inp.cif_block[cif_key]
+        link[field_name] = [_to_value(x) for x in raw_values]
+    return link
+
+
+def get_pdb_hierarchy(pdb_inp):
     """
+    Prepare an iotbx.pdb.hierarchy object from an iotbx.pdb.input object
+    """
+    pdb_hierarchy = pdb_inp.construct_hierarchy()
+    if len(pdb_hierarchy.models()) > 1:
+        raise NotImplementedError("Multi-model support is not implemented.")
+    atoms = pdb_hierarchy.atoms()
+    atoms.reset_i_seq()
+    atoms.reset_serial()
+    atoms.reset_tmp()
+    atoms.set_chemical_element_simple_if_necessary()
+    return pdb_hierarchy
 
-    @classmethod
-    def read(cls, fname):
-        """Read a pdb file and construct a PDBFile object.
 
-        Args:
-            fname (str): filename of pdb file to read
+def read_pdb_or_mmcif(fname):
+    """
+    Parse a PDB or mmCIF file and return the iotbx.pdb object and associated
+    content.
+    """
+    iotbx_in = iotbx.pdb.pdb_input_from_any(
+        file_name=fname, source_info=None, raise_sorry_if_format_error=True
+    )
+    pdb_inp = iotbx_in.file_content()
+    link_data = {}
+    if iotbx_in.file_format == "pdb":
+        link_data = _extract_link_records(pdb_inp)
+    else:
+        link_data = _extract_mmcif_links(pdb_inp)
+    for attr, array in link_data.items():
+        link_data[attr] = np.asarray(array)
+    input_cls = namedtuple("PDBInput", ["pdb_in", "link_data", "file_format"])
+    return input_cls(pdb_inp, link_data, iotbx_in.file_format)
 
-        Returns:
-            qfit.structure.PDBFile: object containing parsed sections
-                of the PDB file
-        """
-        cls.coor = defaultdict(list)
-        cls.anisou = defaultdict(list)
-        cls.link = defaultdict(list)
-        cls.cryst1 = {}
-        cls.scale = []  # store header info
-        cls.cryst_info = []  # store header info
-        cls.resolution = None
 
-        if fname.endswith(".gz"):
-            fopen = gzip.open
-            mode = "rt"
-        else:
-            fopen = open
-            mode = "r"
+def read_pdb(fname):
+    return read_pdb_or_mmcif(fname)
 
-        with fopen(fname, mode) as f:
-            for line in f:
-                if line.startswith(("ATOM", "HETATM")):
-                    values = CoorRecord.parse_line(line)
-                    for field in CoorRecord.fields:
-                        cls.coor[field].append(values[field])
-                elif line.startswith("ANISOU"):
-                    values = AnisouRecord.parse_line(line)
-                    for field in AnisouRecord.fields:
-                        cls.anisou[field].append(values[field])
-                elif line.startswith("MODEL"):
-                    raise NotImplementedError("MODEL record is not implemented.")
-                elif line.startswith("REMARK   2 RESOLUTION"):
-                    try:
-                        values = Remark2DiffractionRecord.parse_line(line)
-                        cls.resolution = values["resolution"]
-                    except:
-                        logger.error("PDBFile.read: could not parse RESOLUTION data.")
-                elif line.startswith("LINK "):
-                    try:
-                        values = LinkRecord.parse_line(line)
-                        for field in LinkRecord.fields:
-                            cls.link[field].append(values[field])
-                    except:
-                        logger.error("PDBFile.read: could not parse LINK data.")
-                elif line.startswith("CRYST1"):
-                    cls.cryst1 = Cryst1Record.parse_line(line)
-                    cls.cryst_info.append(line)
-                elif line.startswith("SCALE"):
-                    cls.scale.append(line)
 
-        return cls
-
-    @staticmethod
-    def write(fname, structure):
-        """Write a structure to a pdb file.
-
-        Note:
-            This is not complete. At the moment, we only write out LINK data
-            and coordinate (ATOM) data.
-
-        Args:
-            fname (str): filename to write to
-            structure (qfit.structure.Structure): a structure object to convert
-                to PDB.
-        """
-        with open(fname, "w") as f:
-            if structure.cryst_info:
-                for item in structure.cryst_info:
-                    f.write("%s" % item)
-            if structure.scale:
-                for item in structure.scale:
-                    f.write("%s" % item)
-            if structure.link_data:
-                for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
-                    record = dict(zip(LinkRecord.fields, record))
-                    if not record["length"]:
-                        # If the LINK length is 0, then leave it blank.
-                        # This is a deviation from the PDB standard.
-                        record["length"] = ""
-                        fmtstr = LinkRecord.fmtstr.replace("{:>5.2f}", "{:5s}")
-                        f.write(fmtstr.format(*record.values()))
-                    else:
-                        f.write(LinkRecord.fmtstr.format(*record.values()))
-
-            # Write ATOM records
-            atomid = 1
-            for record in zip(*[getattr(structure, x) for x in CoorRecord.fields]):
-                record = dict(zip(CoorRecord.fields, record))
-                record["atomid"] = (
-                    atomid  # Overwrite atomid for consistency within this file.
+def write_pdb(fname, structure, resolution=None):
+    """
+    Write a structure to a PDB file using the iotbx.pdb API
+    """
+    with smart_open.for_writing(fname, gzip_mode="wt") as f:
+        if resolution is not None:
+            f.write(f"REMARK   2 RESOLUTION.    {resolution:.2f} ANGSTROMS.\n")
+        if structure.crystal_symmetry:
+            f.write(
+                "{}\n".format(
+                    iotbx.pdb.format_cryst1_and_scale_records(
+                        structure.crystal_symmetry
+                    )
                 )
-                # If the element name is a single letter,
-                # PDB specification says the atom name should start one column in.
-                if len(record["e"]) == 1 and not len(record["name"]) == 4:
-                    record["name"] = " " + record["name"]
-
-                # Write file
-                try:
-                    f.write(CoorRecord.format_line(record.values()))
-                except TypeError:
-                    logger.error(f"PDBFile.write: could not write: {record}")
-                atomid += 1
-
-            # Write EndRecord
-            f.write(EndRecord.fmtstr)
+            )
+        if structure.link_data:
+            _write_pdb_link_data(f, structure)
+        for atom in structure.get_selected_atoms():
+            atom_labels = atom.fetch_labels()
+            f.write("{}\n".format(atom_labels.format_atom_record_group()))
+        f.write("END")
 
 
-class RecordParser(object):
-    """Interface class to provide record parsing routines for a PDB file.
+def _write_pdb_link_data(f, structure):
+    for record in zip(*[structure.link_data[x] for x in LinkRecord.fields]):
+        record = dict(zip(LinkRecord.fields, record))
+        # this will be different if the input was mmCIF
+        record["record"] = "LINK"
+        if not record["length"]:
+            # If the LINK length is 0, then leave it blank.
+            # This is a deviation from the PDB standard.
+            record["length"] = ""
+            fmtstr = LinkRecord.fmtstr.replace("{:>5.2f}", "{:5s}")
+            f.write(fmtstr.format(*record.values()))
+        else:
+            f.write(LinkRecord.fmtstr.format(*record.values()))
 
-    Deriving classes should have class variables for {fields, columns, dtypes, fmtstr}.
+
+def _to_mmcif_link_records(structure):
+    if len(structure.link_data) > 0:
+        conn_loop = iotbx.cif.model.loop(header=LinkRecord.cif_fields)
+        for field_id, cif_key in zip(LinkRecord.fields, LinkRecord.cif_fields):
+            for x in structure.link_data[field_id]:
+                conn_loop[cif_key].append(str(x))
+        return conn_loop
+    return None
+
+
+def load_combined_atoms(*atom_lists):
     """
+    Utility to take any number of atom arrays and combine them into a new
+    PDB hierarchy.  This is used to combine structures, but also to reorder
+    atoms within a new hierarchy (since the hierarchy won't take unsorted
+    selections).
+    """
+    atom_labels = []
+    for atoms in atom_lists:
+        atom_labels.extend([atom.fetch_labels() for atom in atoms])
+    return load_atoms_from_labels(atom_labels)
 
-    __slots__ = ("fields", "columns", "dtypes", "fmtstr", "fmttrs")
+
+def load_atoms_from_labels(atom_labels):
+    atom_lines = itertools.chain(*[atom.format_atom_record_group().split('\n')
+                                   for atom in atom_labels])
+    return iotbx.pdb.pdb_input(source_info="qfit_structure",
+                               lines=list(atom_lines))
+
+
+def write_mmcif(fname, structure):
+    """
+    Write a structure to an mmCIF file using the iotbx APIs
+    """
+    atoms = [atom.fetch_labels() for atom in structure.get_selected_atoms()]
+    atom_lines = [atom.format_atom_record_group() for atom in atoms]
+    pdb_in = iotbx.pdb.pdb_input(source_info="qfit_structure",
+                                 lines=atom_lines)
+    hierarchy = pdb_in.construct_hierarchy()
+    cif_block = hierarchy.as_cif_block(crystal_symmetry=structure.crystal_symmetry)
+    if structure.link_data:
+        link_loop = _to_mmcif_link_records(structure)
+        if link_loop:
+            cif_block.add_loop(link_loop)
+    with smart_open.for_writing(fname, gzip_mode="wt") as f:
+        cif_object = iotbx.cif.model.cif()
+        cif_object["qfit"] = cif_block
+        print(cif_object, file=f)
+
+
+class RecordParser:
+    """
+    Interface class to provide record parsing routines for a PDB file.  This
+    is no longer used for parsing ATOM records or crystal symmetry, which are
+    handled by CCTBX, but it remains useful as a generic fixed-column-width
+    parser for other records that CCTBX leaves unstructured.
+
+    Deriving classes should have class variables for {fields, columns, dtypes,
+    fmtstr}.
+    """
+    fields = tuple()
+    columns = tuple()
+    dtypes = tuple()
+    fmtstr = tuple()
+    fmttrs = tuple()
+
+    # prevent assigning additional attributes
+    __slots__ = []
 
     @classmethod
     def parse_line(cls, line):
@@ -192,7 +251,7 @@ class RecordParser(object):
         )
 
         # Intersperse formatted values with spaces
-        line = itl.zip_longest(formatted_values, spaces, fillvalue="")
+        line = itertools.zip_longest(formatted_values, spaces, fillvalue="")
         line = "".join(flatten(line)) + "\n"
         return line
 
@@ -214,12 +273,15 @@ class RecordParser(object):
         """
         field = formatter.format(value)
         if len(field) > maxlen:
+            replacement_field = None
             if dtype is str:
                 replacement_field = "X" * maxlen
             elif dtype is float:
                 replacement_field = formatter.format(inf)
             elif dtype is int:
                 replacement_field = formatter.format(0)
+            else:
+                raise RuntimeError(f"Can't handle type {dtype} here")
             logger.warning(
                 f"{field} exceeds field width {maxlen} chars. "
                 f"Using {replacement_field}."
@@ -227,14 +289,6 @@ class RecordParser(object):
             return replacement_field
         else:
             return field
-
-
-class ModelRecord(RecordParser):
-    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#MODEL
-    fields = ("record", "modelid")
-    columns = [(0, 6), (10, 14)]
-    dtypes = (str, int)
-    fmtstr = "{:<6s}" + " " * 4 + "{:>4d}" + "\n"
 
 
 class LinkRecord(RecordParser):
@@ -309,200 +363,24 @@ class LinkRecord(RecordParser):
         + "{:>6s} {:>6s} {:>5.2f}"
         + "\n"
     )
-
-
-class CoorRecord(RecordParser):
-    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ATOM
-    fields = (
-        "record",
-        "atomid",
-        "name",
-        "altloc",
-        "resn",
-        "chain",
-        "resi",
-        "icode",
-        "x",
-        "y",
-        "z",
-        "q",
-        "b",
-        "e",
-        "charge",
-    )
-    columns = (
-        (0, 6),
-        (6, 11),
-        (12, 16),
-        (16, 17),
-        (17, 20),
-        (21, 22),
-        (22, 26),
-        (26, 27),
-        (30, 38),
-        (38, 46),
-        (46, 54),
-        (54, 60),
-        (60, 66),
-        (76, 78),
-        (78, 80),
-    )
-    dtypes = (
-        str,
-        int,
-        str,
-        str,
-        str,
-        str,
-        int,
-        str,
-        float,
-        float,
-        float,
-        float,
-        float,
-        str,
-        str,
-    )
-    fmtstr = (
-        "{:<6s}"
-        + "{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}"
-        + " " * 3
-        + "{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}"
-        + " " * 10
-        + "{:>2s}{:>2s}"
-        + "\n"
-    )
-    fmttrs = (
-        "{:<6s}",
-        "{:>5d}",
-        "{:<4s}",
-        "{:1s}",
-        "{:>3s}",
-        "{:1s}",
-        "{:>4d}",
-        "{:1s}",
-        "{:8.3f}",
-        "{:8.3f}",
-        "{:8.3f}",
-        "{:6.2f}",
-        "{:6.2f}",
-        "{:>2s}",
-        "{:>2s}",
-    )
-
-
-class AnisouRecord(RecordParser):
-    # http://www.wwpdb.org/documentation/file-format-content/format33/sect9.html#ANISOU
-    fields = (
-        "record",
-        "atomid",
-        "atomname",
-        "altloc",
-        "resn",
-        "chain",
-        "resi",
-        "icode",
-        "u00",
-        "u11",
-        "u22",
-        "u01",
-        "u02",
-        "u12",
-        "e",
-        "charge",
-    )
-    columns = (
-        (0, 6),
-        (6, 11),
-        (12, 16),
-        (16, 17),
-        (17, 20),
-        (21, 22),
-        (22, 26),
-        (26, 27),
-        (28, 35),
-        (35, 42),
-        (42, 49),
-        (49, 56),
-        (56, 63),
-        (63, 70),
-        (76, 78),
-        (78, 80),
-    )
-    dtypes = (
-        str,
-        int,
-        str,
-        str,
-        str,
-        str,
-        int,
-        str,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        str,
-        str,
-    )
-    fmtstr = (
-        "{:<6s}"
-        + "{:>5d} {:<4s}{:1s}{:>3s} {:1s}{:>4d}{:1s}"
-        + " "
-        + "{:>7d}" * 6
-        + " " * 6
-        + "{:>2s}{:>2s}"
-        + "\n"
-    )
-
-
-class ExpdtaRecord(RecordParser):
-    fields = ("record", "cont", "technique")
-    columns = ((0, 6), (8, 10), (10, 79))
-    dtypes = (str, str, str)
-
-
-class RemarkRecord(RecordParser):
-    fields = ("record", "remarkid", "text")
-    columns = ((0, 6), (7, 10), (11, 79))
-    dtypes = (str, int, str)
-
-
-class Remark2DiffractionRecord(RecordParser):
-    # For diffraction experiments
-    fields = ("record", "remarkid", "RESOLUTION", "resolution", "ANGSTROM")
-    columns = ((0, 6), (9, 10), (11, 22), (23, 30), (31, 41))
-    dtypes = (str, str, str, float, str)
-
-
-class Remark2NonDiffractionRecord(RecordParser):
-    # For diffraction experiments
-    fields = ("record", "remarkid", "NOTAPPLICABLE")
-    columns = ((0, 6), (9, 10), (11, 38))
-    dtypes = (str, str, str)
-
-
-class Cryst1Record(RecordParser):
-    fields = ("record", "a", "b", "c", "alpha", "beta", "gamma", "spg")
-    columns = (
-        (0, 6),
-        (6, 15),
-        (15, 24),
-        (24, 33),
-        (33, 40),
-        (40, 47),
-        (47, 54),
-        (55, 66),
-        (66, 70),
-    )
-    dtypes = (str, float, float, float, float, float, float, str, int)
-
-
-class EndRecord(RecordParser):
-    fields = ("record",)
-    columns = ((0, 6),)
-    dtypes = (str,)
-    fmtstr = "END   " + " " * 74 + "\n"
+    # for mmCIF we need to fetch arrays equivalent to each of the column-based
+    # fields in the PDB LINK records
+    # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v40.dic/Categories/struct_conn.html
+    cif_fields = [
+        "_struct_conn.id",  # not really
+        "_struct_conn.ptnr1_label_atom_id",
+        "_struct_conn.pdbx_ptnr1_label_alt_id",
+        "_struct_conn.ptnr1_auth_comp_id",
+        "_struct_conn.ptnr1_auth_asym_id",
+        "_struct_conn.ptnr1_auth_seq_id",
+        "_struct_conn.pdbx_ptnr1_PDB_ins_code",
+        "_struct_conn.ptnr2_label_atom_id",
+        "_struct_conn.pdbx_ptnr2_label_alt_id",
+        "_struct_conn.ptnr2_auth_comp_id",
+        "_struct_conn.ptnr2_auth_asym_id",
+        "_struct_conn.ptnr2_auth_seq_id",
+        "_struct_conn.pdbx_ptnr2_PDB_ins_code",
+        "_struct_conn.ptnr1_symmetry",
+        "_struct_conn.ptnr2_symmetry",
+        "_struct_conn.pdbx_dist_value",
+    ]

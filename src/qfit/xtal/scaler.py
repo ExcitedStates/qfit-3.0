@@ -1,44 +1,41 @@
 import logging
+import os
 
 import numpy as np
-from .transformer import Transformer, FFTTransformer
+
+from qfit.xtal.transformer import get_transformer, get_fft_transformer
 
 
 logger = logging.getLogger(__name__)
+ENABLE_FFT = os.environ.get("QFIT_ENABLE_FFT", "false").lower() == "true"
 
 
 class MapScaler:
-    def __init__(self, xmap, em=False):
+    def __init__(self, xmap, em=False, debug=False):
         self.xmap = xmap
         self._model_map = xmap.zeros_like(xmap)
         self.em = em
+        self._debug = debug
 
-    def subtract(self, structure):
-        if self.xmap.hkl is not None:
-            hkl = self.xmap.hkl
-            transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, em=self.em
-            )
-        else:
-            transformer = Transformer(
+    def _get_model_transformer(self,
+                               structure,
+                               transformer="qfit",
+                               enable_fft=ENABLE_FFT):
+        if self.xmap.hkl is not None and (enable_fft or transformer == "qfit"):
+            # FIXME this seems like the correct approach, but it currently
+            # produces inferior results when using the CCTBX transformer
+            logger.info("HKLs available, will perform full FFT")
+            return get_fft_transformer(
+                transformer,
                 structure,
                 self._model_map,
-                simple=True,
-                rmax=3,
-                scattering=self.scattering,
-            )
-        logger.info("Subtracting density.")
-        transformer.density()
-        self.xmap.array -= self._model_map.array
-
-    def scale(self, structure, radius=1):
-        if self.xmap.hkl is not None:
-            hkl = self.xmap.hkl
-            transformer = FFTTransformer(
-                structure, self._model_map, hkl=hkl, em=self.em
+                hkl=self.xmap.hkl,
+                em=self.em
             )
         else:
-            transformer = Transformer(
+            logger.info("Using simple density transformer")
+            return get_transformer(
+                transformer,
                 structure,
                 self._model_map,
                 simple=True,
@@ -46,13 +43,30 @@ class MapScaler:
                 em=self.em,
             )
 
+    def scale(self, structure, radius=1, transformer="qfit",
+              enable_fft=ENABLE_FFT):
+        """
+        Compute and apply in place the transformation required to put the
+        experimental map on the same scale as the model-computed map,
+        and return the scaling factor S and constant k.
+        """
+        transformer = self._get_model_transformer(structure,
+                                                  transformer=transformer,
+                                                  enable_fft=enable_fft)
         # Get all map coordinates of interest:
+        logger.info("Masking with radius %f", radius)
         transformer.mask(radius)
         mask = self._model_map.array > 0
+        if self._debug:
+            self._model_map.array[mask] = 1
+            self._model_map.tofile("scaler_mask.ccp4")
+        logger.info("Masked %d grid points out of %d", mask.sum(), mask.size)
 
         # Calculate map based on structure:
         transformer.reset(full=True)
         transformer.density()
+        if self._debug:
+            self._model_map.tofile("scaler_model.ccp4")
 
         # Get all map values of interest
         xmap_masked = self.xmap.array[mask]
@@ -73,8 +87,19 @@ class MapScaler:
 
         # Scale the observed map to the calculated map
         self.xmap.array = scaling_factor * self.xmap.array + k
+        if self._debug:
+            self.xmap.tofile("scaled_map.ccp4")
         transformer.reset(full=True)
+        return (scaling_factor, k)
 
+    # XXX currently unused
+    def subtract(self, structure):
+        transformer = self._get_model_transformer(structure)
+        logger.info("Subtracting density.")
+        transformer.density()
+        self.xmap.array -= self._model_map.array
+
+    # XXX currently unused
     def cutoff(self, cutoff_value, value=-1):
         cutoff_mask = self.xmap.array < cutoff_value
         self.xmap.array[cutoff_mask] = value

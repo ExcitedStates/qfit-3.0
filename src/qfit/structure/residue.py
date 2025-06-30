@@ -1,12 +1,13 @@
-import numpy as np
-import copy
-import math
-import logging
 import itertools as itl
-from .base_structure import _BaseStructure
+import logging
+
+from scitbx.array_family import flex
+import iotbx.pdb.hierarchy
+import numpy as np
+
+from .base_structure import BaseMonomer
 from .math import *
 from .rotamers import ROTAMERS
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -15,9 +16,10 @@ logger = logging.getLogger(__name__)
 _PROTEIN_BACKBONE_ATOMS = ["N", "CA", "C"]
 _NUCLEOTIDE_BACKBONE_ATOMS = ["P", "O5'", "C5'", "C4'", "C3'", "O3"]
 _SOLVENTS = ["HOH"]
+_COVALENT_BOND_LENGTH = 1.5
 
 
-def residue_type(residue):
+def residue_type(residue) -> str:
     """Check residue type.
 
     The following types are recognized:
@@ -32,7 +34,7 @@ def residue_type(residue):
         ligand
             Other
     """
-
+    # FIXME this is being called with objects that may represent multimers
     # RNA and DNA backbone atoms
     if residue.resn[0] in ROTAMERS:
         return "rotamer-residue"
@@ -47,11 +49,10 @@ def residue_type(residue):
     return "ligand"
 
 
-class _BaseResidue(_BaseStructure):
+class Residue(BaseMonomer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = (kwargs["resi"], kwargs["icode"])
-        self.type = kwargs["type"]
 
     def __repr__(self):
         resi, icode = self.id
@@ -61,37 +62,89 @@ class _BaseResidue(_BaseStructure):
         return string
 
     @property
-    def _identifier_tuple(self):
+    def identifier_tuple(self) -> tuple:
         """Returns (chain, resi, icode) to identify this residue."""
         chainid = self.chain[0]
         resi, icode = self.id
-
         return (chainid, resi, icode)
 
     @property
-    def shortcode(self):
-        (chainid, resi, icode) = self._identifier_tuple
+    def shortcode(self) -> str:
+        (chainid, resi, icode) = self.identifier_tuple
         shortcode = f"{chainid}_{resi}"
         if icode:
             shortcode += f"_{icode}"
-
         return shortcode
 
+    def reinitialize_object(self):
+        """
+        Return a fresh object of the same class with the same data array,
+        after unpickling in a multiprocessing call.
+        """
+        return self.__class__(
+            self._pdb_hierarchy,
+            resi=self.id[0],
+            icode=self.id[1],
+            monomer_type=self.type,
+            selection=self._selection,
+            parent=self.parent,
+        )
 
-class _Residue(_BaseResidue):
-    pass
+    def get_named_atom_selection(self, atom_names):
+        """
+        Given a list of atom names, return the corresponding selection
+        as a flex.size_t array
+        """
+        atom_i_seqs = {self._atoms[i].name.strip():i for i in self._selection}
+        sel = []
+        for atom_name in atom_names:
+            if atom_name in atom_i_seqs:
+                sel.append(atom_i_seqs[atom_name])
+            else:
+                raise KeyError(f"Can't find atom named '{atom_name}' in residue {self}")
+        return flex.size_t(sel)
+
+    def _is_next_polymer_residue(self, other):
+        bond_length = np.finfo(float).max
+        if self.type in ("rotamer-residue", "aa-residue"):
+            # Check for nearness
+            sel = self.select("name", "C")
+            C = self.get_xyz(sel)
+            sel = other.select("name", "N")
+            N = other.get_xyz(sel)
+            bond_length = np.linalg.norm(N - C)
+        elif self.type == "residue":
+            # Check if RNA / DNA segment
+            O3 = self.extract("name O3'")
+            P = other.extract("name P")
+            bond_length = np.linalg.norm(O3.coor[0] - P.coor[0])
+        return bond_length < _COVALENT_BOND_LENGTH
 
 
-class _RotamerResidue(_BaseResidue):
+class RotamerResidue(Residue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        resname = self.resn[0]
-        self._rotamers = ROTAMERS[resname]
-        self.nchi = self._rotamers["nchi"]
-        self.nrotamers = len(self._rotamers["rotamers"])
-        self.rotamers = self._rotamers["rotamers"]
+        self._residue_info = ROTAMERS[self.resname]
+        self.nchi = self._residue_info["nchi"]
+        self.rotamers = self._residue_info["rotamers"]
+        self.nrotamers = len(self.rotamers)
         self._init_clash_detection()
-        self.i = 0
+        #self.i = 0
+
+    def get_residue_info(self, key):
+        return self._residue_info[key]
+
+    # FIXME deprecated
+    def get_rotamers(self, key):
+        return self._residue_info[key]
+
+    def get_missing_atoms(self):
+        """Return a list of missing non-hydrogen atom names"""
+        expected_atoms = np.array(self.get_residue_info("atoms"))
+        missing_sel = np.isin(
+            expected_atoms, test_elements=self.name, invert=True
+        )
+        return expected_atoms[missing_sel]
 
     def _init_clash_detection(self, scaling_factor=0.75, covalent_bonds=None):
         # Setup the condensed distance based arrays for clash detection and fill them
@@ -99,7 +152,7 @@ class _RotamerResidue(_BaseResidue):
         self._clash_mask = np.ones(self._ndistances, bool)
         self._clash_radius2 = np.zeros(self._ndistances, float)
         radii = self.covalent_radius
-        bonds = self._rotamers["bonds"]
+        bonds = self._residue_info["bonds"]
         if covalent_bonds:
             for bond in covalent_bonds:
                 bonds.append(bond)
@@ -125,7 +178,7 @@ class _RotamerResidue(_BaseResidue):
         self._dist2_matrix = np.empty(self._ndistances, float)
 
         # All atoms are active from the start
-        self.active = np.ones(self.natoms, bool)
+        self.set_active()
         self._active_mask = np.ones(self._ndistances, bool)
 
     def update_clash_mask(self):
@@ -136,7 +189,7 @@ class _RotamerResidue(_BaseResidue):
             end = starting_index + self.natoms - i + 1
             self._active_mask[starting_index:end] = active
 
-    def clashes(self):
+    def clashes(self) -> int:
         """Checks if there are any internal clashes.
         Deactivated atoms are not taken into account.
         """
@@ -158,25 +211,25 @@ class _RotamerResidue(_BaseResidue):
         nclashes = self._clashing.sum()
         return nclashes
 
-    def get_chi(self, chi_index):
-        atoms = self._rotamers["chi"][chi_index]
+    def get_chi(self, chi_index) -> float:
+        atoms = self._residue_info["chi"][chi_index]
         selection = self.select("name", atoms)
         ordered_sel = []
         for atom in atoms:
-            for sel in selection:
-                if atom == self._name[sel]:
-                    ordered_sel.append(sel)
+            for i_seq in selection:
+                if atom == self._atoms[int(i_seq)].name.strip():
+                    ordered_sel.append(i_seq)
                     break
-        coor = self._coor[ordered_sel]
+        coor = self._atoms.extract_xyz().as_numpy_array()[ordered_sel]
         angle = dihedral_angle(coor)
         return angle
 
     def set_chi(self, chi_index, value, covalent=None, length=None):
-        atoms = self._rotamers["chi"][chi_index]
+        atoms = self._residue_info["chi"][chi_index]
         selection = self.select("name", atoms)
 
         # Translate coordinates to center on coor[1]
-        coor = self._coor[selection]
+        coor = self._atoms.extract_xyz().as_numpy_array()[selection]
         origin = coor[1].copy()
         coor -= origin
 
@@ -185,7 +238,7 @@ class _RotamerResidue(_BaseResidue):
         forward = backward.T
 
         # Complete selection to be rotated
-        atoms_to_rotate = self._rotamers["chi-rotate"][chi_index]
+        atoms_to_rotate = self._residue_info["chi-rotate"][chi_index]
         selection = self.select("name", atoms_to_rotate)
         if covalent in atoms_to_rotate:
             # If we are rotating the atom that is covalently bonded
@@ -200,29 +253,11 @@ class _RotamerResidue(_BaseResidue):
         R = forward @ rotation @ backward
 
         # Apply transformation
-        coor_to_rotate = self._coor[selection]
+        coor_to_rotate = self._atoms.extract_xyz().as_numpy_array()[selection]
         coor_to_rotate -= origin
         coor_to_rotate = np.dot(coor_to_rotate, R.T)
         coor_to_rotate += origin
-        self._coor[selection] = coor_to_rotate
-
-    def print_residue(self):
-        for atom, coor, element, b, q in zip(
-            self.name, self.coor, self.e, self.b, self.q
-        ):
-            logger.info(f"{atom} {coor} {element} {b} {q}")
-
-    def _print_residue_shape(self):
-        """Prints shapes of all attributes in a residue.
-
-        NB: only of use for debugging.
-        """
-        logger.debug(f"[{self}]")
-        for attr_name in self.REQUIRED_ATTRIBUTES:
-            logger.debug(f"  {attr_name}.shape: {getattr(self, attr_name).shape}")
-            logger.debug(
-                f"  _{attr_name}.shape: {getattr(self, '_' + attr_name).shape}"
-            )
+        self.set_xyz(coor_to_rotate, selection)
 
     def complete_residue(self):
         if residue_type(self) != "rotamer-residue":
@@ -233,73 +268,73 @@ class _RotamerResidue(_BaseResidue):
             )
             raise RuntimeError(msg)
 
-        for atom, position in zip(self._rotamers["atoms"], self._rotamers["positions"]):
+        for atom in self._residue_info["atoms"]:
             # Found a missing atom!
             if atom not in self.name:
-                self.complete_residue_recursive(atom)
+                self._complete_residue_recursive(atom)
 
-    def complete_residue_recursive(self, atom):
-        if atom in ["N", "C", "CA", "O"]:
+    def _complete_residue_recursive(self, next_atom_name):
+        if next_atom_name in ["N", "C", "CA", "O"]:
             msg = (
-                f"{self} is missing backbone atom {atom}. "
+                f"{self} is missing backbone atom {next_atom_name}. "
                 f"qFit cannot complete missing backbone atoms. "
                 f"Please complete the missing backbone atoms of "
                 f"the residue before running qFit again!"
             )
             raise RuntimeError(msg)
 
-        ref_atom = self._rotamers["connectivity"][atom][0]
+        ref_atom = self._residue_info["connectivity"][next_atom_name][0]
         if ref_atom not in self.name:
             print("ref atom:")
             print(ref_atom)
-            self.complete_residue_recursive(ref_atom)
+            self._complete_residue_recursive(ref_atom)
         print(self.name)
         idx = np.argwhere(self.name == ref_atom)[0]
         ref_coor = self.coor[idx]
-        bond_length, bond_length_sd = self._rotamers["bond_dist"][ref_atom][atom]
+        bond_length, bond_length_sd = self._residue_info["bond_dist"][ref_atom][next_atom_name]
         # Identify a suitable atom for the bond angle:
-        for angle in self._rotamers["bond_angle"]:
-            if angle[0][1] == ref_atom and angle[0][2] == atom:
+        for angle in self._residue_info["bond_angle"]:
+            if angle[0][1] == ref_atom and angle[0][2] == next_atom_name:
                 if angle[0][0][0] == "H":
                     continue
                 bond_angle_atom = angle[0][0]
                 bond_angle, bond_angle_sd = angle[1]
                 if bond_angle_atom not in self.name:
-                    self.complete_residue_recursive(bond_angle_atom)
+                    self._complete_residue_recursive(bond_angle_atom)
                 bond_angle_coor = self.coor[
                     np.argwhere(self.name == bond_angle_atom)[0]
                 ]
                 dihedral_atom = None
                 # If the atom's position is dependent on a rotamer,
                 # identify the fourth dihedral angle atom:
-                for i, chi in self._rotamers["chi"].items():
+                for i, chi in self._residue_info["chi"].items():
                     if (
                         chi[1] == bond_angle_atom
                         and chi[2] == ref_atom
-                        and chi[3] == atom
+                        and chi[3] == next_atom_name
                     ):
                         dihedral_atom = chi[0]
-                        dihed_angle = self._rotamers["rotamers"][0][i - 1]
+                        dihed_angle = self._residue_info["rotamers"][0][i - 1]
 
                 # If the atom's position is not dependent on a rotamer,
                 # identify the fourth dihedral angle atom:
                 if dihedral_atom is None:
-                    for dihedral in self._rotamers["dihedral"]:
+                    for dihedral in self._residue_info["dihedral"]:
                         if (
                             dihedral[0][1] == bond_angle_atom
                             and dihedral[0][2] == ref_atom
-                            and dihedral[0][3] == atom
+                            and dihedral[0][3] == next_atom_name
                         ):
                             dihedral_atom = dihedral[0][0]
-                            if dihedral[1][0] in self._rotamers["atoms"]:
+                            if dihedral[1][0] in self._residue_info["atoms"]:
                                 other_dihedral_atom = dihedral[1][0]
                                 if dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(dihedral_atom)
+                                    self._complete_residue_recursive(dihedral_atom)
                                 dihedral_atom_coor = self.coor[
                                     np.argwhere(self.name == dihedral_atom)[0]
                                 ]
                                 if other_dihedral_atom not in self.name:
-                                    self.complete_residue_recursive(other_dihedral_atom)
+                                    self._complete_residue_recursive(other_dihedral_atom)
                                 other_dihedral_atom_coor = self.coor[
                                     np.argwhere(self.name == other_dihedral_atom)[0]
                                 ]
@@ -332,14 +367,14 @@ class _RotamerResidue(_BaseResidue):
                             break
                 if dihedral_atom is not None:
                     if dihedral_atom not in self.name:
-                        self.complete_residue_recursive(dihedral_atom)
+                        self._complete_residue_recursive(dihedral_atom)
                     dihedral_atom_coor = self.coor[
                         np.argwhere(self.name == dihedral_atom)[0]
                     ]
                     break
 
         logger.debug(
-            f"Rebuilding {atom}:\n"
+            f"Rebuilding {next_atom_name}:\n"
             f"  {dihedral_atom}@{dihedral_atom_coor.flatten()}\n"
             f"  {bond_angle_atom}@{bond_angle_coor.flatten()}\n"
             f"  {ref_atom}@{ref_coor.flatten()}\n"
@@ -360,10 +395,40 @@ class _RotamerResidue(_BaseResidue):
             )
             new_coor = [round(x, 3) for x in new_coor]
         except RuntimeError as e:
-            raise RuntimeError(f"Unable to rebuild atom {atom}.") from e
+            raise RuntimeError(f"Unable to rebuild atom {next_atom_name}.") from e
         else:
-            logger.info(f"Rebuilt {atom} at {new_coor}")
-        self.add_atom(atom, atom[0], new_coor)
+            logger.info(f"Rebuilt {next_atom_name} at {new_coor}")
+        self._add_atom(next_atom_name, next_atom_name[0], new_coor)
+
+    def _add_atom(self, name, element, coor):
+        """
+        Add a new atom to the residue; internally, this means appending
+        to the parent iotbx.pdb.hierarchy.atom_group object and updating
+        the internal arrays.
+        """
+        last_atom = self.atoms[-1]
+        atom = iotbx.pdb.hierarchy.atom()
+        atom.name = name if len(name) == 4 else f" {name}"
+        atom.element = element
+        atom.xyz = tuple(coor)
+        atom.occ = last_atom.occ
+        atom.b = last_atom.b
+        last_atom.parent().append_atom(atom)
+        # XXX what about the parent structure?  does it matter?
+        self._atoms = self._pdb_hierarchy.atoms()
+        self._atoms.reset_i_seq()
+        self._atoms.reset_serial()
+        self._selection.append(atom.i_seq)
+        self.natoms += 1
+        self.total_length += 1
+        # XXX not sure about this...
+        self._active_flag = np.concatenate((self._active_flag, [False]))
+        self.active = True
+
+    def get_rebuilt_structure(self):
+        return self.parent.parent.parent.__class__(
+            self._pdb_hierarchy,
+            **self._kwargs)
 
     @staticmethod
     def calc_coordinates(i, j, k, L, sig_L, theta, sig_theta, chi):
@@ -386,6 +451,7 @@ class _RotamerResidue(_BaseResidue):
         Returns:
             np.ndarray[float, shape=(3,): coords of atom
         """
+        print(i, j, k, L, sig_L, theta, sig_theta, chi)
         # We will try these parameters
         theta_options_larger = np.linspace(theta, theta + sig_theta, 5, endpoint=False)
         theta_options_smaller = np.linspace(
@@ -402,7 +468,7 @@ class _RotamerResidue(_BaseResidue):
         # Loop over parameters, and return the first success.
         for try_theta, try_L in tries:
             try:
-                coordinates = _RotamerResidue.position_from_bond_parms(
+                coordinates = RotamerResidue.position_from_bond_parms(
                     i, j, k, try_L, try_theta, chi
                 )
             except ValueError:
@@ -452,8 +518,6 @@ class _RotamerResidue(_BaseResidue):
         #
         #       x . v = C1
 
-        C1 = np.linalg.norm(v) * L * np.cos(theta)
-
         # If v is normalized
         norm_v = v / np.linalg.norm(v)
         norm_C1 = L * np.cos(theta)
@@ -482,7 +546,6 @@ class _RotamerResidue(_BaseResidue):
         #                               x . w = C2
 
         w = np.cross(u, v)
-        C2 = np.linalg.norm(np.cross(u, v)) * L * np.sin(theta) * np.sin(chi)
 
         # Normalizing this vector
         norm_w = w / np.linalg.norm(w)
@@ -579,72 +642,7 @@ class _RotamerResidue(_BaseResidue):
             )
             raise ValueError(f"Couldn't determine a matching chi.")
 
-        x = positions[correct_chi][
-            0
-        ]  # if discriminant~0, this has identical sols. Take the first.
+        # if discriminant~0, this has identical sols. Take the first.
+        x = positions[correct_chi][0]
         x += k
         return x
-
-    def add_atom(self, name, element, coor):
-        index = self._selection[-1]
-        if index < len(self.data["record"]):
-            index = len(self.data["record"]) - 1
-        for attr in self.data:
-            if attr == "e":
-                setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), element))
-            elif attr == "atomid":
-                setattr(
-                    self, "_" + attr, np.append(getattr(self, "_" + attr), index + 1)
-                )
-            elif attr == "name":
-                setattr(self, "_" + attr, np.append(getattr(self, "_" + attr), name))
-            elif attr == "coor":
-                setattr(
-                    self,
-                    "_" + attr,
-                    np.append(
-                        getattr(self, "_" + attr), np.expand_dims(coor, axis=0), axis=0
-                    ),
-                )
-            else:
-                setattr(
-                    self,
-                    "_" + attr,
-                    np.append(getattr(self, "_" + attr), getattr(self, attr)[-1]),
-                )
-                # Ensure the array and the value being appended are of integer type
-        selection = np.append(
-            self.__dict__["_selection"].astype(int), int(index + 1)
-        )  # ensuring this is not a float
-        setattr(self, "_selection", selection)
-        setattr(self, "natoms", self.natoms + 1)
-
-    def reorder(self):
-        for idx, atom2 in enumerate(
-            self._rotamers["atoms"] + self._rotamers["hydrogens"]
-        ):
-            if self.name[idx] != atom2:
-                idx2 = np.argwhere(self.name == atom2)[0]
-                index = np.ndarray((1,), dtype="int")
-                index[0,] = np.array(self.__dict__["_selection"][0])
-                for attr in [
-                    "record",
-                    "name",
-                    "b",
-                    "q",
-                    "coor",
-                    "resn",
-                    "resi",
-                    "icode",
-                    "e",
-                    "charge",
-                    "chain",
-                    "altloc",
-                ]:
-                    (
-                        self.__dict__["_" + attr][index + idx],
-                        self.__dict__["_" + attr][index + idx2],
-                    ) = (
-                        self.__dict__["_" + attr][index + idx2],
-                        self.__dict__["_" + attr][index + idx],
-                    )

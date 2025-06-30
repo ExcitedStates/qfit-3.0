@@ -1,6 +1,8 @@
 import numpy as np
+import scitbx.matrix
 
 
+# TODO use scitbx.math.orthonormal_basis
 def gram_schmidt_orthonormal_zx(coords):
     """Create an orthonormal basis from atom vectors z & x.
 
@@ -31,9 +33,7 @@ def Rz(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
     """
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
+    return get_rotation_around_vector([0,0,1], theta)
 
 
 def Ry(theta):
@@ -45,12 +45,10 @@ def Ry(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about y.
     """
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-    return np.array([[cos_theta, 0, sin_theta], [0, 1, 0], [-sin_theta, 0, cos_theta]])
+    return get_rotation_around_vector([0,1,0], theta)
 
 
-def Rv(vector, theta):
+def get_rotation_around_vector(vector, theta):
     """Create a rotation matrix for rotating about a vector.
 
     Args:
@@ -58,52 +56,60 @@ def Rv(vector, theta):
         theta (float): Angle of rotation in radians.
 
     Returns:
-         np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
+         np.ndarray[float]: A 3x3 rotation matrix for rotation around the vector.
     """
-    (x, y, z) = vector / np.linalg.norm(vector)
-    K = np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
-    rot = (
-        np.cos(theta) * np.identity(3)
-        + np.sin(theta) * K
-        + (1 - np.cos(theta)) * np.outer(vector, vector)
-    )
-    return rot
-
-
-def aa_to_rotmat(axis, angle):
-    """Create a rotation matrix for a given Euler axis, angle rotation.
-
-    Args:
-        axis (np.ndarray[np.float]): A (3,) vector about which to rotate.
-        theta (float): Angle of rotation in radians.
-
-    Returns:
-         np.ndarray[float]: A 3x3 rotation matrix for rotation about axis.
-    """
-    kx, ky, kz = axis
-    K = np.array([[0, -kz, ky], [kz, 0, -kx], [-ky, kx, 0]])
-    K2 = K @ K
-    R = np.identity(3) + np.sin(angle) * K + (1 - np.cos(angle)) * K2
-    return R
+    axis = scitbx.matrix.col(tuple(vector))
+    rot_mat = axis.axis_and_angle_as_r3_rotation_matrix(theta, deg=False)
+    return np.array(rot_mat).reshape((3,3))
 
 
 def dihedral_angle(coor):
     """Calculate dihedral angle starting from four points."""
-    b1 = coor[0] - coor[1]
-    b2 = coor[3] - coor[2]
-    b3 = coor[2] - coor[1]
-    n1 = np.cross(b3, b1)
-    n2 = np.cross(b3, b2)
-    m1 = np.cross(n1, n2)
+    if len(coor) != 4:
+        raise ValueError(f"Computing a dihedral angle requires exactly 4 points")
+    if isinstance(coor, np.ndarray):
+        coor = coor.tolist()
+    # adding np.round() gets us closer to the floating-point behavior of the
+    # previous all-numpy implementation
+    return np.round(scitbx.matrix.dihedral_angle(coor, deg=True), decimals=6)
 
-    norm = np.linalg.norm
-    normfactor = norm(n1) * norm(n2)
-    sinv = norm(m1) / normfactor
-    cosv = np.inner(n1, n2) / normfactor
-    angle = np.rad2deg(np.arctan2(sinv, cosv))
 
-    # Check sign of angle
-    u = np.cross(n1, n2)
-    if np.inner(u, b3) < 0:
-        angle *= -1
-    return angle
+def calc_rmsd(coor_a, coor_b):
+    """Determine root-mean-square distance between two structures.
+
+    Args:
+        coor_a (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure a.
+        coor_b (np.ndarray[(n_atoms, 3), dtype=np.float]):
+            Coordinates for structure b.
+
+    Returns:
+        np.float:
+            Distance between two structures.
+    """
+    return np.sqrt(np.mean((coor_a - coor_b) ** 2))
+
+
+def adp_ellipsoid_axes(U_ij):
+    """Calculate principal axes of ADP ellipsoid.
+
+    Args:
+        U_ij (np.ndarray[float]): square symmetric matrix of anisotropic
+            displacement parameters (ADPs) in cartesian coordinates.
+            In a PDB, ANISOU cards contain the parameters
+                [u_11, u_22, u_33, u_12, u_13, u_23] / 1e-4 Å^2.
+
+    Returns:
+        List[np.ndarray[float]]: principal axes of the anisotropic
+            displacement ellipsoid, from largest to smallest.
+    """
+    # Unscale ADP parameters to Å^2
+    # U_ij = U_ij * 1e-4
+
+    # Eigendecompose U_ij matrix with lower-triangle eigh
+    eigvals, eigvecs = np.linalg.eigh(U_ij)  # pylint: disable=unused-variable
+
+    # Scale unit eigenvectors by associated eigenvalues to return principal axes
+    #   TODO: Should we? This would mean -bba/-bbs would not behave as expected.
+    # directions = [e for e in (eigvals * eigvecs).T]
+    return list(eigvecs.T)

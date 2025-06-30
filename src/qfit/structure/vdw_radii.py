@@ -1,61 +1,17 @@
-# ElementList=[
-#   " H", "HE",
-#   "LI", "BE", " B", " C", " N", " O", " F", "NE",
-#   "NA", "MG", "AL", "SI", " P", " S", "CL", "AR",
-#   " K", "CA",
-#         "SC", "TI", " V", "CR", "MN", "FE",
-#         "CO", "NI", "CU", "ZN",
-#               "GA", "GE", "AS", "SE", "BR", "KR",
-#   "RB", "SR",
-#         " Y", "ZR", "NB", "MO", "TC", "RU",
-#         "RH", "PD", "AG", "CD",
-#               "IN", "SN", "SB", "TE", " I", "XE",
-#   "CS", "BA",
-#         "LA", "CE", "PR", "ND", "PM", "SM", "EU",
-#         "GD", "TB", "DY", "HO", "ER", "TM", "YB",
-#               "LU", "HF", "TA", " W", "RE", "OS",
-#               "IR", "PT", "AU", "HG",
-#                     "TL", "PB", "BI", "PO", "AT", "RN",
-#   "FR", "RA",
-#         "AC", "TH", "PA", " U", "NP", "PU", "AM",
-#         "CM", "BK", "CF", "ES", "FM", "MD", "NO",
-#               "LR", "RF", "DB", "SG", "BH", "HS",
-#               "MT", "UN", "UU", "UB",
-#                           "UQ",       "UH",       "UO",
-#   " D", "AN"
-# ]
-#
-#
-# VanderWaalsRadiiList = [
-#   1.20, 1.40,
-#   1.82, 1.78, 1.74, 1.70, 1.55, 1.52, 1.47, 1.54,
-#   2.27, 1.73, 1.80, 2.10, 1.80, 1.80, 1.75, 1.88,
-#   2.75, 2.65,
-#         2.55, 2.45, 2.35, 2.20, 1.73, 1.90,
-#         1.75, 1.63, 1.40, 1.39,
-#               1.87, 1.86, 1.85, 1.90, 1.85, 2.02,
-#   2.75, 2.65,
-#         2.55, 2.45, 2.35, 2.20, 2.05, 1.90,
-#         1.75, 1.63, 1.72, 1.58,
-#               1.93, 2.17, 2.10, 2.06, 1.98, 2.16,
-#   2.75, 2.75,
-#         2.75, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75,
-#         2.75, 2.75, 2.75, 2.75, 2.75, 2.65, 2.55,
-#               2.45, 2.35, 2.25, 2.15, 2.05, 1.95,
-#               1.85, 1.75, 1.66, 1.55,
-#                     1.96, 2.02, 2.00, 2.00, 2.00, 2.00,
-#   2.75, 2.75,
-#         2.50, 2.25, 1.95, 1.86, 1.80, 1.80, 1.80,
-#         1.80, 1.80, 1.80, 1.80, 1.80, 1.80, 1.80,
-#               1.80, 1.80, 1.80, 1.80, 1.80, 1.80,
-#               1.80, 1.80, 1.80, 1.80,
-#                           1.80,       1.80,       1.80,
-#   1.30, 1.50
-# ]
-# print("vdwRadiiTable={")
-# for ele,radius in zip(ElementList,VanderWaalsRadiiList):
-#   print(f"\'{ele}\':{radius},")
-# print("}")
+"""
+Constants for atomic radii
+"""
+
+# XXX these seem like numbers we should be able to extract them from an
+# external source or library, but it's not entirely clear where they're from
+# and the existing dependencies either lack this information or are
+# inconsistent.  CCTBX in particular uses different radii for protein atoms
+# than what is reported in Wikipedia:
+# https://github.com/cctbx/cctbx_project/blob/master/cctbx/eltbx/van_der_waals_radii.py
+# Note that molmass.elements is more consistent with the table below, but it
+# also lacks radii for many atoms that are relevant to ligand studies if not
+# for protein models, such as boron.  But the Wikipedia entry for boron
+# doesn't agree with the table here either!
 
 vdwRadiiTable = {
     "H": 1.2,

@@ -1,14 +1,10 @@
 """Automatically build a multiconformer residue"""
 
-import numpy as np
 import argparse
-import logging
 import os
-import sys
-import time
-from string import ascii_uppercase
-from . import Structure
-from .structure.rotamers import ROTAMERS
+
+from qfit import Structure
+from qfit.structure.rotamers import ROTAMERS
 
 
 def parse_args():
@@ -33,10 +29,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     structure = Structure.fromfile(args.structure).reorder()
     structure = structure.extract("record", "ATOM", "==")

@@ -1,6 +1,7 @@
 """Contains custom argparse actions & formatters."""
 
 import argparse
+import re
 from pathlib import Path
 
 
@@ -97,10 +98,14 @@ class ValidateStructureFileArgument(argparse.Action):
 
     def __call__(self, parser, namespace, value, option_string=None):
         fname = Path(value)
+        fname2 = Path(re.sub("\.gz$", "", value))
         msg = ""
 
-        if fname.suffix not in self.extension_choices:
-            msg += f"Provided structure ({value}) is not a supported filetype: {self.extension_choices}."
+        if (
+            fname.suffix not in self.extension_choices
+            and fname2.suffix not in self.extension_choices
+        ):
+            msg += f"Provided structure ({value}) is not a supported filetype: {self.extension_choices} (.gz optional)."
             if fname.suffix in ValidateMapFileArgument.extension_choices:
                 msg += "\nDid you get the argument order (map structure) right?"
             parser.error(msg)

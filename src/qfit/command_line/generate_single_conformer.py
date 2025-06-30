@@ -1,14 +1,10 @@
-"""Automatically build a multiconformer residue."""
+"""Convert a multi-conformer model to single-conformer."""
+# XXX this seems like a duplicate of remove_altconfs
 
-import numpy as np
 import argparse
-import logging
 import os
-import sys
-import time
-from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
+
+from qfit import Structure
 
 
 def parse_args():
@@ -32,10 +28,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     structure = Structure.fromfile(args.structure).reorder()
     altloc = "A"

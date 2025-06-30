@@ -1,12 +1,15 @@
 """Use EDIA to assess quality of model fitness to electron density."""
 
-import numpy as np
-from . import Structure, XMap, ElectronDensityRadiusTable
-from . import ResolutionBins, BondLengthTable
 import argparse
 import logging
 import os
-import time
+#import time
+
+import numpy as np
+
+from qfit import Structure, XMap
+from qfit.structure import BondLengthTable
+from qfit.xtal.electron_density_radii import ElectronDensityRadiusTable, ResolutionBins
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +70,7 @@ class Weight:
             return self.P(dist, self.m2, self.c2, self.b2)
         elif dist < self.r2:
             return self.P(dist, self.m3, self.c3, self.b3)
-        else:
-            return 0.0
+        return 0.0
 
 
 class Point:
@@ -112,13 +114,11 @@ class _BaseEDIA:
         for chain in self.structure:
             for residue in chain:
                 for ind in range(len(residue.name)):
-                    atom, element, charge, coor, icode, record, occ, resi = (
+                    atom, element, charge, coor, occ, resi = (
                         residue.name[ind],
                         residue.e[ind],
                         residue.charge[ind],
                         residue.coor[ind],
-                        residue.icode[ind],
-                        residue.record[ind],
                         residue.q[ind],
                         residue.resi[ind],
                     )
@@ -163,7 +163,7 @@ class _BaseEDIA:
                                     dist = np.linalg.norm(
                                         coor - self.Grid[i][j][k].coor
                                     )
-                                except:
+                                except Exception:
                                     self.Grid[i][j][k] = Point(
                                         np.dot(
                                             np.asarray([k, j, i])
@@ -241,7 +241,6 @@ class _BaseEDIA:
     def print_stats(self):
         # Note that values of the offset are based on C,R,S - these are not always ordered like x,y,z
         offset = self.xmap.offset
-        voxelspacing = self.xmap.voxelspacing  # These ARE ordered (x,y,z)
         print(
             "Unit cell shape:", self.xmap.unit_cell.shape
         )  # These are ordered (z,y,x)
@@ -278,7 +277,7 @@ class _BaseEDIA:
                 < float(BondLengthTable[atom_a[2]][atom_b[2]]) + error
             ):
                 return 1
-        except:
+        except Exception:
             return 0
         return 0
 
@@ -370,16 +369,13 @@ class _BaseEDIA:
         edia = np.zeros(len(residue.name))
         edia_plus = np.zeros(len(residue.name))
         edia_minus = np.zeros(len(residue.name))
-        prev_altloc = residue.altloc[0]
         # For each atom in the residue:
         for ind in range(len(residue.name)):
-            atom, element, charge, coor, icode, record, occ = (
+            atom, element, charge, coor, occ = (
                 residue.name[ind],
                 residue.e[ind],
                 residue.charge[ind],
                 residue.coor[ind],
-                residue.icode[ind],
-                residue.record[ind],
                 residue.q[ind],
             )
             # By default, Hydrogens are excluded from the calculation!
@@ -405,7 +401,6 @@ class _BaseEDIA:
         for key in ediasum:
             if length[key] > 0:
                 if key != "" and "" in ediasum:
-                    flag = 1
                     ediasum[key] += ediasum[""]
                     length[key] += length[""]
                 EDIAm = (ediasum[key] / length[key]) ** (-0.5) - 0.1
@@ -426,7 +421,7 @@ class _BaseEDIA:
                     OPIA,
                 )
             )
-        except:
+        except Exception:
             print(
                 "{0} Comb {1:.2f} {2:.2f} {3:.2f}".format(
                     residue.resi[0], sum(occupancy.values()), EDIAm_Comb, OPIA
@@ -476,11 +471,10 @@ class _BaseEDIA:
     def DFS(self, residue, label):
         if self.visited[residue] != 0:
             return
-        else:
-            self.visited[residue] = label
-            for i in range(len(self.adj_matrix)):
-                if self.adj_matrix[residue][i]:
-                    self.DFS(i, label)
+        self.visited[residue] = label
+        for i in range(len(self.adj_matrix)):
+            if self.adj_matrix[residue][i]:
+                self.DFS(i, label)
 
 
 class ediaResidue(_BaseEDIA):
@@ -490,7 +484,7 @@ class ediaResidue(_BaseEDIA):
     def __call__(self):
         # self.print_stats()
         # self.print_density(2.5)
-        EDIAm, OPIA = self.calc_edia_residue(self.residue)
+        EDIAm, OPIA = self.calc_edia_residue(self.residue)  # pylint: disable=unused-variable
 
 
 class ediaProtein(_BaseEDIA):
@@ -540,20 +534,10 @@ def parse_args():
     return p.parse_args()
 
 
-""" Main function """
-
-
 def main():
     args = parse_args()
-    """ Create the output directory provided by the user: """
-    try:
-        os.makedirs(args.directory)
-    except OSError:  # If directory already exists...
-        pass
-
-    time0 = time.time()  # Useful variable for profiling run times.
-
-    """ Processing input structure and map """
+    os.makedirs(args.directory, exist_ok=True)
+    #time0 = time.time()  # Useful variable for profiling run times.
     # Read structure in:
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
@@ -578,9 +562,3 @@ def main():
     else:
         edia = ediaResidue(residue, structure, xmap, options)
     edia()
-
-    """ Profiling run time: """
-    passed = time.time() - time0
-
-
-#    print(f"Time passed: {passed}s")

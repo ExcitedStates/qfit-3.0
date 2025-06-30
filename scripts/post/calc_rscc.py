@@ -7,8 +7,8 @@ import os
 import numpy as np
 from qfit.scaler import MapScaler
 from qfit.structure import Structure
-from qfit.volume import XMap
-from qfit.structure.ligand import _Ligand
+from qfit.xtal.volume import XMap
+from qfit.structure.ligand import Ligand
 from qfit.qfit import QFitLigand, QFitOptions, _BaseQFit
 from qfit.solvers import available_qp_solvers, available_miqp_solvers, get_miqp_solver_class
 
@@ -227,7 +227,7 @@ def setup_for_calculation(options):
     all_confs = np.stack(all_confs)
 
     # Build the ligand
-    ligand = _Ligand(
+    ligand = Ligand(
         base_conf.data,
         base_conf._selection,
         link_data=base_conf.link_data,
@@ -278,7 +278,7 @@ def setup_for_calculation(options):
         compare_all_confs = np.stack(compare_all_confs)
 
         # Build the comparision ligand
-        compare_ligand = _Ligand(
+        compare_ligand = Ligand(
             compare_base_conf.data,
             compare_base_conf._selection,
             link_data=compare_base_conf.link_data,

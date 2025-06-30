@@ -1,36 +1,27 @@
 """Hierarchically build a multiconformer ligand."""
 
-import argparse
-from .custom_argparsers import ToggleActionFlag, CustomHelpFormatter
 import logging
 import os.path
 import os
-import sys
 import time
-import numpy as np
 from string import ascii_uppercase
-from . import MapScaler, Structure, XMap, _Ligand
-from .qfit import QFitLigand, QFitOptions
-from .logtools import setup_logging, log_run_info
-from .solvers import available_qp_solvers, available_miqp_solvers
+
+import numpy as np
+
+from qfit.command_line.common_options import get_base_argparser, load_and_scale_map
+from qfit.command_line.custom_argparsers import ToggleActionFlag
+from qfit import Structure, Ligand
+from qfit.qfit import QFitLigand, QFitOptions
+from qfit.logtools import setup_logging, log_run_info
 
 
 logger = logging.getLogger(__name__)
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
 def build_argparser():
-    p = argparse.ArgumentParser(
-        formatter_class=CustomHelpFormatter, description=__doc__
-    )
-    p.add_argument(
-        "map",
-        type=str,
-        help="Density map in CCP4 or MRC format, or an MTZ file "
-        "containing reflections and phases. For MTZ files "
-        "use the --label options to specify columns to read.",
-    )
-    p.add_argument("structure", type=str, help="PDB-file containing structure.")
+    p = get_base_argparser(__doc__,
+                           default_enable_external_clash=True,
+                           default_transformer="qfit")
 
     p.add_argument(
         "-em",
@@ -65,6 +56,7 @@ def build_argparser():
         "-sm",
         "--smiles",
         type=str,
+        required=True,
         help="SMILES string for molecule",
     )
     p.add_argument(
@@ -120,152 +112,6 @@ def build_argparser():
     )
 
     p.add_argument(
-        "-p",
-        "--nproc",
-        type=int,
-        default=1,
-        metavar="<int>",
-        help="Maximum number of threads that can be run in parallel",
-    )
-
-    # Map input options
-    p.add_argument(
-        "-l",
-        "--label",
-        default="FWT,PHWT",
-        metavar="<F,PHI>",
-        help="MTZ column labels to build density",
-    )
-    p.add_argument(
-        "-r",
-        "--resolution",
-        default=None,
-        metavar="<float>",
-        type=float,
-        help="Map resolution (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-m",
-        "--resolution-min",
-        default=None,
-        metavar="<float>",
-        type=float,
-        help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-o",
-        "--omit",
-        action="store_true",
-        help="Treat map file as an OMIT map in map scaling routines",
-    )
-
-    # Map prep options
-    p.add_argument(
-        "--scale",
-        action=ToggleActionFlag,
-        dest="scale",
-        default=True,
-        help="Scale density",
-    )
-    p.add_argument(
-        "-sv",
-        "--scale-rmask",
-        dest="scale_rmask",
-        default=1.0,
-        metavar="<float>",
-        type=float,
-        help="Scaling factor for soft-clash mask radius",
-    )
-    p.add_argument(
-        "-dc",
-        "--density-cutoff",
-        default=0.3,
-        metavar="<float>",
-        type=float,
-        help="Density values below this value are set to <density-cutoff-value>",
-    )
-    p.add_argument(
-        "-dv",
-        "--density-cutoff-value",
-        default=-1,
-        metavar="<float>",
-        type=float,
-        help="Density values below <density-cutoff> are set to this value",
-    )
-    p.add_argument(
-        "--subtract",
-        action=ToggleActionFlag,
-        dest="subtract",
-        default=True,
-        help="Subtract Fcalc of neighboring residues when running qFit",
-    )
-    p.add_argument(
-        "-pad",
-        "--padding",
-        default=8.0,
-        metavar="<float>",
-        type=float,
-        help="Padding size for map creation",
-    )
-    p.add_argument(
-        "--waters-clash",
-        action=ToggleActionFlag,
-        dest="waters_clash",
-        default=True,
-        help="Consider waters for soft clash detection",
-    )
-
-    p.add_argument(
-        "--remove-conformers-below-cutoff",
-        action="store_true",
-        dest="remove_conformers_below_cutoff",
-        help=(
-            "Remove conformers during sampling that have atoms "
-            "with no density support, i.e. atoms are positioned "
-            "at density values below <density-cutoff>"
-        ),
-    )
-    p.add_argument(
-        "-cf",
-        "--clash-scaling-factor",
-        default=0.75,
-        metavar="<float>",
-        type=float,
-        help="Set clash scaling factor",
-    )
-    p.add_argument(
-        "-ec",
-        "--no-external-clash",
-        action="store_false",
-        dest="external_clash",
-        help="Turn off external clash detection during sampling",
-    )
-    p.add_argument(
-        "-bs",
-        "--bulk-solvent-level",
-        default=0.3,
-        metavar="<float>",
-        type=float,
-        help="Bulk solvent level in absolute values",
-    )
-
-    p.add_argument(
-        "-c",
-        "--cardinality",
-        default=5,
-        metavar="<int>",
-        type=int,
-        help="Cardinality constraint used during MIQP",
-    )
-    p.add_argument(
-        "-t",
-        "--threshold",
-        default=0.2,
-        metavar="<float>",
-        type=float,
-        help="Threshold constraint used during MIQP",
-    )
-    p.add_argument(
         "-ic",
         "--intermediate-cardinality",
         default=5,
@@ -282,64 +128,12 @@ def build_argparser():
         help="Threshold constraint during intermediate MIQP",
     )
     p.add_argument(
-        "-hy",
-        "--hydro",
-        action="store_true",
-        dest="hydro",
-        help="Include hydrogens during calculations",
-    )
-    p.add_argument(
-        "-rmsd",
-        "--rmsd-cutoff",
-        default=0.01,
-        metavar="<float>",
-        type=float,
-        help="RMSD cutoff for removal of identical conformers",
-    )
-    p.add_argument(
         "--threshold-selection",
         dest="bic_threshold",
         action=ToggleActionFlag,
         default=False,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
-
-    # Solver options
-    p.add_argument(
-        "--qp-solver",
-        dest="qp_solver",
-        choices=available_qp_solvers.keys(),
-        default=next(iter(available_qp_solvers.keys())),
-        help="Select the QP solver",
-    )
-    p.add_argument(
-        "--miqp-solver",
-        dest="miqp_solver",
-        choices=available_miqp_solvers.keys(),
-        default=next(iter(available_miqp_solvers.keys())),
-        help="Select the MIQP solver",
-    )
-
-    # Output options
-    p.add_argument(
-        "-d",
-        "--directory",
-        default=".",
-        metavar="<dir>",
-        type=os.path.abspath,
-        help="Directory to store results",
-    )
-    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
-    p.add_argument(
-        "--debug", action="store_true", help="Log as much information as possible"
-    )
-    p.add_argument(
-        "--write-intermediate-conformers",
-        action="store_true",
-        help="Write intermediate structures to file (useful with debugging)",
-    )
-    p.add_argument("--pdb", help="Name of the input PDB")
-
     return p
 
 
@@ -355,9 +149,9 @@ def prepare_qfit_ligand(options):
     chainid, resi = options.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
-        residue_id = (int(resi), icode)
+        residue_id = (int(resi), icode)  # pylint: disable=unused-variable
     else:
-        residue_id = int(resi)
+        residue_id = int(resi)  # pylint: disable=unused-variable
         icode = ""
 
     # Extract the ligand:
@@ -387,19 +181,7 @@ def prepare_qfit_ligand(options):
             structure_ligand = structure_ligand.extract(sel_str)
     altloc = structure_ligand.altloc[-1]
 
-    if options.cif_file:
-        ligand = _Ligand(
-            structure_ligand.data,
-            structure_ligand._selection,
-            link_data=structure_ligand.link_data,
-            cif_file=args.cif_file,
-        )
-    else:
-        ligand = _Ligand(
-            structure_ligand.data,
-            structure_ligand._selection,
-            link_data=structure_ligand.link_data,
-        )
+    ligand = Ligand.from_structure(structure_ligand, options.cif_file)
     if ligand.natoms == 0:
         raise RuntimeError(
             "No atoms were selected for the ligand. Check " " the selection input."
@@ -409,38 +191,18 @@ def prepare_qfit_ligand(options):
     ligand.q = 1
 
     # save ligand pdb file to working directory
-    try:
-        os.makedirs(options.directory)
-    except OSError:
-        pass
-
+    os.makedirs(options.directory, exist_ok=True)
     input_ligand = os.path.join(options.directory, "ligand.pdb")
     ligand.tofile(input_ligand)
 
     logger.info("Ligand atoms selected: {natoms}".format(natoms=ligand.natoms))
 
     # Load and process the electron density map:
-    xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label
-    )
-    xmap = xmap.canonical_unit_cell()
-    if options.scale:
-        # Prepare X-ray map
-        scaler = MapScaler(xmap, em=options.em)
-        if options.omit:
-            footprint = structure_ligand
-        else:
-            footprint = structure
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(footprint, radius=options.scale_rmask * radius)
-
+    if options.omit:
+        footprint = structure_ligand
+    else:
+        footprint = structure
+    xmap = load_and_scale_map(options, footprint)
     xmap = xmap.extract(ligand.coor, padding=options.padding)
     ext = ".ccp4"
 
@@ -457,10 +219,7 @@ def prepare_qfit_ligand(options):
 def main():
     p = build_argparser()
     args = p.parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
     if not args.pdb == None:
         pdb_id = args.pdb + "_"
     else:
@@ -475,7 +234,7 @@ def main():
     setup_logging(options=options, filename="qfit_ligand.log")
     log_run_info(options, logger)
 
-    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)
+    qfit_ligand, chainid, resi, icode, receptor = prepare_qfit_ligand(options=options)  # pylint: disable=unused-variable
 
     time0 = time.time()
     qfit_ligand.run()
@@ -485,18 +244,23 @@ def main():
     conformers = qfit_ligand.get_conformers()
     nconformers = len(conformers)
     altloc = ""
+    pdb_ext = qfit_ligand.file_ext
+    multiconformer_ligand_bound = None
     for n, conformer in enumerate(conformers, start=0):
         if nconformers > 1:
             altloc = ascii_uppercase[n]
         conformer.altloc = ""
-        fname = os.path.join(options.directory, f"conformer_{n}.pdb")
+        fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
         conformer.tofile(fname)
         conformer.altloc = altloc
-        try:
-            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
-        except NameError:
-            # First time through, multiconformer_ligand_bound does not exist, so we fall back on this
+        if not multiconformer_ligand_bound:
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
+        else:
+            multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
+
+    if not multiconformer_ligand_bound:
+        logger.error("qFit-ligand failed to produce any valid conformers.")
+        return 1
 
     # Print multiconformer_ligand_only as an output file
     multiconformer_ligand_only = os.path.join(
@@ -507,13 +271,10 @@ def main():
     # Stitch back protein and other HETATM to the multiconformer ligand output
     multiconformer_ligand_bound = receptor.combine(multiconformer_ligand_bound)
     fname = os.path.join(
-        options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
+        options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
     )
     if icode:
         fname = os.path.join(
-            options.directory, pdb_id + f"multiconformer_ligand_bound_with_protein.pdb"
+            options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
         )
-    try:
-        multiconformer_ligand_bound.tofile(fname)
-    except NameError:
-        logger.error("qFit-ligand failed to produce any valid conformers.")
+    multiconformer_ligand_bound.tofile(fname)

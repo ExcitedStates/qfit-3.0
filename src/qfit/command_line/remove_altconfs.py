@@ -1,20 +1,17 @@
-"""Automatically build a multiconformer residue"""
+"""Strip alternate conformers using CCTBX"""
+# XXX note that phenix.pdbtools remove_alt_confs=True will do the same thing
 
-import numpy as np
 import argparse
-import logging
 import os
 import sys
-import time
-from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
+
+from scitbx.array_family import flex
+from iotbx.file_reader import any_file
 
 
-def parse_args():
+def parse_args(argv):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
-
     # Output options
     p.add_argument(
         "-d",
@@ -25,33 +22,21 @@ def parse_args():
         help="Directory to store results.",
     )
     p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
-    args = p.parse_args()
-
-    return args
+    return p.parse_args(argv[1:])
 
 
 def main():
-    args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
-
-    structure = Structure.fromfile(args.structure).reorder()
-    for chain in structure:
-        for residue in chain:
-            altlocs = sorted(list(set(residue.altloc)))
-            resi = residue.resi[0]
-            chainid = residue.chain[0]
-            if len(altlocs) > 1:
-                try:
-                    altlocs.remove("")
-                except ValueError:
-                    pass
-                for altloc in altlocs[1:]:
-                    sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                    sel_str = f"not ({sel_str})"
-                    structure = structure.extract(sel_str)
-    structure.q = 1.0
-    structure.altloc = ""
-    structure.tofile(f"{args.structure[:-4]}.single.pdb")
+    args = parse_args(sys.argv)
+    os.makedirs(args.directory, exist_ok=True)
+    pdb_file = any_file(args.structure)
+    hierarchy = pdb_file.file_object.hierarchy
+    hierarchy.remove_alt_confs(always_keep_one_conformer=True)
+    pdb_atoms = hierarchy.atoms()
+    occ = flex.double(len(pdb_atoms), 1.0)
+    pdb_atoms.set_occ(occ)
+    basename = os.path.basename(args.structure)
+    pdb_out = os.path.join(args.directory, f"{basename[:-4]}.single.pdb")
+    print(pdb_out)
+    hierarchy.write_pdb_file(pdb_out,
+        crystal_symmetry=pdb_file.file_object.crystal_symmetry())
+    return 0

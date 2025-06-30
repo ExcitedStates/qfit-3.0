@@ -1,6 +1,6 @@
 import argparse
-from qfit import XMap, Structure
-from qfit.scaler import MapScaler
+
+from qfit import XMap, Structure, MapScaler
 
 
 def parse_args():
@@ -25,7 +25,7 @@ def main():
             sel_str = f"chain {chain} and resi {resi} and icode {icode}"
         else:
             sel_str = f"chain {chain} and resi {resi}"
-        footprint = args.structure.extract(sel_str)
+        footprint = args.structure.extract(sel_str)  # pylint: disable=unused-variable
     else:
         footprint = args.structure
     # scaler.subtract(footprint)

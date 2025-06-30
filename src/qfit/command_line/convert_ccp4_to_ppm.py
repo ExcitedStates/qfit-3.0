@@ -1,23 +1,18 @@
 import argparse
 import logging
-import os
-import sys
-import time
-from string import ascii_uppercase
-
-logger = logging.getLogger(__name__)
 from math import sqrt
+import os
+#import time
+
 import numpy as np
 
-from . import (
+from qfit.xtal.electron_density_radii import ElectronDensityRadiusTable, ResolutionBins
+from qfit import (
     Structure,
     XMap,
-    Transformer,
-    ElectronDensityRadiusTable,
-    ResolutionBins,
-    BondLengthTable,
 )
 
+logger = logging.getLogger(__name__)
 
 class converterOptions:
     def __init__(self):
@@ -117,15 +112,10 @@ class _BaseConvertMap:
         for chain in self.structure:
             for residue in chain:
                 for ind in range(len(residue.name)):
-                    atom, element, charge, coor, icode, record, occ, resi = (
-                        residue.name[ind],
+                    element, charge, coor = (
                         residue.e[ind],
                         residue.charge[ind],
                         residue.coor[ind],
-                        residue.icode[ind],
-                        residue.record[ind],
-                        residue.q[ind],
-                        residue.resi[ind],
                     )
 
                     grid = np.dot(coor, self.cartesian_to_grid).astype(
@@ -156,7 +146,7 @@ class _BaseConvertMap:
                                     dist = np.linalg.norm(
                                         coor - self.Grid[i][j][k].coor
                                     )
-                                except:
+                                except Exception:
                                     self.Grid[i][j][k] = Point(
                                         np.dot(
                                             np.asarray([k, j, i])
@@ -227,13 +217,13 @@ class _BaseConvertMap:
                         green[row + j][column + k] = min(
                             255, 255 * self.Grid[i][j][k].Green / 3.0
                         )
-                    except:
+                    except Exception:
                         green[row + j][column + k] = 255
                     try:
                         blue[row + j][column + k] = 255 - min(
                             255, self.Grid[i][j][k].Blue * 255 / 100
                         )
-                    except:
+                    except Exception:
                         blue[row + j][column + k] = 255
             column += len(self.xmap.array[0][0])
             if column >= dim * len(self.xmap.array[0][0]):
@@ -257,7 +247,6 @@ class _BaseConvertMap:
     def print_stats(self):
         # Note that values of the offset are based on C,R,S - these are not always ordered like x,y,z
         offset = self.xmap.offset
-        voxelspacing = self.xmap.voxelspacing  # These ARE ordered (x,y,z)
         print(
             "Unit cell shape:", self.xmap.unit_cell.shape
         )  # These are ordered (z,y,x)
@@ -309,33 +298,17 @@ def parse_args():
     return p.parse_args()
 
 
-""" Main function """
-
-
 def main():
     args = parse_args()
-    """ Create the output directory provided by the user: """
-    try:
-        os.makedirs(args.directory)
-    except OSError:  # If directory already exists...
-        pass
-
-    time0 = time.time()  # Useful variable for profiling run times.
-    """ Processing input structure and map """
-    # Read structure in:
+    os.makedirs(args.directory, exist_ok=True)
+    #time0 = time.time()  # Useful variable for profiling run times.
     structure = Structure.fromfile(args.structure)
     # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
     structure = structure.extract("altloc", ("", "A", "B", "C", "D", "E"))
-    # Prepare X-ray map
     xmap = XMap.fromfile(args.xmap)
-
     options = converterOptions()
     options.apply_command_args(args)
-
     converter = ConvertMap(structure, xmap, options)
     converter()
-    """ Profiling run time: """
-    passed = time.time() - time0
-
-
+#    passed = time.time() - time0
 #    print(f"Time passed: {passed}s")

@@ -38,4 +38,4 @@ jobs:
         run: |
           pip install .
           conda install pytest hypothesis[numpy]
-          pytest
+          pytest --durations=40 -m "not slow"

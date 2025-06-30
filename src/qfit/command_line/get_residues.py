@@ -1,14 +1,12 @@
-"""Automatically build a multiconformer residue."""
+"""Extract a selection from a structure"""
+# XXX this is also redundant with phenix.pdbtools
+
+import argparse
+import os
 
 import numpy as np
-import argparse
-import logging
-import os
-import sys
-import time
-from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
+
+from qfit.structure import Structure, residue_type
 
 
 def parse_args():
@@ -37,18 +35,13 @@ def parse_args():
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     structure = Structure.fromfile(args.structure).reorder()
     chainid, resi = args.selection.split(",")
     if ":" in resi:
         resi, icode = resi.split(":")
-        residue_id = (int(resi), icode)
     else:
-        residue_id = int(resi)
         icode = ""
     structure_resi = structure.extract(f"resi {resi} and chain {chainid}")
     if icode:

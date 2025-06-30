@@ -1,16 +1,12 @@
 """Delete duplicate atom entries"""
 
-import numpy as np
 import argparse
-import logging
 import os
-import sys
-import time
-from string import ascii_uppercase
-from . import Structure
-from .structure import residue_type
-from .structure.residue import _RotamerResidue
-from .structure.rotamers import ROTAMERS
+
+import numpy as np
+
+from qfit import Structure
+from qfit.structure.rotamers import ROTAMERS
 
 
 def parse_args():
@@ -52,7 +48,7 @@ def find_unique_atoms(structure):
 
     # Identify duplicated atoms by comparing selected properties.
     for attr in ("resi", "resn", "altloc", "icode", "chain", "name"):
-        attrvec = structure.data[attr]
+        attrvec = getattr(structure, attr)
         ident_prop = attrvec[:, np.newaxis] == attrvec[np.newaxis, :]
         identical_ij &= ident_prop
 
@@ -64,10 +60,11 @@ def find_unique_atoms(structure):
     identical_i = np.any(identical_ij, axis=0)
 
     # Name atoms which are not unique
-    print(
-        f"Atoms {tuple(*np.nonzero(identical_i))} had earlier, identical atoms.\n"
-        f"They are being removed."
-    )
+    if np.sum(identical_i) > 0:
+        indices = tuple(*np.nonzero(identical_i))
+        print(
+            f"Atoms {indices} had earlier, identical atoms.\nThey are being removed."
+        )
 
     # We are not concerned if amino acids have duplicate atoms
     is_amino_acid = np.frompyfunc(ROTAMERS.__contains__, 1, 1)
@@ -80,21 +77,8 @@ def find_unique_atoms(structure):
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-    except OSError:
-        pass
-
+    os.makedirs(args.directory, exist_ok=True)
     structure = Structure.fromfile(args.structure).reorder()
-
-    # Find unique atoms
     mask = find_unique_atoms(structure)
-
-    # Remove duplicated atoms
-    data = {}
-    for attr in structure.data:
-        data[attr] = structure.data[attr][mask]
-    new_structure = Structure(data)
-
-    # Print the new structure to file
+    new_structure = structure.get_selected_structure(mask)
     new_structure.tofile(args.structure + ".fixed")

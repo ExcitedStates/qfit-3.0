@@ -4,16 +4,17 @@ import os
 from sys import argv
 import copy
 import subprocess
-import numpy as np
 import argparse
 
-from .samplers import ChiRotator, CBAngleRotator, BondRotator
-from .samplers import CovalentBondRotator, GlobalRotator
-from .samplers import RotationSets, Translator
-from .structure import Structure
-from .structure.residue import residue_type
-from .structure.rotamers import ROTAMERS
+import numpy as np
 import pandas as pd
+
+from qfit.samplers import ChiRotator, CBAngleRotator, BondRotator
+from qfit.samplers import CovalentBondRotator, GlobalRotator
+from qfit.samplers import RotationSets, Translator
+from qfit.structure import Structure
+from qfit.structure.residue import residue_type
+from qfit.structure.rotamers import ROTAMERS
 
 def build_argparser():
     p = argparse.ArgumentParser()

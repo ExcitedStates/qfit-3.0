@@ -1,11 +1,11 @@
-import numpy as np
 import argparse
-import logging
-import os
 from collections import namedtuple
-from . import Structure
-from .structure.rotamers import ROTAMERS
+import os
 from string import ascii_uppercase
+
+import numpy as np
+
+from qfit import Structure
 
 
 def parse_args():
@@ -71,11 +71,11 @@ def remove_redistribute_conformer(residue, remove, keep):
         residue_out.altloc = ""  # adjusting altloc label
 
     else:
+        additional_occ_redist = 0
         naltlocs = len(
             np.unique(residue_out.extract("q", 1.0, "!=").altloc)
         )  # number of altlocs left
         occ_redist = round(total_occ_redist / naltlocs, 2)
-        add_occ_redist = 0
 
         if (
             (occ_redist * naltlocs)
@@ -125,7 +125,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (qfit.structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure.ResidueGroup): residue to perform occupancy
             redistribution on by iterating over atoms
         cutoff (float): occupancy threshold
     """
@@ -135,7 +135,7 @@ def redistribute_occupancies_by_atom(residue, cutoff):
     # Create a map of atomname → occupancies
     atom_occs = dict()
     for name, altloc, atomidx, q in zip(
-        residue.name, residue.altloc, residue._selection, residue.q
+        residue.name, residue.altloc, residue.selection, residue.q
     ):
         if name not in atom_occs:
             atom_occs[name] = list()
@@ -159,21 +159,21 @@ def redistribute_occupancies_by_atom(residue, cutoff):
             )
 
             # Redistribute occupancy
+            # FIXME no private member access!
             if len(confs_high) == 1:
-                residue._q[confs_high[0].atomidx] = 1.0
-                residue._altloc[confs_high[0].atomidx] = ""
+                residue._q[confs_high[0].atomidx] = 1.0  # pylint: disable=protected-access
+                residue._altloc[confs_high[0].atomidx] = ""  # pylint: disable=protected-access
             else:
                 sum_q_high = sum(atom.q for atom in confs_high)
                 for atom_high in confs_high:
                     q_high = atom_high.q
                     for atom_low in confs_low:
                         q_low = atom_low.q
-                        residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high
+                        residue._q[atom_high.atomidx] += q_low * q_high / sum_q_high  # pylint: disable=protected-access
 
             # Describe occupancy redistribution results
-            print(
-                f"  ==> {[(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]}"
-            )
+            results = [(atom.altloc, round(residue._q[atom.atomidx], 2)) for atom in confs_high]  # pylint: disable=protected-access
+            print(f"  ==> {results}")
 
 
 def redistribute_occupancies_by_residue(residue, cutoff):
@@ -186,7 +186,7 @@ def redistribute_occupancies_by_residue(residue, cutoff):
     Atoms below cutoff should be culled after this function is run.
 
     Args:
-        residue (qfit.structure._ResidueGroup): residue to perform occupancy
+        residue (qfit.structure.ResidueGroup): residue to perform occupancy
             redistribution on
         cutoff (float): occupancy threshold
     """
@@ -228,11 +228,8 @@ def redistribute_occupancies_by_residue(residue, cutoff):
 
 def main():
     args = parse_args()
-    try:
-        os.makedirs(args.directory)
-        output_file = os.path.join(args.directory, args.structure[:-4] + "_norm.pdb")
-    except OSError:
-        output_file = args.structure[:-4] + "_norm.pdb"
+    os.makedirs(args.directory, exist_ok=True)
+    output_file = os.path.join(args.directory, args.structure[:-4] + "_norm.pdb")
 
     structure = Structure.fromfile(args.structure)
 
@@ -253,20 +250,11 @@ def main():
     for chain in structure:
         for residue in chain:
             if np.any(residue.q < args.occ_cutoff):
-                # How many occupancy-values can we find in each altconf?
-                occs_per_alt = [
-                    np.unique(agroup.q).size
-                    for agroup in residue.atom_groups
-                    if agroup.id[1] != ""
-                ]
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
                 n_removed += 1
 
     # Create structure without low occupancy confs (culling)
-    data = {}
-    for attr in structure.data:
-        data[attr] = getattr(structure, attr).copy()[~mask]
-    structure = Structure(data).reorder()
+    structure = structure.copy().get_selected_structure(~mask).reorder()
 
     # add het atoms back in
     structure = structure.combine(hetatms)

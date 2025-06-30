@@ -1,34 +1,27 @@
 import gc
-from .qfit import QFitOptions
-from .qfit import QFitRotamericResidue
-from .qfit import QFitSegment
 import multiprocessing as mp
-from tqdm import tqdm
 import os.path
 import os
-import sys
-import numpy as np
 import time
-import argparse
-from .custom_argparsers import (
-    ToggleActionFlag,
-    CustomHelpFormatter,
-    ValidateMapFileArgument,
-    ValidateStructureFileArgument,
-)
 import logging
 import traceback
-import pandas as pd
 import itertools as itl
-from .logtools import (
+
+import pandas as pd
+from tqdm import tqdm
+import numpy as np
+
+from qfit.command_line.common_options import get_base_argparser, load_and_scale_map
+from qfit.command_line.custom_argparsers import ToggleActionFlag
+from qfit.logtools import (
     setup_logging,
     log_run_info,
     poolworker_setup_logging,
     QueueListener,
 )
-from . import MapScaler, Structure, XMap
-from .solvers import available_qp_solvers, available_miqp_solvers
-from .structure.rotamers import ROTAMERS
+from qfit.qfit import (QFitOptions, QFitRotamericResidue, QFitSegment)
+from qfit import Structure
+from qfit.structure.rotamers import ROTAMERS
 
 
 logger = logging.getLogger(__name__)
@@ -36,25 +29,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 
 def build_argparser():
-    p = argparse.ArgumentParser(
-        formatter_class=CustomHelpFormatter, description=__doc__
-    )
-
-    p.add_argument(
-        "map",
-        help="Density map in CCP4 or MRC format, or an MTZ file "
-        "containing reflections and phases. For MTZ files "
-        "use the --label options to specify columns to read. "
-        "For CCP4 files, use the -r to specify resolution.",
-        type=str,
-        action=ValidateMapFileArgument,
-    )
-    p.add_argument(
-        "structure",
-        help="PDB-file containing structure.",
-        type=str,
-        action=ValidateStructureFileArgument,
-    )
+    p = get_base_argparser(__doc__)
 
     p.add_argument(
         "-em",
@@ -70,99 +45,12 @@ def build_argparser():
         "Chain, residue id, and optionally insertion code for "
         "residue in structure, e.g. A,105, or A,105:A.",
     )
-
-    # Map options
-    p.add_argument(
-        "-l",
-        "--label",
-        default="2FOFCWT,PH2FOFCWT",
-        metavar="<F,PHI>",
-        help="MTZ column labels to build density",
-    )
-    p.add_argument(
-        "-r",
-        "--resolution",
-        default=None,
-        metavar="<float>",
-        type=float,
-        help="Map resolution (Å) (only use when providing CCP4 map files)",
-    )
-    p.add_argument(
-        "-m",
-        "--resolution-min",
-        default=None,
-        metavar="<float>",
-        type=float,
-        help="Lower resolution bound (Å) (only use when providing CCP4 map files)",
-    )
     p.add_argument(
         "-sb",
         "--no-sampling-b",
         action="store_false",
         dest="sample_bfactors",
         help="Do not sample b-factors within qFit",
-    )
-    p.add_argument(
-        "-o",
-        "--omit",
-        action="store_true",
-        help="Treat map file as an OMIT map in map scaling routines",
-    )
-
-    # Map prep options
-    p.add_argument(
-        "--scale",
-        action=ToggleActionFlag,
-        dest="scale",
-        default=True,
-        help="Scale density",
-    )
-    p.add_argument(
-        "-sv",
-        "--scale-rmask",
-        dest="scale_rmask",
-        default=1.0,
-        metavar="<float>",
-        type=float,
-        help="Scaling factor for soft-clash mask radius",
-    )
-    p.add_argument(
-        "-dc",
-        "--density-cutoff",
-        default=0.3,
-        metavar="<float>",
-        type=float,
-        help="Density values below this value are set to <density-cutoff-value>",
-    )
-    p.add_argument(
-        "-dv",
-        "--density-cutoff-value",
-        default=-1,
-        metavar="<float>",
-        type=float,
-        help="Density values below <density-cutoff> are set to this value",
-    )
-    p.add_argument(
-        "--subtract",
-        action=ToggleActionFlag,
-        dest="subtract",
-        default=True,
-        help="Subtract Fcalc of neighboring residues when running qFit",
-    )
-    p.add_argument(
-        "-pad",
-        "--padding",
-        default=8.0,
-        metavar="<float>",
-        type=float,
-        help="Padding size for map creation",
-    )
-    p.add_argument(
-        "--waters-clash",
-        action=ToggleActionFlag,
-        dest="waters_clash",
-        default=True,
-        help="Consider waters for soft clash detection",
     )
 
     # Sampling options
@@ -198,7 +86,7 @@ def build_argparser():
         dest="sample_backbone_sigma",
         metavar="<float>",
         type=float,
-        help="Backbone sampling displacement (Å)",
+        help="Backbone random-sampling displacement (Å)",
     )
     p.add_argument(
         "--sample-angle",
@@ -257,99 +145,12 @@ def build_argparser():
         help="Chi dihedral-angle sampling range around each rotamer in degrees [-x,x]",
     )
     p.add_argument(
-        "--remove-conformers-below-cutoff",
-        action="store_true",
-        dest="remove_conformers_below_cutoff",
-        help="Remove conformers during sampling that have atoms "
-        "with no density support, i.e. atoms are positioned "
-        "at density values below <density-cutoff>",
-    )
-    p.add_argument(
-        "-cf",
-        "--clash-scaling-factor",
-        default=0.75,
-        metavar="<float>",
-        type=float,
-        help="Set clash scaling factor",
-    )
-    p.add_argument(
-        "-ec",
-        "--external-clash",
-        action="store_true",
-        dest="external_clash",
-        help="Enable external clash detection during sampling",
-    )
-    p.add_argument(
-        "-bs",
-        "--bulk-solvent-level",
-        default=0.3,
-        metavar="<float>",
-        type=float,
-        help="Bulk solvent level in absolute values",
-    )
-    p.add_argument(
-        "-c",
-        "--cardinality",
-        default=5,
-        metavar="<int>",
-        type=int,
-        help="Cardinality constraint used during MIQP",
-    )
-    p.add_argument(
-        "-t",
-        "--threshold",
-        default=0.2,
-        metavar="<float>",
-        type=float,
-        help="Threshold constraint used during MIQP",
-    )
-    p.add_argument(
-        "-hy",
-        "--hydro",
-        action="store_true",
-        dest="hydro",
-        help="Include hydrogens during calculations",
-    )
-    p.add_argument(
-        "-rmsd",
-        "--rmsd-cutoff",
-        default=0.01,
-        metavar="<float>",
-        type=float,
-        help="RMSD cutoff for removal of identical conformers",
-    )
-    p.add_argument(
         "--threshold-selection",
         dest="bic_threshold",
         action=ToggleActionFlag,
         default=True,
         help="Use BIC to select the most parsimonious MIQP threshold",
     )
-    p.add_argument(
-        "-p",
-        "--nproc",
-        type=int,
-        default=1,
-        metavar="<int>",
-        help="Number of processors to use",
-    )
-
-    # Solver options
-    p.add_argument(
-        "--qp-solver",
-        dest="qp_solver",
-        choices=available_qp_solvers.keys(),
-        default=next(iter(available_qp_solvers.keys())),
-        help="Select the QP solver",
-    )
-    p.add_argument(
-        "--miqp-solver",
-        dest="miqp_solver",
-        choices=available_miqp_solvers.keys(),
-        default=next(iter(available_miqp_solvers.keys())),
-        help="Select the MIQP solver",
-    )
-
     # qFit Segment options
     p.add_argument(
         "--only-segment",
@@ -386,27 +187,6 @@ def build_argparser():
         help="Q-score value where we should not model in alternative conformers.",
         default=0.7,
     )
-
-    # Output options
-    p.add_argument(
-        "-d",
-        "--directory",
-        default=".",
-        metavar="<dir>",
-        type=os.path.abspath,
-        help="Directory to store results",
-    )
-    p.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
-    p.add_argument(
-        "--debug", action="store_true", help="Log as much information as possible"
-    )
-    p.add_argument(
-        "--write_intermediate_conformers",
-        action="store_true",
-        help="Write intermediate structures to file (useful with debugging)",
-    )
-    p.add_argument("--pdb", help="Name of the input PDB")
-
     return p
 
 
@@ -423,7 +203,7 @@ class QFitProtein:
             self.pdb = ""
         # Get information about all backbone atoms. If the input structure has multiple backbones, we will initiate backbone sampling (and all residue sampling) using all backbone coordinates
         if self.options.residue is not None:
-            chainid, resi = self.options.residue.split(",")
+            chainid, resi = self.options.residue.split(",")  # pylint: disable=unused-variable
 
         if self.options.residue is not None:  # run qFit residue
             multiconformer = self._run_qfit_residue_parallel()
@@ -433,6 +213,22 @@ class QFitProtein:
             multiconformer = self._run_qfit_residue_parallel()
             multiconformer = self._run_qfit_segment(multiconformer)
         return multiconformer
+
+    @property
+    def file_ext(self):
+        # we can't rely on this being propagated in self.structure....
+        path_fields = self.options.structure.split(".")
+        if path_fields[-1] == "gz":
+            return ".".join(path_fields[-2:])
+        return path_fields[-1]
+
+    def _get_output_model_path(self, prefix):
+        return os.path.join(self.options.directory, f"{prefix}.{self.file_ext}")
+
+    def _get_partial_model_path(self, residue):
+        return os.path.join(self.options.directory,
+                            residue.shortcode,
+                            "multiconformer_residue.pdb")
 
     def get_map_around_substructure(self, substructure):
         """Make a subsection of the map near the substructure.
@@ -458,9 +254,9 @@ class QFitProtein:
 
         # Extract non-protein atoms
         self.hetatms = self.structure.extract("record", "HETATM", "==")
-        waters = self.structure.extract("resn", "HOH", "==")
-        self.hetatms = self.hetatms.combine(waters)
-        hetatms = self.hetatms
+        other_waters = self.structure.extract("record", "ATOM", "==")
+        other_waters = other_waters.extract("resn", "HOH", "==")
+        self.hetatms = self.hetatms.combine(other_waters)
 
         # Create a list of residues from single conformations of proteinaceous residues.
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
@@ -470,9 +266,9 @@ class QFitProtein:
             chainid, resi = self.options.residue.split(",")
             if ":" in resi:
                 resi, icode = resi.split(":")
-                residue_id = (int(resi), icode)
+                residue_id = (int(resi), icode)  # pylint: disable=unused-variable
             elif "_" in resi:
-                resi, icode = reis.split("_")
+                resi, icode = resi.split("_")
                 residue_id = (int(resi), icode)
             else:
                 residue_id = int(resi)
@@ -520,12 +316,8 @@ class QFitProtein:
                     .extract("altloc", altloc)
                 )
                 try:
-                    u_matrix = [
-                        [atom.u00[0], atom.u01[0], atom.u02[0]],
-                        [atom.u01[0], atom.u11[0], atom.u12[0]],
-                        [atom.u02[0], atom.u12[0], atom.u22[0]],
-                    ]
-                except:
+                    u_matrix = atom.extract_anisous()[0]
+                except Exception:
                     u_matrix = None
                 grouped_u_matrices[altloc] = u_matrix
             backbone_coor_dict[residue_chain_key]["coords"] = grouped_coords
@@ -533,11 +325,7 @@ class QFitProtein:
 
         # Filter the residues: take only those not containing checkpoints.
         def does_multiconformer_checkpoint_exist(residue):
-            fname = os.path.join(
-                self.options.directory,
-                residue.shortcode,
-                "multiconformer_residue.pdb",
-            )
+            fname = self._get_partial_model_path(residue)
             if os.path.exists(fname):
                 logger.info(f"Residue {residue.shortcode}: {fname} already exists.")
                 return True
@@ -588,7 +376,7 @@ class QFitProtein:
             with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
                 futures = [
                     pool.apply_async(
-                        QFitProtein._run_qfit_residue,
+                        _run_qfit_residue,
                         kwds={
                             "residue": residue,
                             "structure": self.structure,
@@ -620,7 +408,7 @@ class QFitProtein:
                    continue
                 else:
                     try:
-                        result = QFitProtein._run_qfit_residue(
+                        result = _run_qfit_residue(
                             residue=residue,
                             structure=self.structure,
                             xmap=self.get_map_around_substructure(residue),
@@ -644,20 +432,17 @@ class QFitProtein:
         if self.options.residue is not None:
             for residue in residues:
                 # Load the multiconformer_residue.pdb file
-                fname = os.path.join(
-                    self.options.directory,
-                    residue.shortcode,
-                    "multiconformer_residue.pdb",
-                )
+                fname = self._get_partial_model_path(residue)
                 if not os.path.exists(fname):
-                    logger.warn(
+                    logger.warning(
                         f"[{residue.shortcode}] Couldn't find {fname}! "
                         "Will not be present in multiconformer_model.pdb!"
                     )
                     continue
                 residue_multiconformer = Structure.fromfile(fname)
-                fname = f"{residue.shortcode}_qFit_residue.pdb"
+                fname = f'{residue.shortcode}_qFit_residue.{self.file_ext}'
                 residue_multiconformer.tofile(fname)
+                multiconformer_model = residue_multiconformer
 
         if self.options.residue is None:
             for residue in residues:
@@ -669,13 +454,9 @@ class QFitProtein:
                     continue
 
                 # Load the multiconformer_residue.pdb file
-                fname = os.path.join(
-                    self.options.directory,
-                    residue.shortcode,
-                    "multiconformer_residue.pdb",
-                )
+                fname = self._get_partial_model_path(residue)
                 if not os.path.exists(fname):
-                    logger.warn(
+                    logger.warning(
                         f"[{residue.shortcode}] Couldn't find {fname}! "
                         "Will not be present in multiconformer_model.pdb!"
                     )
@@ -690,16 +471,14 @@ class QFitProtein:
                         residue_multiconformer
                     )
 
+            if multiconformer_model is None:
+                raise RuntimeError(f"No usable model built for {residue.shortcode}")
             # Write out multiconformer_model.pdb only if in debug mode.
-            # This output is not a final qFit output, so it might confuse users.
+            # This output is not a final qFit output, so it might confuse users
             if self.options.debug:
-                fname = os.path.join(self.options.directory, "multiconformer_model.pdb")
-                if self.structure.scale or self.structure.cryst_info:
-                    multiconformer_model.tofile(
-                        fname, self.structure.scale, self.structure.cryst_info
-                    )
-                else:
-                    multiconformer_model.tofile(fname)
+                fname = self._get_output_model_path("multiconformer_model")
+                multiconformer_model.tofile(fname,
+                    self.structure.crystal_symmetry)
 
         return multiconformer_model
 
@@ -721,168 +500,118 @@ class QFitProtein:
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
         multiconformer = multiconformer.combine(self.hetatms)
-        fname = os.path.join(
-            self.options.directory, self.pdb + "multiconformer_model2.pdb"
-        )
-        if self.options.scale or self.options.cryst_info:
-            multiconformer.tofile(
-                fname, self.options.scale_info, self.options.cryst_info
-            )
-        else:
-            multiconformer.tofile(fname)
+        fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
+        multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
-    @staticmethod
-    def _run_qfit_residue(
-        residue, structure, xmap, options, logqueue, backbone_coor_dict
-    ):
-        """Run qfit on a single residue to determine density-supported conformers."""
-
-        # Don't run qfit if we have a ligand or water
-        if residue.type != "rotamer-residue":
-            raise RuntimeError(
-                f"Residue {residue.id}: is not a rotamer-residue. Aborting qfit_residue sampling."
-            )
-
-        # Set up logger hierarchy in this subprocess
-        poolworker_setup_logging(logqueue)
-
-        # This function is run in a subprocess, so `structure` and `residue` have
-        #     been 'copied' (pickled+unpickled) as best as possible.
-
-        # However, `structure`/`residue` objects pickled and passed to subprocesses do
-        #     not contain attributes decorated by @_structure_properties.
-        #     This decorator attaches 'getter' and 'setter' _local_ functions to the attrs
-        #     (defined within, and local to the _structure_properties function).
-        #     Local functions are **unpickleable**, and as a result, so are these attrs.
-        # This includes:
-        #     (record, atomid, name, altloc, resn, chain, resi, icode,
-        #      q, b, e, charge, coor, active, u00, u11, u22, u01, u02, u12)
-        # Similarly, these objects are also missing attributes wrapped by @property:
-        #     (covalent_radius, vdw_radius)
-        # Finally, the _selector object is only partially pickleable,
-        #     as it contains a few methods that are defined by a local lambda inside
-        #     pyparsing._trim_arity().
-
-        # Since all these attributes are attached by __init__ of the
-        #     qfit.structure.base_structure._BaseStructure class,
-        #     here, we call __init__ again, to make sure these objects are
-        #     correctly initialised in a subprocess.
-        structure.__init__(
-            structure.data,
-            selection=structure._selection,
-            parent=structure.parent,
-        )
-        residue.__init__(
-            residue.data,
-            resi=residue.id[0],
-            icode=residue.id[1],
-            type=residue.type,
-            selection=residue._selection,
-            parent=residue.parent,
+def _run_qfit_residue(residue, structure, xmap, options, logqueue,
+                      backbone_coor_dict):
+    """Run qfit on a single residue to determine density-supported conformers."""
+    # Don't run qfit if we have a ligand or water
+    if residue.type != "rotamer-residue":
+        raise RuntimeError(
+            f"Residue {residue.id}: is not a rotamer-residue. Aborting qfit_residue sampling."
         )
 
-        # Build the residue results directory
-        residue_directory = os.path.join(options.directory, residue.shortcode)
-        try:
-            os.makedirs(residue_directory)
-        except OSError:
-            pass
+    # Set up logger hierarchy in this subprocess
+    poolworker_setup_logging(logqueue)
 
-        # Exit early if we have already run qfit for this residue
-        fname = os.path.join(residue_directory, "multiconformer_residue.pdb")
-        if os.path.exists(fname):
+    # Exit early if we have already run qfit for this residue
+    fname = os.path.join(options.directory,
+                         residue.shortcode,
+                         "multiconformer_model.pdb")
+    if os.path.exists(fname):
+        logger.info(
+            f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
+        )
+        return
+    # Build the residue results directory
+    residue_directory = os.path.dirname(fname)
+    os.makedirs(residue_directory, exist_ok=True)
+
+    # Determine if q-score is too low
+    if options.qscore is not None:
+        (chainid, resi, icode) = residue.identifier_tuple
+        if (
+            list(
+                options.qscore[
+                    (options.qscore["Res_num"] == resi)
+                    & (options.qscore["Chain"] == chainid)
+                ]["Q_sideChain"]
+            )[0]
+            < options.q_cutoff
+        ):
             logger.info(
-                f"Residue {residue.shortcode}: {fname} already exists, using this checkpoint."
+                f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
             )
+            resi_selstr = f"chain {chainid} and resi {resi}"
+            if icode:
+                resi_selstr += f" and icode {icode}"
+            structure_new = structure
+            structure_resi = structure.extract(resi_selstr)
+            chain = structure_resi[chainid]
+            conformer = chain.conformers[0]
+            residue = conformer[residue.id]
+            residue.tofile(fname)
             return
 
-        # Determine if q-score is too low
-        if options.qscore is not None:
-            (chainid, resi, icode) = residue._identifier_tuple
-            if (
-                list(
-                    options.qscore[
-                        (options.qscore["Res_num"] == resi)
-                        & (options.qscore["Chain"] == chainid)
-                    ]["Q_sideChain"]
-                )[0]
-                < options.q_cutoff
-            ):
-                logger.info(
-                    f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
-                )
-                resi_selstr = f"chain {chainid} and resi {resi}"
-                if icode:
-                    resi_selstr += f" and icode {icode}"
-                structure_new = structure
-                structure_resi = structure.extract(resi_selstr)
-                chain = structure_resi[chainid]
-                conformer = chain.conformers[0]
-                residue = conformer[residue.id]
-                residue.tofile(fname)
-                return
-
-        # Copy the structure
-        (chainid, resi, icode) = residue._identifier_tuple
-        resi_selstr = f"chain {chainid} and resi {resi}"
-        if icode:
-            resi_selstr += f" and icode {icode}"
-        structure_new = structure
-        structure_resi = structure.extract(resi_selstr)
-        chain = structure_resi[chainid]
-        conformer = chain.conformers[0]
-        residue = conformer[residue.id]
-        altlocs = sorted(list(set(residue.altloc)))
-        if len(altlocs) > 1:
-            try:
-                altlocs.remove("")
-            except ValueError:
-                pass
-            for altloc in altlocs[1:]:
-                sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-                sel_str = f"not ({sel_str})"
-                structure_new = structure_new.extract(sel_str)
-
-        # add multiple backbone positions
-
-        chain_resi_id = f"{resi}, '{chainid}'"
-        chain_resi_id = (resi, chainid)
-        options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
-        # Exception handling in case qFit-residue fails:
-        qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
+    # Copy the structure
+    (chainid, resi, icode) = residue.identifier_tuple
+    resi_selstr = f"chain {chainid} and resi {resi}"
+    if icode:
+        resi_selstr += f" and icode {icode}"
+    structure_new = structure.copy()
+    structure_resi = structure_new.extract(resi_selstr)
+    chain = structure_resi[chainid]
+    conformer = chain.conformers[0]
+    residue = conformer[residue.id]
+    altlocs = sorted(list(set(residue.altloc)))
+    if len(altlocs) > 1:
         try:
-            qfit.run()
-        except RuntimeError as e:
-            tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
-            logger.warning(
-                f"[{qfit.identifier}] "
-                f"Unable to produce an alternate conformer. "
-                f"Using deposited conformer A for this residue."
-            )
-            logger.info(
-                f"[{qfit.identifier}] This is a result of the following exception:\n"
-                f"{tb})"
-            )
-            qfit.conformer = residue.copy()
-            qfit._occupancies = [residue.q]
-            qfit._coor_set = [residue.coor]
-            qfit._bs = [residue.b]
+            altlocs.remove("")
+        except ValueError:
+            pass
+        for altloc in altlocs[1:]:
+            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
+            sel_str = f"not ({sel_str})"
+            structure_new = structure_new.extract(sel_str)
 
-        # Save multiconformer_residue
-        qfit.tofile()
-        qfit_id = qfit.identifier
+    # add multiple backbone positions
 
-        # How many conformers were found?
-        n_conformers = len(qfit.get_conformers())
+    chain_resi_id = f"{resi}, '{chainid}'"
+    chain_resi_id = (resi, chainid)
+    options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
+    # Exception handling in case qFit-residue fails:
+    qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
+    try:
+        qfit.run()
+    except RuntimeError as e:
+        tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
+        logger.warning(
+            f"[{qfit.identifier}] "
+            f"Unable to produce an alternate conformer. "
+            f"Using deposited conformer A for this residue."
+        )
+        logger.info(
+            f"[{qfit.identifier}] This is a result of the following exception:\n"
+            f"{tb})"
+        )
+        qfit.reset_residue(residue, structure)
 
-        # Freeing up some memory to avoid memory issues:
-        del xmap
-        del qfit
-        gc.collect()
+    # Save multiconformer_residue
+    qfit.tofile()
+    qfit_id = qfit.identifier
 
-        # Return a string about the residue that was completed.
-        return f"[{qfit_id}]: {n_conformers} conformers"
+    # How many conformers were found?
+    n_conformers = len(qfit.get_conformers())
+
+    # Freeing up some memory to avoid memory issues:
+    del xmap
+    del qfit
+    gc.collect()
+
+    # Return a string about the residue that was completed.
+    return f"[{qfit_id}]: {n_conformers} conformers"
 
 
 def prepare_qfit_protein(options):
@@ -890,8 +619,6 @@ def prepare_qfit_protein(options):
 
     # Load structure and prepare it
     structure = Structure.fromfile(options.structure).reorder()
-    options.scale_info = structure.scale
-    options.cryst_info = structure.cryst_info
     if not options.hydro:
         structure = structure.extract("e", "H", "!=")
 
@@ -900,24 +627,7 @@ def prepare_qfit_protein(options):
     rename.name = "O"
     structure = structure.extract("name", "OXT", "!=").combine(rename)
 
-    # Load map and prepare it
-    xmap = XMap.fromfile(
-        options.map, resolution=options.resolution, label=options.label
-    )
-    xmap = xmap.canonical_unit_cell()
-
-    # Scale map based on input structure
-    if options.scale is True:
-        scaler = MapScaler(xmap, em=options.em)
-        radius = 1.5
-        reso = None
-        if xmap.resolution.high is not None:
-            reso = xmap.resolution.high
-        elif options.resolution is not None:
-            reso = options.resolution
-        if reso is not None:
-            radius = 0.5 + reso / 3.0
-        scaler.scale(structure, radius=options.scale_rmask * radius)
+    xmap = load_and_scale_map(options, structure)
 
     if options.qscore is not None:
         with open(
@@ -959,10 +669,7 @@ def main():
     p = build_argparser()
     args = p.parse_args(args=None)
 
-    try:
-        os.mkdir(args.directory)
-    except OSError:
-        pass
+    os.makedirs(args.directory, exist_ok=True)
 
     # Apply the arguments to options
     options = QFitOptions()
@@ -977,5 +684,5 @@ def main():
 
     # Run the QFitProtein job
     time0 = time.time()
-    multiconformer = qfit.run()
+    qfit.run()
     logger.info(f"Total time: {time.time() - time0}s")
