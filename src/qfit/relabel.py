@@ -22,8 +22,8 @@ def cartesian_product(*arrays):
 
 class RelabellerOptions:
     def __init__(self, nSims=10000, nChains=10):
-        self.nSims = nSims
-        self.nChains = nChains
+        self.nSims = nSims #num of SA steps
+        self.nChains = nChains #num of independent SA runs
 
     def apply_command_args(self, args):
         for key, value in vars(args).items():
@@ -42,11 +42,11 @@ class Relabeller:
 
         self.prng = np.random.default_rng(0)
 
-        self.nodes = []
-        self.permutation = []
+        self.nodes = []  # list of conformers/altlocs
+        self.permutation = []  # initial grouping of nodes per residue
         self.initNodes()
 
-        self.metric = self.initMetric()
+        self.metric = self.initMetric() # pairwise energy matrix between nodes
 
     def initNodes(self):
         node = 0
