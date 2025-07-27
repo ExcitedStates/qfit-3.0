@@ -179,6 +179,29 @@ class Structure(_BaseStructure):
             chain = _Chain(self.data, selection=selection, parent=self, chainid=chainid)
             self._chains.append(chain)
 
+    def split_models(self):
+        """
+        Split a multi-model Structure into a list of single-model Structures
+        using the existing iotbx hierarchy.
+        """
+        import iotbx.pdb.hierarchy
+        hierarchy = self._pdb_hierarchy
+        model_count = hierarchy.models_size()
+
+        if model_count <= 1:
+            return [self]
+
+        structures = []
+        for model in hierarchy.models():
+            single_hierarchy = iotbx.pdb.hierarchy.root()
+            single_hierarchy.append_model(model.detached_copy())
+
+            # Create a Structure from this model's hierarchy
+            new_struct = Structure(single_hierarchy, **self._kwargs)
+            structures.append(new_struct)
+
+        return structures
+
     def combine(self, structure):
         """Combines two structures into one"""
         data = {}
