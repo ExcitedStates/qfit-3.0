@@ -1,0 +1,12 @@
+CRYST1    6.000    5.000    7.000  90.00  90.00  90.00 P 1
+HETATM    1  C1 APPI A   1       4.009   4.024   1.057  0.55  5.79           C  
+HETATM    2  C2 APPI A   1       3.335   4.426  -0.262  0.55  4.42           C  
+HETATM    3  C3 APPI A   1       3.895   3.722  -1.491  0.55  4.31           C  
+HETATM    4  O1 APPI A   1       5.004   3.257   1.145  0.55  5.09           O  
+HETATM    5  O2 APPI A   1       3.498   4.470   2.112  0.55  5.26           O  
+HETATM    6  C1 BPPI A   1       4.009   4.024   1.057  0.45  5.79           C  
+HETATM    7  C2 BPPI A   1       3.335   4.426  -0.262  0.45  4.42           C  
+HETATM    8  C3 BPPI A   1       2.137   5.343  -0.056  0.45  4.31           C  
+HETATM    9  O1 BPPI A   1       5.004   3.257   1.145  0.45  5.09           O  
+HETATM   10  O2 BPPI A   1       3.498   4.470   2.112  0.45  5.26           O  
+END
