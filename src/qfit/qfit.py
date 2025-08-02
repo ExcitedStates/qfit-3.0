@@ -1412,8 +1412,8 @@ class QFitSegment(_BaseQFit):
             if naltlocs == 1:
                 print(f"Found single conformer for {self.segment}")
                 # Process the existing segment
-                if len(segment) > 0:
-                    for path in self.find_paths(segment):
+                if len(segment):
+                    for path in self.find_paths(segment): #find_paths= combination of conformers in a fragment (default = 4 residues)
                         multiconformers = multiconformers.combine(path)
                 print(multiconformers.natoms)
                 segment = []
@@ -1476,6 +1476,7 @@ class QFitSegment(_BaseQFit):
         return multiconformers
 
     def find_paths(self, segment_original):
+        '''Identify combination of conformers in a fragment (default = 4 residues)'''
         segment = segment_original[:]
         fl = self.fragment_length
         possible_conformers = list(map(chr, range(65, 90)))
