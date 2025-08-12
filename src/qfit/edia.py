@@ -1,7 +1,7 @@
 """Use EDIA to assess quality of model fitness to electron density."""
 
 import numpy as np
-from . import Structure, XMap, ElectronDensityRadiusTable
+from . import Structure, XMap, ElectronDensityRadiusTable, MapScaler
 from . import ResolutionBins, BondLengthTable
 import argparse
 import logging
@@ -21,12 +21,19 @@ class ediaOptions:
         self.map_type = None
         self.resolution = None
         self.resolution_min = None
-        self.scattering = "xray"
+        self.scattering = None  # Initialize without default
 
     def apply_command_args(self, args):
         for key, value in vars(args).items():
             if hasattr(self, key):
                 setattr(self, key, value)
+        
+        # Determine scattering type based on input file type
+        if args.xmap.endswith('.mtz'):
+            self.scattering = "xray"
+        elif args.xmap.endswith('.ccp4'):
+            self.scattering = "electron"
+        
         return self
 
 
@@ -84,8 +91,10 @@ class Point:
 
 
 class _BaseEDIA:
-    def __init__(self, conformer, structure, xmap, options):
-        self.structure = structure
+    def __init__(self, conformer, base_structure, comparison_structure, xmap, options):
+        self.base_structure = base_structure
+        self.comparison_structure = comparison_structure
+        self.structure = base_structure  # Keep for backward compatibility
         self.conformer = conformer
         self.residue = conformer
         self.xmap = xmap
@@ -159,29 +168,33 @@ class _BaseEDIA:
                     for i in range(grid[2] - box[2], grid[2] + box[2]):
                         for j in range(grid[1] - box[1], grid[1] + box[1]):
                             for k in range(grid[0] - box[0], grid[0] + box[0]):
-                                try:
-                                    dist = np.linalg.norm(
-                                        coor - self.Grid[i][j][k].coor
-                                    )
-                                except:
-                                    self.Grid[i][j][k] = Point(
-                                        np.dot(
-                                            np.asarray([k, j, i])
-                                            + np.asarray(self.xmap.offset),
-                                            self.grid_to_cartesian,
+                                # Check bounds before accessing the grid
+                                if (0 <= i < self.Grid.shape[0] and 
+                                    0 <= j < self.Grid.shape[1] and 
+                                    0 <= k < self.Grid.shape[2]):
+                                    try:
+                                        dist = np.linalg.norm(
+                                            coor - self.Grid[i][j][k].coor
                                         )
-                                    )
-                                    dist = np.linalg.norm(
-                                        coor - self.Grid[i][j][k].coor
-                                    )
-                                if dist < ed_radius:
-                                    self.Grid[i][j][k].S.append(
-                                        [coor, atom, element, occ, resi]
-                                    )
-                                elif dist < ed_radius * 2:
-                                    self.Grid[i][j][k].D.append(
-                                        [coor, atom, element, occ, resi]
-                                    )
+                                    except:
+                                        self.Grid[i][j][k] = Point(
+                                            np.dot(
+                                                np.asarray([k, j, i])
+                                                + np.asarray(self.xmap.offset),
+                                                self.grid_to_cartesian,
+                                            )
+                                        )
+                                        dist = np.linalg.norm(
+                                            coor - self.Grid[i][j][k].coor
+                                        )
+                                    if dist < ed_radius:
+                                        self.Grid[i][j][k].S.append(
+                                            [coor, atom, element, occ, resi]
+                                        )
+                                    elif dist < ed_radius * 2:
+                                        self.Grid[i][j][k].D.append(
+                                            [coor, atom, element, occ, resi]
+                                        )
 
     # Calculates the atomic radius based on the table
     def calculate_density_radius(self, atom, resolution, bfactor, charge="0"):
@@ -243,7 +256,8 @@ class _BaseEDIA:
         offset = self.xmap.offset
         voxelspacing = self.xmap.voxelspacing  # These ARE ordered (x,y,z)
         print(
-            "Unit cell shape:", self.xmap.unit_cell.shape
+            "Map array dimensions: ",
+            [len(self.xmap.array), len(self.xmap.array[0]), len(self.xmap.array[0][0])],
         )  # These are ordered (z,y,x)
         print(
             "Unit cell a,b,c: {0:.2f} {1:.2f} {2:.2f}".format(
@@ -257,10 +271,7 @@ class _BaseEDIA:
                 self.xmap.unit_cell.gamma,
             )
         )
-        print(
-            "XMap array dimentions: ",
-            [len(self.xmap.array), len(self.xmap.array[0]), len(self.xmap.array[0][0])],
-        )  # These are ordered (z,y,x)
+
         abc = np.asarray(
             [self.xmap.unit_cell.a, self.xmap.unit_cell.b, self.xmap.unit_cell.c]
         )
@@ -321,40 +332,54 @@ class _BaseEDIA:
         for i in range(grid[2] - box[2], grid[2] + box[2]):  # z
             for j in range(grid[1] - box[1], grid[1] + box[1]):  # y
                 for k in range(grid[0] - box[0], grid[0] + box[0]):  # x
-                    # Identify the coordinates of grid point (k,j,i) of density self.xmap.array[i][j][k]
-                    p = self.Grid[i][j][k].coor
-                    # if(self.xmap.array[i][j][k] - self.mean > 1.2*self.sigma):
-                    #    print("HETATM {0:4d}  H   HOH A {0:3d}    {1:8.3f}{2:8.3f}{3:8.3f}  1.00 37.00           H".format(1,p[0],p[1],p[2]))
-                    # continue
-                    dist = np.linalg.norm(coor - p)
-                    # Calculate the distance-dependent weighting factor w
-                    weight = self.weighter(dist)
-                    # Calculate the ownership value o
-                    I = self.calculate_non_bonded(
-                        [coor, atom, element, occ, resi], self.Grid[i][j][k].S
-                    )
-                    o = self.ownership(
-                        p,
-                        dist,
-                        ed_radius,
-                        self.Grid[i][j][k].S,
-                        self.Grid[i][j][k].D,
-                        I,
-                    )
-                    # Calculate the density score z(p) truncated at 1.2σs
-                    z = min(
-                        max((self.xmap.array[i][j][k] - self.mean) / self.sigma, 0.0),
-                        1.2,
-                    )
-                    # print(atom,dist,weight,o,z)
-                    # Calculate the sums for EDIA
-                    if weight > 0.0:
-                        sum_pos_weights += weight
-                        sum_pos_product += weight * o * z
-                    else:
-                        sum_neg_weights += weight
-                        sum_neg_product += weight * o * z
-                    sum_product += weight * o * z
+                    # Check bounds before accessing the grid
+                    if (0 <= i < self.Grid.shape[0] and 
+                        0 <= j < self.Grid.shape[1] and 
+                        0 <= k < self.Grid.shape[2]):
+                        # Ensure grid position has a Point object
+                        if not isinstance(self.Grid[i][j][k], Point):
+                            self.Grid[i][j][k] = Point(
+                                np.dot(
+                                    np.asarray([k, j, i])
+                                    + np.asarray(self.xmap.offset),
+                                    self.grid_to_cartesian,
+                                )
+                            )
+                        
+                        # Identify the coordinates of grid point (k,j,i) of density self.xmap.array[i][j][k]
+                        p = self.Grid[i][j][k].coor
+                        # if(self.xmap.array[i][j][k] - self.mean > 1.2*self.sigma):
+                        #    print("HETATM {0:4d}  H   HOH A {0:3d}    {1:8.3f}{2:8.3f}{3:8.3f}  1.00 37.00           H".format(1,p[0],p[1],p[2]))
+                        # continue
+                        dist = np.linalg.norm(coor - p)
+                        # Calculate the distance-dependent weighting factor w
+                        weight = self.weighter(dist)
+                        # Calculate the ownership value o
+                        I = self.calculate_non_bonded(
+                            [coor, atom, element, occ, resi], self.Grid[i][j][k].S
+                        )
+                        o = self.ownership(
+                            p,
+                            dist,
+                            ed_radius,
+                            self.Grid[i][j][k].S,
+                            self.Grid[i][j][k].D,
+                            I,
+                        )
+                        # Calculate the density score z(p) truncated at 1.2σs
+                        z = min(
+                            max((self.xmap.array[i][j][k] - self.mean) / self.sigma, 0.0),
+                            1.2,
+                        )
+                        # print(atom,dist,weight,o,z)
+                        # Calculate the sums for EDIA
+                        if weight > 0.0:
+                            sum_pos_weights += weight
+                            sum_pos_product += weight * o * z
+                        else:
+                            sum_neg_weights += weight
+                            sum_neg_product += weight * o * z
+                        sum_product += weight * o * z
 
         return (
             sum_pos_product / sum_pos_weights,
@@ -418,6 +443,7 @@ class _BaseEDIA:
                         )
                     )
         try:
+            print('PRINTING')
             print(
                 "{0} Comb {1:.2f} {2:.2f} {3:.2f}".format(
                     residue.resi[0],
@@ -484,27 +510,30 @@ class _BaseEDIA:
 
 
 class ediaResidue(_BaseEDIA):
-    def __init__(self, residue, structure, xmap, options):
-        super().__init__(residue, structure, xmap, options)
+    def __init__(self, residue, base_structure, comparison_structure, xmap, options):
+        super().__init__(residue, base_structure, comparison_structure, xmap, options)
 
     def __call__(self):
         # self.print_stats()
         # self.print_density(2.5)
+        self.xmap = get_map_around_substructure(self.residue, self.xmap, 8.0)
         EDIAm, OPIA = self.calc_edia_residue(self.residue)
 
 
 class ediaProtein(_BaseEDIA):
-    def __init__(self, structure, xmap, options):
-        super().__init__(structure, structure, xmap, options)
-        self.EDIAm = np.zeros(len(list(self.structure.residues)))
-        self.OPIA = np.zeros(len(list(self.structure.residues)))
+    def __init__(self, base_structure, comparison_structure, xmap, options):
+        super().__init__(base_structure, base_structure, comparison_structure, xmap, options)
+        self.EDIAm = np.zeros(len(list(self.base_structure.residues)))
+        self.OPIA = np.zeros(len(list(self.base_structure.residues)))
 
     def __call__(self):
-        # self.print_stats()
-        # self.print_density(3.0)
-        for chain in self.structure:
+        for chain in self.base_structure:
             idx = 0
+            print('protein')
             for residue in chain:
+                print(residue)
+                residue_map = get_map_around_substructure(residue, self.xmap, 8.0)
+                self.xmap = get_map_around_substructure(residue, self.xmap, 8.0)
                 self.EDIAm[idx], self.OPIA[idx] = self.calc_edia_residue(residue)
                 # Calculate the values of EDIAm for the residue:
                 print(
@@ -514,13 +543,33 @@ class ediaProtein(_BaseEDIA):
                 )
                 idx += 1
 
+def get_map_around_substructure(substructure, xmap, padding=8.0):
+        """Make a subsection of the map near the substructure.
+
+        Args:
+            substructure (qfit.structure.base_structure._BaseStructure):
+                a substructure to carve a map around, commonly a Residue
+            xmap: the electron density map
+            padding: padding size for map creation
+
+        Returns:
+            qfit.volume.XMap: a new (smaller) map
+        """
+        return xmap.extract(substructure.coor, padding=padding)
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("xmap", type=str, help="X-ray density map in CCP4 format.")
-    p.add_argument("resolution", type=float, help="Map resolution in angstrom.")
-    p.add_argument("structure", type=str, help="PDB-file containing structure.")
-
+    p.add_argument("xmap", type=str, help="X-ray density map in CCP4 or MRC or MTZ file")
+    p.add_argument("base_structure", type=str, help="PDB-file containing structure.")
+    p.add_argument("comparison_structure", type=str, help="PDB-file containing structure.")
+    p.add_argument("-r", "--resolution", type=float, help="Map resolution in angstrom. Required if CCP4 or MRC.")
+    p.add_argument(
+        "-l",
+        "--label",
+        default="2FOFCWT,PH2FOFCWT",
+        metavar="<F,PHI>",
+        help="MTZ column labels to build density. Required if MTZ format",
+    )
     p.add_argument(
         "--selection",
         default=None,
@@ -528,55 +577,68 @@ def parse_args():
         help="Chain, residue id, and optionally insertion code for residue in structure, e.g. A,105, or A,105:A.",
     )
     p.add_argument(
-        "-d",
-        "--directory",
-        type=os.path.abspath,
-        default=".",
-        metavar="<dir>",
-        help="Directory to store results.",
+        "-sv",
+        "--scale-rmask",
+        dest="scale_rmask",
+        default=1.0,
+        metavar="<float>",
+        type=float,
+        help="Scaling factor for soft-clash mask radius",
+    )
+    p.add_argument(
+        "-pad",
+        "--padding",
+        default=8.0,
+        metavar="<float>",
+        type=float,
+        help="Padding size for map creation",
     )
     p.add_argument("-v", "--verbose", action="store_true", help="Be verbose.")
 
     return p.parse_args()
 
 
-""" Main function """
-
-
 def main():
     args = parse_args()
-    """ Create the output directory provided by the user: """
-    try:
-        os.makedirs(args.directory)
-    except OSError:  # If directory already exists...
-        pass
-
     time0 = time.time()  # Useful variable for profiling run times.
 
     """ Processing input structure and map """
     # Read structure in:
-    structure = Structure.fromfile(args.structure)
-    # This line would ensure that we only select the '' altlocs or the 'A' altlocs.
-    structure = structure.extract("altloc", ("", "A", "B", "C", "D", "E"))
+    base_structure = Structure.fromfile(args.base_structure)
+    comp_structure = Structure.fromfile(args.comparison_structure)
 
     if args.selection is not None:
         chainid, resi = args.selection.split(",")
         # Select all residue conformers
-        chain = structure[chainid]
+        chain = base_structure[chainid]
         for res in chain:
             if res.resi[0] == int(resi):
                 residue = res
+                print(residue)
                 break
-    # Prepare X-ray map
-    xmap = XMap.fromfile(args.xmap)
+    #load and scale map
+    xmap = XMap.fromfile(
+        args.xmap, resolution=args.resolution, label=args.label
+    )
+    xmap = xmap.canonical_unit_cell()
+    scaler = MapScaler(xmap)
+    radius = 1.5
+    reso = None
+    if xmap.resolution.high is not None:
+        reso = xmap.resolution.high
+    elif args.resolution is not None:
+        reso = args.resolution
+    if reso is not None:
+        radius = 0.5 + reso / 3.0
+    scaler.scale(base_structure, radius=args.scale_rmask * radius)
 
     options = ediaOptions()
     options.apply_command_args(args)
 
     if args.selection is None:
-        edia = ediaProtein(structure, xmap, options)
+        edia = ediaProtein(base_structure, comp_structure, xmap, options)
     else:
-        edia = ediaResidue(residue, structure, xmap, options)
+        edia = ediaResidue(residue, base_structure, comp_structure, xmap, options)
     edia()
 
     """ Profiling run time: """
@@ -584,3 +646,4 @@ def main():
 
 
 #    print(f"Time passed: {passed}s")
+
