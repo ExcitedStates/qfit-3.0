@@ -10,13 +10,14 @@ from qfit.validator import Validator
 import os
 
 """
-This script is based on calc_rscc.py and is designed to compare the RSCC (Real-Space Correlation Coefficient) of a qFit-generated ligand to a deposited ligand.
-It calculates the RSCC for a ligand (or any residue) defined by its ligand name (--ligand) or by its residue number and chain ID (--residue). The script takes two ligands, 
-with their corresponding electron density maps, as input and calculates the RSCC of each ligand within the same voxel space, ensuring a proper comparison between the deposited and qFit-generated models.
+This script is based on calc_rscc.py and is designed to compare the RSCC (Real-Space Correlation Coefficient) of a two matched structural models derived from the same map. 
+It calculates the RSCC for any residue defined by its by its residue number and chain ID (--residue). The script 
+calculates the RSCC of each modeled residue within the same voxel space againsts the same map.
 
 
 To run: 
- compare_rscc_voxel PDB_FILE_deposited.pdb MTZ_FILE_deposited.mtz --gen_pdb PDB_FILE_QFIT.pdb --residue A,401 --pdb PDB_NAME --directory /path/for/output/csv/file
+ compare_rscc_voxel PDB_FILE_deposited.pdb MTZ_FILE_deposited.mtz --comp_pdb PDB_FILE_QFIT.pdb --residue A,401 
+ optional: --pdb PDB_NAME --directory /path/for/output/csv/file
 
 """
 
