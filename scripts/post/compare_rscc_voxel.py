@@ -76,10 +76,10 @@ def main():
     # # conformations should be examined via GoodnessOfFit:
     dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
     dep_rscc = dep_validator.rscc(dep_ligand)
-    print(dep_rscc)
+    print(f'Base Structure RSCC: {dep_rscc}')
 
     gen_rscc = dep_validator.rscc(gen_ligand)
-    print(gen_rscc)
+    print(f'Comparison RSCC: {gen_rscc}')
 
     csv_filename = f"{options.pdb}_rscc.csv"
 
@@ -87,7 +87,7 @@ def main():
     with open(csv_filename, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         # Write the header
-        writer.writerow(["PDB", "dep_RSCC", "gen_RSCC"])
+        writer.writerow(["PDB", "Base_RSCC", "Comparison_RSCC"])
         # Write the data
         writer.writerow([options.pdb, dep_rscc, gen_rscc])
 
