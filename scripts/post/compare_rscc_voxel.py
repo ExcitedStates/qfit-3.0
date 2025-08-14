@@ -66,11 +66,11 @@ def main():
     dep_xmap = XMap.fromfile(options.map, label=options.label)
     dep_scaler = MapScaler(dep_xmap)
     dep_xmap = dep_xmap.canonical_unit_cell()
-    footprint = gen_ligand  # set voxel space around the generated ligand
+    footprint = combined_structure  # set voxel space around the generated ligand
     dep_scaler.scale(footprint, radius=1.5)
 
     dep_xmap = dep_xmap.extract(
-        gen_ligand.coor, padding=8
+        combined_structure.coor, padding=8
     )  # Create a copy of the deposited map around the atomic coordinates provided.
 
     # Now that the conformers have been generated, the resulting
