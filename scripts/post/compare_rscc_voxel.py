@@ -49,38 +49,69 @@ def main():
     options = p.parse_args()
     # Load structure and prepare it
     dep_structure = Structure.fromfile(options.base_structure)
-    gen_strucutre = Structure.fromfile(options.comp_pdb)
+    gen_structure = Structure.fromfile(options.comp_pdb)
 
-    # Get the generated and deposited ligand coordinates
+    # Remove water molecules from both structures
+    dep_structure = dep_structure.extract("resn", "HOH", "!=")
+    gen_structure = gen_structure.extract("resn", "HOH", "!=")
+
+    # If a specific residue is provided, calculate RSCC for that residue
     if options.residue is not None:
         chainid, resi = options.residue.split(",")
-        gen_ligand = gen_strucutre.extract(f"resi {resi} and chain {chainid}")
+        gen_ligand = gen_structure.extract(f"resi {resi} and chain {chainid}")
         dep_ligand = dep_structure.extract(f"resi {resi} and chain {chainid}")
+
+        # Add the deposited ligand to the combined structure
+        combined_structure = gen_ligand.combine(dep_ligand)
+
+        # Set footprint to the combined structure
+        footprint = combined_structure
+
+        # Load and process the electron density maps:
+        dep_xmap = XMap.fromfile(options.map, label=options.label)
+        dep_scaler = MapScaler(dep_xmap)
+        dep_xmap = dep_xmap.canonical_unit_cell()
+        dep_scaler.scale(footprint, radius=1.5)
+
+        dep_xmap = dep_xmap.extract(
+            combined_structure.coor, padding=8
+        )  # Create a copy of the deposited map around the atomic coordinates provided.
+
+        # Now that the conformers have been generated, the resulting
+        # conformations should be examined via GoodnessOfFit:
+        dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
+        dep_rscc = dep_validator.rscc(dep_ligand)
+        print(f'Base Structure RSCC: {dep_rscc}')
+
+        gen_rscc = dep_validator.rscc(gen_ligand)
+        print(f'Comparison RSCC: {gen_rscc}')
     else:
-        print("Please provide residue name or residue ID and chain ID")
+        # If no specific residue is provided, calculate RSCC for all non-water residues
+        combined_structure = gen_structure.combine(dep_structure)
+        footprint = combined_structure
 
-    # Add the deposited ligand to the combined structure
-    combined_structure = gen_ligand.combine(dep_ligand)
+        # Load and process the electron density maps:
+        dep_xmap = XMap.fromfile(options.map, label=options.label)
+        dep_scaler = MapScaler(dep_xmap)
+        dep_xmap = dep_xmap.canonical_unit_cell()
+        dep_scaler.scale(footprint, radius=1.5)
 
-    # Load and process the electron density maps:
-    dep_xmap = XMap.fromfile(options.map, label=options.label)
-    dep_scaler = MapScaler(dep_xmap)
-    dep_xmap = dep_xmap.canonical_unit_cell()
-    footprint = combined_structure  # set voxel space around the generated ligand
-    dep_scaler.scale(footprint, radius=1.5)
+        dep_xmap = dep_xmap.extract(
+            combined_structure.coor, padding=8
+        )  # Create a copy of the deposited map around the atomic coordinates provided.
 
-    dep_xmap = dep_xmap.extract(
-        combined_structure.coor, padding=8
-    )  # Create a copy of the deposited map around the atomic coordinates provided.
+        # Now that the conformers have been generated, the resulting
+        # conformations should be examined via GoodnessOfFit:
+        dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
 
-    # Now that the conformers have been generated, the resulting
-    # # conformations should be examined via GoodnessOfFit:
-    dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
-    dep_rscc = dep_validator.rscc(dep_ligand)
-    print(f'Base Structure RSCC: {dep_rscc}')
+        for chain in dep_structure.chains:
+            for residue in chain.residues:
+                dep_ligand = dep_structure.extract(f"resi {residue.resi} and chain {chain.id}")
+                gen_ligand = gen_structure.extract(f"resi {residue.resi} and chain {chain.id}")
 
-    gen_rscc = dep_validator.rscc(gen_ligand)
-    print(f'Comparison RSCC: {gen_rscc}')
+                dep_rscc = dep_validator.rscc(dep_ligand)
+                gen_rscc = dep_validator.rscc(gen_ligand)
+                print(f'Residue {chain.id},{residue.resi} - Base Structure RSCC: {dep_rscc}, Comparison RSCC: {gen_rscc}')
 
     csv_filename = f"{options.pdb}_rscc.csv"
 
