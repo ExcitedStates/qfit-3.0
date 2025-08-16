@@ -56,10 +56,18 @@ def main():
     dep_structure = dep_structure.extract("resn", "HOH", "!=")
     gen_structure = gen_structure.extract("resn", "HOH", "!=")
 
+    # Remove anisotropic data
+    for attr in ["u00", "u11", "u22", "u01", "u02", "u12"]:
+        if attr in dep_structure.data:
+            del dep_structure.data[attr]
+        if attr in gen_structure.data:
+            del gen_structure.data[attr]
+
     # Initialize data storage for RSCC values
     rscc_data = {
         "Chain": [],
         "Residue": [],
+        "Residue_Name": [],
         "Base_RSCC": [],
         "Comparison_RSCC": []
     }
@@ -93,6 +101,7 @@ def main():
         # Store RSCC values
         rscc_data["Chain"].append(chainid)
         rscc_data["Residue"].append(resi)
+        rscc_data["Residue_Name"].append(dep_ligand.resn[0] if dep_ligand.size > 0 else None)
         rscc_data["Base_RSCC"].append(dep_rscc)
         rscc_data["Comparison_RSCC"].append(gen_rscc)
 
@@ -118,6 +127,7 @@ def main():
                 # Store RSCC values
                 rscc_data["Chain"].append(chain)
                 rscc_data["Residue"].append(residue)
+                rscc_data["Residue_Name"].append(dep_ligand.resn[0] if dep_ligand.size > 0 else None)
                 rscc_data["Base_RSCC"].append(dep_rscc)
                 rscc_data["Comparison_RSCC"].append(gen_rscc)
 
