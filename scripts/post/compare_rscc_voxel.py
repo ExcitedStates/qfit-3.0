@@ -2,7 +2,6 @@
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
-import csv
 from qfit.scaler import MapScaler
 from qfit.structure import Structure
 from qfit.volume import XMap
@@ -10,14 +9,15 @@ from qfit.validator import Validator
 import os
 
 """
-This script is based on calc_rscc.py and is designed to compare the RSCC (Real-Space Correlation Coefficient) of a two matched structural models derived from the same map. 
-It calculates the RSCC for any residue defined by its by its residue number and chain ID (--residue). The script 
-calculates the RSCC of each modeled residue within the same voxel space againsts the same map.
+This script is based on calc_rscc.py and is designed to compare the RSCC (Real-Space Correlation Coefficient) of two matched structural models derived from the same map. 
+It calculates the RSCC for any residue defined by its residue number and chain ID (--residue). The script 
+calculates the RSCC of each modeled residue within the same voxel space against the same map.
 
 
 To run: 
- compare_rscc_voxel PDB_FILE_deposited.pdb MTZ_FILE_deposited.mtz --comp_pdb PDB_FILE_QFIT.pdb --residue A,401 
- optional: --pdb PDB_NAME --directory /path/for/output/csv/file
+ compare_rscc_voxel PDB_FILE_deposited.pdb MTZ_FILE_deposited.mtz --comp_pdb PDB_FILE_QFIT.pdb --pdb PDB_NAME
+ If you want to run on a single residue use: --residue A,1208; else it will run on every non-water residue in the PDB. 
+ optional: --directory /path/for/output/csv/file
 
 """
 
@@ -47,6 +47,7 @@ def build_argparser():
 def main():
     p = build_argparser()
     options = p.parse_args()
+    
     # Load structure and prepare it
     dep_structure = Structure.fromfile(options.base_structure)
     gen_structure = Structure.fromfile(options.comp_pdb)
@@ -54,6 +55,19 @@ def main():
     # Remove water molecules from both structures
     dep_structure = dep_structure.extract("resn", "HOH", "!=")
     gen_structure = gen_structure.extract("resn", "HOH", "!=")
+
+    # Initialize data storage for RSCC values
+    rscc_data = {
+        "Chain": [],
+        "Residue": [],
+        "Base_RSCC": [],
+        "Comparison_RSCC": []
+    }
+
+    # Load and process the electron density maps:
+    dep_xmap = XMap.fromfile(options.map, label=options.label)
+    dep_scaler = MapScaler(dep_xmap)
+    dep_xmap = dep_xmap.canonical_unit_cell()
 
     # If a specific residue is provided, calculate RSCC for that residue
     if options.residue is not None:
@@ -67,62 +81,50 @@ def main():
         # Set footprint to the combined structure
         footprint = combined_structure
 
-        # Load and process the electron density maps:
-        dep_xmap = XMap.fromfile(options.map, label=options.label)
-        dep_scaler = MapScaler(dep_xmap)
-        dep_xmap = dep_xmap.canonical_unit_cell()
+        # Scale and extract map
         dep_scaler.scale(footprint, radius=1.5)
+        dep_xmap = dep_xmap.extract(combined_structure.coor, padding=8)
 
-        dep_xmap = dep_xmap.extract(
-            combined_structure.coor, padding=8
-        )  # Create a copy of the deposited map around the atomic coordinates provided.
-
-        # Now that the conformers have been generated, the resulting
-        # conformations should be examined via GoodnessOfFit:
+        # Validate and calculate RSCC
         dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
         dep_rscc = dep_validator.rscc(dep_ligand)
-        print(f'Base Structure RSCC: {dep_rscc}')
-
         gen_rscc = dep_validator.rscc(gen_ligand)
-        print(f'Comparison RSCC: {gen_rscc}')
+
+        # Store RSCC values
+        rscc_data["Chain"].append(chainid)
+        rscc_data["Residue"].append(resi)
+        rscc_data["Base_RSCC"].append(dep_rscc)
+        rscc_data["Comparison_RSCC"].append(gen_rscc)
+
     else:
         # If no specific residue is provided, calculate RSCC for all non-water residues
         combined_structure = gen_structure.combine(dep_structure)
         footprint = combined_structure
 
-        # Load and process the electron density maps:
-        dep_xmap = XMap.fromfile(options.map, label=options.label)
-        dep_scaler = MapScaler(dep_xmap)
-        dep_xmap = dep_xmap.canonical_unit_cell()
+        # Scale and extract map
         dep_scaler.scale(footprint, radius=1.5)
+        dep_xmap = dep_xmap.extract(combined_structure.coor, padding=8)
 
-        dep_xmap = dep_xmap.extract(
-            combined_structure.coor, padding=8
-        )  # Create a copy of the deposited map around the atomic coordinates provided.
-
-        # Now that the conformers have been generated, the resulting
-        # conformations should be examined via GoodnessOfFit:
+        # Validate and calculate RSCC for each residue
         dep_validator = Validator(dep_xmap, dep_xmap.resolution, options.directory)
-
-        for chain in dep_structure.chains:
-            for residue in chain.residues:
-                dep_ligand = dep_structure.extract(f"resi {residue.resi} and chain {chain.id}")
-                gen_ligand = gen_structure.extract(f"resi {residue.resi} and chain {chain.id}")
+        for chain in np.unique(dep_structure.chain):
+            for residue in np.unique(dep_structure.extract("chain", chain, '==').resi):
+                dep_ligand = dep_structure.extract(f"resi {residue} and chain {chain}")
+                gen_ligand = gen_structure.extract(f"resi {residue} and chain {chain}")
 
                 dep_rscc = dep_validator.rscc(dep_ligand)
                 gen_rscc = dep_validator.rscc(gen_ligand)
-                print(f'Residue {chain.id},{residue.resi} - Base Structure RSCC: {dep_rscc}, Comparison RSCC: {gen_rscc}')
 
-    csv_filename = f"{options.pdb}_rscc.csv"
+                # Store RSCC values
+                rscc_data["Chain"].append(chain)
+                rscc_data["Residue"].append(residue)
+                rscc_data["Base_RSCC"].append(dep_rscc)
+                rscc_data["Comparison_RSCC"].append(gen_rscc)
 
     # Write to CSV
-    with open(csv_filename, "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        # Write the header
-        writer.writerow(["PDB", "Base_RSCC", "Comparison_RSCC"])
-        # Write the data
-        writer.writerow([options.pdb, dep_rscc, gen_rscc])
-
+    df = pd.DataFrame(rscc_data)
+    csv_filename = f"{options.pdb}_rscc.csv"
+    df.to_csv(csv_filename, index=False)
 
 if __name__ == "__main__":
     main()
