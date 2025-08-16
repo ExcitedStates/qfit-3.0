@@ -123,7 +123,7 @@ def main():
 
     # Write to CSV
     df = pd.DataFrame(rscc_data)
-    csv_filename = f"{options.pdb}_rscc.csv"
+    csv_filename = f"{options.directory}{options.pdb}_rscc.csv"
     df.to_csv(csv_filename, index=False)
 
 if __name__ == "__main__":
