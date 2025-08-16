@@ -98,7 +98,7 @@ def main():
             "scripts/post/compare_edia.py",
             "scripts/post/create_restraints_file.py",
             "scripts/post/compare_rotamer_altlocs.py",
-            "scripts/post/comparison_scripts.sh",
+            "scripts/post/model_comparison_scripts.sh",
         ],
     )
 
