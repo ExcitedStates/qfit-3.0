@@ -97,7 +97,7 @@ def main():
             "scripts/post/compare_rscc_voxel.py",
             "scripts/post/compare_edia.py",
             "scripts/post/create_restraints_file.py",
-            "scripts/post/compare_rotamers.py",
+            "scripts/post/compare_rotamer_altlocs.py",
         ],
     )
 
