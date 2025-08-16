@@ -24,6 +24,8 @@ def build_argparser():
                    help="PDB ID label for the base PDB file.")
     p.add_argument("--comp_pdb_id", type=str, default=None,
                    help="PDB ID label for the comparison PDB file.")
+    p.add_argument("--directory", type=str, default="", 
+                   help="Where to save RSCC info")
     return p
 
 def circ_diff_deg(a: float, b: float) -> float:
@@ -158,13 +160,13 @@ def compare_rotamers(structure1: Structure, structure2: Structure):
     return rows
 
 def main():
-    args = build_argparser().parse_args()
-    base_id = args.base_pdb_id or four_char_id_from_path(args.base_PDB)
-    comp_id = args.comp_pdb_id or four_char_id_from_path(args.comp_PDB)
+    options = build_argparser().parse_args()
+    base_id = options.base_pdb_id or four_char_id_from_path(options.base_PDB)
+    comp_id = options.comp_pdb_id or four_char_id_from_path(options.comp_PDB)
 
     # Load and drop waters
-    base = Structure.fromfile(args.base_PDB).extract("resn", "HOH", "!=")
-    comp = Structure.fromfile(args.comp_PDB).extract("resn", "HOH", "!=")
+    base = Structure.fromfile(options.base_PDB).extract("resn", "HOH", "!=")
+    comp = Structure.fromfile(options.comp_PDB).extract("resn", "HOH", "!=")
 
     # --- Altloc counts per residue ---
     alt_rows = []
@@ -185,12 +187,12 @@ def main():
             })
 
     alt_df = pd.DataFrame(alt_rows)
-    alt_df.to_csv(f"{base_id}_{comp_id}_altloc_differences.csv", index=False)
+    alt_df.to_csv(f"{options.directory}{base_id}_{comp_id}_altloc_differences.csv", index=False)
 
     # --- Rotamer comparisons ---
     rot_rows = compare_rotamers(base, comp)
     rot_df = pd.DataFrame(rot_rows)
-    rot_df.to_csv(f"{base_id}_{comp_id}_rotamer_difference.csv", index=False)
+    rot_df.to_csv(f"{options.directory}{base_id}_{comp_id}_rotamer_difference.csv", index=False)
 
 if __name__ == "__main__":
     main()
