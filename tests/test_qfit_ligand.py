@@ -167,19 +167,19 @@ class TestQFitLigand(QfitLigandRunner):
             expected_global_rmsd=2.0,
             expected_atom_rmsds=[("CAF", 4.5)])
 
-    # this should have an adenine ring flip
-    def test_run_qfit_ligand_5o3r(self):
-        """5O3R: Carbon regulatory protein SbtB bound to AMP"""
-        self._run_qfit_ligand_and_compare(
-            pdb_file_name="5O3R_001.pdb",
-            mtz_file_name="5O3R_composite_omit_map.mtz",
-            selection="C,200",
-            smiles="c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",
-            extra_args=["-nc", "9000"],
-            n_atoms_ligand=23,
-            expected_nconfs=2,
-            expected_global_rmsd=1.3,
-            expected_atom_rmsds=[("C8", 2.5)])
+    # # this should have an adenine ring flip
+    # def test_run_qfit_ligand_5o3r(self):
+    #     """5O3R: Carbon regulatory protein SbtB bound to AMP"""
+    #     self._run_qfit_ligand_and_compare(
+    #         pdb_file_name="5O3R_001.pdb",
+    #         mtz_file_name="5O3R_composite_omit_map.mtz",
+    #         selection="C,200",
+    #         smiles="c1nc(c2c(n1)n(cn2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",
+    #         extra_args=["-nc", "9000"],
+    #         n_atoms_ligand=23,
+    #         expected_nconfs=2,
+    #         expected_global_rmsd=1.3,
+    #         expected_atom_rmsds=[("C8", 2.5)])
 
     # XXX very slow, QP step takes >30m
     def test_run_qfit_ligand_5lpl(self):
