@@ -101,7 +101,7 @@ def main():
         # Store RSCC values
         rscc_data["Chain"].append(chainid)
         rscc_data["Residue"].append(resi)
-        rscc_data["Residue_Name"].append(dep_ligand.resn[0] if dep_ligand.size > 0 else None)
+        rscc_data["Residue_Name"].append(dep_ligand.resn[0])
         rscc_data["Base_RSCC"].append(dep_rscc)
         rscc_data["Comparison_RSCC"].append(gen_rscc)
 
@@ -127,7 +127,7 @@ def main():
                 # Store RSCC values
                 rscc_data["Chain"].append(chain)
                 rscc_data["Residue"].append(residue)
-                rscc_data["Residue_Name"].append(dep_ligand.resn[0] if dep_ligand.size > 0 else None)
+                rscc_data["Residue_Name"].append(dep_ligand.resn)
                 rscc_data["Base_RSCC"].append(dep_rscc)
                 rscc_data["Comparison_RSCC"].append(gen_rscc)
 
