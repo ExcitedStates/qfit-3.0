@@ -1,5 +1,6 @@
 import os
 import math
+import numpy as np
 import scipy.stats as st
 
 from qfit.xtal.volume import XMap
