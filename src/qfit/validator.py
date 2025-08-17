@@ -1,35 +1,37 @@
-from __future__ import division
-import numpy as np
-import copy
 import os
 import math
-from .volume import XMap
-from .transformer import Transformer
-from .structure import Structure
+import numpy as np
 import scipy.stats as st
 
+from qfit.xtal.volume import XMap
+from qfit.xtal.transformer import get_transformer
+from qfit.structure import Structure
 
-class Validator(object):
-    def __init__(self, xmap, resolution, directory, em=False):
+class Validator:
+    def __init__(self, xmap, resolution, directory, em=False, transformer="qfit"):
         self.xmap = xmap
         self.resolution = resolution
         self.em = em
         self.fname = os.path.join(directory, "validation_metrics.txt")
+        self._transformer = transformer
+
+    def _get_transformer(self, *args, **kwds):
+        return get_transformer(self._transformer, *args, **kwds)
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         if mask_structure is None:
-            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
         else:
-            transformer = Transformer(
+            transformer = self._get_transformer(
                 mask_structure, model_map, simple=simple, em=self.em
             )
         transformer.mask(rmask)
         mask = model_map.array > 0
         model_map.array.fill(0)
         if mask_structure is not None:
-            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
         transformer.density()
 
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
@@ -38,7 +40,7 @@ class Validator(object):
     def fisher_z(self, structure, rmask=1.5, simple=True):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
-        transformer = Transformer(structure, model_map)
+        transformer = self._get_transformer(structure, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
@@ -49,9 +51,9 @@ class Validator(object):
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         # Transform to Fisher z-score
         if self.resolution.high is not None:
-            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
+            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)  # pylint: disable=unused-variable
         else:
-            sigma = 1.0 / np.sqrt(mv - 3)
+            sigma = 1.0 / np.sqrt(mv - 3)  # pylint: disable=unused-variable
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 
@@ -60,7 +62,7 @@ class Validator(object):
         combined = structure1.combine(structure2)
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
-        transformer = Transformer(combined, model_map)
+        transformer = self._get_transformer(combined, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
@@ -69,11 +71,11 @@ class Validator(object):
 
         # Get density values of xmap, and both structures
         target_values = self.xmap.array[mask]
-        transformer = Transformer(structure1, model_map, simple=simple)
+        transformer = self._get_transformer(structure1, model_map, simple=simple)
         model_map.array.fill(0)
         transformer.density()
         model1_values = model_map.array[mask]
-        transformer = Transformer(structure2, model_map, simple=simple)
+        transformer = self._get_transformer(structure2, model_map, simple=simple)
         model_map.array.fill(0)
         transformer.density()
         model2_values = model_map.array[mask]
@@ -102,7 +104,7 @@ class Validator(object):
         # Calculate the Observed map for the masked values:
         xmap_calc = XMap.zeros_like(self.xmap)
         xmap_calc.set_space_group("P1")
-        transformer = Transformer(conformer, xmap_calc)
+        transformer = self._get_transformer(conformer, xmap_calc)
         rscc_set = np.zeros_like(occupancies)
         for i, coor in enumerate(coor_set):
             conformer.coor = coor

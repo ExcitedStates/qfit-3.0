@@ -4,8 +4,10 @@ Additional utilities for unit-testing with mock data
 
 import tempfile
 import os.path as op
+from qfit.utils.mock_utils import BaseTestRunner
 
-class UnitBase():
+class UnitBase(BaseTestRunner):
+
     TESTS_DIR = op.dirname(op.dirname(__file__))
     DATA = op.join(TESTS_DIR, "data")
     DATA_BIG = op.join(TESTS_DIR, "basic_qfit_protein_test")

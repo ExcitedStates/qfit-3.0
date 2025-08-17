@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pytest
 
-from qfit.unitcell import UnitCell
+from qfit.xtal.unitcell import UnitCell
 
 class TestUnitCell(unittest.TestCase):
 
