@@ -90,12 +90,15 @@ def main():
             "scripts/post/make_methyl_df.py",
             "scripts/post/find_close_residues.py",
             "scripts/post/get_seq.py",
-            "scripts/post/calc_rscc.py",
             "scripts/post/calc_rmsd.py",
             "scripts/post/get_smiles.py",
             "scripts/post/split_multiconformer_ligand.py",
             "scripts/post/compare_rscc_voxel.py",
+            "scripts/post/compare_edia.py",
             "scripts/post/create_restraints_file.py",
+            "scripts/post/compare_rotamer_altlocs.py",
+            "scripts/post/model_comparison_scripts.sh",
+            "scripts/post/plot_modeling_comparison_metrics.py",
         ],
     )
 
