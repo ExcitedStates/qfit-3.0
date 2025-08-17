@@ -1,8 +1,5 @@
 import os
 import math
-from .volume import XMap
-from .transformer import Transformer
-from .structure import Structure
 import scipy.stats as st
 
 from qfit.xtal.volume import XMap
