@@ -580,7 +580,6 @@ class TestQfitProteinSidechainRebuild(QfitProteinSyntheticDataRunner):
 
     def test_qfit_protein_rebuilt_tripeptide_cys(self):
         self._run_rebuilt_multi_conformer_tripeptide("CYS")
-        assert False
 
     def test_qfit_protein_rebuilt_tripeptide_gln(self):
         self._run_rebuilt_multi_conformer_tripeptide("GLN", d_min=1.3,
