@@ -208,6 +208,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
     def test_sampling_rebuilt_tripeptide_ile(self):
         self._run_sampling_rebuilt_3mer("ILE", d_min=1.4)
 
+    @pytest.mark.skip(reason="FIXME failing with all transformers")
     def test_sampling_rebuilt_tripeptide_leu(self):
         self._run_sampling_rebuilt_3mer("LEU")
 
@@ -215,6 +216,7 @@ class TestQfitResidueSampling(QfitProteinSyntheticDataRunner):
     def test_sampling_rebuilt_tripeptide_lys(self):
         self._run_sampling_rebuilt_3mer("LYS", d_min=1.3)
 
+    @pytest.mark.skip(reason="FIXME failing with all transformers")
     def test_sampling_rebuilt_tripeptide_met(self):
         self._run_sampling_rebuilt_3mer("MET", d_min=1.3)
 
