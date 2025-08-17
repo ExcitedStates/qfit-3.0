@@ -99,6 +99,7 @@ def main():
             "scripts/post/create_restraints_file.py",
             "scripts/post/compare_rotamer_altlocs.py",
             "scripts/post/model_comparison_scripts.sh",
+            "scripts/post/plot_modeling_comparison_metrics.py",
         ],
     )
 
