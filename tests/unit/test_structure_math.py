@@ -3,14 +3,12 @@ import math
 
 import numpy as np
 import pytest
-
 from qfit.structure.math import (dihedral_angle,
                                  get_rotation_around_vector,
                                  Ry,
                                  Rz,
                                  gram_schmidt_orthonormal_zx,
                                  adp_ellipsoid_axes)
-
 
 def assert_matrix_approx_equals(actual, expected):
     for i in range(3):
