@@ -4,6 +4,7 @@ import os
 
 from scitbx.array_family import flex
 import numpy as np
+import iotbx.pdb.hierarchy
 
 from .base_structure import BaseStructure, BaseMonomer
 from .pdbfile import (read_pdb_or_mmcif,
@@ -123,6 +124,28 @@ class Structure(BaseStructure):
                            atoms=self._atoms,
                            crystal_symmetry=self.crystal_symmetry)
             self._chains.append(chain)
+    
+    def split_models(self):
+        """
+        Split a multi-model Structure into a list of single-model Structures
+        using the existing iotbx hierarchy.
+        """
+        hierarchy = self._pdb_hierarchy
+        model_count = hierarchy.models_size()
+
+        if model_count <= 1:
+            return [self]
+
+        structures = []
+        for model in hierarchy.models():
+            single_hierarchy = iotbx.pdb.hierarchy.root()
+            single_hierarchy.append_model(model.detached_copy())
+
+            # Create a Structure from this model's hierarchy
+            new_struct = Structure(single_hierarchy, **self._kwargs)
+            structures.append(new_struct)
+
+        return structures
 
     def collapse_backbone(self, resid, chainid):
         """
