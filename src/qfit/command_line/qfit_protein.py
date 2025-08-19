@@ -195,6 +195,7 @@ class QFitProtein:
         self.xmap = xmap
         self.structure = structure
         self.options = options
+        self.hetatms = None
 
     def run(self):
         if self.options.pdb is not None:
