@@ -1,12 +1,11 @@
-import argparse
-import sys
-import numpy as np
 import itertools as itl
 import copy
 import tqdm
 import logging
-from .vdw_radii import vdwRadiiTable, EpsilonTable, EpsilonIndex, EpsilonArray
-from .structure import Structure
+
+import numpy as np
+
+from .structure.vdw_radii import vdwRadiiTable, EpsilonIndex, EpsilonArray
 
 
 logger = logging.getLogger(__name__)
@@ -22,8 +21,8 @@ def cartesian_product(*arrays):
 
 class RelabellerOptions:
     def __init__(self, nSims=10000, nChains=10):
-        self.nSims = nSims
-        self.nChains = nChains
+        self.nSims = nSims #num of SA steps
+        self.nChains = nChains #num of independent SA runs
 
     def apply_command_args(self, args):
         for key, value in vars(args).items():
@@ -42,15 +41,14 @@ class Relabeller:
 
         self.prng = np.random.default_rng(0)
 
-        self.nodes = []
-        self.permutation = []
+        self.nodes = []  # list of conformers/altlocs
+        self.permutation = []  # initial grouping of nodes per residue
         self.initNodes()
 
-        self.metric = self.initMetric()
+        self.metric = self.initMetric() # pairwise energy matrix between nodes
 
     def initNodes(self):
         node = 0
-        segment = []
         for chain in self.structure:
             for residue in chain:
                 resInd = []
@@ -131,14 +129,14 @@ class Relabeller:
 
     def SimulatedAnnealing(self, permutation):
         energyList = []
-        NumOfClusters = len(max(permutation, key=len))
-        energies = np.zeros(NumOfClusters)
-        clusters = [[] for x in range(NumOfClusters)]
+        numOfClusters = len(max(permutation, key=len))
+        energies = np.zeros(numOfClusters)
+        clusters = [[] for x in range(numOfClusters)]
 
         # Use the permutation to identify the clusters:
-        for i, elem in enumerate(permutation):
-            for j in range(len(elem)):
-                clusters[j].append(elem[j])
+        for elems in permutation:
+            for j, elem in enumerate(elems):
+                clusters[j].append(elem)
 
         # Calculate the energy of each cluster:
         for i, cluster in enumerate(clusters):
@@ -198,9 +196,9 @@ class Relabeller:
 
             # Calculate the new clusters:
             tmpCluster = [[] for x in clusters]
-            for ii, value in enumerate(tmpPerm):
-                for j in range(len(value)):
-                    tmpCluster[j].append(value[j])
+            for values in tmpPerm:
+                for j, value in enumerate(values):
+                    tmpCluster[j].append(value)
 
             # Calculate the energy across all clusters
             tmpEnergies = np.zeros_like(energies)
@@ -226,9 +224,11 @@ class Relabeller:
         perm = []
         energyList = []
 
-        for i in tqdm.trange(
-            self.nChains, unit="runs", desc="SA macrocycle", unit_scale=True, leave=True
-        ):
+        for i in tqdm.trange(self.nChains,  # pylint: disable=unused-variable
+                             unit="runs",
+                             desc="SA macrocycle",
+                             unit_scale=True,
+                             leave=True):
             energy, permutation = self.SimulatedAnnealing(self.permutation)
             energyList.append(energy)
             perm.append(permutation)
@@ -244,11 +244,10 @@ class Relabeller:
                 for altloc in list(set(residue.altloc)):
                     if altloc == "":
                         continue
-                    else:
-                        Idx = perm[minIdx][res].index(node)
-                        new_altloc = Altlocs[Idx]
-                        mask = residue.altloc == altloc
-                        tmpAltlocs[mask] = new_altloc
+                    Idx = perm[minIdx][res].index(node)
+                    new_altloc = Altlocs[Idx]
+                    mask = residue.altloc == altloc
+                    tmpAltlocs[mask] = new_altloc
                     node += 1
                 residue.altloc = copy.deepcopy(tmpAltlocs)
                 res += 1

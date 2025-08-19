@@ -1,34 +1,37 @@
-from __future__ import division
-import numpy as np
-import copy
 import os
-from .volume import XMap
-from .transformer import Transformer
-from .structure import Structure
+import math
+import numpy as np
 import scipy.stats as st
 
+from qfit.xtal.volume import XMap
+from qfit.xtal.transformer import get_transformer
+from qfit.structure import Structure
 
-class Validator(object):
-    def __init__(self, xmap, resolution, directory, em=False):
+class Validator:
+    def __init__(self, xmap, resolution, directory, em=False, transformer="qfit"):
         self.xmap = xmap
         self.resolution = resolution
         self.em = em
         self.fname = os.path.join(directory, "validation_metrics.txt")
+        self._transformer = transformer
+
+    def _get_transformer(self, *args, **kwds):
+        return get_transformer(self._transformer, *args, **kwds)
 
     def rscc(self, structure, rmask=1.5, mask_structure=None, simple=True):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
         if mask_structure is None:
-            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
         else:
-            transformer = Transformer(
+            transformer = self._get_transformer(
                 mask_structure, model_map, simple=simple, em=self.em
             )
         transformer.mask(rmask)
         mask = model_map.array > 0
         model_map.array.fill(0)
         if mask_structure is not None:
-            transformer = Transformer(structure, model_map, simple=simple, em=self.em)
+            transformer = self._get_transformer(structure, model_map, simple=simple, em=self.em)
         transformer.density()
 
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
@@ -37,7 +40,7 @@ class Validator(object):
     def fisher_z(self, structure, rmask=1.5, simple=True):
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
-        transformer = Transformer(structure, model_map)
+        transformer = self._get_transformer(structure, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
@@ -48,9 +51,9 @@ class Validator(object):
         corr = np.corrcoef(self.xmap.array[mask], model_map.array[mask])[0, 1]
         # Transform to Fisher z-score
         if self.resolution.high is not None:
-            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)
+            sigma = 1.0 / np.sqrt(mv / self.resolution.high - 3)  # pylint: disable=unused-variable
         else:
-            sigma = 1.0 / np.sqrt(mv - 3)
+            sigma = 1.0 / np.sqrt(mv - 3)  # pylint: disable=unused-variable
         fisher = 0.5 * np.log((1 + corr) / (1 - corr))
         return fisher
 
@@ -59,7 +62,7 @@ class Validator(object):
         combined = structure1.combine(structure2)
         model_map = XMap.zeros_like(self.xmap)
         model_map.set_space_group("P1")
-        transformer = Transformer(combined, model_map)
+        transformer = self._get_transformer(combined, model_map)
         transformer.mask(rmask)
         mask = model_map.array > 0
         nvoxels = mask.sum()
@@ -68,11 +71,11 @@ class Validator(object):
 
         # Get density values of xmap, and both structures
         target_values = self.xmap.array[mask]
-        transformer = Transformer(structure1, model_map, simple=simple)
+        transformer = self._get_transformer(structure1, model_map, simple=simple)
         model_map.array.fill(0)
         transformer.density()
         model1_values = model_map.array[mask]
-        transformer = Transformer(structure2, model_map, simple=simple)
+        transformer = self._get_transformer(structure2, model_map, simple=simple)
         model_map.array.fill(0)
         transformer.density()
         model2_values = model_map.array[mask]
@@ -101,7 +104,7 @@ class Validator(object):
         # Calculate the Observed map for the masked values:
         xmap_calc = XMap.zeros_like(self.xmap)
         xmap_calc.set_space_group("P1")
-        transformer = Transformer(conformer, xmap_calc)
+        transformer = self._get_transformer(conformer, xmap_calc)
         rscc_set = np.zeros_like(occupancies)
         for i, coor in enumerate(coor_set):
             conformer.coor = coor
@@ -157,3 +160,109 @@ class Validator(object):
                 metrics.append([idx + 1, aic, aic2, bic, bic2, CI_r])
             f.close()
             return metrics
+
+
+        
+    def sample_points(self, radius=1.0, step=0.2):
+        """Generate offsets within a sphere of given radius (Å) on a cubic grid (step in Å)."""
+        r2 = radius * radius
+        rng = np.arange(-radius, radius + 1e-9, step)
+
+        pts = [(0.0, 0.0, 0.0)]  # always include the center
+        for dx in rng:
+            for dy in rng:
+                for dz in rng:
+                    if dx == 0 and dy == 0 and dz == 0:
+                        continue
+                    d2 = dx*dx + dy*dy + dz*dz
+                    if d2 <= r2:
+                        pts.append((float(dx), float(dy), float(dz)))
+        return np.asarray(pts, dtype=np.float64)
+
+    def gaussian_weights(self, offsets: np.ndarray, sigma: float = 0.35):
+        """
+        Isotropic 3D Gaussian profile centered at the atom. The absolute scaling
+        is irrelevant for correlation, but we normalize to stabilize numerics.
+        """
+        d2 = np.sum(offsets**2, axis=1)
+        w = np.exp(-0.5 * d2 / (sigma * sigma))
+        s = float(np.linalg.norm(w))
+        if s > 0:
+            w = w / s
+        return w
+
+    def _pearson_corr(self, x: np.ndarray, y: np.ndarray) -> float:
+        """Numerically stable Pearson correlation for 1-D arrays. Returns np.nan if undefined."""
+        if x.size < 3 or y.size < 3:
+            return np.nan
+        xm = x - x.mean()
+        ym = y - y.mean()
+        nx = float(np.linalg.norm(xm))
+        ny = float(np.linalg.norm(ym))
+        if nx == 0.0 or ny == 0.0:
+            return np.nan
+        return float(np.dot(xm, ym) / (nx * ny))
+
+    def _global_map_stats(self):
+        """Cache and return global mean/std of the map for optional z-scoring."""
+        if not hasattr(self, "_map_stats"):
+            arr = self.xmap.array
+            mu = float(arr.mean())
+            sd = float(arr.std(ddof=0))
+            if sd == 0.0 or math.isnan(sd):
+                sd = 1.0
+            self._map_stats = (mu, sd)
+        return self._map_stats
+
+    def edia_like_for_atom(self, atom, radius=1.0, step=0.2, w_sigma=0.35, normalize_map=True) -> dict:
+        """
+        EDIA-like score for a single atom using XMap.interpolate(xyz):
+        1) sample map around the atom on a small spherical grid,
+        2) correlate (Pearson) sampled map with a Gaussian ideal profile,
+        3) map correlation from [-1,1] to [0,1].
+        """
+        # Offsets (Å) and Gaussian template
+        offsets = self.sample_points(radius=radius, step=step)
+        ideal = self.gaussian_weights(offsets, sigma=w_sigma)
+
+        # Sample map using ONLY xmap.interpolate
+        pos = atom.coor  # Cartesian Å, shape (3,)
+        vals = np.empty(len(offsets), dtype=np.float64)
+        for i, off in enumerate(offsets):
+            vals[i] = float(self.xmap.interpolate(pos + off))
+
+        # Optional global z-score of map samples
+        if normalize_map:
+            mu, sd = self._global_map_stats()
+            vals = (vals - mu) / sd
+
+        # Pearson correlation (robust)
+        corr = self._pearson_corr(vals, ideal)
+
+        # Map to [0,1] and keep NaN if undefined
+        score = np.nan if math.isnan(corr) else 0.5 * (corr + 1.0)
+
+        # Center density via interpolate at the atom center
+        v_center = float(self.xmap.interpolate(pos))
+        if normalize_map:
+            mu, sd = self._global_map_stats()
+            v_center = (v_center - mu) / sd
+
+        return {
+            "edia_like": float(score) if not math.isnan(score) else np.nan,
+            "n_samples": int(vals.size),
+            "center_density": float(v_center),
+        }
+
+    def edia_like_for_structure(self, structure, atom_selector=None, **kwargs):
+        """
+        Compute EDIA-like for many atoms.
+        `atom_selector` can be a callable(atom)->bool or None (all atoms).
+        Returns list of (atom, metrics_dict).
+        """
+        results = []
+        for atom in structure.atoms:
+            if atom_selector is not None and not atom_selector(atom):
+                continue
+            results.append((atom, self.edia_like_for_atom(atom, **kwargs)))
+        return results
