@@ -146,7 +146,7 @@ class Structure(BaseStructure):
 
         return structures
      
-   def collapse_backbone(self, resid, chainid):
+    def collapse_backbone(self, resid, chainid):
         """
         Collapse the backbone atoms of a given residue and return a new copy
         """
