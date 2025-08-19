@@ -499,7 +499,8 @@ class QFitProtein:
 
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
-        multiconformer = multiconformer.combine(self.hetatms)
+        if self.hetatms:
+            multiconformer = multiconformer.combine(self.hetatms)
         fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
