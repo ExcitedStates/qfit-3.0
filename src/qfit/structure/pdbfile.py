@@ -61,8 +61,6 @@ def get_pdb_hierarchy(pdb_inp):
     Prepare an iotbx.pdb.hierarchy object from an iotbx.pdb.input object
     """
     pdb_hierarchy = pdb_inp.construct_hierarchy()
-    if len(pdb_hierarchy.models()) > 1:
-        raise NotImplementedError("Multi-model support is not implemented.")
     atoms = pdb_hierarchy.atoms()
     atoms.reset_i_seq()
     atoms.reset_serial()
