@@ -195,6 +195,7 @@ class QFitProtein:
         self.xmap = xmap
         self.structure = structure
         self.options = options
+        self.hetatms = None
 
     def run(self):
         if self.options.pdb is not None:
@@ -499,7 +500,8 @@ class QFitProtein:
 
         qfit = QFitSegment(multiconformer, self.xmap, self.options)
         multiconformer = qfit()
-        multiconformer = multiconformer.combine(self.hetatms)
+        if self.hetatms:
+            multiconformer = multiconformer.combine(self.hetatms)
         fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
