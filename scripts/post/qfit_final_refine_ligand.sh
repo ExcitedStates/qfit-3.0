@@ -52,7 +52,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Display relevant file information
-echo "whats up"
 echo "mapfile              : ${mapfile} $([[ -f ${mapfile} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined model : ${multiconf} $([[ -f ${multiconf} ]] || echo '[NOT FOUND]')";
 echo "qfit unrefined ligand model : ${multiconf_lig} $([[ -f ${multiconf_lig} ]] || echo '[NOT FOUND]')";
