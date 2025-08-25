@@ -1,6 +1,7 @@
 from collections import defaultdict
 import itertools
 import os
+import iotbx.pdb.hierarchy
 
 from scitbx.array_family import flex
 import numpy as np
