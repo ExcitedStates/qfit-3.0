@@ -11,6 +11,14 @@ qfit_usage() {
 }
 
 #___________________________SOURCE__________________________________
+# Check that Phenix is loaded
+if [ -z "${PHENIX}" ]; then
+  echo >&2 "I require PHENIX but it's not loaded.";
+  echo >&2 "Please \`source phenix_env.sh\` from where it is installed.";
+  exit 1;
+else
+  export PHENIX_OVERWRITE_ALL=true;
+fi
 
 # Check that qFit is loaded.
 command -v remove_duplicates >/dev/null 2>&1 || {
@@ -130,7 +138,7 @@ if [ -z "${xray_data_labels}" ]; then
 else
   echo "data labels: ${xray_data_labels}"
   # Start writing refinement parameters into a parameter file
-  echo "data_manager.miller_array.labels.name=${xray_data_labels}" > ${pdb_name}_refine.params
+  echo "refinement.input.xray_data.labels=$xray_data_labels" > ${pdb_name}_refine.params
 fi
 
 #_____________________________DETERMINE R FREE FLAGS______________________________
@@ -144,14 +152,14 @@ for field in ${rfreetypes}; do
     break
   fi
 done
-echo "data_manager.fmodel.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_name}_refine.params
+echo "refinement.input.xray_data.r_free_flags.generate=${gen_Rfree}" >> ${pdb_name}_refine.params
 
 #__________________________________REMOVE DUPLICATE HET ATOMS__________________________________
 remove_duplicates "${multiconf}"
 
 #__________________________________NORMALIZE OCCUPANCIES________________________________________
 echo "Normalizing occupancies, before refinement "
-echo "${multiconf}.fixed"
+
 redistribute_cull_low_occupancies -occ 0.09 "${multiconf}.fixed"
 mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 
@@ -198,14 +206,13 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "output.serial=2" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=True" \
-               "data_manager.fmodel.xray_data.r_free_flags.generate=true" \
+               "xray_data.r_free_flags.generate=True" \
                "refinement.refine.${adp}" \
                "refinement.hydrogens.refine=riding" \
                "refinement.main.ordered_solvent=True" \
                "refinement.target_weights.optimize_xyz_weight=true" \
                "refinement.target_weights.optimize_adp_weight=true" \
                "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
-               "data_manager.miller_array.labels.name=${xray_data_labels}" \
                 --overwrite
 
 #________________________________CHECK FOR REDUCE ERRORS______________________________
@@ -232,18 +239,17 @@ phenix.refine  "${multiconf}.f_modified.pdb" \
                "output.serial=2" \
                "refinement.main.number_of_macro_cycles=5" \
                "refinement.main.nqh_flips=False" \
-               "data_manager.fmodel.xray_data.r_free_flags.generate=true" \
+               "xray_data.r_free_flags.generate=True" \
                "refinement.refine.${adp}" \
                "refinement.hydrogens.refine=riding" \
                "refinement.main.ordered_solvent=True" \
                "refinement.target_weights.optimize_xyz_weight=true" \
                "refinement.target_weights.optimize_adp_weight=true" \
                "refinement.input.monomers.file_name='${multiconf}.f_modified.ligands.cif'" \
-               "data_manager.miller_array.labels.name='${xray_data_labels}'" \
+               "refinement.input.xray_data.labels=${xray_data_labels}" \
                --overwrite
 
 fi
-
 
 #______________________________REMOVE AND REDISTRIBUTE LOW OCC_____________________
 redistribute_cull_low_occupancies -occ 0.09 "${pdb_name}_002.pdb"
