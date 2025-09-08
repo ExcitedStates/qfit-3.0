@@ -1,10 +1,10 @@
 from collections import defaultdict
 import itertools
 import os
-import iotbx.pdb.hierarchy
 
 from scitbx.array_family import flex
 import numpy as np
+import iotbx.pdb.hierarchy
 
 from .base_structure import BaseStructure, BaseMonomer
 from .pdbfile import (read_pdb_or_mmcif,
@@ -112,8 +112,9 @@ class Structure(BaseStructure):
         # non-protein atoms separately, the internal grouping should be changed
         # to reflect that as well
         chains_d = defaultdict(list)
-        for iotbx_chain in hierarchy.only_model().chains():
-            chains_d[iotbx_chain.id].append(iotbx_chain)
+        for model in hierarchy.models():
+            for iotbx_chain in model.chains():
+                chains_d[iotbx_chain.id].append(iotbx_chain)
         sel_cache = hierarchy.atom_selection_cache()
         for chain_id, chains in chains_d.items():
             selection = sel_cache.selection(f"chain '{chain_id}'").iselection()
