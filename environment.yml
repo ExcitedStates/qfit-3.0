@@ -16,3 +16,4 @@ dependencies:
   - tqdm
   - cctbx-base
   - rdkit
+  - molmass
