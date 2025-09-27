@@ -111,12 +111,6 @@ mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
-#________________________________CLEAN DUPLICATE___________________________________
-echo "Cleaning ${pdb_name}..."
-python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${multiconf}.f_modified.pdb
-mv ${multiconf}.f_modified_cleaned.pdb ${multiconf}.f_modified.pdb
-echo "Done. Cleaned file saved to ${multiconf}.f_modified.pdb"
-
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
@@ -379,4 +373,3 @@ fi
 if [ -f "reduce_failure.pdb" ]; then
   echo "Refinement was run without checking for flips in NQH residues due to memory constraints. Please inspect your structure."
 fi
-
