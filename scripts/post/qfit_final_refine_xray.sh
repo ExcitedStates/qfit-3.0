@@ -116,14 +116,14 @@ phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
 
-phenix.elbow ${pdb_name}_final.pdb --do_all
+phenix.elbow ${pdb_name}.pdb --do_all
 
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
 if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
   cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
 fi
-if [ -f "elbow.${pdb_name}_final_pdb.all.cif" ]; then
-  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_final_pdb.all.cif'" >> ${pdb_name}_refine.params
+if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" >> ${pdb_name}_refine.params
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
