@@ -99,6 +99,7 @@ def main():
             "scripts/post/compare_rotamer_altlocs.py",
             "scripts/post/model_comparison_scripts.sh",
             "scripts/post/plot_modeling_comparison_metrics.py",
+            "scripts/post/multimodel_2_multiconformer.py"
         ],
     )
 
