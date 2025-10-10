@@ -2,16 +2,27 @@ import argparse
 from collections import namedtuple
 import os
 from string import ascii_uppercase
-
 import numpy as np
 
+from qfit.structure.math import calc_rmsd
+from qfit.structure.rotamers import ROTAMERS
+from qfit.structure.residue import RotamerResidue
 from qfit import Structure
 
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
-
+    p.add_argument(
+        "--run_rmsd",
+        action="store_true",
+        help="Option to run RMSD-based collapse of conformers."
+    )
+    p.add_argument(
+        "--run_rotamer",
+        action="store_true", 
+        help="Option to run rotamer-based collapse of conformers."
+    )
     # Output options
     p.add_argument(
         "-d",
@@ -29,6 +40,20 @@ def parse_args():
         default=0.10,
         metavar="<float>",
         help="Remove conformers with occupancies below occ_cutoff. (default: 0.10)",
+    )
+    p.add_argument(
+        "--rmsd",
+        type=float,
+        default=0.20,
+        metavar="<float>",
+        help="RMSD threshold (Å) to collapse same-residue altlocs. (default: 0.20 Å)",
+    )
+    p.add_argument(
+        "--angle_tol",
+        type=float,
+        default=15.0,
+        metavar="<float>",
+        help="Angular tolerance (degrees) for rotamer comparison. (default: 15.0°)",
     )
     args = p.parse_args()
 
@@ -224,6 +249,282 @@ def redistribute_occupancies_by_residue(residue, cutoff):
 
     return residue
 
+def collapse_conformers_by_rmsd(residue, rmsd_cutoff):
+    """
+    Collapse alternate conformers within a residue if their Cartesian RMSD is
+    below the provided cutoff. Uses the first conformer as reference and
+    collapses others onto it, redistributing occupancies like
+    redistribute_occupancies_by_residue.
+
+    Hydrogens are excluded from RMSD calculations.
+
+    Args:
+        residue (qfit.structure.ResidueGroup): Residue to process
+        rmsd_cutoff (float): RMSD threshold in Å
+    """
+    # Gather alt conformers (keep original altconfs, we'll filter H during RMSD calc)
+    altconfs = dict(
+        (agroup.id[1], agroup) 
+        for agroup in residue.atom_groups 
+        if agroup.id[1] != ""
+    )
+    
+    # Filter out altconfs that are only hydrogen or a single atom
+    altconfs = {
+        alt: agroup for alt, agroup in altconfs.items()
+        if agroup.extract("e", "H", "!=").natoms > 1
+    }
+    if len(altconfs) <= 1:
+        return residue
+
+    # Compute RMSD of each alt to the first one as reference (excluding hydrogens)
+    altconf_keys = list(altconfs.keys())
+    
+    ref_alt = altconf_keys[0]
+    # Filter out hydrogens for RMSD calculation
+    ref_heavy = altconfs[ref_alt].extract("e", "H", "!=")
+    ref_coords = ref_heavy.coor
+
+    to_merge = []
+    for alt in altconf_keys[1:]:
+        # Filter out hydrogens for RMSD calculation
+        alt_heavy = altconfs[alt].extract("e", "H", "!=")
+        coords = alt_heavy.coor
+        # ensure same shape by intersecting atom names
+        # (qfit ensures consistent atom ordering within residue altconfs)
+        rmsd = calc_rmsd(coords, ref_coords)
+        if rmsd < rmsd_cutoff:
+            to_merge.append(alt)
+
+    # If nothing to merge, exit
+    if not to_merge:
+        return residue
+
+    # Print for debugging
+    print(f"{residue.resn[-1]}{''.join(map(str, residue.id))}: "
+          f"collapsing {to_merge} into {ref_alt} (RMSD < {rmsd_cutoff})")
+
+    # Redistribute occupancies: sum merged occupancies into the representative
+    q_total = altconfs[ref_alt].q[-1] + sum(altconfs[alt].q[-1] for alt in to_merge)
+    altconfs[ref_alt].q = q_total
+    if len(altconfs) - len(to_merge) == 1:  # if only one altloc left
+        altconfs[ref_alt].q = 1.0
+        altconfs[ref_alt].altloc = ""  # adjusting altloc label
+    else:
+        altconfs[ref_alt].altloc = ref_alt
+
+    # Normalize occupancies across the remaining conformers (like redistribute_occupancies_by_residue)
+    remaining = [alt for alt in residue.altloc if alt != ""]
+    if len(remaining) == 0:
+        # single conformer left
+        residue.atom_groups[0].q = 1.0
+        residue.atom_groups[0].altloc = ""
+    else:
+        q_vals = [agroup.q[-1] for agroup in residue.atom_groups if agroup.id[1] != ""]
+        q_norm = np.array(q_vals) / np.sum(q_vals)
+        for agroup, q in zip(
+            [ag for ag in residue.atom_groups if ag.id[1] != ""], q_norm
+        ):
+            agroup.q = q
+
+    return residue
+
+
+def circ_diff_deg(a, b):
+    """Calculate smallest absolute angular difference in degrees."""
+    d = (a - b + 180.0) % 360.0 - 180.0
+    return abs(d)
+
+
+def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
+    """
+    Collapse alternate conformers within a residue if they have the same rotamer state.
+    Two conformers are considered to have the same rotamer if all their chi angles
+    match within the specified angular tolerance.
+    
+    Based on compare_rotamer_altlocs.py:residue_rotamers()
+
+    Args:
+        residue (qfit.structure.ResidueGroup): Residue to process
+        angle_tol (float): Angular tolerance in degrees for chi angle comparison (default: 15.0)
+
+    Returns:
+        residue: Modified residue with collapsed conformers
+    """
+    # Get residue name and check if it has rotamer information
+    resn = residue.resn[0] if hasattr(residue, 'resn') else None
+    res_id = f"{residue.resn[-1]}{''.join(map(str, residue.id))}"
+    
+    if resn not in ROTAMERS or ROTAMERS[resn].get("nchi", 0) == 0:
+        return residue
+    
+    # Gather alt conformers
+    altconfs = dict(
+        (agroup.id[1], agroup) 
+        for agroup in residue.atom_groups 
+        if agroup.id[1] != ""
+    )
+    # Remove empty altloc if present
+    if "" in altconfs:
+        del altconfs[""]
+    
+    if len(altconfs) <= 1:
+        return residue
+    
+    # Debug: Print residue info
+    print(f"\n[DEBUG] Processing {res_id}: altlocs = {list(altconfs.keys())}")
+    
+    # Get chi angles for each altloc
+    # We need to work at the Structure level to use single_conformer_residues
+    chi_by_altloc = {}
+    
+    # Get parent chain, then parent structure
+    if not hasattr(residue, 'parent') or residue.parent is None:
+        print(f"[DEBUG] {res_id}: No parent chain found")
+        return residue
+    
+    chain = residue.parent
+    
+    # Get parent structure from chain
+    if not hasattr(chain, 'parent') or chain.parent is None:
+        print(f"[DEBUG] {res_id}: No parent structure found")
+        return residue
+        
+    structure = chain.parent
+    resi, icode = residue.id
+    chain_id = chain.id if hasattr(chain, 'id') else chain.name[0] if hasattr(chain, 'name') and len(chain.name) > 0 else None
+    
+    for alt in altconfs.keys():
+        print(f"[DEBUG] {res_id}: Processing altloc '{alt}'")
+        
+        try:
+            # Extract this chain + residue + altloc from the parent structure
+            if chain_id:
+                sel = structure.extract("chain", chain_id, "==")
+            else:
+                sel = structure
+                
+            sel = sel.extract("resi", resi, "==")
+            if icode:
+                sel = sel.extract("icode", icode, "==")
+            
+            # Extract this specific altloc
+            alt_sel = sel.extract("altloc", alt, "==")
+            
+            # Get backbone with empty altloc
+            bb_sel = sel.extract("altloc", "", "==")
+            
+            # Combine altloc with backbone
+            if bb_sel.natoms > 0:
+                combined = alt_sel.combine(bb_sel)
+            else:
+                # If no backbone with empty altloc, the altloc already has everything
+                combined = alt_sel
+            
+            print(f"[DEBUG] {res_id} altloc '{alt}': combined structure has {combined.natoms} atoms")
+            
+            # Get single conformer residues
+            residues = list(combined.single_conformer_residues)
+            if not residues:
+                print(f"[DEBUG] {res_id} altloc '{alt}': No single conformer residues")
+                continue
+            
+            res = residues[0]
+            print(f"[DEBUG] {res_id} altloc '{alt}': Got residue {res}")
+        except Exception as e:
+            import traceback
+            print(f"[DEBUG] {res_id} altloc '{alt}': Failed to process: {e}")
+            traceback.print_exc()
+            continue
+        
+        nchi = getattr(res, "nchi", 0)
+        print(f'[DEBUG] {res_id} altloc "{alt}": nchi = {nchi}')
+        if nchi < 1:
+            print(f"[DEBUG] {res_id} altloc '{alt}': No chi angles (nchi={nchi})")
+            continue
+        
+        # Get chi angles using existing get_chi method
+        angles = []
+        for i in range(1, nchi + 1):
+            try:
+                angle = res.get_chi(i)
+                if angle is not None:
+                    angles.append(float(angle))
+            except Exception as e:
+                print(f"[DEBUG] {res_id} altloc '{alt}': Could not get chi {i}: {e}")
+                continue
+        
+        if angles:
+            chi_by_altloc[alt] = angles
+            print(f"[DEBUG] {res_id} altloc '{alt}': chi angles = {[f'{a:.2f}' for a in angles]}")
+        else:
+            print(f"[DEBUG] {res_id} altloc '{alt}': No valid chi angles found")
+      
+    if len(chi_by_altloc) <= 1:
+        print(f"[DEBUG] {res_id}: Insufficient altlocs with chi angles ({len(chi_by_altloc)})")
+        return residue
+      
+    # Get baseline conformer (first altloc with chi angles)
+    altloc_list = list(chi_by_altloc.keys())
+    ref_alt = altloc_list[0]
+    ref_angles = chi_by_altloc[ref_alt]
+    
+    print(f"[DEBUG] {res_id} altloc '{ref_alt}' (reference): chi angles = {[f'{a:.2f}' for a in ref_angles]}")
+    
+    # Compare each additional conformer to baseline
+    to_merge = []
+    for alt in altloc_list[1:]:
+        alt_angles = chi_by_altloc[alt]
+        
+        # Both must have same number of chi angles
+        if len(alt_angles) != len(ref_angles):
+            print(f"[DEBUG] {res_id} altloc '{alt}': Different number of chi angles ({len(alt_angles)} vs {len(ref_angles)})")
+            continue
+        
+        # Compare all chi angles
+        diffs = [circ_diff_deg(ref_chi, alt_chi) for ref_chi, alt_chi in zip(ref_angles, alt_angles)]
+        all_match = all(diff <= angle_tol for diff in diffs)
+        
+        print(f"[DEBUG] {res_id} altloc '{alt}': chi diffs = {[f'{d:.2f}' for d in diffs]}, threshold = {angle_tol:.2f}")
+        
+        if all_match:
+            print(f"[DEBUG] {res_id} altloc '{alt}': MATCH - will merge")
+            to_merge.append(alt)
+        else:
+            print(f"[DEBUG] {res_id} altloc '{alt}': NO MATCH - keeping separate")
+    
+    # If nothing to merge, exit
+    if not to_merge:
+        print(f"[DEBUG] {res_id}: No conformers to merge")
+        return residue
+    
+    # Print for debugging
+    print(f"{res_id}: collapsing {to_merge} into {ref_alt} (same rotamer)")
+    
+    # Redistribute occupancies: sum merged occupancies into the representative
+    q_total = altconfs[ref_alt].q[-1] + sum(altconfs[alt].q[-1] for alt in to_merge)
+    altconfs[ref_alt].q = q_total
+    if len(altconfs) - len(to_merge) == 1:  # if only one altloc left
+        altconfs[ref_alt].q = 1.0
+        altconfs[ref_alt].altloc = ""  # adjusting altloc label
+    else:
+        altconfs[ref_alt].altloc = ref_alt
+    
+    # Normalize occupancies across the remaining conformers
+    remaining = [alt for alt in residue.altloc if alt != ""]
+    if len(remaining) == 0:
+        # single conformer left
+        residue.atom_groups[0].q = 1.0
+        residue.atom_groups[0].altloc = ""
+    else:
+        q_vals = [agroup.q[-1] for agroup in residue.atom_groups if agroup.id[1] != ""]
+        q_norm = np.array(q_vals) / np.sum(q_vals)
+        for agroup, q in zip(
+            [ag for ag in residue.atom_groups if ag.id[1] != ""], q_norm
+        ):
+            agroup.q = q
+    
+    return residue
 
 
 def main():
@@ -249,7 +550,11 @@ def main():
     # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
     for chain in structure:
         for residue in chain:
-            if np.any(residue.q < args.occ_cutoff):
+            if args.run_rmsd:
+                collapse_conformers_by_rmsd(residue, args.rmsd)
+            elif args.run_rotamer:
+                collapse_conformers_by_rotamer(residue, args.angle_tol)
+            elif np.any(residue.q < args.occ_cutoff):
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
                 n_removed += 1
 
