@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import numpy as np
-import string
 from copy import deepcopy
-from qfit.structure.math import calc_rmsd
 
+from qfit.structure.math import calc_rmsd
 from qfit.structure import Structure
-from qfit import relabel
+from qfit.relabel import Relabeller, RelabellerOptions
+
 
 
 def parse_args():
@@ -15,11 +15,11 @@ def parse_args():
     )
     parser.add_argument("pdb", help="Input multi-model PDB file.")
     parser.add_argument(
-        "-o", "--output", default="multiconformer.pdb",
+        "-o", "--output", default="multiconformer_ensemble.pdb",
         help="Output multi-conformer PDB file."
     )
     parser.add_argument(
-        "--rmsd", type=float, default=0.5,
+        "--rmsd", type=float, default=1.0,
         help="RMSD cutoff (in Å) to cluster residue conformations."
     )
     return parser.parse_args()
@@ -46,9 +46,59 @@ def cluster_residues(residues, rmsd_cutoff):
     return [c[0] for c in clusters]  # return one representative per cluster
 
 
+def cluster_conformations(conformations, rmsd_cutoff):
+    """
+    Cluster conformations by RMSD and select representatives.
+    
+    Args:
+        conformations: List of residue conformations
+        rmsd_cutoff: RMSD threshold for clustering
+    
+    Returns:
+        List of representative conformations (one per cluster)
+    """
+    if len(conformations) <= 1:
+        return conformations
+    
+    # Initialize clusters with first conformation
+    clusters = [[0]]  # Each cluster is a list of indices into conformations
+    cluster_representatives = [0]  # Index of representative for each cluster
+    
+    # Process each remaining conformation
+    for i in range(1, len(conformations)):
+        assigned = False
+        
+        # Try to assign to existing cluster
+        for cluster_idx, cluster in enumerate(clusters):
+            rep_idx = cluster_representatives[cluster_idx]
+            
+            # Calculate RMSD to cluster representative
+            rmsd = calc_rmsd(conformations[i].coor, conformations[rep_idx].coor)
+            
+            if rmsd <= rmsd_cutoff:
+                # Add to existing cluster
+                cluster.append(i)
+                assigned = True
+                print(f"    Assigned conformation {i} to cluster {cluster_idx} (RMSD {rmsd:.3f} <= {rmsd_cutoff})")
+                break
+        
+        if not assigned:
+            # Create new cluster
+            clusters.append([i])
+            cluster_representatives.append(i)
+            print(f"    Created new cluster {len(clusters)-1} for conformation {i}")
+    
+    # Return representatives
+    representatives = [conformations[idx] for idx in cluster_representatives]
+    return representatives
+
+
 def build_multiconformer(models, rmsd_cutoff):
     """
-    Build a multi-conformer structure by clustering residues across models.
+    Build a multi-conformer structure using efficient clustering approach.
+    
+    For each residue, collect all conformations across models, cluster them by RMSD,
+    and select representatives from each cluster.
     """
     if len(models) <= 1:
         return models[0]
@@ -59,48 +109,79 @@ def build_multiconformer(models, rmsd_cutoff):
     # Set altloc to 'A' for all residues in the base model
     base_model.set_altloc('A')
     
-    combined_structure = deepcopy(base_model)
+    # Collect all residues that need alternate conformations
+    residues_to_add = []
     
-    # Iterate over each residue in the base model
-    for base_residue in base_model.residues:
-        print(f"Processing residue: {base_residue}")
-        base_coords = base_residue.coor
+    # Iterate over each unique residue in the base model
+    for base_residue in base_model.single_conformer_residues:
+        chain_id = base_residue.chain[0]
+        print(f"Processing residue: {base_residue} (chain {chain_id})")
         
-        # Initialize altloc label iterator starting from 'B'
-        alt_labels = iter(string.ascii_uppercase[1:])
+        # Collect all conformations for this residue from all models
+        all_conformations = []
         
-        # Iterate over each subsequent model
+        # Add base model conformation
+        all_conformations.append(base_residue)
+        
+        # Add conformations from other models (same chain)
         for model in models[1:]:
-            # Find the corresponding residue in the current model
-            model_residue = next((res for res in model.residues if res.id == base_residue.id), None)
-            if model_residue is None:
-                print(f"  No corresponding residue found in model")
+            # Find the corresponding chain in the current model
+            model_chain = next((ch for ch in model.chains if ch.id == chain_id), None)
+            if model_chain is None:
                 continue
             
-            print(f"  Comparing with residue: {model_residue}")
-            model_coords = model_residue.coor
-            rmsd = calc_rmsd(base_coords, model_coords)
+            # Find the corresponding residue in the current model's chain
+            # We need to search through all conformers in the chain
+            model_residue = None
+            for conformer in model_chain.conformers:
+                for residue in conformer.residues:
+                    if residue.id == base_residue.id:
+                        model_residue = residue
+                        break
+                if model_residue:
+                    break
             
-            if rmsd < rmsd_cutoff:
-                print(f"  Not Adding alternate conformation (RMSD {rmsd} > {rmsd_cutoff})")
-                # Create a copy of the residue with modified altloc
-                residue_copy = deepcopy(model_residue)
-                
-                # Get the next available altloc label
+            if model_residue is None:
+                continue
+            
+            model_copy = deepcopy(model_residue)
+            model_copy.set_occupancies(1.0)
+            all_conformations.append(model_copy)
+
+        
+        # Cluster conformations and get representatives
+        representatives = cluster_conformations(all_conformations, rmsd_cutoff)
+        
+        # Store representatives that need to be added (skip first as it's already in base_model)
+        if len(representatives) > 1:
+            Altlocs = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE", "AF", "AG", "AH", "AI", "AJ", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
+            alt_labels = iter(Altlocs)
+            
+            for i, rep in enumerate(representatives[1:], 1):
                 altloc = next(alt_labels, None)
                 if altloc is None:
                     print("Warning: Ran out of altloc labels.")
                     break
                 
-                residue_copy.set_altloc(altloc)
-                
-                # Set occupancy to 1.0 for this residue
-                residue_copy.set_occupancies(1.0)
-                
-                # Combine the residue with the combined structure
-                combined_structure = combined_structure.combine(residue_copy)
+                rep.set_altloc(altloc)
+                residues_to_add.append(rep)
     
-    return combined_structure
+    # Combine all residues at once to minimize memory usage
+    if residues_to_add:
+        # Combine in batches to avoid memory issues
+        batch_size = 50  
+        combined_structure = base_model
+        
+        for i in range(0, len(residues_to_add), batch_size):
+            batch = residues_to_add[i:i + batch_size]
+
+            # Combine batch with current structure
+            for residue in batch:
+                combined_structure = combined_structure.combine(residue)
+        
+        return combined_structure
+    else:
+        return base_model
 
 
 def main():
@@ -114,12 +195,13 @@ def main():
 
     # Build multi-conformer structure
     multiconf = build_multiconformer(models, args.rmsd)
-
-    # Reorder atoms within residues according to rotamer library
-    #multiconf = multiconf.reorder()
+    # Relabel alternate conformers
+    options = RelabellerOptions()
+    relabeller = Relabeller(multiconf, options)
+    multiconf = relabeller.run()
 
     # Write to file
-    multiconf.tofile(args.output)
+    multiconf.reorder().tofile(args.output)
 
 
 if __name__ == "__main__":
