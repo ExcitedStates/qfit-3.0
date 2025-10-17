@@ -162,22 +162,20 @@ def build_multiconformer(models, rmsd_cutoff):
                 rep.set_altloc(altloc)
                 residues_to_add.append(rep)
     
-    # Combine all residues at once to minimize memory usage
+    # Build the final multiconformer structure by combining all residues
     if residues_to_add:
-        # Combine in batches to avoid memory issues
-        batch_size = 50  
-        combined_structure = deepcopy(residues_to_add[0])
+        # Start with an empty structure by extracting a non-existent residue
+        combined_structure = base_model.extract("resi", "99999", "==")
         
-        for i in range(1, len(residues_to_add), batch_size):
-            batch = residues_to_add[i:i + batch_size]
-
-            # Combine batch with current structure
-            for residue in batch:
-                combined_structure = combined_structure.combine(residue)
+        # Add all residues to the structure
+        for residue in residues_to_add:
+            # Convert residue to structure and combine
+            residue_structure = residue.copy_as(Structure)
+            combined_structure = combined_structure.combine(residue_structure)
         
         return combined_structure
     else:
-        return deepcopy(models[0])
+        return base_model
 
 
 def main():
