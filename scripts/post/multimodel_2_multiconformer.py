@@ -145,7 +145,7 @@ def build_multiconformer(models, rmsd_cutoff):
                 continue
             
             model_copy = deepcopy(model_residue)
-            model_copy.set_occupancies(1.0)
+            model_copy.set_occupancies(0.5)
             all_conformations.append(model_copy)
 
         
