@@ -154,7 +154,7 @@ def build_multiconformer(models, rmsd_cutoff):
         
         # Store representatives that need to be added (skip first as it's already in base_model)
         if len(representatives) > 1:
-            Altlocs = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE", "AF", "AG", "AH", "AI", "AJ", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
+            Altlocs = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
             alt_labels = iter(Altlocs)
             
             for i, rep in enumerate(representatives[1:], 1):
