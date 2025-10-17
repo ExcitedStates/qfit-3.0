@@ -235,7 +235,7 @@ class Relabeller:
 
         minIdx = energyList.index(min(energyList))
         # Relabel the residues:
-        Altlocs = ["A", "B", "C", "D", "E"]
+        Altlocs = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
         node = 0
         res = 0
         for chain in self.structure:
