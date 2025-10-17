@@ -120,11 +120,8 @@ def build_multiconformer(models, rmsd_cutoff):
         # Collect all conformations for this residue from all models
         all_conformations = []
         
-        # Add base model conformation
-        all_conformations.append(base_residue)
-        
-        # Add conformations from other models (same chain)
-        for model in models[1:]:
+        # Add conformations from models (same chain)
+        for model in models:
             # Find the corresponding chain in the current model
             model_chain = next((ch for ch in model.chains if ch.id == chain_id), None)
             if model_chain is None:
@@ -148,16 +145,15 @@ def build_multiconformer(models, rmsd_cutoff):
             model_copy.set_occupancies(0.5)
             all_conformations.append(model_copy)
 
-        
         # Cluster conformations and get representatives
         representatives = cluster_conformations(all_conformations, rmsd_cutoff)
         
-        # Store representatives that need to be added (skip first as it's already in base_model)
-        if len(representatives) > 1:
+        # Store representatives that need to be added
+        if len(representatives) > 0:
             Altlocs = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
             alt_labels = iter(Altlocs)
             
-            for i, rep in enumerate(representatives[1:], 1):
+            for i, rep in enumerate(representatives):
                 altloc = next(alt_labels, None)
                 if altloc is None:
                     print("Warning: Ran out of altloc labels.")
@@ -170,9 +166,9 @@ def build_multiconformer(models, rmsd_cutoff):
     if residues_to_add:
         # Combine in batches to avoid memory issues
         batch_size = 50  
-        combined_structure = base_model
+        combined_structure = deepcopy(residues_to_add[0])
         
-        for i in range(0, len(residues_to_add), batch_size):
+        for i in range(1, len(residues_to_add), batch_size):
             batch = residues_to_add[i:i + batch_size]
 
             # Combine batch with current structure
@@ -181,7 +177,7 @@ def build_multiconformer(models, rmsd_cutoff):
         
         return combined_structure
     else:
-        return base_model
+        return deepcopy(models[0])
 
 
 def main():
