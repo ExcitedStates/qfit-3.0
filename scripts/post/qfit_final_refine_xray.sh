@@ -215,7 +215,7 @@ done
 
 #________________________________CLEAN DUPLICATE___________________________________
 echo "Cleaning ${pdb_name}..."
-python /dors/wankowicz_lab/serine_protease/scripts/remove_duplicate.py -f ${pdb_name}_002.pdb
+python remove_duplicate.py -f ${pdb_name}_002.pdb
 mv ${pdb_name}_002_cleaned.pdb ${pdb_name}_002.pdb
 echo "Done. Cleaned file saved to ${pdb_name}_002.pdb"
 
