@@ -451,7 +451,7 @@ class QFitProtein:
                 # if not, we won't have a multiconformer_residue.pdb.
                 # Make sure to append it to the hetatms object so it stays in the final output.
                 if residue.resn[0] not in ROTAMERS:
-                    hetatms = hetatms.combine(residue)
+                    hetatms = self.hetatms.combine(residue)
                     continue
 
                 # Load the multiconformer_residue.pdb file
