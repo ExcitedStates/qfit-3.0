@@ -2,9 +2,9 @@
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
-from qfit.scaler import MapScaler
+from qfit.xtal.scaler import MapScaler
 from qfit.structure import Structure
-from qfit.volume import XMap
+from qfit.xtal.volume import XMap
 from qfit.validator import Validator
 import os
 
