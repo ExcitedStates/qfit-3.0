@@ -46,6 +46,11 @@ def build_argparser():
         "residue in structure, e.g. A,105, or A,105:A.",
     )
     p.add_argument(
+        "--pdb",
+        type=str,
+        help="Optional prefix of multiconformer_model2.pdb",
+    )
+    p.add_argument(
         "-sb",
         "--no-sampling-b",
         action="store_false",
@@ -502,7 +507,7 @@ class QFitProtein:
         multiconformer = qfit()
         if self.hetatms:
             multiconformer = multiconformer.combine(self.hetatms)
-        fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
+        fname = self._get_output_model_path(f"{self.pdb}_multiconformer_model2")
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
