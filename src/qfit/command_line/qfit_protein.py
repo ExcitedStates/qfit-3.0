@@ -507,7 +507,7 @@ class QFitProtein:
         multiconformer = qfit()
         if self.hetatms:
             multiconformer = multiconformer.combine(self.hetatms)
-        fname = self._get_output_model_path(f"{self.pdb}_multiconformer_model2")
+        fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
 
