@@ -46,11 +46,6 @@ def build_argparser():
         "residue in structure, e.g. A,105, or A,105:A.",
     )
     p.add_argument(
-        "--pdb",
-        type=str,
-        help="Optional prefix of multiconformer_model2.pdb",
-    )
-    p.add_argument(
         "-sb",
         "--no-sampling-b",
         action="store_false",
