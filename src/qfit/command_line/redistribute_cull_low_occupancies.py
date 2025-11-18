@@ -3,6 +3,7 @@ from collections import namedtuple
 import os
 from string import ascii_uppercase
 import numpy as np
+import traceback
 
 from qfit.structure.math import calc_rmsd
 from qfit.structure.rotamers import ROTAMERS
@@ -300,10 +301,6 @@ def collapse_conformers_by_rmsd(residue, rmsd_cutoff):
     if not to_merge:
         return residue
 
-    # Print for debugging
-    print(f"{residue.resn[-1]}{''.join(map(str, residue.id))}: "
-          f"collapsing {to_merge} into {ref_alt} (RMSD < {rmsd_cutoff})")
-
     # Redistribute occupancies: sum merged occupancies into the representative
     q_total = altconfs[ref_alt].q[-1] + sum(altconfs[alt].q[-1] for alt in to_merge)
     altconfs[ref_alt].q = q_total
@@ -371,9 +368,6 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
     if len(altconfs) <= 1:
         return residue
     
-    # Debug: Print residue info
-    print(f"\n[DEBUG] Processing {res_id}: altlocs = {list(altconfs.keys())}")
-    
     # Get chi angles for each altloc
     # We need to work at the Structure level to use single_conformer_residues
     chi_by_altloc = {}
@@ -395,8 +389,6 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
     chain_id = chain.id if hasattr(chain, 'id') else chain.name[0] if hasattr(chain, 'name') and len(chain.name) > 0 else None
     
     for alt in altconfs.keys():
-        print(f"[DEBUG] {res_id}: Processing altloc '{alt}'")
-        
         try:
             # Extract this chain + residue + altloc from the parent structure
             if chain_id:
@@ -421,26 +413,20 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
                 # If no backbone with empty altloc, the altloc already has everything
                 combined = alt_sel
             
-            print(f"[DEBUG] {res_id} altloc '{alt}': combined structure has {combined.natoms} atoms")
-            
+
             # Get single conformer residues
             residues = list(combined.single_conformer_residues)
             if not residues:
-                print(f"[DEBUG] {res_id} altloc '{alt}': No single conformer residues")
-                continue
-            
+                continue   
             res = residues[0]
-            print(f"[DEBUG] {res_id} altloc '{alt}': Got residue {res}")
+            
         except Exception as e:
-            import traceback
             print(f"[DEBUG] {res_id} altloc '{alt}': Failed to process: {e}")
             traceback.print_exc()
             continue
         
         nchi = getattr(res, "nchi", 0)
-        print(f'[DEBUG] {res_id} altloc "{alt}": nchi = {nchi}')
         if nchi < 1:
-            print(f"[DEBUG] {res_id} altloc '{alt}': No chi angles (nchi={nchi})")
             continue
         
         # Get chi angles using existing get_chi method
@@ -456,20 +442,16 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
         
         if angles:
             chi_by_altloc[alt] = angles
-            print(f"[DEBUG] {res_id} altloc '{alt}': chi angles = {[f'{a:.2f}' for a in angles]}")
         else:
             print(f"[DEBUG] {res_id} altloc '{alt}': No valid chi angles found")
       
     if len(chi_by_altloc) <= 1:
-        print(f"[DEBUG] {res_id}: Insufficient altlocs with chi angles ({len(chi_by_altloc)})")
         return residue
       
     # Get baseline conformer (first altloc with chi angles)
     altloc_list = list(chi_by_altloc.keys())
     ref_alt = altloc_list[0]
     ref_angles = chi_by_altloc[ref_alt]
-    
-    print(f"[DEBUG] {res_id} altloc '{ref_alt}' (reference): chi angles = {[f'{a:.2f}' for a in ref_angles]}")
     
     # Compare each additional conformer to baseline
     to_merge = []
@@ -478,28 +460,22 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
         
         # Both must have same number of chi angles
         if len(alt_angles) != len(ref_angles):
-            print(f"[DEBUG] {res_id} altloc '{alt}': Different number of chi angles ({len(alt_angles)} vs {len(ref_angles)})")
             continue
         
         # Compare all chi angles
         diffs = [circ_diff_deg(ref_chi, alt_chi) for ref_chi, alt_chi in zip(ref_angles, alt_angles)]
         all_match = all(diff <= angle_tol for diff in diffs)
         
-        print(f"[DEBUG] {res_id} altloc '{alt}': chi diffs = {[f'{d:.2f}' for d in diffs]}, threshold = {angle_tol:.2f}")
-        
+
         if all_match:
-            print(f"[DEBUG] {res_id} altloc '{alt}': MATCH - will merge")
             to_merge.append(alt)
         else:
-            print(f"[DEBUG] {res_id} altloc '{alt}': NO MATCH - keeping separate")
+            continue
     
     # If nothing to merge, exit
     if not to_merge:
-        print(f"[DEBUG] {res_id}: No conformers to merge")
         return residue
     
-    # Print for debugging
-    print(f"{res_id}: collapsing {to_merge} into {ref_alt} (same rotamer)")
     
     # Redistribute occupancies: sum merged occupancies into the representative
     q_total = altconfs[ref_alt].q[-1] + sum(altconfs[alt].q[-1] for alt in to_merge)
