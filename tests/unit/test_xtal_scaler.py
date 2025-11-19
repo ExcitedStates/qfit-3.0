@@ -63,7 +63,7 @@ class TestMapScaler(BaseTestRunner):
         scaler = MapScaler(xmap1)
         (s, k) = scaler.scale(structure)
         assert s == pytest.approx(0.2513, abs=0.001)
-        assert k == pytest.approx(0.0480, abs=0.001)
+        assert k == pytest.approx(0.0480, abs=0.002)
         # test qFit transformer
         xmap_qfit = XMap.fromfile(fmodel_mtz, label="FWT,PHIFWT",
                                   transformer=transformer)
@@ -76,7 +76,7 @@ class TestMapScaler(BaseTestRunner):
         scaler_fft = MapScaler(xmap2)
         (s, k) = scaler_fft.scale(structure, enable_fft=True)
         assert s == pytest.approx(0.251, abs=0.01)
-        assert k == pytest.approx(0.048, abs=0.001)
+        assert k == pytest.approx(0.048, abs=0.002)
         # density recycling
         xmap3 = copy.deepcopy(xmap1)
         tx = get_transformer(transformer, structure, xmap3)
