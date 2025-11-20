@@ -103,7 +103,7 @@ Different labels can be set accordingly using the flag *-l*.
 
 Using the example 18GA:
 
-`qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A_refine.pdb`
+`qfit_protein example/qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT example/qfit_protein_example/1G8A_refined.pdb`
 
 After *multiconformer_model2.pdb* has been generated, refine this model using:
 
@@ -124,17 +124,17 @@ After *multiconformer_model2.pdb* has been generated, refine this model using:
 
 `qfit_final_refine_cryoEM.sh example/qfit_cryoem_example/7A4M_box.ccp4 example/qfit_cryoem_example/multiconformer_model2.pdb example/qfit_cryoem_example/7A4M_box.pdb`
 
-More advanced features of qFit (modeling single residue, more advanced options, and further explainations) are explained in the [example](example/README.md) directory.
+More advanced features of qFit (modeling single residue, more advanced options, and further explanations) are explained in the [example](example/README.md) directory.
 
 To model alternate conformations of ligands using qFit, we recommend generating a composite omit map excluding bulk solvent with the following command:
 
 `phenix.composite_omit_map input.mtz model.pdb omit-type=refine exclude_bulk_solvent=True`
 
-qFit-ligand can be executed the following command:
+qFit-ligand can be executed with the following command:
 
 `qfit_ligand [COMPOSITE_OMIT_MAP_FILE] [PDB_FILE] -l [LABELS] [SELECTION] -sm [SMILES]`
 
-This command facilitates the incorporation of alternate ligand conformations into your protein model. The results are outputted to two files: *multiconformer_ligand_bound_with_protein.pdb*, which is the multiconformer model of the protein-ligand complex, and *multiconformer_ligand_only.pdb*, which is the multiconformer model of the ligand alone. 
+This command facilitates the incorporation of alternate ligand conformations into your protein model. The results are output to two files: *multiconformer_ligand_bound_with_protein.pdb*, which is the multiconformer model of the protein-ligand complex, and *multiconformer_ligand_only.pdb*, which is the multiconformer model of the ligand alone. 
 
 After running qFit-ligand, it is recommended to perform a final refinement using the script found in [scripts](scripts/post). Run this in the same directory as your models.
 
