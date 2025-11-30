@@ -137,7 +137,7 @@ echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.param
 
 phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}.mtz" \
-	       "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
+	           "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                "refine.strategy=*individual_sites" \
                "output.prefix=${pdb_name}" \
                "output.serial=2" \
@@ -214,10 +214,8 @@ while [ $zeroes -gt 1 ]; do
 done
 
 #________________________________CLEAN DUPLICATE___________________________________
-echo "Cleaning ${pdb_name}..."
-remove_duplicates -f ${pdb_name}_002.pdb
+remove_duplicates  ${pdb_name}_002.pdb
 mv ${pdb_name}_002_cleaned.pdb ${pdb_name}_002.pdb
-echo "Done. Cleaned file saved to ${pdb_name}_002.pdb"
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
