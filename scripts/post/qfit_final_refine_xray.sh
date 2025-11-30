@@ -111,12 +111,6 @@ mv -v "${multiconf}.f_norm.pdb" "${multiconf}.fixed"
 #________________________________REMOVE TRAILING HYDROGENS___________________________________
 phenix.pdbtools remove="element H" "${multiconf}.fixed"
 
-#________________________________CLEAN DUPLICATE___________________________________
-echo "Cleaning ${pdb_name}..."
-remove_duplicate -f ${multiconf}.f_modified.pdb
-mv ${multiconf}.f_modified_cleaned.pdb ${multiconf}.f_modified.pdb
-
-python /panfs/accrepfs.vampire/data/wankowicz_lab/stephanie/qfit-3.0/scripts/post/create_restraints_file.py "${multiconf}.f_modified.pdb"
 #__________________________________GET CIF FILE__________________________________
 phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
@@ -133,7 +127,7 @@ if [ -f "elbow.${multiconf}_pdb.all.cif" ]; then
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
 echo "output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
 echo "output.serial=2"                    >> ${pdb_name}_refine.params
@@ -154,10 +148,10 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "xray_data.r_free_flags.generate=True" \
                --overwrite
 
-python /panfs/accrepfs.vampire/data/wankowicz_lab/stephanie/qfit-3.0/scripts/post/create_restraints_file.py "${pdb_name}_002.pdb"
+create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
 echo "output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
 echo "output.serial=3"                                                >> ${pdb_name}_occ_refine.params
@@ -178,7 +172,7 @@ while [ $zeroes -gt 1 ]; do
   if [ -f "elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
                     "${pdb_name}_002.mtz" \
-		    "refinement.input.monomers.file_name=elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" \
+		            "refinement.input.monomers.file_name=elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" \
                     "refine.strategy=*individual_sites *individual_adp *occupancies" \
                     "output.prefix=${pdb_name}" \
                     "output.serial=3" \
@@ -237,7 +231,7 @@ mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 phenix.elbow ${pdb_name}_004.pdb --do_all
 
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
 echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "output.serial=5"                >> ${pdb_name}_final_refine.params
@@ -262,7 +256,7 @@ fi
 if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
-	    "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif" \
+	        "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
@@ -318,7 +312,7 @@ if [ -f "reduce_failure.pdb" ]; then
   if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
-	    "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif"
+	        "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif"
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
