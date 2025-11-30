@@ -201,7 +201,7 @@ while [ $zeroes -gt 1 ]; do
     exit 1;
   else
     mv -v "${pdb_name}_003_norm.pdb" "${pdb_name}_002.pdb";
-    python /panfs/accrepfs.vampire/data/wankowicz_lab/stephanie/qfit-3.0/scripts/post/create_restraints_file.py "${pdb_name}_002.pdb"
+    create_restraints_file.py "${pdb_name}_002.pdb"
   fi
 
   if [ $i -ge 50 ]; then
