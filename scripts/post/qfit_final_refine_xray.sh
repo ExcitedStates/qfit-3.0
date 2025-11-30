@@ -137,7 +137,7 @@ echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.param
 
 phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}.mtz" \
-	       "refinement.input.monomers.file_name=elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" \
+	       "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                "refine.strategy=*individual_sites" \
                "output.prefix=${pdb_name}" \
                "output.serial=2" \
@@ -169,10 +169,10 @@ i=1
 too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
   echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
-  if [ -f "elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" ]; then
+  if [ -f "elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
                     "${pdb_name}_002.mtz" \
-		            "refinement.input.monomers.file_name=elbow.multiconformer_model2.pdb_f_modified_pdb.all.cif" \
+		            "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                     "refine.strategy=*individual_sites *individual_adp *occupancies" \
                     "output.prefix=${pdb_name}" \
                     "output.serial=3" \
