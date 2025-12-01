@@ -403,8 +403,6 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
             else:
                 # If no backbone with empty altloc, the altloc already has everything
                 combined = alt_sel
-            print(combined.resi)
-            print(combined.names)
 
             # Get single conformer residues
             residues = list(combined.single_conformer_residues)
@@ -504,6 +502,7 @@ def main():
     # seperate het versus atom (het allowed to have <1 occ)
     hetatms = structure.extract("record", "HETATM", "==")
     structure = structure.extract("record", "HETATM", "!=")
+    structure = structure.extract("atom", "H", "!=")
 
     # Capture LINK records
     link_data = structure.link_data
