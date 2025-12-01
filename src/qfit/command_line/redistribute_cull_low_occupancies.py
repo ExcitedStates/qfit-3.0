@@ -387,6 +387,8 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
     chain_id = chain.id
     
     for alt in altconfs.keys():
+        if alt == '':
+            continue
         try:
             sel = structure.extract("chain", chain_id, "==")   
             sel = sel.extract("resi", resi, "==")
