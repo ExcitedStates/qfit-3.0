@@ -374,36 +374,25 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
     
     # Get parent chain, then parent structure
     if not hasattr(residue, 'parent') or residue.parent is None:
-        print(f"[DEBUG] {res_id}: No parent chain found")
         return residue
     
     chain = residue.parent
     
     # Get parent structure from chain
     if not hasattr(chain, 'parent') or chain.parent is None:
-        print(f"[DEBUG] {res_id}: No parent structure found")
         return residue
         
     structure = chain.parent
     resi, icode = residue.id
-    chain_id = chain.id if hasattr(chain, 'id') else chain.name[0] if hasattr(chain, 'name') and len(chain.name) > 0 else None
+    chain_id = chain.id
     
     for alt in altconfs.keys():
         try:
-            # Extract this chain + residue + altloc from the parent structure
-            if chain_id:
-                sel = structure.extract("chain", chain_id, "==")
-            else:
-                sel = structure
-                
+            sel = structure.extract("chain", chain_id, "==")   
             sel = sel.extract("resi", resi, "==")
             if icode:
                 sel = sel.extract("icode", icode, "==")
-            
-            # Extract this specific altloc
             alt_sel = sel.extract("altloc", alt, "==")
-            
-            # Get backbone with empty altloc
             bb_sel = sel.extract("altloc", "", "==")
             
             # Combine altloc with backbone
@@ -412,7 +401,8 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
             else:
                 # If no backbone with empty altloc, the altloc already has everything
                 combined = alt_sel
-            
+            print(combined.resi)
+            print(combined.names)
 
             # Get single conformer residues
             residues = list(combined.single_conformer_residues)
@@ -421,7 +411,6 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
             res = residues[0]
             
         except Exception as e:
-            print(f"[DEBUG] {res_id} altloc '{alt}': Failed to process: {e}")
             traceback.print_exc()
             continue
         
@@ -429,7 +418,7 @@ def collapse_conformers_by_rotamer(residue, angle_tol=15.0):
         if nchi < 1:
             continue
         
-        # Get chi angles using existing get_chi method
+        # Get chi angles 
         angles = []
         for i in range(1, nchi + 1):
             try:
