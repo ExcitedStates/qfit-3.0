@@ -116,18 +116,18 @@ phenix.ready_set hydrogens=false \
                  trust_residue_code_is_chemical_components_code=true \
                  pdb_file_name="${multiconf}.f_modified.pdb"
 
-phenix.elbow ${pdb_name}_final.pdb --do_all
+phenix.elbow ${multiconf}.f_modified.pdb --do_all
 
 # If there are no unknown ligands, ready_set doesn't output a file. We have to do it.
 if [ ! -f "${multiconf}.f_modified.updated.pdb" ]; then
   cp -v "${multiconf}.f_modified.pdb" "${multiconf}.f_modified.updated.pdb";
 fi
-if [ -f "elbow.${pdb_name}_final_pdb.all.cif" ]; then
-  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_final_pdb.all.cif'" >> ${pdb_name}_refine.params
+if [ -f "elbow.${multiconf}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${multiconf}_pdb.all.cif'" >> ${pdb_name}_refine.params
 fi
 
 #__________________________________COORDINATE REFINEMENT ONLY__________________________________
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refinement.refine.strategy=*individual_sites"  >> ${pdb_name}_refine.params
 echo "output.prefix=${pdb_name}"          >> ${pdb_name}_refine.params
 echo "output.serial=2"                    >> ${pdb_name}_refine.params
@@ -137,6 +137,7 @@ echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.param
 
 phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}.mtz" \
+	           "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                "refine.strategy=*individual_sites" \
                "output.prefix=${pdb_name}" \
                "output.serial=2" \
@@ -145,13 +146,12 @@ phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "refinement.output.write_maps=False" \
                "data_manager.miller_array.labels.name=${xray_data_labels}" \
                "xray_data.r_free_flags.generate=True" \
-               "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
                --overwrite
 
 create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
 echo "output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
 echo "output.serial=3"                                                >> ${pdb_name}_occ_refine.params
@@ -160,8 +160,8 @@ echo "refinement.main.nqh_flips=False"                                >> ${pdb_n
 echo "refinement.refine.${adp}"                                       >> ${pdb_name}_occ_refine.params
 echo "refinement.output.write_maps=False"                             >> ${pdb_name}_occ_refine.params
 
-if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
-  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" >> ${pdb_name}_occ_refine.params
+if [ -f "elbow.${multiconf}_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${multiconf}_pdb.all.cif'" >> ${pdb_name}_occ_refine.params
 fi
 
 zeroes=50
@@ -169,16 +169,16 @@ i=1
 too_many_loops_flag=false
 while [ $zeroes -gt 1 ]; do
   echo "qfit_final_refine_xray.sh:: Starting refinement round ${i}..."
-  if [ -f "${multiconf}.f_modified.ligands.cif" ]; then
+  if [ -f "elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
                     "${pdb_name}_002.mtz" \
+		            "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                     "refine.strategy=*individual_sites *individual_adp *occupancies" \
                     "output.prefix=${pdb_name}" \
                     "output.serial=3" \
                     "refinement.main.number_of_macro_cycles=5" \
                     "refinement.main.nqh_flips=False" \
                     "refinement.refine.${adp}" \
-                    "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
                     qFit_occupancy.params \
                     --overwrite
     else
@@ -214,10 +214,8 @@ while [ $zeroes -gt 1 ]; do
 done
 
 #________________________________CLEAN DUPLICATE___________________________________
-echo "Cleaning ${pdb_name}..."
-python remove_duplicate.py -f ${pdb_name}_002.pdb
+remove_duplicates  ${pdb_name}_002.pdb
 mv ${pdb_name}_002_cleaned.pdb ${pdb_name}_002.pdb
-echo "Done. Cleaned file saved to ${pdb_name}_002.pdb"
 
 #__________________________________ADD HYDROGENS__________________________________
 # The first round of refinement regularizes geometry from qFit.
@@ -229,8 +227,9 @@ mv "${pdb_name}_002.updated.pdb" "${pdb_name}_002.pdb"
 
 #__________________________________FINAL REFINEMENT__________________________________
 cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
+phenix.elbow ${pdb_name}_004.pdb --do_all
 
-# Write refinement parameters into parameters file
+# Write refinement parameters into parameters file (note, this is for record keeping, but is not accepted by Phenix)
 echo "refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
 echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "output.serial=5"                >> ${pdb_name}_final_refine.params
@@ -248,13 +247,14 @@ echo "refinement.main.ordered_solvent=True" >> ${pdb_name}_final_refine.params
 echo "ordered_solvent.mode=every_macro_cycle" >> ${pdb_name}_final_refine.params
 echo "include_altlocs=True" >> ${pdb_name}_final_refine.params
 
-if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
-  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'"  >> ${pdb_name}_final_refine.params
+if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
+  echo "refinement.input.monomers.file_name='elbow.${pdb_name}_004_pdb.all.cif'"  >> ${pdb_name}_final_refine.params
 fi
 
-if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
+	        "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif" \
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
@@ -268,7 +268,6 @@ if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
             "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
-            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
             qFit_occupancy.params \
             --overwrite
  else
@@ -308,9 +307,10 @@ if [ -f "reduce_failure.pdb" ]; then
   echo "refinement.target_weights.optimize_xyz_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
   echo "refinement.target_weights.optimize_adp_weight=true"  >> ${pdb_name}_final_refine_noreduce.params
 
-  if [ -f "elbow.${pdb_name}_pdb.all.cif" ]; then
+  if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
+	        "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif"
             "refine.strategy=*individual_sites *individual_adp *occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
@@ -324,7 +324,6 @@ if [ -f "reduce_failure.pdb" ]; then
             "include_altlocs=True" \
             "refinement.target_weights.optimize_xyz_weight=true" \
             "refinement.target_weights.optimize_adp_weight=true" \
-            "refinement.input.monomers.file_name='elbow.${pdb_name}_pdb.all.cif'" \
             qFit_occupancy.params \
             --overwrite
  else
@@ -373,3 +372,4 @@ fi
 if [ -f "reduce_failure.pdb" ]; then
   echo "Refinement was run without checking for flips in NQH residues due to memory constraints. Please inspect your structure."
 fi
+
