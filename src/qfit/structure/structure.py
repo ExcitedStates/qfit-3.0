@@ -84,15 +84,16 @@ class Structure(BaseStructure):
 
     @property
     def single_conformer_residues(self):
-        residues_d = {}
+        residues_d = set()
         for chain in self.chains:
-            if chain.chain[0] not in residues_d:
-                residues_d[chain.chain[0]] = {}
+            chain_id =chain.id
             for conformer in chain.conformers:
                 for residue in conformer.residues:
-                    if residue.resi[0] not in residues_d[chain.chain[0]]:
-                        yield residue
-                        residues_d[chain.chain[0]][residue.resi[0]] = 1
+                    key = (chain_id, residue.resi[0]
+                    if key in residues_d:
+                      continue
+                    residues_d.add(key)
+                    yield residue
 
     @property
     def segments(self):
