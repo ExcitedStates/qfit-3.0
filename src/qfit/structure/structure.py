@@ -89,7 +89,7 @@ class Structure(BaseStructure):
             chain_id =chain.id
             for conformer in chain.conformers:
                 for residue in conformer.residues:
-                    key = (chain_id, residue.resi[0]
+                    key = (chain_id, residue.resi[0])
                     if key in residues_d:
                       continue
                     residues_d.add(key)
