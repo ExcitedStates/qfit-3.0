@@ -1,27 +1,13 @@
 #!/usr/bin/env python
-"""
-The purpose of this script is to calculate the B-factor for every residue across the structure. You can choose to calculate the alpha carbon or side chain (all heavy atoms)
-This script also returns the average B-factor for alpha carbon which is used in the calc_OP.py script.
-
-INPUT: PDB structure, name of PDB structure, sidechain or CA
-OUTPUT: CSV file the b-factor for each residue in the structure, average b-factor for entire structure
-
-example:
-Alpha Carbon B-factor:
-b_factor.py pdb.pdb --pdb pdb_name --ca
-
-Heavy Atom B-factor:
-b_factor.py pdb.pdb --pdb pdb_name --sidechain
-"""
-
 import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from qfit.structure import Structure
+import itertools
 
 
 def build_argparser():
-    p = ArgumentParser(description=__doc__)
+    p = ArgumentParser(description="Calculate average B-factor per residue.")
     p.add_argument("structure", type=str, help="PDB-file containing structure.")
     p.add_argument(
         "--ca",
@@ -43,40 +29,69 @@ def get_bfactor(structure, pdb, ca, sidechain):
     if ca and sidechain:
         print("Both alpha carbon and sidechain selected. Please choose one")
         return
+
     bfactors = []
+
     select = structure.extract("record", "ATOM", "==")
     select = select.extract("e", "H", "!=")
+
     if ca:
         select = select.extract("name", "CA", "==")
     if sidechain:
+        # Excludes N, CA, C, O (standard backbone)
         select = select.extract("name", (["N", "CA", "C", "O"]), "!=")
+
+    resi_icode = np.array(list(zip(select.resi, select.icode)))
+    unique_chain_resi_icode = []
+
     for c in np.unique(select.chain):
-        for r in np.unique(select.extract("chain", c, "==").resi):
-            b_factor = np.average(
-                select.extract(f"resi {r} and chain {c}").b
-            ) / np.average(select.extract(f"resi {r} and chain {c}").q)
-            bfactors.append(
-                tuple(
-                    (
-                        pdb,
-                        np.array2string(r),
-                        np.array2string(
-                            select.extract(f"resi {r} and chain {c}").resn[0]
-                        ),
-                        np.array2string(np.unique(c)),
-                        b_factor,
-                        len(
-                            np.unique(select.extract(f"resi {r} and chain {c}").altloc)
-                        ),
-                    )
-                )
+        chain_select = select.extract("chain", c, "==")
+        # Find unique resi/icode pairs only within the current chain
+        chain_resi_icode = np.array(list(zip(chain_select.resi, chain_select.icode)))
+        unique_chain_resi_icode.extend([
+            (c, resi, icode)
+            for resi, icode in np.unique(chain_resi_icode, axis=0)
+        ])
+
+    # Iterate through unique (chain, resi, icode) combinations
+    for c, r, i in unique_chain_resi_icode:
+        # Construct the selection string using resi AND icode
+        # If icode is an empty string (''), the selection still works correctly.
+        selection_string = f"resi {r} and chain {c}"
+        if i.strip(): # Only add icode if it's not empty/default
+            selection_string += f" and icode {i.strip()}"
+
+        # Extract the atoms belonging to the unique residue identifier
+        residue_atoms = select.extract(selection_string)
+        if len(residue_atoms.resn) == 0:
+           continue
+
+        b_factor = np.average(residue_atoms.b)
+
+        resn_str = residue_atoms.resn[0].strip()
+        chain_str = c.strip()
+        icode_str = i.strip()
+
+        # Append result tuple
+        bfactors.append(
+            (
+                pdb,
+                str(r), # resi (sequence number)
+                resn_str, # resn (residue name)
+                chain_str, # chain
+                icode_str, # icode (newly added)
+                b_factor,
+                len(np.unique(residue_atoms.altloc)), # num_altlocs
             )
+        )
+
     B_factor = pd.DataFrame(
-        bfactors, columns=["PDB", "resi", "resn", "chain", "b_factor", "num_altlocs"]
+        bfactors,
+        columns=["PDB", "resi", "resn", "chain", "icode", "b_factor", "num_altlocs"], # Updated columns
     )
     med = B_factor["b_factor"].median()  # median b-factor
-    return B_factor, med
 
+    return B_factor, med
 
 def main():
     p = build_argparser()
