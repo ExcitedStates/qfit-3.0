@@ -513,7 +513,7 @@ def main():
                 collapse_conformers_by_rmsd(residue, args.rmsd)
             elif args.run_rotamer:
                 collapse_conformers_by_rotamer(residue, args.angle_tol)
-            elif np.any(residue.q < args.occ_cutoff):
+            else:
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
                 n_removed += 1
 
