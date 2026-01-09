@@ -123,7 +123,7 @@ class _BaseEDIA:
                         residue.resi[ind],
                     )
 
-                    if target_residue != None:
+                    if target_residue is not None:
                         flag = 0
                         for idx in range(len(target_residue.name)):
                             if (
