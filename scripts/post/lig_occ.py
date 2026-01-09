@@ -57,7 +57,7 @@ def get_occ(structure, ligand, pdb, qfit):
 
 def main():
     args = parse_args()
-    if not args.qFit == None:
+    if args.qFit is not None:
         qfit = "_qFit"
     else:
         qfit = ""

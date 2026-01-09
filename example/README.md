@@ -11,11 +11,11 @@ To generate a composite omit map, we recommend running the following command fro
 Using the example 1G8A:
 
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --residue A,58`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refined.pdb --residue A,58`
 
 This will produce a multiconformer model of residue 58 of chain A of 1G8A. 
 
-### 2. Running qFit on cyro-EM structures. 
+### 2. Running qFit on cryo-EM structures. 
 
 qFit can also use ccp4 map files as input. To model alternate conformers using
 this type of map, it is also necessary to provide the resolution of the data,
@@ -25,7 +25,7 @@ which can be achieved by using the flag *-r*.
 
 #### You also must use the -em flag for cryo-EM structures. 
 
-For Cyro-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
+For cryo-EM ccp4 maps, you can use the example from the Apoferritin Chain A (PDB:7A4M). 
 
 `qfit_protein qfit_cryoem_example/7A4M_box.ccp4 qfit_cryoem_example/7A4M_box.pdb -r 1.22 -em`
 
@@ -61,26 +61,26 @@ the cost of precision:
 
 Using the example 1G8A:
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --residue A,58 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refined.pdb --residue A,58 --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 ### 5. The same sampling parameters used in qfit_residue can be tweaked in qfit_protein:
 
 Using the example 1G8A:
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refined.pdb --no-backbone --no-sample-angle -s 20 -rn 45 --no-threshold-selection`
 
 For a full list of options, run:
 
 `qfit_protein -h`
 
-### 5.  Parallelization:
+### 6. Parallelization:
 
 The *qfit_protein* program can be executed in parallel and the number of concurrent processes
 can be adjusted using the *-p* flag.
 
-Using the example 18GA, spawning 30 parallel processes:
+Using the example 1G8A, spawning 30 parallel processes:
 
-`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refine.pdb -p 30`
+`qfit_protein qfit_protein_example/composite_omit_map.mtz -l 2FOFCWT,PH2FOFCWT qfit_protein_example/1G8A_refined.pdb -p 30`
 
 
 ### 7. Modeling alternate conformers of a ligand
@@ -123,7 +123,7 @@ Using the example 8P70:
 
 `qfit_ligand EMD-17513.map qfit_ligand_example/8P70.pdb -r 2.0 A,201 -sm 'O=C1CCCN1NC2=NC=NC=C2C3=C(F)C=CC=N3' -em_lig`
 
-The link the the map can be found here: https://www.ebi.ac.uk/emdb/EMD-17513
+The link to the map can be found here: https://www.ebi.ac.uk/emdb/EMD-17513
 
 To refine *multiconformer_ligand_bound_with_protein.pdb*, use the following command
 

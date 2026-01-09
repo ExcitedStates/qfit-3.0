@@ -2,8 +2,8 @@
 """
 Please cite: Fenwick, R. Bryn, et al. "Integrated description of protein dynamics from room-temperature X-ray crystallography and NMR." Proceedings of the National Academy of Sciences 111.4 (2014): E445-E454.
 
-INPUT: Intermdiate file (obtained about), PDB structure, output_file name, resolution, average alpha-carbon b-factor
-OUTPUT: pdb_name.dat A tab seperated file with information about each residue and the atom type need to calculate cyrstallographic order parameters.
+INPUT: Intermediate file (obtained above), PDB structure, output_file name, resolution, average alpha-carbon b-factor
+OUTPUT: pdb_name.dat A tab separated file with information about each residue and the atom type needed to calculate crystallographic order parameters.
 
 example: 
 `calc_OP.py ${PDB}.dat ${PDB}_qFit.pdb ${PDB}_qFit_order_parm.out -r ${res} -b ${b_fac}`
@@ -213,11 +213,11 @@ if __name__ == "__main__":
     data_file = args.data_file
     pdb_file = args.pdb
     data_out = args.file_out
-    if args.Resolution == None:
+    if args.Resolution is None:
         resolution = 1.0
     else:
         resolution = args.Resolution
-    if args.Bfactor == None:
+    if args.Bfactor is None:
         b = 1.0
     else:
         b = args.Bfactor

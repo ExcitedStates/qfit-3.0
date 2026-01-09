@@ -164,7 +164,7 @@ def prepare_qfit_ligand(options):
 
     receptor = structure.extract(
         sel_str
-    )  # selecting everything that is no the ligand of interest
+    )  # selecting everything that is not the ligand of interest
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -184,7 +184,7 @@ def prepare_qfit_ligand(options):
     ligand = Ligand.from_structure(structure_ligand, options.cif_file)
     if ligand.natoms == 0:
         raise RuntimeError(
-            "No atoms were selected for the ligand. Check " " the selection input."
+            "No atoms were selected for the ligand. Check the selection input."
         )
 
     ligand.altloc = ""
@@ -220,7 +220,7 @@ def main():
     p = build_argparser()
     args = p.parse_args()
     os.makedirs(args.directory, exist_ok=True)
-    if not args.pdb == None:
+    if args.pdb is not None:
         pdb_id = args.pdb + "_"
     else:
         pdb_id = ""
