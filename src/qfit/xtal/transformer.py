@@ -79,6 +79,8 @@ def fft_map_coefficients(map_coeffs,
 class _BaseTransformer(ABC):
     """
     Abstract base class for all transformer implementations.
+    
+    Includes caching for expensive xray structure computations.
     """
     def __init__(
         self,
@@ -97,6 +99,10 @@ class _BaseTransformer(ABC):
         self.smin = smin
         self.smax = smax
         self.simple = simple
+        # Cache for xray structure computations
+        self._xrs_cache = None
+        self._xrs_box_cache = None
+        self._dxyz_cache = None
 
     def get_masked_selection(self):
         return self.xmap.array > 0
@@ -104,10 +110,23 @@ class _BaseTransformer(ABC):
     # not abstract, just no-op by default
     def initialize(self):
         ...
+    
+    def invalidate_cache(self):
+        """Invalidate cached xray structure data. Call when structure changes."""
+        self._xrs_cache = None
+        self._xrs_box_cache = None
+        self._dxyz_cache = None
 
     def reset(self, rmax=None, full=False):
+        """Reset map data to zero.
+        
+        Args:
+            rmax: Radius for masked reset. If None, uses default rmax.
+            full: If True, reset entire map and invalidate caches.
+        """
         if full:
             self.xmap.array.fill(0)
+            self.invalidate_cache()
         else:
             self.mask(rmax=rmax, value=0.0)
 
@@ -132,7 +151,16 @@ class _BaseTransformer(ABC):
         mask_sel = self._get_cctbx_mask(xrs, rmax)
         self.xmap.mask_with_value(mask_sel, value)
 
-    def _get_xray_structure(self):
+    def _get_xray_structure(self, use_cache=True):
+        """Get xray structure, with optional caching.
+        
+        Args:
+            use_cache: If True, use cached xrs if available. Set to False
+                      when structure has been modified.
+        """
+        if use_cache and self._xrs_cache is not None:
+            return self._xrs_cache
+            
         symm = self.structure.crystal_symmetry
         if not symm:
             symm = self.xmap.get_p1_crystal_symmetry()
@@ -145,16 +173,35 @@ class _BaseTransformer(ABC):
             xrs.scattering_type_registry(table="electron")
         else:
             xrs.scattering_type_registry(table="n_gaussian")
+        
+        if use_cache:
+            self._xrs_cache = xrs
         return xrs
 
-    def _get_xray_structure_in_box(self):
+    def _get_xray_structure_in_box(self, use_cache=True):
+        """Get xray structure transformed to box coordinates.
+        
+        Args:
+            use_cache: If True, use cached result if available. Set to False
+                      when structure has been modified.
+        
+        Returns:
+            tuple: (xray_structure, delta_xyz_cart) where delta_xyz_cart is the
+                   coordinate shift applied to the structure
+        """
+        if use_cache and self._xrs_box_cache is not None:
+            return self._xrs_box_cache
+        
         # XXX the logic in here is a simplified version of the approach in
         # mmtbx.utils.extract_box_around_model_and_map.  in the future it
         # would be better to use that wrapper directly in qfit, in place
         # of the calls to xmap.extract()
-        xrs = self._get_xray_structure()
+        xrs = self._get_xray_structure(use_cache=use_cache)
         if self.xmap.is_canonical_unit_cell() and self.em:
-            return xrs.expand_to_p1(), 0
+            result = (xrs.expand_to_p1(), 0)
+            if use_cache:
+                self._xrs_box_cache = result
+            return result
         # XXX note that a lot of this math is technically unnecessary if the
         # map is already a canonical P1 box, but dealing with this up front
         # allows us to modify the extracted cctbx.xray.structure object in
@@ -184,7 +231,12 @@ class _BaseTransformer(ABC):
         sites_frac = uc_box.fractionalize(sites_cart)
         xrs_shifted = xrs_p1_box.customized_copy(unit_cell=uc_box)
         xrs_shifted.set_sites_frac(sites_frac)
-        return xrs_shifted, delta_xyz_cart
+        
+        result = (xrs_shifted, delta_xyz_cart)
+        if use_cache:
+            self._xrs_box_cache = result
+            self._dxyz_cache = delta_xyz_cart
+        return result
 
     def _get_cctbx_mask(self, xrs, rmax, sites_cart=None):
         """
