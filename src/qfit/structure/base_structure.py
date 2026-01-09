@@ -279,12 +279,12 @@ class BaseStructure(ABC):
         raise ValueError("Don't know how to write format for '{}'!".format(fname))
 
     def to_pdb_file(self, fname, cryst=None):
-        if cryst != None:
+        if cryst is not None:
             self.crystal_symmetry = cryst
         return write_pdb(fname, self)
 
     def to_mmcif_file(self, fname, cryst=None):
-        if cryst != None:
+        if cryst is not None:
             self.crystal_symmetry = cryst
         return write_mmcif(fname, self)
 
