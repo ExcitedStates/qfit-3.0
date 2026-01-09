@@ -91,7 +91,7 @@ class subset_str:
 
         lig_structure = self.select_lig()
         lig_overlap = self.select_close_ligands()
-        if not lig_overlap == None:
+        if lig_overlap is not None:
             with open(self.pdb_apo + "ligand_overlap.txt", "w") as file:
                 file.write(lig_overlap)
         substructure_apo, substructure_holo = self.select_close_residues()
