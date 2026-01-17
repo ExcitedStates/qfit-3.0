@@ -21,7 +21,7 @@ def parse_args():
     )
     p.add_argument(
         "--run_rotamer",
-        action="store_true", 
+        action="store_true", c
         help="Option to run rotamer-based collapse of conformers."
     )
     # Output options
@@ -505,7 +505,6 @@ def main():
     n_removed = np.sum(mask)
 
     # Get list of all non-hetatom residue
-    n_removed = 0  # keep track of the residues we are removing
     # Loop through structure, redistributing occupancy from altconfs below cutoff to above cutoff
     for chain in structure:
         for residue in chain:
@@ -515,7 +514,6 @@ def main():
                 collapse_conformers_by_rotamer(residue, args.angle_tol)
             else:
                 redistribute_occupancies_by_residue(residue, args.occ_cutoff)
-                n_removed += 1
 
     # Create structure without low occupancy confs (culling)
     structure = structure.copy().get_selected_structure(~mask).reorder()
