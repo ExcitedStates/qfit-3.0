@@ -274,12 +274,16 @@ class QFitProtein:
             else:
                 residue_id = int(resi)
                 icode = ""
-            # Extract the residue:
-            resi_sel = f"resi {resi} and chain {chainid}"
+            # Extract the residue using attribute-based selection to handle icodes.
+            structure_resi = (
+                self.structure
+                .extract("chain", chainid, "==")
+                .extract("resi", int(resi), "==")
+            )
             if icode:
-                resi_sel += f" and icode {icode}"
+                structure_resi = structure_resi.extract("icode", icode, "==")
             residues = list(
-                self.structure.extract(resi_sel)
+                structure_resi
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
@@ -528,6 +532,22 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
     # Set up logger hierarchy in this subprocess
     poolworker_setup_logging(logqueue)
 
+    def _select_residue_structure(structure_obj, residue_obj, chainid, resi, icode):
+        """
+        Select the residue from structure_obj, handling insertion codes.
+        Falls back to atom serial selection if resi/icode filtering yields no atoms.
+        """
+        structure_resi = (
+            structure_obj
+            .extract("chain", chainid, "==")
+            .extract("resi", resi, "==")
+        )
+        if icode:
+            structure_resi = structure_resi.extract("icode", icode, "==")
+        if structure_resi.natoms == 0:
+            structure_resi = structure_obj.extract("atomid", residue_obj.atomid, "==")
+        return structure_resi
+
     # Exit early if we have already run qfit for this residue
     fname = os.path.join(options.directory,
                          residue.shortcode,
@@ -556,11 +576,10 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
             logger.info(
                 f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
             )
-            resi_selstr = f"chain {chainid} and resi {resi}"
-            if icode:
-                resi_selstr += f" and icode {icode}"
             structure_new = structure
-            structure_resi = structure.extract(resi_selstr)
+            structure_resi = _select_residue_structure(
+                structure, residue, chainid, resi, icode
+            )
             chain = structure_resi[chainid]
             conformer = chain.conformers[0]
             residue = conformer[residue.id]
@@ -569,11 +588,10 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
 
     # Copy the structure
     (chainid, resi, icode) = residue.identifier_tuple
-    resi_selstr = f"chain {chainid} and resi {resi}"
-    if icode:
-        resi_selstr += f" and icode {icode}"
     structure_new = structure.copy()
-    structure_resi = structure_new.extract(resi_selstr)
+    structure_resi = _select_residue_structure(
+        structure_new, residue, chainid, resi, icode
+    )
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue.id]
@@ -584,9 +602,14 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
         except ValueError:
             pass
         for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure_new = structure_new.extract(sel_str)
+            remove_mask = (
+                (structure_new.chain == chainid)
+                & (structure_new.resi == resi)
+                & (structure_new.altloc == altloc)
+            )
+            if icode:
+                remove_mask &= (structure_new.icode == icode)
+            structure_new = structure_new.extract(np.flatnonzero(~remove_mask))
 
     # add multiple backbone positions
 
