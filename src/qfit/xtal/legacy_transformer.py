@@ -428,7 +428,11 @@ class Transformer:
         Get the combined map mask (as a numpy boolean array) for a series of
         coordinates for the current structure.
         """
-        assert len(coor_set) > 0
+        if len(coor_set) == 0:
+            logger.warning(
+                "No conformers provided for mask; using input conformer."
+            )
+            coor_set = [self.structure.coor]
         self.reset(full=True)
         logger.debug(f"Masking {len(coor_set)} conformations")
         for coor in coor_set:
@@ -444,7 +448,16 @@ class Transformer:
         B-factors and compute the density for each, without modifying the
         internal data structures.
         """
-        assert len(coor_set) == len(b_set) and len(coor_set) > 0
+        if len(coor_set) == 0:
+            logger.warning(
+                "No conformers provided for densities; using input conformer."
+            )
+            coor_set = [self.structure.coor]
+            b_set = [self.structure.b]
+        if len(coor_set) != len(b_set):
+            raise RuntimeError(
+                "Coordinate and B-factor sets have different lengths."
+            )
         for coor, b in zip(coor_set, b_set):
             self.structure.coor = coor
             self.structure.b = b
