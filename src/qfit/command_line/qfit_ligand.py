@@ -153,18 +153,22 @@ def prepare_qfit_ligand(options):
     else:
         residue_id = int(resi)  # pylint: disable=unused-variable
         icode = ""
+    resi_int = int(resi)
 
-    # Extract the ligand:
-    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
-
+    # Extract the ligand using attribute-based selection (handles icodes).
+    structure_ligand = (
+        structure
+        .extract("chain", chainid, "==")
+        .extract("resi", resi_int, "==")
+    )
     if icode:
-        structure_ligand = structure_ligand.extract("icode", icode)
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
+        structure_ligand = structure_ligand.extract("icode", icode, "==")
 
-    receptor = structure.extract(
-        sel_str
-    )  # selecting everything that is not the ligand of interest
+    # Select everything that is not the ligand of interest.
+    exclude_mask = (structure.chain == chainid) & (structure.resi == resi_int)
+    if icode:
+        exclude_mask &= (structure.icode == icode)
+    receptor = structure.extract(np.flatnonzero(~exclude_mask))
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -176,9 +180,16 @@ def prepare_qfit_ligand(options):
         except ValueError:
             pass
         for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure_ligand = structure_ligand.extract(sel_str)
+            remove_mask = (
+                (structure_ligand.chain == chainid)
+                & (structure_ligand.resi == resi_int)
+                & (structure_ligand.altloc == altloc)
+            )
+            if icode:
+                remove_mask &= (structure_ligand.icode == icode)
+            structure_ligand = structure_ligand.extract(
+                np.flatnonzero(~remove_mask)
+            )
     altloc = structure_ligand.altloc[-1]
 
     ligand = Ligand.from_structure(structure_ligand, options.cif_file)
