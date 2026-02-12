@@ -275,8 +275,11 @@ class QFitProtein:
                 residue_id = int(resi)
                 icode = ""
             # Extract the residue:
+            resi_sel = f"resi {resi} and chain {chainid}"
+            if icode:
+                resi_sel += f" and icode {icode}"
             residues = list(
-                self.structure.extract(f"resi {resi} and chain {chainid}")
+                self.structure.extract(resi_sel)
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
@@ -292,17 +295,23 @@ class QFitProtein:
         for residue in residues:
             grouped_coords = {}
             grouped_u_matrices = {}
-            residue_chain_key = (residue.resi[0], residue.chain[0].replace('"', ""))
+            residue_chain_key = (
+                residue.chain[0].replace('"', ""),
+                residue.resi[0],
+                residue.id[1],
+            )
             if residue_chain_key not in backbone_coor_dict:
                 backbone_coor_dict[residue_chain_key] = {}
             for altloc in np.unique(
                 self.structure.extract("chain", residue.chain[0], "==")
                 .extract("resi", residue.resi[0], "==")
+                .extract("icode", residue.id[1], "==")
                 .altloc
             ):
                 grouped_coords[altloc] = (
                     self.structure.extract("chain", residue.chain[0], "==")
                     .extract("resi", residue.resi[0], "==")
+                    .extract("icode", residue.id[1], "==")
                     .extract("altloc", altloc)
                     .coor
                 )
@@ -313,6 +322,7 @@ class QFitProtein:
                 atom = (
                     self.structure.extract("chain", residue.chain[0], "==")
                     .extract("resi", residue.resi[0], "==")
+                    .extract("icode", residue.id[1], "==")
                     .extract("name", atom_name)
                     .extract("altloc", altloc)
                 )
@@ -580,24 +590,34 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
 
     # add multiple backbone positions
 
-    chain_resi_id = f"{resi}, '{chainid}'"
-    chain_resi_id = (resi, chainid)
+    chain_resi_id = (chainid, resi, icode)
+    if chain_resi_id not in backbone_coor_dict:
+        logger.warning(
+            f"[{residue.shortcode}] No backbone coordinates found for insertion; "
+            "falling back to base residue index."
+        )
+        chain_resi_id = (chainid, resi, "")
     options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
     # Exception handling in case qFit-residue fails:
-    qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
+    qfit = None
     try:
+        qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
         qfit.run()
     except RuntimeError as e:
         tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
+        identifier = getattr(qfit, "identifier", residue.shortcode)
         logger.warning(
-            f"[{qfit.identifier}] "
+            f"[{identifier}] "
             f"Unable to produce an alternate conformer. "
             f"Using deposited conformer A for this residue."
         )
         logger.info(
-            f"[{qfit.identifier}] This is a result of the following exception:\n"
+            f"[{identifier}] This is a result of the following exception:\n"
             f"{tb})"
         )
+        if qfit is None:
+            residue.tofile(fname)
+            return f"[{identifier}]: 1 conformer"
         qfit.reset_residue(residue, structure)
 
     # Save multiconformer_residue
