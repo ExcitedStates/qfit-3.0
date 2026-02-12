@@ -316,10 +316,24 @@ class _BaseQFit(ABC):
         Optimized to pre-allocate memory and use efficient numpy operations.
         """
         logger.info("Converting conformers to density")
-        nmodels = len(self._coor_set)
+        if not self._coor_set:
+            logger.warning(
+                "No conformers available; falling back to input conformer."
+            )
+            coor_set = [self.conformer.coor]
+            b_set = [self.conformer.b]
+            occupancies = [self.conformer.q]
+        else:
+            coor_set = self._coor_set
+            b_set = self._bs
+            occupancies = self._occupancies
+        self._coor_set = coor_set
+        self._bs = b_set
+        self._occupancies = occupancies
+        nmodels = len(coor_set)
         
         # Get mask once for all conformers
-        mask = self._transformer.get_conformers_mask(self._coor_set, self._rmask)
+        mask = self._transformer.get_conformers_mask(coor_set, self._rmask)
         nvalues = mask.sum()
         logger.debug("%d grid points masked out of %s", nvalues, mask.size)
         
@@ -340,7 +354,7 @@ class _BaseQFit(ABC):
         # Process conformers - the transformer's get_conformers_densities is a generator
         # that yields densities one at a time to save memory
         for n, density in enumerate(self._transformer.get_conformers_densities(
-                                    self._coor_set, self._bs)):
+                                    coor_set, b_set)):
             if save_debug_maps_prefix:
                 self.xmap.save_masked_map(
                     mask,
