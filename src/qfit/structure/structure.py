@@ -1,5 +1,6 @@
 from collections import defaultdict
 import itertools
+import logging
 import os
 import iotbx.pdb.hierarchy
 
@@ -14,6 +15,8 @@ from .ligand import Ligand
 from .residue import Residue, RotamerResidue, residue_type
 from .rotamers import ROTAMERS
 from qfit.utils.normalize_to_precision import normalize_to_precision
+
+logger = logging.getLogger(__name__)
 
 
 class Structure(BaseStructure):
@@ -89,7 +92,7 @@ class Structure(BaseStructure):
             chain_id =chain.id
             for conformer in chain.conformers:
                 for residue in conformer.residues:
-                    key = (chain_id, residue.resi[0])
+                    key = (chain_id, residue.id)
                     if key in residues_d:
                       continue
                     residues_d.add(key)
@@ -113,7 +116,14 @@ class Structure(BaseStructure):
         # non-protein atoms separately, the internal grouping should be changed
         # to reflect that as well
         chains_d = defaultdict(list)
-        for iotbx_chain in hierarchy.only_model().chains():
+        models = list(hierarchy.models())
+        if len(models) != 1:
+            logger.warning(
+                "Multiple models detected (%d); using first model only.",
+                len(models),
+            )
+        model = models[0]
+        for iotbx_chain in model.chains():
             chains_d[iotbx_chain.id].append(iotbx_chain)
         sel_cache = hierarchy.atom_selection_cache()
         for chain_id, chains in chains_d.items():
@@ -156,6 +166,8 @@ class Structure(BaseStructure):
         sel_str = f"resi {resid} and chain {chainid}"
         conformers = self.extract(sel_str)
         altlocs = sorted(list(set(conformers.altloc)))
+        if len(altlocs) == 0:
+            return self.copy()
         altloc_keep = altlocs[0]
         altlocs_remove = altlocs[1:]
         if len(altlocs_remove) == 0:
@@ -244,16 +256,27 @@ class Structure(BaseStructure):
                         multiconformer.set_occupancies(1.0, mask.iselection())
                         altlocs.remove("")
                     conformers = []
+                    valid_altlocs = []
                     for altloc in altlocs:
                         sel_str = f"{base_sel_str} and altloc {altloc}"
-                        conformers.append(self.extract(sel_str))
+                        conf = self.extract(sel_str)
+                        if conf.q.size == 0:
+                            continue
+                        conformers.append(conf)
+                        valid_altlocs.append(altloc)
+                    if not conformers:
+                        continue
                     alt_sum = 0
                     for i in range(0, len(conformers)):
                         alt_sum += np.round(conformers[i].q[0], 2)
                         new_occ = np.append(new_occ, (np.round(conformers[i].q[0], 2)))
-                    if alt_sum != 1.0:  # we need to normalize
+                    if alt_sum == 0:
+                        new_occ = normalize_to_precision(
+                            np.full(len(conformers), 1.0 / len(conformers)), 2
+                        )
+                    elif alt_sum != 1.0:  # we need to normalize
                         new_occ = []
-                        for i in range(0, len(altlocs)):
+                        for i in range(0, len(valid_altlocs)):
                             new_occ = np.append(
                                 new_occ, ((np.round(conformers[i].q[0], 2)) / alt_sum)
                             )
@@ -261,7 +284,7 @@ class Structure(BaseStructure):
                             np.array(new_occ), 2
                         )  # deal with imprecision
                     for i in range(0, len(new_occ)):
-                        sel_str = f"{base_sel_str} and altloc {altlocs[i]}"
+                        sel_str = f"{base_sel_str} and altloc {valid_altlocs[i]}"
                         mask = self.get_atom_selection(sel_str)
                         multiconformer.set_occupancies(new_occ[i], mask.iselection())
         return multiconformer
