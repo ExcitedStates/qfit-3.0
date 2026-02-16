@@ -316,7 +316,7 @@ class _BaseQFit(ABC):
         Optimized to pre-allocate memory and use efficient numpy operations.
         """
         logger.info("Converting conformers to density")
-        if not self._coor_set:
+        if self._coor_set is None or len(self._coor_set) == 0:
             logger.warning(
                 "No conformers available; falling back to input conformer."
             )
