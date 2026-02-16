@@ -147,8 +147,11 @@ def prepare_qfit_ligand(options):
         structure = structure.extract("e", "H", "!=")
 
     chainid, resi = options.selection.split(",")
+    chainid = chainid.strip()
+    resi = resi.strip()
     if ":" in resi:
         resi, icode = resi.split(":")
+        icode = icode.strip()
         residue_id = (int(resi), icode)  # pylint: disable=unused-variable
     else:
         residue_id = int(resi)  # pylint: disable=unused-variable
@@ -161,12 +164,12 @@ def prepare_qfit_ligand(options):
         .extract("chain", chainid, "==")
         .extract("resi", resi_int, "==")
     )
-    if icode:
+    if icode != "":
         structure_ligand = structure_ligand.extract("icode", icode, "==")
 
     # Select everything that is not the ligand of interest.
     exclude_mask = (structure.chain == chainid) & (structure.resi == resi_int)
-    if icode:
+    if icode != "":
         exclude_mask &= (structure.icode == icode)
     receptor = structure.extract(np.flatnonzero(~exclude_mask))
 
@@ -185,7 +188,7 @@ def prepare_qfit_ligand(options):
                 & (structure_ligand.resi == resi_int)
                 & (structure_ligand.altloc == altloc)
             )
-            if icode:
+            if icode != "":
                 remove_mask &= (structure_ligand.icode == icode)
             structure_ligand = structure_ligand.extract(
                 np.flatnonzero(~remove_mask)
@@ -264,12 +267,12 @@ def main():
         fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
         conformer.tofile(fname)
         conformer.altloc = altloc
-        if not multiconformer_ligand_bound:
+        if multiconformer_ligand_bound is None:
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
         else:
             multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
 
-    if not multiconformer_ligand_bound:
+    if multiconformer_ligand_bound is None:
         logger.error("qFit-ligand failed to produce any valid conformers.")
         return 1
 
@@ -284,7 +287,7 @@ def main():
     fname = os.path.join(
         options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
     )
-    if icode:
+    if icode != "":
         fname = os.path.join(
             options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
         )
