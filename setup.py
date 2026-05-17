@@ -36,6 +36,10 @@ def main():
         "rdkit",
     ]
 
+    extras_require = {
+        "torch": ["torch>=2.0"],
+    }
+
     setup(
         name="qfit",
         use_scm_version=True,
@@ -48,6 +52,7 @@ def main():
         ext_modules=ext_modules,
         setup_requires=setup_requires,
         install_requires=install_requires,
+        extras_require=extras_require,
         zip_safe=False,
         python_requires=">=3.9",
         entry_points={
