@@ -143,7 +143,7 @@ echo "refinement.output.write_maps=False"            >> ${pdb_name}_refine.param
 
 phenix.refine  "${multiconf}.f_modified.updated.pdb" \
                "${pdb_name}.mtz" \
-	       "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
+	            "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
                "refine.strategy=*individual_sites" \
                "output.prefix=${pdb_name}" \
                "output.serial=2" \
@@ -158,7 +158,7 @@ create_restraints_file.py "${pdb_name}_002.pdb"
 
 #__________________________________REFINE UNTIL OCCUPANCIES CONVERGE__________________________________
 # Write refinement parameters into parameters file
-echo "refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_occ_refine.params
+echo "refine.strategy=*individual_sites*individual_adp*occupancies"  > ${pdb_name}_occ_refine.params
 echo "output.prefix=${pdb_name}"                                      >> ${pdb_name}_occ_refine.params
 echo "output.serial=3"                                                >> ${pdb_name}_occ_refine.params
 echo "refinement.main.number_of_macro_cycles=5"                       >> ${pdb_name}_occ_refine.params
@@ -179,7 +179,7 @@ while [ $zeroes -gt 1 ]; do
       phenix.refine "${pdb_name}_002.pdb" \
                     "${pdb_name}_002.mtz" \
 		    "refinement.input.monomers.file_name=elbow.multiconformer_model2_pdb_f_modified_pdb.all.cif" \
-                    "refine.strategy=*individual_sites *individual_adp *occupancies" \
+                    "refine.strategy=*individual_sites*individual_adp*occupancies" \
                     "output.prefix=${pdb_name}" \
                     "output.serial=3" \
                     "refinement.main.number_of_macro_cycles=5" \
@@ -190,7 +190,7 @@ while [ $zeroes -gt 1 ]; do
     else
         phenix.refine "${pdb_name}_002.pdb" \
                     "${pdb_name}_002.mtz" \
-                    "refine.strategy=*individual_sites *individual_adp *occupancies" \
+                    "refine.strategy=*individual_sites*individual_adp*occupancies" \
                     "output.prefix=${pdb_name}" \
                     "output.serial=3" \
                     "refinement.main.number_of_macro_cycles=5" \
@@ -237,7 +237,7 @@ cp -v "${pdb_name}_002.pdb" "${pdb_name}_004.pdb"
 phenix.elbow ${pdb_name}_004.pdb --do_all
 
 # Write refinement parameters into parameters file
-echo "refine.strategy=*individual_sites *individual_adp *occupancies"  >> ${pdb_name}_final_refine.params
+echo "refine.strategy=*individual_sites*individual_adp*occupancies"  >> ${pdb_name}_final_refine.params
 echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine.params
 echo "output.serial=5"                >> ${pdb_name}_final_refine.params
 echo "include_altlocs=True"           >> ${pdb_name}_final_refine.params
@@ -263,7 +263,7 @@ if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
 	    "refinement.input.monomers.file_name=elbow.${pdb_name}_004_pdb.all.cif" \
-            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "refine.strategy=*individual_sites*individual_adp*occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
@@ -280,7 +280,7 @@ if [ -f "elbow.${pdb_name}_004_pdb.all.cif" ]; then
  else
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
-            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "refine.strategy=*individual_sites*individual_adp*occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
@@ -298,7 +298,7 @@ fi
 
 #________________________________CHECK FOR REDUCE ERRORS______________________________
 if [ -f "reduce_failure.pdb" ]; then
-  echo "refinement.refine.strategy=*individual_sites *individual_adp *occupancies"  > ${pdb_name}_final_refine_noreduce.params
+  echo "refinement.refine.strategy=*individual_sites*individual_adp*occupancies"  > ${pdb_name}_final_refine_noreduce.params
   echo "output.prefix=${pdb_name}"      >> ${pdb_name}_final_refine_noreduce.params
   echo "output.serial=5"                >> ${pdb_name}_final_refine_noreduce.params
   echo "include_altlocs=True"           >> ${pdb_name}_final_refine_noreduce.params
@@ -333,7 +333,7 @@ if [ -f "reduce_failure.pdb" ]; then
  else
       phenix.refine "${pdb_name}_002.pdb" \
             "${pdb_name}_002.mtz" \
-            "refine.strategy=*individual_sites *individual_adp *occupancies" \
+            "refine.strategy=*individual_sites*individual_adp*occupancies" \
             "output.prefix=${pdb_name}" \
             "output.serial=5" \
             "refinement.main.number_of_macro_cycles=5" \
