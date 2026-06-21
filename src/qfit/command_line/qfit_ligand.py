@@ -147,24 +147,31 @@ def prepare_qfit_ligand(options):
         structure = structure.extract("e", "H", "!=")
 
     chainid, resi = options.selection.split(",")
+    chainid = chainid.strip()
+    resi = resi.strip()
     if ":" in resi:
         resi, icode = resi.split(":")
+        icode = icode.strip()
         residue_id = (int(resi), icode)  # pylint: disable=unused-variable
     else:
         residue_id = int(resi)  # pylint: disable=unused-variable
         icode = ""
+    resi_int = int(resi)
 
-    # Extract the ligand:
-    structure_ligand = structure.extract(f"resi {resi} and chain {chainid}")
+    # Extract the ligand using attribute-based selection (handles icodes).
+    structure_ligand = (
+        structure
+        .extract("chain", chainid, "==")
+        .extract("resi", resi_int, "==")
+    )
+    if icode != "":
+        structure_ligand = structure_ligand.extract("icode", icode, "==")
 
-    if icode:
-        structure_ligand = structure_ligand.extract("icode", icode)
-    sel_str = f"resi {resi} and chain {chainid}"
-    sel_str = f"not ({sel_str})"
-
-    receptor = structure.extract(
-        sel_str
-    )  # selecting everything that is no the ligand of interest
+    # Select everything that is not the ligand of interest.
+    exclude_mask = (structure.chain == chainid) & (structure.resi == resi_int)
+    if icode != "":
+        exclude_mask &= (structure.icode == icode)
+    receptor = structure.extract(np.flatnonzero(~exclude_mask))
 
     # Check which altlocs are present in the ligand. If none, take the
     # A-conformer as default.
@@ -176,15 +183,22 @@ def prepare_qfit_ligand(options):
         except ValueError:
             pass
         for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure_ligand = structure_ligand.extract(sel_str)
+            remove_mask = (
+                (structure_ligand.chain == chainid)
+                & (structure_ligand.resi == resi_int)
+                & (structure_ligand.altloc == altloc)
+            )
+            if icode != "":
+                remove_mask &= (structure_ligand.icode == icode)
+            structure_ligand = structure_ligand.extract(
+                np.flatnonzero(~remove_mask)
+            )
     altloc = structure_ligand.altloc[-1]
 
     ligand = Ligand.from_structure(structure_ligand, options.cif_file)
     if ligand.natoms == 0:
         raise RuntimeError(
-            "No atoms were selected for the ligand. Check " " the selection input."
+            "No atoms were selected for the ligand. Check the selection input."
         )
 
     ligand.altloc = ""
@@ -220,7 +234,7 @@ def main():
     p = build_argparser()
     args = p.parse_args()
     os.makedirs(args.directory, exist_ok=True)
-    if not args.pdb == None:
+    if args.pdb is not None:
         pdb_id = args.pdb + "_"
     else:
         pdb_id = ""
@@ -253,12 +267,12 @@ def main():
         fname = os.path.join(options.directory, f"conformer_{n}.{pdb_ext}")
         conformer.tofile(fname)
         conformer.altloc = altloc
-        if not multiconformer_ligand_bound:
+        if multiconformer_ligand_bound is None:
             multiconformer_ligand_bound = Structure.fromstructurelike(conformer.copy())
         else:
             multiconformer_ligand_bound = multiconformer_ligand_bound.combine(conformer)
 
-    if not multiconformer_ligand_bound:
+    if multiconformer_ligand_bound is None:
         logger.error("qFit-ligand failed to produce any valid conformers.")
         return 1
 
@@ -273,7 +287,7 @@ def main():
     fname = os.path.join(
         options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
     )
-    if icode:
+    if icode != "":
         fname = os.path.join(
             options.directory, f"{pdb_id}multiconformer_ligand_bound_with_protein.pdb"
         )

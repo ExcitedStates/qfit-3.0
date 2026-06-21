@@ -169,15 +169,43 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self.weights = None
 
     def find_redundant_conformers(self, threshold=1e-6):
+        """Find redundant conformers using vectorized distance calculations.
+        
+        Two conformers are redundant if their model density vectors have
+        L2 norm difference less than threshold.
+        
+        Optimized using set operations and efficient numpy comparisons.
+        """
+        redundant_set = set()
+        threshold_sq = threshold * threshold
+        
         for i in range(self.nconformers):
-            if i in self.redundant_indices:
+            if i in redundant_set:
                 continue
             self.valid_indices.append(i)
-            for j in range(i + 1, self.nconformers):
-                if j in self.redundant_indices:
-                    continue
-                if np.linalg.norm(self.models[i] - self.models[j]) < threshold:
-                    self.redundant_indices.append(j)
+            
+            # Vectorized comparison with all remaining conformers
+            remaining_indices = np.arange(i + 1, self.nconformers)
+            if len(remaining_indices) == 0:
+                continue
+                
+            # Filter out already-known redundant indices
+            mask = np.array([j not in redundant_set for j in remaining_indices])
+            candidates = remaining_indices[mask]
+            
+            if len(candidates) == 0:
+                continue
+            
+            # Compute squared distances efficiently
+            diff = self.models[candidates] - self.models[i]
+            dist_sq = np.einsum('ij,ij->i', diff, diff)
+            
+            # Find redundant conformers
+            redundant_mask = dist_sq < threshold_sq
+            new_redundant = candidates[redundant_mask]
+            redundant_set.update(new_redundant)
+        
+        self.redundant_indices = list(redundant_set)
         assert len(self.valid_indices) + len(self.redundant_indices) == self.nconformers
 
     def compute_quadratic_coeffs(self):
@@ -270,7 +298,7 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         # output correlations coefficient between INPUT MODEL density and target density 
         if self.in_model is not None and self.in_model.size > 0:
             input_corr = np.corrcoef(self.in_model, self.target)[0, 1]
-            print(f"RSCC for comparision model: {input_corr}")
+            print(f"RSCC for comparison model: {input_corr}")
             
         self.construct_weights()
 

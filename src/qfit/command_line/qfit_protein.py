@@ -274,9 +274,16 @@ class QFitProtein:
             else:
                 residue_id = int(resi)
                 icode = ""
-            # Extract the residue:
+            # Extract the residue using attribute-based selection to handle icodes.
+            structure_resi = (
+                self.structure
+                .extract("chain", chainid, "==")
+                .extract("resi", int(resi), "==")
+            )
+            if icode:
+                structure_resi = structure_resi.extract("icode", icode, "==")
             residues = list(
-                self.structure.extract(f"resi {resi} and chain {chainid}")
+                structure_resi
                 .extract("resn", "HOH", "!=")
                 .single_conformer_residues
             )
@@ -292,17 +299,23 @@ class QFitProtein:
         for residue in residues:
             grouped_coords = {}
             grouped_u_matrices = {}
-            residue_chain_key = (residue.resi[0], residue.chain[0].replace('"', ""))
+            residue_chain_key = (
+                residue.chain[0].replace('"', ""),
+                residue.resi[0],
+                residue.id[1],
+            )
             if residue_chain_key not in backbone_coor_dict:
                 backbone_coor_dict[residue_chain_key] = {}
             for altloc in np.unique(
                 self.structure.extract("chain", residue.chain[0], "==")
                 .extract("resi", residue.resi[0], "==")
+                .extract("icode", residue.id[1], "==")
                 .altloc
             ):
                 grouped_coords[altloc] = (
                     self.structure.extract("chain", residue.chain[0], "==")
                     .extract("resi", residue.resi[0], "==")
+                    .extract("icode", residue.id[1], "==")
                     .extract("altloc", altloc)
                     .coor
                 )
@@ -313,6 +326,7 @@ class QFitProtein:
                 atom = (
                     self.structure.extract("chain", residue.chain[0], "==")
                     .extract("resi", residue.resi[0], "==")
+                    .extract("icode", residue.id[1], "==")
                     .extract("name", atom_name)
                     .extract("altloc", altloc)
                 )
@@ -451,7 +465,7 @@ class QFitProtein:
                 # if not, we won't have a multiconformer_residue.pdb.
                 # Make sure to append it to the hetatms object so it stays in the final output.
                 if residue.resn[0] not in ROTAMERS:
-                    hetatms = self.hetatms.combine(residue)
+                    self.hetatms = self.hetatms.combine(residue)
                     continue
 
                 # Load the multiconformer_residue.pdb file
@@ -518,6 +532,22 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
     # Set up logger hierarchy in this subprocess
     poolworker_setup_logging(logqueue)
 
+    def _select_residue_structure(structure_obj, residue_obj, chainid, resi, icode):
+        """
+        Select the residue from structure_obj, handling insertion codes.
+        Falls back to atom serial selection if resi/icode filtering yields no atoms.
+        """
+        structure_resi = (
+            structure_obj
+            .extract("chain", chainid, "==")
+            .extract("resi", resi, "==")
+        )
+        if icode:
+            structure_resi = structure_resi.extract("icode", icode, "==")
+        if structure_resi.natoms == 0:
+            structure_resi = structure_obj.extract("atomid", residue_obj.atomid, "==")
+        return structure_resi
+
     # Exit early if we have already run qfit for this residue
     fname = os.path.join(options.directory,
                          residue.shortcode,
@@ -546,11 +576,10 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
             logger.info(
                 f"Residue {residue.shortcode}: Q-score is too low for this residue. Using deposited structure."
             )
-            resi_selstr = f"chain {chainid} and resi {resi}"
-            if icode:
-                resi_selstr += f" and icode {icode}"
             structure_new = structure
-            structure_resi = structure.extract(resi_selstr)
+            structure_resi = _select_residue_structure(
+                structure, residue, chainid, resi, icode
+            )
             chain = structure_resi[chainid]
             conformer = chain.conformers[0]
             residue = conformer[residue.id]
@@ -559,11 +588,10 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
 
     # Copy the structure
     (chainid, resi, icode) = residue.identifier_tuple
-    resi_selstr = f"chain {chainid} and resi {resi}"
-    if icode:
-        resi_selstr += f" and icode {icode}"
     structure_new = structure.copy()
-    structure_resi = structure_new.extract(resi_selstr)
+    structure_resi = _select_residue_structure(
+        structure_new, residue, chainid, resi, icode
+    )
     chain = structure_resi[chainid]
     conformer = chain.conformers[0]
     residue = conformer[residue.id]
@@ -574,30 +602,45 @@ def _run_qfit_residue(residue, structure, xmap, options, logqueue,
         except ValueError:
             pass
         for altloc in altlocs[1:]:
-            sel_str = f"resi {resi} and chain {chainid} and altloc {altloc}"
-            sel_str = f"not ({sel_str})"
-            structure_new = structure_new.extract(sel_str)
+            remove_mask = (
+                (structure_new.chain == chainid)
+                & (structure_new.resi == resi)
+                & (structure_new.altloc == altloc)
+            )
+            if icode:
+                remove_mask &= (structure_new.icode == icode)
+            structure_new = structure_new.extract(np.flatnonzero(~remove_mask))
 
     # add multiple backbone positions
 
-    chain_resi_id = f"{resi}, '{chainid}'"
-    chain_resi_id = (resi, chainid)
+    chain_resi_id = (chainid, resi, icode)
+    if chain_resi_id not in backbone_coor_dict:
+        logger.warning(
+            f"[{residue.shortcode}] No backbone coordinates found for insertion; "
+            "falling back to base residue index."
+        )
+        chain_resi_id = (chainid, resi, "")
     options.backbone_coor_dict = backbone_coor_dict[chain_resi_id]
     # Exception handling in case qFit-residue fails:
-    qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
+    qfit = None
     try:
+        qfit = QFitRotamericResidue(residue, structure_new, xmap, options)
         qfit.run()
     except RuntimeError as e:
         tb = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
+        identifier = getattr(qfit, "identifier", residue.shortcode)
         logger.warning(
-            f"[{qfit.identifier}] "
+            f"[{identifier}] "
             f"Unable to produce an alternate conformer. "
             f"Using deposited conformer A for this residue."
         )
         logger.info(
-            f"[{qfit.identifier}] This is a result of the following exception:\n"
+            f"[{identifier}] This is a result of the following exception:\n"
             f"{tb})"
         )
+        if qfit is None:
+            residue.tofile(fname)
+            return f"[{identifier}]: 1 conformer"
         qfit.reset_residue(residue, structure)
 
     # Save multiconformer_residue

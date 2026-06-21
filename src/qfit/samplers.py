@@ -213,8 +213,14 @@ class GlobalRotator(_BaseSampler):
 
 
 class ChiRotator(_BaseSampler):
-
-    """Rotate a residue around a chi-angle"""
+    """Rotate a residue around a chi-angle.
+    
+    Optimized with pre-computed rotation matrices and in-place operations.
+    """
+    
+    # Class-level cache for rotation matrices at common angles
+    _rotation_cache = {}
+    _cache_size_limit = 1000  # Limit cache size to prevent memory issues
 
     def __init__(self, residue, chi_index, covalent=None, length=None):
         self.residue = residue
@@ -242,17 +248,42 @@ class ChiRotator(_BaseSampler):
             atom_selection2 = self.residue.select("name", atoms_to_rotate2)
             tmp = list(self._atom_selection)
             tmp += list(atom_selection2)
-            self._atom_selection = np.array(tmp, dtype=int)
+            self._atom_selection = np.array(tmp, dtype=np.int32)
         self._coor_to_rotate = np.dot(
             self.residue.get_xyz(self._atom_selection) - self._origin, self._backward.T
         )
         self._tmp = np.zeros_like(self._coor_to_rotate)
 
     def __call__(self, angle):
-        R = self._forward @ Rz(np.deg2rad(angle))
+        """Apply rotation by the specified angle (degrees).
+        
+        Uses cached rotation matrices for common angles to improve performance.
+        """
+        # Try to use cached rotation matrix
+        angle_key = round(angle, 4)  # Round to avoid floating point key issues
+        if angle_key not in ChiRotator._rotation_cache:
+            # Compute and cache the combined rotation matrix
+            if len(ChiRotator._rotation_cache) < ChiRotator._cache_size_limit:
+                R = self._forward @ Rz(np.deg2rad(angle))
+                ChiRotator._rotation_cache[angle_key] = Rz(np.deg2rad(angle))
+            else:
+                # Cache full, compute without caching
+                R = self._forward @ Rz(np.deg2rad(angle))
+                np.dot(self._coor_to_rotate, R.T, self._tmp)
+                self._tmp += self._origin
+                self.residue.set_xyz(self._tmp, self._atom_selection)
+                return
+        
+        # Use cached Rz and compute final rotation
+        R = self._forward @ ChiRotator._rotation_cache[angle_key]
         np.dot(self._coor_to_rotate, R.T, self._tmp)
         self._tmp += self._origin
         self.residue.set_xyz(self._tmp, self._atom_selection)
+    
+    @classmethod
+    def clear_cache(cls):
+        """Clear the rotation matrix cache."""
+        cls._rotation_cache.clear()
 
 
 # XXX unused, delete?
@@ -393,11 +424,18 @@ class RotationSets:
     )
 
     _DATA_DIRECTORY = os.path.join(os.path.dirname(__file__), "data")
+    _rotmat_cache = {}  # Cache for loaded rotation matrices
 
     @classmethod
     def get_local_set(cls, fname="local_10_10.npy"):
-        quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
-        return cls.quats_to_rotmats(quats)
+        """Get rotation matrices for local sampling.
+        
+        Results are cached to avoid repeated file I/O and conversion.
+        """
+        if fname not in cls._rotmat_cache:
+            quats = np.load(os.path.join(cls._DATA_DIRECTORY, fname))
+            cls._rotmat_cache[fname] = cls.quats_to_rotmats(quats)
+        return cls._rotmat_cache[fname]
 
     @classmethod
     def local(cls, max_angle, nrots=100):

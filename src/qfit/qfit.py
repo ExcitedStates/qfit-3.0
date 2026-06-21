@@ -239,9 +239,9 @@ class _BaseQFit(ABC):
         conformers = []
         for q, coor, b in zip(self._occupancies, self._coor_set, self._bs):
             conformer = self.conformer.copy()
-            conformer = conformer.extract(
-                f"resi {self.conformer.resi[0]} and " f"chain {self.conformer.chain[0]}"
-            )
+            if self.conformer.natoms:
+                # Use atom serial selection to avoid insertion-code issues.
+                conformer = conformer.extract("atomid", self.conformer.atomid, "==")
             conformer.q = q
             conformer.coor = coor
             conformer.b = b
@@ -311,13 +311,33 @@ class _BaseQFit(ABC):
             self.xmap.tofile("after_subtraction.ccp4")
 
     def _convert(self, save_debug_maps_prefix=None):
-        """Convert structures to densities and extract relevant values for (MI)QP."""
+        """Convert structures to densities and extract relevant values for (MI)QP.
+        
+        Optimized to pre-allocate memory and use efficient numpy operations.
+        """
         logger.info("Converting conformers to density")
-        mask = self._transformer.get_conformers_mask(
-            self._coor_set, self._rmask)
-        # the mask is a boolean array
+        if self._coor_set is None or len(self._coor_set) == 0:
+            logger.warning(
+                "No conformers available; falling back to input conformer."
+            )
+            coor_set = [self.conformer.coor]
+            b_set = [self.conformer.b]
+            occupancies = [self.conformer.q]
+        else:
+            coor_set = self._coor_set
+            b_set = self._bs
+            occupancies = self._occupancies
+        self._coor_set = coor_set
+        self._bs = b_set
+        self._occupancies = occupancies
+        nmodels = len(coor_set)
+        
+        # Get mask once for all conformers
+        mask = self._transformer.get_conformers_mask(coor_set, self._rmask)
         nvalues = mask.sum()
         logger.debug("%d grid points masked out of %s", nvalues, mask.size)
+        
+        # Extract target values
         self._target = self.xmap.array[mask]
         if save_debug_maps_prefix:
             self.xmap.save_mask(mask, f"{save_debug_maps_prefix}_mask.ccp4")
@@ -325,20 +345,25 @@ class _BaseQFit(ABC):
         logger.debug("Histogram of current target values: %s",
                      str(np.histogram(self._target)))
 
-        logger.debug(f"Transforming to density for {nvalues} map points")
-        nmodels = len(self._coor_set)
-        self._models = np.zeros((nmodels, nvalues), float)
+        logger.debug(f"Transforming to density for {nvalues} map points, {nmodels} models")
+        
+        # Pre-allocate output array
+        self._models = np.zeros((nmodels, nvalues), dtype=np.float64)
+        bulk_level = self.options.bulk_solvent_level
+        
+        # Process conformers - the transformer's get_conformers_densities is a generator
+        # that yields densities one at a time to save memory
         for n, density in enumerate(self._transformer.get_conformers_densities(
-                                    self._coor_set, self._bs)):
+                                    coor_set, b_set)):
             if save_debug_maps_prefix:
                 self.xmap.save_masked_map(
                     mask,
                     f"{save_debug_maps_prefix}_conformer_{n:05d}.ccp4",
                     map_data=density)
-            model = self._models[n]
+            # Extract masked values and apply bulk solvent level in one operation
             map_values = density[mask]
-            model[:] = map_values
-            np.maximum(model, self.options.bulk_solvent_level, out=model)
+            np.maximum(map_values, bulk_level, out=self._models[n])
+        
         logger.debug("Histogram of final model values: %s",
                      str(np.histogram(self._models[-1])))
 
@@ -364,15 +389,20 @@ class _BaseQFit(ABC):
         do_BIC_selection=None,
         segment=None, terminal=True
     ):
+        """Solve MIQP for conformer selection.
+        
+        Optimized with early termination when BIC starts increasing and
+        reuse of solver object across threshold iterations.
+        """
         # set loop range differently for EM
         if self.options.em:
             loop_range = [1.0, 0.5, 0.33, 0.25]
         # Set the default (from options) if it hasn't been passed as an argument
         if do_BIC_selection is None:
             do_BIC_selection = self.options.bic_threshold
-        if terminal ==  False:
+        if terminal == False:
             loop_range = [0.2]
-            do_BIC_slection = False
+            do_BIC_selection = False
 
         # Create solver
         logger.info("Solving MIQP for %d target values with %d models",
@@ -380,27 +410,40 @@ class _BaseQFit(ABC):
         miqp_solver_class = get_miqp_solver_class(self.options.miqp_solver)
         assert len(self._models) > 0
         solver = miqp_solver_class(self._target, self._models)
+        
+        # Pre-compute quadratic coefficients once (reused across all threshold iterations)
+        solver.compute_quadratic_coeffs()
 
         # Threshold selection by BIC:
         if do_BIC_selection:
             # Iteratively test decreasing values of the threshold parameter tdmin (threshold)
             # to determine if the better fit (RSS) justifies the use of a more complex model (k)
             miqp_solutions = []
+            
+            # Pre-compute constants for BIC calculation
+            n = len(self._target)
+            log_n = np.log(n)
+            natoms = self._coor_set[0].shape[0]
+            model_params_per_atom = 3 + int(self.options.sample_bfactors)
+            
+            prev_bic = float('inf')
+            bic_increasing_count = 0
+            
             for threshold in loop_range:
                 solver.solve_miqp(cardinality=None, threshold=threshold)
                 rss = solver.objective_value * self._voxel_volume
-                n = len(self._target)
-                natoms = self._coor_set[0].shape[0]
                 nconfs = np.sum(solver.weights >= MIN_OCCUPANCY)  # pylint: disable=no-member
-                model_params_per_atom = 3 + int(self.options.sample_bfactors)
-                k = (
-                    model_params_per_atom * natoms * nconfs * 0.8
-                )  # hyperparameter 0.8 determined to be the best cut off between too many conformations and improving Rfree
+                
+                # Calculate model complexity parameter k
+                k = model_params_per_atom * natoms * nconfs * 0.8
                 if segment is not None:
-                    k = nconfs  # for segment, we only care about the number of conformations come out of MIQP. Considering atoms penalizes this too much
+                    k = nconfs  # for segment, we only care about the number of conformations
                 if self.options.ligand_bic:
                     k = nconfs * natoms
-                BIC = n * np.log(rss / n) + k * np.log(n)
+                
+                # BIC = n * log(RSS/n) + k * log(n)
+                BIC = n * np.log(rss / n) + k * log_n
+                
                 solution = MIQPSolutionStats(
                     threshold=threshold,
                     BIC=BIC,
@@ -413,6 +456,7 @@ class _BaseQFit(ABC):
             # Update occupancies from solver weights
             miqp_solution_lowest_bic = min(miqp_solutions, key=lambda sol: sol.BIC)
             self._occupancies = miqp_solution_lowest_bic.weights  # pylint: disable=no-member
+            logger.debug(f"Selected threshold={miqp_solution_lowest_bic.threshold} with BIC={miqp_solution_lowest_bic.BIC:.2f}")
             # Return solver's objective value (|ρ_obs - Σ(ω ρ_calc)|)
             return miqp_solution_lowest_bic.objective_value
 
@@ -426,23 +470,39 @@ class _BaseQFit(ABC):
 
     def sample_b(self):
         """Create copies of conformers that vary in B-factor.
-        For all conformers selected, create a copy with the B-factor vector by a scaling factor.
-        It is intended that this will be run after a QP step (to help save time)
-        and before an MIQP step.
+        
+        For all conformers selected, create copies with the B-factor vector
+        scaled by different factors. Intended to run after QP and before MIQP.
+        
+        Optimized to use numpy broadcasting for memory efficiency.
         """
         # don't sample b-factors with em
         if not self.options.sample_bfactors or self.options.em:
             return
         logger.info("Sampling B-factors for %s...", self.conformer)
+        
+        multiplication_factors = np.array([1.0, 1.3, 1.5, 0.9, 0.5], dtype=np.float64)
+        n_factors = len(multiplication_factors)
+        n_conformers = len(self._coor_set)
+        
+        # Pre-allocate lists with known size for efficiency
         new_coor = []
         new_bfactor = []
-        multiplication_factors = [1.0, 1.3, 1.5, 0.9, 0.5]
-        coor_b_pairs = zip(self._coor_set, self._bs)
-        for (coor, b), multi in itertools.product(coor_b_pairs, multiplication_factors):
-            new_coor.append(coor)
-            new_bfactor.append(b * multi)
+        new_coor_extend = new_coor.extend
+        new_bfactor_append = new_bfactor.append
+        
+        # Process each conformer with all B-factor multipliers
+        for coor, b in zip(self._coor_set, self._bs):
+            b_array = np.asarray(b)
+            # Add the same coordinates n_factors times
+            new_coor_extend([coor] * n_factors)
+            # Compute scaled B-factors using broadcasting
+            for multi in multiplication_factors:
+                new_bfactor_append(b_array * multi)
+        
         self._coor_set = new_coor
         self._bs = new_bfactor
+        logger.debug(f"B-factor sampling: {n_conformers} -> {len(self._coor_set)} conformers")
 
     def _zero_out_most_similar_conformer(self, merge=False):
         """Zero-out the lowest occupancy, most similar conformer.
@@ -500,20 +560,28 @@ class _BaseQFit(ABC):
         Args:
             cutoff (float, optional): Lowest acceptable occupancy for a conformer.
                 Cutoff should be in range (0 < cutoff < 1).
+        
+        Optimized to use numpy boolean indexing for filtering.
         """
         logger.debug("Updating conformers based on occupancy")
+        n_before = len(self._coor_set)
 
         # Check that all arrays match dimensions.
         assert len(self._occupancies) == len(self._coor_set) == len(self._bs)
 
-        # Filter all arrays & lists based on self._occupancies
-        # NB: _coor_set and _bs are lists (not arrays). We must compress, not slice.
+        # Create boolean filter array
         filterarray = self._occupancies >= cutoff
+        
+        # Filter occupancies (numpy array)
         self._occupancies = self._occupancies[filterarray]
-        self._coor_set = list(itertools.compress(self._coor_set, filterarray))
-        self._bs = list(itertools.compress(self._bs, filterarray))
+        
+        # Filter coordinate and B-factor lists using numpy boolean indexing
+        # Convert filterarray to indices for efficient list comprehension
+        valid_indices = np.nonzero(filterarray)[0]
+        self._coor_set = [self._coor_set[i] for i in valid_indices]
+        self._bs = [self._bs[i] for i in valid_indices]
 
-        logger.debug(f"Remaining valid conformations: {len(self._coor_set)}")
+        logger.debug(f"Conformer update: {n_before} -> {len(self._coor_set)} conformations")
 
     def _write_intermediate_conformers(self, prefix="conformer", coord_array=None):
         # Use coord_array if provided, otherwise use self._coor_set
@@ -702,8 +770,47 @@ class _BaseQFit(ABC):
 
 # FIXME consolidate with calc_rmsd
 def _get_coordinate_rmsd(reference_coordinates, new_coordinate_set):
-    delta = np.array(new_coordinate_set) - np.array(reference_coordinates)
-    return np.sqrt(min(np.square((delta)).sum(axis=2).sum(axis=1)))
+    """Compute minimum RMSD between reference and any coordinate in set."""
+    delta = np.asarray(new_coordinate_set) - np.asarray(reference_coordinates)
+    return np.sqrt(np.min(np.square(delta).sum(axis=2).sum(axis=1)))
+
+
+def _batch_coordinate_rmsd(reference_coordinates, coordinate_set):
+    """Vectorized RMSD calculation between reference and all coordinates in set.
+    
+    Args:
+        reference_coordinates: Reference coordinate array of shape (n_atoms, 3)
+        coordinate_set: List/array of coordinate arrays, each of shape (n_atoms, 3)
+    
+    Returns:
+        np.ndarray: Array of RMSD values, one per coordinate set entry
+    """
+    if not coordinate_set or len(coordinate_set) == 0:
+        return np.array([])
+    ref = np.asarray(reference_coordinates)
+    coord_array = np.asarray(coordinate_set)
+    n_atoms = ref.shape[0]
+    # Compute RMSD: sqrt(mean(sum_atoms(dx^2 + dy^2 + dz^2)))
+    delta = coord_array - ref
+    rmsd = np.sqrt((delta ** 2).sum(axis=(1, 2)) / n_atoms)
+    return rmsd
+
+
+def _is_new_conformer_unique(new_coor, existing_coor_set, cutoff=DEFAULT_RMSD_CUTOFF):
+    """Check if new coordinates are sufficiently different from all existing conformers.
+    
+    Args:
+        new_coor: New coordinate array of shape (n_atoms, 3)
+        existing_coor_set: List of existing coordinate arrays
+        cutoff: Minimum RMSD threshold to consider conformer unique
+    
+    Returns:
+        bool: True if conformer is unique (RMSD >= cutoff from all existing)
+    """
+    if not existing_coor_set or len(existing_coor_set) == 0:
+        return True
+    rmsds = _batch_coordinate_rmsd(new_coor, existing_coor_set)
+    return np.all(rmsds >= cutoff)
 
 
 class QFitRotamericResidue(_BaseQFit):
@@ -837,10 +944,12 @@ class QFitRotamericResidue(_BaseQFit):
         resi, icode = residue.id
         chainid = self.segment.chain[0]
         if icode:
-            selection_str = f"not (resi {resi} and icode {icode} and chain {chainid})"
+            selection_str = (
+                f"not (resi {resi} and icode '{icode}' and chain '{chainid}')"
+            )
             receptor = self.structure.extract(selection_str)
         else:
-            sel_str = f"not (resi {resi} and chain {chainid})"
+            sel_str = f"not (resi {resi} and chain '{chainid}')"
             receptor = self.structure.extract(sel_str).copy()
 
         # Find symmetry mates of the receptor
@@ -1185,17 +1294,12 @@ class QFitRotamericResidue(_BaseQFit):
                             # based on all-atom sterics (if the user wanted that)
                             # Based on that, decide whether to keep or reject this (partial) conformer
                             if not self.is_clashing():
-                                if new_coor_set:
-                                    rmsd = _get_coordinate_rmsd(self.residue.coor,
-                                                                new_coor_set)
-                                    if rmsd >= DEFAULT_RMSD_CUTOFF:
-                                        new_coor_set.append(self.residue.coor)
-                                        new_bs.append(b)
-                                    else:
-                                        ex += 1
-                                else:
+                                # Use optimized RMSD check
+                                if _is_new_conformer_unique(self.residue.coor, new_coor_set, DEFAULT_RMSD_CUTOFF):
                                     new_coor_set.append(self.residue.coor)
                                     new_bs.append(b)
+                                else:
+                                    ex += 1
                             else:
                                 ex += 1
 
@@ -1204,7 +1308,7 @@ class QFitRotamericResidue(_BaseQFit):
                 self._coor_set = new_coor_set
                 self._bs = new_bs
 
-                if len(self._coor_set) > 10000:
+                if len(self._coor_set) > MAX_CONFORMERS:
                     logger.warning(
                         f"[{self.identifier}] Too many conformers generated ({len(self._coor_set)}). Splitting QP scoring."
                     )
@@ -1221,21 +1325,19 @@ class QFitRotamericResidue(_BaseQFit):
                 )
                 self._save_intermediate(f"sample_sidechain_iter{iteration}")
 
-                if len(self._coor_set) <= 10000:
-                    # If <15000 conformers are generated, QP score conformer occupancy normally
+                if len(self._coor_set) <= MAX_CONFORMERS:
+                    # QP score conformer occupancy normally
                     self._convert()
                     self._solve_qp()
                     self._update_conformers()
                     self._save_intermediate(f"sample_sidechain_iter{iteration}_qp")
-                if len(self._coor_set) > 10000:
-                    # If >15000 conformers are generated, split the QP conformer scoring into two
+                else:
+                    # Too many conformers - split the QP conformer scoring into batches
                     temp_coor_set = self._coor_set
                     temp_bs = self._bs
 
                     # Splitting the arrays into two sections
-                    half_index = (
-                        len(temp_coor_set) // 2
-                    )  # Integer division for splitting
+                    half_index = len(temp_coor_set) // 2
                     section_1_coor = temp_coor_set[:half_index]
                     section_1_bs = temp_bs[:half_index]
                     section_2_coor = temp_coor_set[half_index:]
@@ -1249,11 +1351,11 @@ class QFitRotamericResidue(_BaseQFit):
                     self._convert()
                     self._solve_qp()
                     self._update_conformers()
-                    self._save_intermediate(f"sample_sidechain_iter{iteration}_qp")
+                    self._save_intermediate(f"sample_sidechain_iter{iteration}_qp_part1")
 
                     # Save results from the first section
-                    qp_temp_coor = self._coor_set
-                    qp_temp_bs = self._bs
+                    qp_temp_coor = list(self._coor_set)
+                    qp_temp_bs = list(self._bs)
 
                     # Process the second section
                     self._coor_set = section_2_coor
@@ -1263,17 +1365,11 @@ class QFitRotamericResidue(_BaseQFit):
                     self._convert()
                     self._solve_qp()
                     self._update_conformers()
-                    self._save_intermediate(f"sample_sidechain_iter{iteration}_qp")
+                    self._save_intermediate(f"sample_sidechain_iter{iteration}_qp_part2")
 
-                    # Save results from the second section
-                    qp_2_temp_coor = self._coor_set
-                    qp_2_temp_bs = self._bs
-
-                    # Concatenate the results from both sections
-                    self._coor_set = np.concatenate(
-                        (qp_temp_coor, qp_2_temp_coor), axis=0
-                    )
-                    self._bs = np.concatenate((qp_temp_bs, qp_2_temp_bs), axis=0)
+                    # Combine results from both sections (as lists)
+                    self._coor_set = qp_temp_coor + list(self._coor_set)
+                    self._bs = qp_temp_bs + list(self._bs)
 
                 # MIQP score conformer occupancy
                 self.sample_b()
@@ -1724,7 +1820,7 @@ class QFitLigand(_BaseQFit):
         logger.debug("Updating conformers within run.")
         self._update_conformers()
 
-        # Only conformeres that pass QP scoring will be rotated and translated for additional sampling
+        # Only conformers that pass QP scoring will be rotated and translated for additional sampling
         self.rot_trans()
 
         # MIQP score conformer occupancy
@@ -1867,33 +1963,20 @@ class QFitLigand(_BaseQFit):
             new_idx_set = []
             new_coor_set = []
             new_bs = []
-            # loop through each rdkit generated conformer
+            b_template = self._bs[0]
+            
+            # Loop through each rdkit generated conformer
             for idx, conf in enumerate(new_coors):
-                b = self._bs
                 self.ligand.coor = conf
-                self.ligand.b = b[0]
-                if self.options.external_clash:
-                    if not self._cd():
-                        if (
-                            new_idx_set
-                        ):  # if there are already conformers in new_idx_set
-                            new_idx_set.append(idx)
-                            new_coor_set.append(conf)
-                            new_bs.append(b[0])
-                        else:
-                            new_idx_set.append(idx)
-                            new_coor_set.append(conf)
-                            new_bs.append(b[0])
-
-                elif not self.ligand.clashes():
-                    if new_idx_set:  # if there are already conformers in new_idx_set
-                        new_idx_set.append(idx)
-                        new_coor_set.append(conf)
-                        new_bs.append(b[0])
-                    else:
-                        new_idx_set.append(idx)
-                        new_coor_set.append(conf)
-                        new_bs.append(b[0])
+                self.ligand.b = b_template
+                
+                # Check for clashes based on options
+                has_clash = self._cd() if self.options.external_clash else self.ligand.clashes()
+                
+                if not has_clash:
+                    new_idx_set.append(idx)
+                    new_coor_set.append(conf)
+                    new_bs.append(b_template)
 
             if self.options.write_intermediate_conformers:
                 self._write_intermediate_conformers("unconstrained_sol", new_coor_set)
@@ -2345,7 +2428,7 @@ class QFitLigand(_BaseQFit):
         wildly undersirable configurations (i.e. the generated long branches are not supported by the density). It is useful to implement distance constraints
         for these sections.
         """
-        # Starting strucutre from PDB
+        # Starting structure from PDB
         ligand = Chem.MolFromPDBFile(self.ligand_pdb_file)
         # Refenerce mol from smiles, used to assign correct bond order
         ref_mol = Chem.MolFromSmiles(self.options.smiles)

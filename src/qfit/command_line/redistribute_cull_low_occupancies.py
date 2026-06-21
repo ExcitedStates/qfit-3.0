@@ -493,7 +493,7 @@ def main():
 
     structure = Structure.fromfile(args.structure)
 
-    # seperate het versus atom (het allowed to have <1 occ)
+    # separate het versus atom (het allowed to have <1 occ)
     hetatms = structure.extract("record", "HETATM", "==")
     structure = structure.extract("record", "HETATM", "!=")
 
