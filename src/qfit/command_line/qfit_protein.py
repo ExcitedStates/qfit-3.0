@@ -5,7 +5,7 @@ import os
 import time
 import logging
 import traceback
-import itertools as itl
+from collections import defaultdict
 
 import pandas as pd
 from tqdm import tqdm
@@ -21,6 +21,7 @@ from qfit.logtools import (
 )
 from qfit.qfit import (QFitOptions, QFitRotamericResidue, QFitSegment)
 from qfit import Structure
+from qfit.structure.base_structure import ANISOU_SCALE
 from qfit.structure.rotamers import ROTAMERS
 
 
@@ -243,6 +244,48 @@ class QFitProtein:
         """
         return self.xmap.extract(substructure.coor, padding=self.options.padding)
 
+    def _build_backbone_coor_dict(self, residues):
+        """Collect, per residue and altloc, the coordinates of the residue's
+        atoms and the anisotropic U matrix of its CB atom (O for GLY).
+
+        Returns:
+            dict: {(chain, resi, icode): {"coords": {altloc: coor},
+                                          "u_matrices": {altloc: U or None}}}
+        """
+        # Read per-atom data once; per-residue structure.extract() calls each
+        # rebuild these arrays for the whole structure.
+        structure = self.structure
+        chains = structure.chain
+        resis = structure.resi
+        icodes = structure.icode
+        altlocs = structure.altloc
+        names = structure.name
+        coor = structure.coor
+        uij = np.array(structure.atoms.extract_uij()).reshape(-1, 6)
+
+        atoms_by_residue = defaultdict(list)
+        for index, key in enumerate(zip(chains, resis, icodes)):
+            atoms_by_residue[key].append(index)
+
+        backbone_coor_dict = {}
+        for residue in residues:
+            chain, resi, icode = residue.chain[0], residue.resi[0], residue.id[1]
+            residue_chain_key = (chain.replace('"', ""), resi, icode)
+            atom_name = "O" if residue.resn[0] == "GLY" else "CB"
+            indices = np.asarray(atoms_by_residue.get((chain, resi, icode), []),
+                                 dtype=int)
+            grouped_coords = {}
+            grouped_u_matrices = {}
+            for altloc in np.unique(altlocs[indices]):
+                altloc_indices = indices[altlocs[indices] == altloc]
+                grouped_coords[altloc] = coor[altloc_indices]
+                atom_indices = altloc_indices[names[altloc_indices] == atom_name]
+                grouped_u_matrices[altloc] = _anisou_matrix(uij[atom_indices])
+            entry = backbone_coor_dict.setdefault(residue_chain_key, {})
+            entry["coords"] = grouped_coords
+            entry["u_matrices"] = grouped_u_matrices
+        return backbone_coor_dict
+
     def _run_qfit_residue_parallel(self):
         """Run qfit independently over all residues."""
         # This function hands out the job in parallel to a Pool of Workers.
@@ -263,82 +306,13 @@ class QFitProtein:
         # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
         #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
         #    And then as we re-combine HETATMs back into the multiconformer_model.
-        if self.options.residue is not None:
-            chainid, resi = self.options.residue.split(",")
-            if ":" in resi:
-                resi, icode = resi.split(":")
-                residue_id = (int(resi), icode)  # pylint: disable=unused-variable
-            elif "_" in resi:
-                resi, icode = resi.split("_")
-                residue_id = (int(resi), icode)
-            else:
-                residue_id = int(resi)
-                icode = ""
-            # Extract the residue using attribute-based selection to handle icodes.
-            structure_resi = (
-                self.structure
-                .extract("chain", chainid, "==")
-                .extract("resi", int(resi), "==")
-            )
-            if icode:
-                structure_resi = structure_resi.extract("icode", icode, "==")
-            residues = list(
-                structure_resi
-                .extract("resn", "HOH", "!=")
-                .single_conformer_residues
-            )
+        residues = _select_residues_to_run(self.structure, self.options.residue)
 
-        else:
-            residues = list(
-                self.structure.extract("record", "HETATM", "!=")
-                .extract("resn", "HOH", "!=")
-                .single_conformer_residues
-            )
+        backbone_coor_dict = self._build_backbone_coor_dict(residues)
 
-        backbone_coor_dict = {}
-        for residue in residues:
-            grouped_coords = {}
-            grouped_u_matrices = {}
-            residue_chain_key = (
-                residue.chain[0].replace('"', ""),
-                residue.resi[0],
-                residue.id[1],
-            )
-            if residue_chain_key not in backbone_coor_dict:
-                backbone_coor_dict[residue_chain_key] = {}
-            for altloc in np.unique(
-                self.structure.extract("chain", residue.chain[0], "==")
-                .extract("resi", residue.resi[0], "==")
-                .extract("icode", residue.id[1], "==")
-                .altloc
-            ):
-                grouped_coords[altloc] = (
-                    self.structure.extract("chain", residue.chain[0], "==")
-                    .extract("resi", residue.resi[0], "==")
-                    .extract("icode", residue.id[1], "==")
-                    .extract("altloc", altloc)
-                    .coor
-                )
-                if residue.resn[0] == "GLY":
-                    atom_name = "O"
-                else:
-                    atom_name = "CB"
-                atom = (
-                    self.structure.extract("chain", residue.chain[0], "==")
-                    .extract("resi", residue.resi[0], "==")
-                    .extract("icode", residue.id[1], "==")
-                    .extract("name", atom_name)
-                    .extract("altloc", altloc)
-                )
-                try:
-                    u_matrix = atom.extract_anisous()[0]
-                except Exception:
-                    u_matrix = None
-                grouped_u_matrices[altloc] = u_matrix
-            backbone_coor_dict[residue_chain_key]["coords"] = grouped_coords
-            backbone_coor_dict[residue_chain_key]["u_matrices"] = grouped_u_matrices
-
-        # Filter the residues: take only those not containing checkpoints.
+        # Filter the residues: take only rotameric residues (others have
+        # nothing to sample, and are kept as-is when stitching below) that
+        # do not already have a checkpoint.
         def does_multiconformer_checkpoint_exist(residue):
             fname = self._get_partial_model_path(residue)
             if os.path.exists(fname):
@@ -347,9 +321,14 @@ class QFitProtein:
             else:
                 return False
 
-        residues_to_sample = list(
-            itl.filterfalse(does_multiconformer_checkpoint_exist, residues)
-        )
+        residues_to_sample = [
+            residue for residue in residues
+            if residue.resn[0] in ROTAMERS
+            and not does_multiconformer_checkpoint_exist(residue)
+        ]
+        # Start the most expensive residues first, so that a long-running
+        # residue does not end up as the last job while other workers idle.
+        residues_to_sample.sort(key=_estimated_sampling_cost, reverse=True)
 
         # Print execution stats
         logger.info(f"Residues to sample: {len(residues_to_sample)}")
@@ -387,18 +366,24 @@ class QFitProtein:
 
         # Here, we calculate alternate conformers for individual residues.
         if self.options.nproc > 1:
-            # If multiprocessing, launch a Pool and run Jobs
-            with ctx.Pool(processes=self.options.nproc, maxtasksperchild=4) as pool:
+            # If multiprocessing, launch a Pool and run Jobs.
+            # The structure is large and slow to unpickle, so it is sent to
+            # each worker once (initializer) rather than with every job; jobs
+            # only carry the residue identifier and the local map.
+            with ctx.Pool(
+                processes=self.options.nproc,
+                maxtasksperchild=WORKER_MAX_TASKS,
+                initializer=_init_worker,
+                initargs=(self.structure, backbone_coor_dict),
+            ) as pool:
                 futures = [
                     pool.apply_async(
-                        _run_qfit_residue,
+                        _run_qfit_residue_in_worker,
                         kwds={
-                            "residue": residue,
-                            "structure": self.structure,
+                            "residue_key": residue.identifier_tuple,
                             "xmap": self.get_map_around_substructure(residue),
                             "options": self.options,
                             "logqueue": logqueue,
-                            "backbone_coor_dict": backbone_coor_dict,
                         },
                         callback=_cb,
                         error_callback=_error_cb,
@@ -418,22 +403,18 @@ class QFitProtein:
         else:
             # Otherwise, run this in the MainProcess
             for residue in residues_to_sample:
-                if residue.resn[0] not in ROTAMERS:
-                   self.hetatms = self.hetatms.combine(residue)
-                   continue
-                else:
-                    try:
-                        result = _run_qfit_residue(
-                            residue=residue,
-                            structure=self.structure,
-                            xmap=self.get_map_around_substructure(residue),
-                            options=self.options,
-                            logqueue=logqueue,
-                            backbone_coor_dict=backbone_coor_dict,
-                        )
-                        _cb(result)
-                    except Exception as e:
-                        _error_cb(e)
+                try:
+                    result = _run_qfit_residue(
+                        residue=residue,
+                        structure=self.structure,
+                        xmap=self.get_map_around_substructure(residue),
+                        options=self.options,
+                        logqueue=logqueue,
+                        backbone_coor_dict=backbone_coor_dict,
+                    )
+                    _cb(result)
+                except Exception as e:
+                    _error_cb(e)
 
         # Close the progressbar
         progress.close()
@@ -460,12 +441,16 @@ class QFitProtein:
                 multiconformer_model = residue_multiconformer
 
         if self.options.residue is None:
+            # Collect the pieces first and combine them in a single call:
+            # every combine() rebuilds the hierarchy of the whole result.
+            non_rotameric = []
+            residue_multiconformers = []
             for residue in residues:
                 # Check the residue is a rotameric residue,
                 # if not, we won't have a multiconformer_residue.pdb.
                 # Make sure to append it to the hetatms object so it stays in the final output.
                 if residue.resn[0] not in ROTAMERS:
-                    self.hetatms = self.hetatms.combine(residue)
+                    non_rotameric.append(residue)
                     continue
 
                 # Load the multiconformer_residue.pdb file
@@ -476,15 +461,14 @@ class QFitProtein:
                         "Will not be present in multiconformer_model.pdb!"
                     )
                     continue
-                residue_multiconformer = Structure.fromfile(fname)
+                residue_multiconformers.append(Structure.fromfile(fname))
 
-                # Stitch them together
-                if multiconformer_model is None:
-                    multiconformer_model = residue_multiconformer
-                else:
-                    multiconformer_model = multiconformer_model.combine(
-                        residue_multiconformer
-                    )
+            if non_rotameric:
+                self.hetatms = self.hetatms.combine(*non_rotameric)
+            if residue_multiconformers:
+                multiconformer_model = residue_multiconformers[0].combine(
+                    *residue_multiconformers[1:]
+                )
 
             if multiconformer_model is None:
                 raise RuntimeError(f"No usable model built for {residue.shortcode}")
@@ -519,6 +503,105 @@ class QFitProtein:
         fname = self._get_output_model_path(f"{self.pdb}multiconformer_model2")
         multiconformer.tofile(fname, self.structure.crystal_symmetry)
         return multiconformer
+
+# Worker processes are recycled after this many residues, to bound the
+# effect of any memory leak. Each restart costs a few seconds (imports and
+# unpickling the structure), so this should not be too small.
+WORKER_MAX_TASKS = 32
+
+# Per-worker-process state, set by _init_worker.
+_WORKER_STATE = {}
+
+
+def _select_residues_to_run(structure, residue_option=None):
+    """Return the single-conformer residues that qfit_protein will process.
+
+    Args:
+        structure: the input Structure.
+        residue_option: None for all residues, or the --residue string,
+            e.g. "A,105" or "A,105:B".
+    """
+    # Create a list of residues from single conformations of proteinaceous residues.
+    # If we were to loop over all single_conformer_residues, then we end up adding HETATMs in two places
+    #    First as we combine multiconformer_residues into multiconformer_model (because they won't be in ROTAMERS)
+    #    And then as we re-combine HETATMs back into the multiconformer_model.
+    if residue_option is None:
+        return list(
+            structure.extract("record", "HETATM", "!=")
+            .extract("resn", "HOH", "!=")
+            .single_conformer_residues
+        )
+
+    chainid, resi = residue_option.split(",")
+    if ":" in resi:
+        resi, icode = resi.split(":")
+    elif "_" in resi:
+        resi, icode = resi.split("_")
+    else:
+        icode = ""
+    # Extract the residue using attribute-based selection to handle icodes.
+    structure_resi = (
+        structure
+        .extract("chain", chainid, "==")
+        .extract("resi", int(resi), "==")
+    )
+    if icode:
+        structure_resi = structure_resi.extract("icode", icode, "==")
+    return list(
+        structure_resi
+        .extract("resn", "HOH", "!=")
+        .single_conformer_residues
+    )
+
+
+def _anisou_matrix(uij_rows):
+    """Scaled 3x3 U matrix from the first of `uij_rows` (cctbx order
+    u11, u22, u33, u12, u13, u23), or None if the atoms are isotropic or
+    there are no atoms. Matches BaseStructure.extract_anisous()[0]."""
+    if len(uij_rows) == 0 or np.all(uij_rows == -1):
+        return None
+    u = uij_rows[0] * ANISOU_SCALE
+    return np.array([
+        (u[0], u[3], u[4]),
+        (u[3], u[1], u[5]),
+        (u[4], u[5], u[2]),
+    ])
+
+
+def _estimated_sampling_cost(residue):
+    """Sort key approximating how long a residue takes to sample."""
+    info = ROTAMERS.get(residue.resn[0])
+    if info is None:
+        return (0, 0)
+    return (info["nchi"], len(info["rotamers"]))
+
+
+def _init_worker(structure, backbone_coor_dict):
+    """Pool initializer: keep the shared, read-only inputs in the worker."""
+    _WORKER_STATE.clear()
+    _WORKER_STATE["structure"] = structure
+    _WORKER_STATE["backbone_coor_dict"] = backbone_coor_dict
+
+
+def _run_qfit_residue_in_worker(residue_key, xmap, options, logqueue):
+    """Pool job: run qfit on the residue identified by (chain, resi, icode)."""
+    structure = _WORKER_STATE["structure"]
+    residues = _WORKER_STATE.get("residues")
+    if residues is None:
+        residues = {
+            residue.identifier_tuple: residue
+            for residue in _select_residues_to_run(structure, options.residue)
+        }
+        _WORKER_STATE["residues"] = residues
+    return _run_qfit_residue(
+        residue=residues[residue_key],
+        structure=structure,
+        xmap=xmap,
+        options=options,
+        logqueue=logqueue,
+        backbone_coor_dict=_WORKER_STATE["backbone_coor_dict"],
+    )
+
 
 def _run_qfit_residue(residue, structure, xmap, options, logqueue,
                       backbone_coor_dict):

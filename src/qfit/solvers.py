@@ -168,44 +168,58 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         self._objective_value = 0
         self.weights = None
 
+    def _gram_matrix(self):
+        """Pairwise inner products of the model densities, ρ_model.T ρ_model."""
+        if getattr(self, "_gram", None) is None:
+            self._gram = self.models @ self.models.T
+        return self._gram
+
     def find_redundant_conformers(self, threshold=1e-6):
-        """Find redundant conformers using vectorized distance calculations.
-        
-        Two conformers are redundant if their model density vectors have
-        L2 norm difference less than threshold.
-        
-        Optimized using set operations and efficient numpy comparisons.
+        """Find redundant conformers.
+
+        Conformer j is redundant if an earlier, non-redundant conformer i < j
+        has a model density vector within L2 distance `threshold` of it.
+
+        Squared distances are obtained from the Gram matrix,
+            ||m_i - m_j||^2 = G_ii + G_jj - 2 G_ij,
+        which costs O(n^2) once G is known (G is needed for the QP anyway).
+        Because that expression suffers from cancellation, it is only used as
+        a generous prefilter; every candidate pair is confirmed exactly.
         """
-        redundant_set = set()
         threshold_sq = threshold * threshold
-        
-        for i in range(self.nconformers):
-            if i in redundant_set:
+        n = self.nconformers
+        self.valid_indices = []
+        self.redundant_indices = []
+        if n == 0:
+            return
+
+        gram = self._gram_matrix()
+        sq_norms = np.diag(gram).copy()
+        # Candidate pairs (i < j), computed in row blocks to bound memory.
+        candidates = [None] * n
+        block = 1024
+        for start in range(0, n, block):
+            rows = slice(start, min(start + block, n))
+            norm_sum = sq_norms[rows, None] + sq_norms[None, :]
+            dist_sq = norm_sum - 2 * gram[rows]
+            close = dist_sq <= threshold_sq + 1e-8 * norm_sum
+            for offset, row in enumerate(close):
+                i = start + offset
+                candidates[i] = np.flatnonzero(row[i + 1:]) + i + 1
+
+        redundant = np.zeros(n, dtype=bool)
+        for i in range(n):
+            if redundant[i]:
                 continue
             self.valid_indices.append(i)
-            
-            # Vectorized comparison with all remaining conformers
-            remaining_indices = np.arange(i + 1, self.nconformers)
-            if len(remaining_indices) == 0:
-                continue
-                
-            # Filter out already-known redundant indices
-            mask = np.array([j not in redundant_set for j in remaining_indices])
-            candidates = remaining_indices[mask]
-            
-            if len(candidates) == 0:
-                continue
-            
-            # Compute squared distances efficiently
-            diff = self.models[candidates] - self.models[i]
-            dist_sq = np.einsum('ij,ij->i', diff, diff)
-            
-            # Find redundant conformers
-            redundant_mask = dist_sq < threshold_sq
-            new_redundant = candidates[redundant_mask]
-            redundant_set.update(new_redundant)
-        
-        self.redundant_indices = list(redundant_set)
+            for j in candidates[i]:
+                if redundant[j]:
+                    continue
+                diff = self.models[j] - self.models[i]
+                if diff @ diff < threshold_sq:
+                    redundant[j] = True
+
+        self.redundant_indices = np.flatnonzero(redundant).tolist()
         assert len(self.valid_indices) + len(self.redundant_indices) == self.nconformers
 
     def compute_quadratic_coeffs(self):
@@ -214,21 +228,13 @@ class CVXPYSolver(QPSolver, MIQPSolver):
         #         q = self.lin_obj  = - ρ_model.T ρ_obs
         # note that ρ_model is the transpose of self.models
         self.find_redundant_conformers()
-        self.quad_obj = (
-            self.models[self.valid_indices] @ self.models[self.valid_indices].T
-        )
-        self.lin_obj = -1 * self.models[self.valid_indices] @ self.target
+        valid = np.asarray(self.valid_indices, dtype=int)
+        self.quad_obj = self._gram_matrix()[np.ix_(valid, valid)]
+        self.lin_obj = -1 * self.models[valid] @ self.target
 
     def construct_weights(self):
-        self.weights = []
-        j = 0
-        for i in range(self.nconformers):
-            if i in self.redundant_indices:
-                self.weights.append(0)
-            else:
-                self.weights.append(self._weights[j])
-                j += 1
-        self.weights = np.array(self.weights)
+        self.weights = np.zeros(self.nconformers)
+        self.weights[self.valid_indices] = self._weights
         self.objective_value = self._objective_value
         assert len(self.weights) == self.nconformers
 

@@ -5,7 +5,7 @@ from scitbx.array_family import flex
 import iotbx.pdb.hierarchy
 import numpy as np
 
-from .base_structure import BaseMonomer
+from .base_structure import BaseMonomer, _as_numpy_index
 from .math import *
 from .rotamers import ROTAMERS
 
@@ -95,7 +95,8 @@ class Residue(BaseMonomer):
         Given a list of atom names, return the corresponding selection
         as a flex.size_t array
         """
-        atom_i_seqs = {self._atoms[i].name.strip():i for i in self._selection}
+        atom_i_seqs = {self._atoms[i].name.strip(): i
+                       for i in self._numpy_selection.tolist()}
         sel = []
         for atom_name in atom_names:
             if atom_name in atom_i_seqs:
@@ -126,10 +127,14 @@ class RotamerResidue(Residue):
         super().__init__(*args, **kwargs)
         self._residue_info = ROTAMERS[self.resname]
         self.nchi = self._residue_info["nchi"]
-        self.rotamers = self._residue_info["rotamers"]
+        # Copy, so that callers appending to this list (e.g. the deposited
+        # chi angles during sampling) do not modify the shared ROTAMERS library.
+        self.rotamers = list(self._residue_info["rotamers"])
         self.nrotamers = len(self.rotamers)
-        self._init_clash_detection()
-        #self.i = 0
+        # Clash detection arrays are built lazily on first use: residues are
+        # instantiated for every residue whenever a hierarchy is walked, but
+        # only the residue being sampled ever checks for clashes.
+        self._ndistances = None
 
     def get_residue_info(self, key):
         return self._residue_info[key]
@@ -147,41 +152,49 @@ class RotamerResidue(Residue):
         return expected_atoms[missing_sel]
 
     def _init_clash_detection(self, scaling_factor=0.75, covalent_bonds=None):
-        # Setup the condensed distance based arrays for clash detection and fill them
-        self._ndistances = self.natoms * (self.natoms - 1) // 2
-        self._clash_mask = np.ones(self._ndistances, bool)
-        self._clash_radius2 = np.zeros(self._ndistances, float)
-        radii = self.covalent_radius
-        bonds = self._residue_info["bonds"]
-        if covalent_bonds:
-            for bond in covalent_bonds:
-                bonds.append(bond)
-        offset = self.natoms * (self.natoms - 1) // 2
-        for i in range(self.natoms - 1):
-            # starting_index = int(offset - sp_comb(self.natoms - i, 2)) - i - 1
-            natoms_left = self.natoms - i
-            starting_index = offset - natoms_left * (natoms_left - 1) // 2 - i - 1
-            name1 = self.name[i]
-            covrad1 = radii[i]
-            for j in range(i + 1, self.natoms):
-                bond1 = [name1, self.name[j]]
-                bond2 = bond1[::-1]
-                covrad2 = radii[j]
-                index = starting_index + j
-                self._clash_radius2[index] = covrad1 + covrad2 + 0.4
-                if bond1 in bonds or bond2 in bonds:
-                    self._clash_mask[index] = False
-
-        self._clash_radius2 *= self._clash_radius2
-        self._clash_radius2 *= scaling_factor
-        self._clashing = np.zeros(self._ndistances, bool)
-        self._dist2_matrix = np.empty(self._ndistances, float)
-
+        self._build_clash_arrays(scaling_factor, covalent_bonds)
         # All atoms are active from the start
         self.set_active()
+
+    def _ensure_clash_detection(self):
+        # Lazy initialization; unlike _init_clash_detection this must not
+        # reset the active flags, which callers may already have set.
+        if self._ndistances is None:
+            self._build_clash_arrays()
+
+    def _build_clash_arrays(self, scaling_factor=0.75, covalent_bonds=None):
+        # Setup the condensed distance based arrays for clash detection.
+        # Pairs (i, j) with i < j are stored in row-major order, i.e. the
+        # same ordering as scipy.spatial.distance.pdist.
+        natoms = self.natoms
+        self._ndistances = natoms * (natoms - 1) // 2
+        self._clash_i, self._clash_j = np.triu_indices(natoms, k=1)
+        radii = self.covalent_radius
+        clash_radius = radii[self._clash_i] + radii[self._clash_j] + 0.4
+        self._clash_radius2 = clash_radius * clash_radius * scaling_factor
+
+        bonds = list(self._residue_info["bonds"])
+        if covalent_bonds:
+            bonds.extend(covalent_bonds)
+        atom_indices = {}
+        for index, name in enumerate(self.name):
+            atom_indices.setdefault(name, []).append(index)
+        self._clash_mask = np.ones(self._ndistances, bool)
+        for name1, name2 in bonds:
+            for a in atom_indices.get(name1, ()):
+                for b in atom_indices.get(name2, ()):
+                    if a == b:
+                        continue
+                    i, j = min(a, b), max(a, b)
+                    index = natoms * i - i * (i + 1) // 2 + j - i - 1
+                    self._clash_mask[index] = False
+
+        self._clashing = np.zeros(self._ndistances, bool)
+        self._dist2_matrix = np.empty(self._ndistances, float)
         self._active_mask = np.ones(self._ndistances, bool)
 
     def update_clash_mask(self):
+        self._ensure_clash_detection()
         offset = self.natoms * (self.natoms - 1) // 2 - 1
         for i, active in enumerate(self.active[:-1]):
             natoms_left = self.natoms - i
@@ -194,16 +207,11 @@ class RotamerResidue(Residue):
         Deactivated atoms are not taken into account.
         """
 
+        self._ensure_clash_detection()
         dm = self._dist2_matrix
         coor = self.coor
-        dot = np.dot
-        k = 0
-        for i in range(self.natoms - 1):
-            u = coor[i]
-            for j in range(i + 1, self.natoms):
-                u_v = u - coor[j]
-                dm[k] = dot(u_v, u_v)
-                k += 1
+        diff = coor[self._clash_i] - coor[self._clash_j]
+        np.einsum("ij,ij->i", diff, diff, out=dm)
 
         np.less_equal(dm, self._clash_radius2, self._clashing)
         self._clashing &= self._clash_mask
@@ -213,14 +221,13 @@ class RotamerResidue(Residue):
 
     def get_chi(self, chi_index) -> float:
         atoms = self._residue_info["chi"][chi_index]
-        selection = self.select("name", atoms)
-        ordered_sel = []
-        for atom in atoms:
-            for i_seq in selection:
-                if atom == self._atoms[int(i_seq)].name.strip():
-                    ordered_sel.append(i_seq)
-                    break
-        coor = self._atoms.extract_xyz().as_numpy_array()[ordered_sel]
+        selection = np.asarray(
+            _as_numpy_index(self.select("name", atoms)), dtype=int).tolist()
+        names = [self._atoms[i_seq].name.strip() for i_seq in selection]
+        # First matching atom for each name, in the order of the chi definition
+        ordered_sel = [selection[names.index(atom)]
+                       for atom in atoms if atom in names]
+        coor = self.get_xyz(ordered_sel)
         angle = dihedral_angle(coor)
         return angle
 
@@ -229,7 +236,7 @@ class RotamerResidue(Residue):
         selection = self.select("name", atoms)
 
         # Translate coordinates to center on coor[1]
-        coor = self._atoms.extract_xyz().as_numpy_array()[selection]
+        coor = self.get_xyz(selection)
         origin = coor[1].copy()
         coor -= origin
 
@@ -253,7 +260,7 @@ class RotamerResidue(Residue):
         R = forward @ rotation @ backward
 
         # Apply transformation
-        coor_to_rotate = self._atoms.extract_xyz().as_numpy_array()[selection]
+        coor_to_rotate = self.get_xyz(selection)
         coor_to_rotate -= origin
         coor_to_rotate = np.dot(coor_to_rotate, R.T)
         coor_to_rotate += origin

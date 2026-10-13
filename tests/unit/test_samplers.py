@@ -143,3 +143,49 @@ class TestSamplers(UnitBase):
         bar(10)
         res_orig = s_orig.chains[0].conformers[0].segments[0].residues[1]
         assert res_orig.rmsd(res) == pytest.approx(0.39955, abs=0.00001)
+
+
+def _reference_backbone_rotate(rotator, torsions):
+    """Previous BackboneRotator.__call__: read/write the structure per torsion."""
+    from qfit.structure.math import Rz
+    torsions = np.deg2rad(np.asarray(torsions)[::-1])
+    segment = rotator.segment
+    segment.coor = rotator._starting_coor
+    iterator = zip(torsions, rotator._origins, rotator._aligners,
+                   rotator._atoms_to_rotate)
+    for torsion, origin, aligner, atoms_to_rotate in iterator:
+        if torsion == 0.0:
+            continue
+        coor = segment.get_xyz(atoms_to_rotate)
+        coor -= origin
+        R = aligner.forward_rotation @ Rz(torsion) @ aligner.backward_rotation
+        coor = np.dot(coor, R.T)
+        coor += origin
+        segment.set_xyz(coor, atoms_to_rotate)
+    return segment.coor
+
+
+class TestBackboneRotatorEquivalence(UnitBase):
+
+    def test_matches_reference(self):
+        for pdb_name in ("GNNAFNS_single.pdb", "AKA_single.pdb"):
+            s = Structure.fromfile(op.join(self.DATA, pdb_name)).reorder()
+            seg = s.chains[0].conformers[0].segments[0]
+            # A sub-segment, so that segment positions differ from i_seq
+            sub = seg[1:len(seg)] if len(seg) > 3 else seg
+            rotator = BackboneRotator(sub)
+            rng = np.random.default_rng(0)
+            for _ in range(5):
+                torsions = rng.uniform(-30, 30, rotator.ndofs)
+                torsions[rng.integers(rotator.ndofs)] = 0.0
+                rotator(torsions)
+                new = sub.coor
+                ref = _reference_backbone_rotate(rotator, torsions)
+                assert np.array_equal(new, ref)
+            # Atoms outside the segment are never moved
+            rest = s.extract(np.setdiff1d(np.arange(s.natoms),
+                                          sub._numpy_selection))
+            original = Structure.fromfile(op.join(self.DATA, pdb_name)).reorder()
+            rest_orig = original.extract(np.setdiff1d(np.arange(original.natoms),
+                                                      sub._numpy_selection))
+            assert np.array_equal(rest.coor, rest_orig.coor)

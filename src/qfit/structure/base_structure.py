@@ -28,6 +28,38 @@ def _as_size_t(selection):
     return flex.size_t(selection)
 
 
+def _flex_items(array):
+    """
+    Return the elements of a flex array (e.g. of atoms) as a list.
+
+    Flex arrays do not define __iter__, so `for x in array` (and indexing a
+    numpy array with a flex array) falls back on the legacy sequence protocol,
+    which ends by raising a C++ IndexError.  Translating that exception costs
+    0.04-0.6 ms per loop regardless of the array size, which dominated the
+    runtime of hot paths.  Indexed access avoids the exception.
+    """
+    return [array[i] for i in range(array.size())]
+
+
+def _as_vec3_double(values):
+    """
+    Convert an (n, 3) array of coordinates to flex.vec3_double.  Going via
+    flex.double is ~100x faster than flex.vec3_double(numpy_array), which
+    converts element by element, and gives identical values.
+    """
+    if isinstance(values, flex.vec3_double):
+        return values
+    values = np.ascontiguousarray(values, dtype=np.float64)
+    return flex.vec3_double(flex.double(values.reshape(-1)))
+
+
+def _as_numpy_index(selection):
+    """Convert a flex selection to a numpy array suitable for indexing."""
+    if isinstance(selection, (flex.size_t, flex.bool)):
+        return selection.as_numpy_array()
+    return selection
+
+
 class BaseStructure(ABC):
     _COMPARISON_DICT = {"==": eq, "!=": eq, ">": gt, ">=": ge, "<=": le, "<": lt}
 
@@ -103,6 +135,11 @@ class BaseStructure(ABC):
     def selection(self):
         return self._selection
 
+    @property
+    def _numpy_selection(self):
+        """The selection as a numpy array, for indexing numpy arrays."""
+        return _as_numpy_index(self._selection)
+
     def get_selected_atoms(self, selection=None):
         if selection is None:
             selection = self._selection
@@ -151,12 +188,14 @@ class BaseStructure(ABC):
         kwargs["atoms"] = self._atoms
         return self.__class__(self._pdb_hierarchy, **kwargs)
 
-    def combine(self, other):
+    def combine(self, *others):
         """
-        Combines two structures into one and returns the result (of the same
-        type as 'self').
+        Combines this structure with one or more others, in order, and returns
+        the result (of the same type as 'self').  Combining several structures
+        in one call is much cheaper than chaining calls, since every call
+        rebuilds the hierarchy of the accumulated result.
         """
-        pdb_in = load_combined_atoms(self.atoms, other.atoms)
+        pdb_in = load_combined_atoms(self.atoms, *[o.atoms for o in others])
         pdb_hierarchy = get_pdb_hierarchy(pdb_in)
         return self.__class__(pdb_hierarchy,
                               crystal_symmetry=self.crystal_symmetry)
@@ -311,7 +350,7 @@ class BaseStructure(ABC):
         atoms.set_occ(values)
 
     def set_xyz(self, values, selection=None):
-        self.get_selected_atoms(selection).set_xyz(flex.vec3_double(values))
+        self.get_selected_atoms(selection).set_xyz(_as_vec3_double(values))
 
     def get_xyz(self, selection):
         return self.get_selected_atoms(selection).extract_xyz().as_numpy_array()
@@ -321,19 +360,20 @@ class BaseStructure(ABC):
         return np.array(self._atoms[i_seq].xyz)
 
     def set_altloc(self, value, selection=None):
-        for atom in self.get_selected_atoms(selection):
+        for atom in _flex_items(self.get_selected_atoms(selection)):
             atom.parent().altloc = value
 
     def get_name(self, selection):
-        return np.array([a.name.strip() for a in self.get_selected_atoms(selection)])
+        return np.array([a.name.strip()
+                         for a in _flex_items(self.get_selected_atoms(selection))])
 
     @property
     def name(self):
-        return np.array([a.name.strip() for a in self.atoms])
+        return np.array([a.name.strip() for a in _flex_items(self.atoms)])
 
     @name.setter
     def name(self, value):
-        for atom in self.atoms:
+        for atom in _flex_items(self.atoms):
             atom.name = value
 
     @property
@@ -343,7 +383,7 @@ class BaseStructure(ABC):
     @b.setter
     def b(self, value):
         if isinstance(value, (int, float)):
-            for atom in self.atoms:
+            for atom in _flex_items(self.atoms):
                 atom.b = value
         else:
             b_values = flex.double(value)
@@ -356,7 +396,7 @@ class BaseStructure(ABC):
     @q.setter
     def q(self, value):
         if isinstance(value, (int, float)):
-            for atom in self.atoms:
+            for atom in _flex_items(self.atoms):
                 atom.occ = value
         else:
             return self.set_occupancies(value)
@@ -367,60 +407,62 @@ class BaseStructure(ABC):
 
     @coor.setter
     def coor(self, value):
-        return self.atoms.set_xyz(flex.vec3_double(value))
+        return self.atoms.set_xyz(_as_vec3_double(value))
 
     @property
     def resn(self):
-        return np.array([a.parent().resname.strip() for a in self.atoms])
+        return np.array([a.parent().resname.strip() for a in _flex_items(self.atoms)])
 
     @property
     def resi(self):
-        return np.array([a.parent().parent().resseq_as_int() for a in self.atoms])
+        return np.array([a.parent().parent().resseq_as_int()
+                         for a in _flex_items(self.atoms)])
 
     @property
     def icode(self):
-        return np.array([a.parent().parent().icode.strip() for a in self.atoms])
+        return np.array([a.parent().parent().icode.strip()
+                         for a in _flex_items(self.atoms)])
 
     @property
     def e(self):
-        return np.array(self.atoms.extract_element().strip())
+        return np.array(_flex_items(self.atoms.extract_element().strip()))
 
     @property
     def charge(self):
-        return np.array([a.charge.strip() for a in self.atoms])
+        return np.array([a.charge.strip() for a in _flex_items(self.atoms)])
 
     @property
     def chain(self):
-        return np.array([a.chain().id.strip() for a in self.atoms])
+        return np.array([a.chain().id.strip() for a in _flex_items(self.atoms)])
 
     @property
     def altloc(self):
-        return np.array([a.parent().altloc.strip() for a in self.atoms])
+        return np.array([a.parent().altloc.strip() for a in _flex_items(self.atoms)])
 
     @altloc.setter
     def altloc(self, value):
         if isinstance(value, str):
             value = [value for x in range(self.natoms)]
-        for i, atom in enumerate(self.atoms):
+        for i, atom in enumerate(_flex_items(self.atoms)):
             atom.parent().altloc = value[i]
 
     @property
     def atomid(self):
-        return np.array(self.atoms.extract_serial())
+        return np.array(_flex_items(self.atoms.extract_serial()))
 
     # FIXME this needs to be handled differently
     @property
     def record(self):
         def _rec_type(atom):
             return "HETATM" if atom.hetero else "ATOM"
-        return np.array([_rec_type(a) for a in self.atoms])
+        return np.array([_rec_type(a) for a in _flex_items(self.atoms)])
 
     @property
     def active(self):
         if self._selection is None:
             return self._active_flag.copy()
         else:
-            return self._active_flag[self._selection].copy()
+            return self._active_flag[self._numpy_selection].copy()
 
     @active.setter
     def active(self, value):
@@ -432,16 +474,14 @@ class BaseStructure(ABC):
     def set_active(self, selection=None, value=True):
         if selection is None:
             self._active_flag[:] = value
-        elif isinstance(value, bool):
-            self._active_flag[selection] = value
-        else:  # assume a list or array
-            self._active_flag[selection] = value
+        else:
+            self._active_flag[_as_numpy_index(selection)] = value
 
     def extract_anisous(self):
         uij = self.atoms.extract_uij()
         if uij.as_double().all_eq(-1):
             raise AttributeError("Atoms are not anisotropic")
-        scaled_uij = np.array(self.atoms.extract_uij()) * ANISOU_SCALE
+        scaled_uij = np.array(_flex_items(uij)) * ANISOU_SCALE
         return np.array([(
             (uij[0], uij[3], uij[4]),
             (uij[3], uij[1], uij[5]),
