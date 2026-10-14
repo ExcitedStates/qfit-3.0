@@ -194,13 +194,14 @@ class RotamerResidue(Residue):
         self._active_mask = np.ones(self._ndistances, bool)
 
     def update_clash_mask(self):
+        """Only check pairs of atoms that are both active.
+
+        Must be called after changing the active atoms.
+        """
         self._ensure_clash_detection()
-        offset = self.natoms * (self.natoms - 1) // 2 - 1
-        for i, active in enumerate(self.active[:-1]):
-            natoms_left = self.natoms - i
-            starting_index = offset - natoms_left * (natoms_left - 1) // 2 - i
-            end = starting_index + self.natoms - i + 1
-            self._active_mask[starting_index:end] = active
+        active = self.active
+        np.logical_and(active[self._clash_i], active[self._clash_j],
+                       out=self._active_mask)
 
     def clashes(self) -> int:
         """Checks if there are any internal clashes.

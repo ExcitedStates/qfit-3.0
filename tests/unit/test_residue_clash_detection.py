@@ -141,6 +141,48 @@ class TestResidueClashDetection(UnitBase):
         residue.update_clash_mask()
         assert residue.clashes() == _reference_clashes(residue) < n_all
 
+    def test_clash_mask_checks_only_active_pairs(self):
+        _, residues = self._load_residues()
+        rng = np.random.default_rng(1)
+        for residue in residues:
+            n = residue.natoms
+            for _ in range(5):
+                active = rng.random(n) < 0.6
+                residue.clear_active()
+                residue.set_active(residue._numpy_selection[active], True)
+                residue.update_clash_mask()
+                i, j = np.triu_indices(n, k=1)
+                assert np.array_equal(residue._active_mask, active[i] & active[j])
+            residue.active = True
+            residue.update_clash_mask()
+            assert residue._active_mask.all()
+
+    def test_inactive_atoms_do_not_clash(self):
+        # Move one inactive atom onto an active one: no clash. Then move an
+        # active atom onto another active one: clash.
+        _, residues = self._load_residues()
+        residue = max(residues, key=lambda r: r.natoms)
+        names = list(residue.name)
+        start = residue.coor
+        residue.clear_active()
+        residue.set_active(residue.select("name", ("N", "CA", "C", "O", "CB")))
+        residue.update_clash_mask()
+        assert residue.clashes() == 0
+
+        inactive = next(k for k, a in enumerate(residue.active) if not a)
+        coor = start.copy()
+        coor[inactive] = coor[names.index("N")]
+        residue.coor = coor
+        assert residue.clashes() == 0
+
+        coor = start.copy()
+        coor[names.index("CB")] = coor[names.index("O")]  # not bonded
+        residue.coor = coor
+        assert residue.clashes() > 0
+        residue.coor = start
+        residue.active = True
+        residue.update_clash_mask()
+
     def test_lazy_init_preserves_active_flags(self):
         # Atoms deactivated before the first clash query must stay inactive.
         _, residues = self._load_residues()
