@@ -390,9 +390,10 @@ class _BaseQFit(ABC):
         segment=None, terminal=True
     ):
         """Solve MIQP for conformer selection.
-        
-        Optimized with early termination when BIC starts increasing and
-        reuse of solver object across threshold iterations.
+
+        With BIC selection, every threshold in loop_range is solved and the
+        solution with the lowest BIC is kept. The quadratic coefficients are
+        computed once and the solver object is reused across thresholds.
         """
         # set loop range differently for EM
         if self.options.em:
@@ -650,12 +651,12 @@ class _BaseQFit(ABC):
         if not hasattr(self, "_cd"):
             raise NotImplementedError("Clash detector needs initialization")
         else:
-            self._cd()
+            return self._cd()
 
     def is_clashing(self):
-        return ((self.options.external_clash and
-                 (self.detect_clashes() or self.primary_entity.clashes() > 0)) or
-                (self.primary_entity.clashes() > 0))
+        if self.primary_entity.clashes() > 0:
+            return True
+        return bool(self.options.external_clash and self.detect_clashes())
 
     def is_same_rotamer(self, rotamer, chis):
         # Check if the residue configuration corresponds to the
@@ -813,6 +814,111 @@ def _is_new_conformer_unique(new_coor, existing_coor_set, cutoff=DEFAULT_RMSD_CU
     return np.all(rmsds >= cutoff)
 
 
+class _UniqueCoordinateSet:
+    """Accumulates conformer coordinates, rejecting near-duplicates.
+
+    add() is equivalent to checking _is_new_conformer_unique(coor, coor_list)
+    and appending on success, but the accepted coordinates are also kept in a
+    preallocated array, so a check does not re-stack the whole list (which
+    made side chain sampling quadratic in the number of conformers).
+    """
+
+    def __init__(self, cutoff=DEFAULT_RMSD_CUTOFF):
+        self.cutoff = cutoff
+        self.coor_list = []
+        self._stacked = None
+
+    def __len__(self):
+        return len(self.coor_list)
+
+    def add(self, coor):
+        """Add coor unless it is within cutoff RMSD of an accepted one.
+
+        Returns:
+            bool: whether coor was added.
+        """
+        n = len(self.coor_list)
+        if self._stacked is not None and self._stacked.shape[1:] != coor.shape:
+            self._stacked = None  # atom counts differ; use the generic check
+        if n and self._stacked is None:
+            if not _is_new_conformer_unique(coor, self.coor_list, self.cutoff):
+                return False
+        elif n:
+            delta = self._stacked[:n] - coor
+            rmsds = np.sqrt((delta ** 2).sum(axis=(1, 2)) / coor.shape[0])
+            if not np.all(rmsds >= self.cutoff):
+                return False
+        self.coor_list.append(coor)
+        if n == 0:
+            self._stacked = np.empty((64,) + coor.shape)
+        elif self._stacked is None:
+            return True
+        elif n == len(self._stacked):
+            self._stacked = np.concatenate(
+                [self._stacked, np.empty_like(self._stacked)])
+        self._stacked[n] = coor
+        return True
+
+
+FRAGMENT_RMSD_CUTOFF = 0.05
+
+
+def _build_unique_fragments(fragment_multiconformer, rmsd_cutoff=FRAGMENT_RMSD_CUTOFF):
+    """Combine alternate conformers of consecutive residues into fragments.
+
+    Every combination (one conformer per residue, in itertools.product order)
+    is considered; a combination is dropped if its coordinates are within
+    `rmsd_cutoff` of an already accepted one. Backbone occupancies are set to
+    0 and side chain occupancies to 1 (see Structure.set_backbone_occ).
+
+    Args:
+        fragment_multiconformer: sequence (one entry per residue) of sequences
+            of alternate conformers (Structure objects).
+    Returns:
+        list of Structure: the unique fragments.
+    """
+    # set_backbone_occ() copies the structure, so do it once per conformer
+    # rather than once per combination.
+    conformers = [[conf.set_backbone_occ() for conf in residue_confs]
+                  for residue_confs in fragment_multiconformer]
+    coors = [[conf.coor for conf in residue_confs] for residue_confs in conformers]
+
+    accepted = []  # (combination, coordinates)
+    # Stacked coordinates of the accepted fragments, for a vectorized RMSD.
+    # Set to None (and RMSDs computed pairwise) if atom counts ever differ.
+    stacked = None
+    for combination in itertools.product(*[range(len(c)) for c in conformers]):
+        coor = np.concatenate(
+            [coors[k][idx] for k, idx in enumerate(combination)])
+        n = len(accepted)
+        if stacked is not None and stacked.shape[1:] == coor.shape:
+            rmsds = np.sqrt(np.mean((stacked[:n] - coor) ** 2, axis=(1, 2)))
+            is_duplicate = bool(np.any(rmsds < rmsd_cutoff))
+        else:
+            is_duplicate = any(calc_rmsd(coor, other) < rmsd_cutoff
+                               for _, other in accepted)
+        if is_duplicate:
+            continue
+        accepted.append((combination, coor))
+        if n == 0:
+            stacked = np.empty((16,) + coor.shape)
+        elif stacked is None or stacked.shape[1:] != coor.shape:
+            stacked = None
+            continue
+        elif n == len(stacked):
+            stacked = np.concatenate([stacked, np.empty_like(stacked)])
+        stacked[n] = coor
+
+    fragments = []
+    for combination, _ in accepted:
+        elements = [conformers[k][idx] for k, idx in enumerate(combination)]
+        if len(elements) == 1:
+            fragments.append(elements[0])
+        else:
+            fragments.append(elements[0].combine(*elements[1:]))
+    return fragments
+
+
 class QFitRotamericResidue(_BaseQFit):
     def __init__(self, residue, structure, xmap, options):
         super().__init__(residue, structure, xmap, options)
@@ -830,10 +936,11 @@ class QFitRotamericResidue(_BaseQFit):
         # Ensure clash detection matrix is filled.
         self.residue._init_clash_detection(self.options.clash_scaling_factor)
 
-        # Get the segment that the residue belongs to
+        # Get the segment that the residue belongs to. Only the residue's own
+        # chain needs to be searched.
         self.segment = None
-        for segment in self.structure.segments:
-            if segment.chain[0] == self.chain and self.residue in segment:
+        for segment in self._iter_chain_segments():
+            if self.residue in segment:
                 index = segment.find(self.residue.id)
                 if (len(segment[index].name) == len(self.residue.name)) and (
                     segment[index].altloc[-1] == self.residue.altloc[-1]
@@ -855,12 +962,23 @@ class QFitRotamericResidue(_BaseQFit):
                 )
 
         # Set up the clash detector, exclude the bonded interaction of the N and
-        # C atom of the residue
-        if len(self.structure.record) != len(self.residue.record): #if residue == structure, then we do not need clash detector
+        # C atom of the residue. It is only consulted with --external-clash,
+        # and is not needed if the residue is the whole structure.
+        if options.external_clash and self.structure.natoms != self.residue.natoms:
             self._setup_clash_detector()
+        else:
+            self._cd = lambda: False
         if options.subtract:
             self._subtract_transformer(self.residue, self.structure)
         self._update_transformer(self.residue)
+
+    def _iter_chain_segments(self):
+        for chain in self.structure.chains:
+            if chain.id.strip() != self.chain:
+                continue
+            for conformer in chain.conformers:
+                for segment in conformer.segments:
+                    yield segment
 
     def _rebuild_if_necessary(self):
         # Check if residue has complete heavy atoms. If not, complete it.
@@ -1017,10 +1135,17 @@ class QFitRotamericResidue(_BaseQFit):
         self._update_conformers()
         self._save_intermediate(prefix="miqp_solution")
 
-        # Now that the conformers have been generated, the resulting
-        # conformations should be examined via GoodnessOfFit:
+        # Goodness-of-fit metrics are diagnostic only (nothing downstream reads
+        # them) and are expensive, so they are only computed in debug mode.
+        if self.options.debug:
+            self._write_validation_metrics()
+        # End of processing
+
+    def _write_validation_metrics(self):
+        os.makedirs(self.directory_name, exist_ok=True)
         validator = Validator(
-            self.xmap, self.xmap.resolution, self.options.directory, em=self.options.em, transformer=self.options.transformer
+            self.xmap, self.xmap.resolution, self.directory_name,
+            em=self.options.em, transformer=self.options.transformer
         )
 
         if self.xmap.resolution.high < 3.0:
@@ -1031,7 +1156,6 @@ class QFitRotamericResidue(_BaseQFit):
         self.validation_metrics = validator.GoodnessOfFit(
             self.conformer, self._coor_set, self._occupancies, cutoff
         )
-        # End of processing
 
     def _sample_backbone(self):
         # Check if residue has enough neighboring residues
@@ -1224,10 +1348,11 @@ class QFitRotamericResidue(_BaseQFit):
         else:
             sampling_window = [0]
 
-        rotamers = self.residue.rotamers
-        rotamers.append(
+        # Library rotamers plus the deposited conformation. Build a new list so
+        # the shared rotamer library is never modified.
+        rotamers = list(self.residue.rotamers) + [
             [self.residue.get_chi(i) for i in range(1, self.residue.nchi + 1)]
-        )
+        ]
         iteration = 0
         logger.info("Sampling rotamers for residue %s", self.residue)
         while True:
@@ -1257,7 +1382,8 @@ class QFitRotamericResidue(_BaseQFit):
                 active = self.residue.active
 
                 logger.info(f"Sampling chi: {chi_index} ({self.residue.nchi})")
-                new_coor_set = []
+                unique_coor_set = _UniqueCoordinateSet(DEFAULT_RMSD_CUTOFF)
+                new_coor_set = unique_coor_set.coor_list
                 new_bs = []
                 n = 0
                 ex = 0
@@ -1294,9 +1420,7 @@ class QFitRotamericResidue(_BaseQFit):
                             # based on all-atom sterics (if the user wanted that)
                             # Based on that, decide whether to keep or reject this (partial) conformer
                             if not self.is_clashing():
-                                # Use optimized RMSD check
-                                if _is_new_conformer_unique(self.residue.coor, new_coor_set, DEFAULT_RMSD_CUTOFF):
-                                    new_coor_set.append(self.residue.coor)
+                                if unique_coor_set.add(self.residue.coor):
                                     new_bs.append(b)
                                 else:
                                     ex += 1
@@ -1455,6 +1579,9 @@ class QFitSegment(_BaseQFit):
         multiconformers = Structure.fromstructurelike(
             self.segment.extract("altloc", "Z")
         )
+        # Pieces of the output model, in order. They are combined once at the
+        # end, because each combine() rebuilds the hierarchy of the result.
+        parts = []
         segment = []
 
         # Construct progress iterator
@@ -1470,7 +1597,7 @@ class QFitSegment(_BaseQFit):
         # Iterate over all residue groups
         for rg in residue_groups_pbar:
             if rg.resn[0] not in ROTAMERS:
-                multiconformers = multiconformers.combine(rg)
+                parts.append(rg)
                 continue
             altlocs = np.unique(rg.altloc)
             naltlocs = len(altlocs)
@@ -1506,30 +1633,27 @@ class QFitSegment(_BaseQFit):
 
             # Check to see if the residue has a single conformer:
             if naltlocs == 1:
-                print(f"Found single conformer for {self.segment}")
+                logger.debug(f"Found single conformer for {rg}")
                 # Process the existing segment
                 if len(segment):
-                    for path in self.find_paths(segment): #find_paths= combination of conformers in a fragment (default = 4 residues)
-                        multiconformers = multiconformers.combine(path)
-                print(multiconformers.natoms)
+                    # find_paths = combination of conformers in a fragment (default = 4 residues)
+                    parts.extend(self.find_paths(segment))
                 segment = []
                 # Set the occupancy of all atoms of the residue to 1
                 rg.q = np.ones_like(rg.q)
                 # Add the single conformer residue to the
                 # existing multiconformer:
-                multiconformers = multiconformers.combine(rg)
-                print(f"Final {multiconformers.natoms}")
+                parts.append(rg)
 
             # Check if we need to collapse the backbone
             elif is_single_calpha and is_single_oxygen:
                 # Process the existing segment
                 if len(segment) > 0:
-                    for path in self.find_paths(segment):
-                        multiconformers = multiconformers.combine(path)
+                    parts.extend(self.find_paths(segment))
                 segment = []
                 collapsed = input_conformers[:]
                 for multi in collapsed:
-                    multiconformers = multiconformers.combine(
+                    parts.append(
                         multi.collapse_backbone(multi.resi[0], multi.chain[0])
                     )
 
@@ -1538,13 +1662,13 @@ class QFitSegment(_BaseQFit):
 
         # Teardown progress bar
         residue_groups_pbar.close()
-        print(f"Now {multiconformers.natoms}")
 
         if len(segment) > 0:
             logger.debug(f"Running find_paths for segment of length {len(segment)}")
-            for path in self.find_paths(segment):
-                print(f"combining {path}")
-                multiconformers = multiconformers.combine(path)
+            parts.extend(self.find_paths(segment))
+
+        if parts:
+            multiconformers = multiconformers.combine(*parts)
 
         logger.info(
             f"Average number of conformers after qfit_segment run: "
@@ -1586,19 +1710,7 @@ class QFitSegment(_BaseQFit):
             fragment_multiconformers = [segment[i : i + fl] for i in range(0, n, fl)]
             segment = []
             for fragment_multiconformer in fragment_multiconformers:
-                fragments = []
-                # Create all combinations of alternate residue conformers
-                for fragment_conformer in itertools.product(*fragment_multiconformer):
-                    fragment = fragment_conformer[0].set_backbone_occ()
-                    for element in fragment_conformer[1:]:
-                        fragment = fragment.combine(element.set_backbone_occ())
-                    combine = True
-                    for fragment2 in fragments:
-                        if calc_rmsd(fragment.coor, fragment2.coor) < 0.05:
-                            combine = False
-                            break
-                    if combine:
-                        fragments.append(fragment)
+                fragments = _build_unique_fragments(fragment_multiconformer)
 
                 # We have the fragments, select consistent optimal set
                 self._update_transformer(fragments[0])

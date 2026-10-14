@@ -4,6 +4,7 @@ import os.path
 import numpy as np
 import copy
 
+from .structure.base_structure import _as_numpy_index
 from .structure.math import Rz, Ry, gram_schmidt_orthonormal_zx
 
 
@@ -39,10 +40,23 @@ class BackboneRotator(_BaseSampler):
             atoms_to_rotate = []
             if self._atoms_to_rotate:
                 atoms_to_rotate = np.concatenate((self._atoms_to_rotate))
-            atoms_to_rotate = np.concatenate((atoms_to_rotate, selection)).astype(
-                np.int32
-            )
+            atoms_to_rotate = np.concatenate(
+                (atoms_to_rotate, _as_numpy_index(selection))).astype(np.int32)
             self._atoms_to_rotate.append(np.unique(atoms_to_rotate))
+
+        # The rotations are applied to a numpy copy of the segment
+        # coordinates, so map the atom indices (i_seq) to positions in
+        # segment.coor.
+        segment_selection = segment._numpy_selection
+        if segment_selection is None:
+            self._positions_to_rotate = self._atoms_to_rotate
+        else:
+            position = {i_seq: k
+                        for k, i_seq in enumerate(segment_selection.tolist())}
+            self._positions_to_rotate = [
+                np.array([position[i_seq] for i_seq in atoms.tolist()], dtype=int)
+                for atoms in self._atoms_to_rotate
+            ]
 
     def __call__(self, torsions):
         assert len(torsions) == self.ndofs, \
@@ -51,18 +65,21 @@ class BackboneRotator(_BaseSampler):
         # We start with the last torsion as this is more efficient
         torsions = np.deg2rad(torsions[::-1])
 
-        self.segment.coor = self._starting_coor
-        atoms_to_rotate = []
-        iterator = zip(torsions, self._origins, self._aligners, self._atoms_to_rotate)
-        for torsion, origin, aligner, atoms_to_rotate in iterator:
+        # Rotate a copy of the coordinates and write the segment once, rather
+        # than reading and writing the structure for every torsion.
+        segment_coor = self._starting_coor.copy()
+        iterator = zip(torsions, self._origins, self._aligners,
+                       self._positions_to_rotate)
+        for torsion, origin, aligner, positions in iterator:
             if torsion == 0.0:
                 continue
-            coor = self.segment.get_xyz(atoms_to_rotate)
+            coor = segment_coor[positions]
             coor -= origin
             R = aligner.forward_rotation @ Rz(torsion) @ aligner.backward_rotation
             coor = np.dot(coor, R.T)
             coor += origin
-            self.segment.set_xyz(coor, atoms_to_rotate)
+            segment_coor[positions] = coor
+        self.segment.coor = segment_coor
 
 
 class Translator(_BaseSampler):

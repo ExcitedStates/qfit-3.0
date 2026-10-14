@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import scitbx.matrix
 
@@ -33,7 +35,7 @@ def Rz(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about z.
     """
-    return get_rotation_around_vector([0,0,1], theta)
+    return _rotation_around_unit_axis(0.0, 0.0, 1.0, theta)
 
 
 def Ry(theta):
@@ -45,7 +47,7 @@ def Ry(theta):
     Returns:
          np.ndarray[float]: A 3x3 rotation matrix for rotation about y.
     """
-    return get_rotation_around_vector([0,1,0], theta)
+    return _rotation_around_unit_axis(0.0, 1.0, 0.0, theta)
 
 
 def get_rotation_around_vector(vector, theta):
@@ -61,6 +63,28 @@ def get_rotation_around_vector(vector, theta):
     axis = scitbx.matrix.col(tuple(vector))
     rot_mat = axis.axis_and_angle_as_r3_rotation_matrix(theta, deg=False)
     return np.array(rot_mat).reshape((3,3))
+
+
+def _rotation_around_unit_axis(u, v, w, theta):
+    """Rotation matrix about the unit axis (u, v, w).
+
+    This performs exactly the same floating-point operations as
+    scitbx.matrix.col((u, v, w)).axis_and_angle_as_r3_rotation_matrix(theta)
+    (axis-angle to unit quaternion to matrix), so results are identical, but
+    without the overhead of building scitbx.matrix objects (~10x faster).
+    The axis must already be normalized, e.g. a coordinate axis.
+    """
+    if not theta % (2 * math.pi):
+        q0, q1, q2, q3 = 1, 0, 0, 0
+    else:
+        h = theta * 0.5
+        c, s = math.cos(h), math.sin(h)
+        q0, q1, q2, q3 = c, u * s, v * s, w * s
+    return np.array((
+        (2*(q0*q0+q1*q1)-1, 2*(q1*q2-q0*q3),   2*(q1*q3+q0*q2)),
+        (2*(q1*q2+q0*q3),   2*(q0*q0+q2*q2)-1, 2*(q2*q3-q0*q1)),
+        (2*(q1*q3-q0*q2),   2*(q2*q3+q0*q1),   2*(q0*q0+q3*q3)-1),
+    ), dtype=np.float64)
 
 
 def dihedral_angle(coor):

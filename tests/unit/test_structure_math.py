@@ -82,3 +82,17 @@ class TestStructureMath(unittest.TestCase):
             [[0.61876973, 0.78542739, 0.01509452],
              [-0.43646415,  0.32774904,  0.83790191],
              [-0.65316389,  0.52505655, -0.54561209]])
+
+def test_axis_rotations_identical_to_scitbx():
+    """Rz/Ry use a fast path that must match scitbx exactly."""
+    import math
+    from qfit.structure.math import Rz, Ry, get_rotation_around_vector
+    rng = np.random.default_rng(0)
+    angles = list(rng.uniform(-10, 10, 2000)) + [
+        0.0, math.pi, 2 * math.pi, -2 * math.pi, 4 * math.pi, 1e-300,
+        np.float64(0.3)]
+    for angle in angles:
+        assert np.array_equal(Rz(angle),
+                              get_rotation_around_vector([0, 0, 1], angle))
+        assert np.array_equal(Ry(angle),
+                              get_rotation_around_vector([0, 1, 0], angle))

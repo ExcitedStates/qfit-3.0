@@ -52,7 +52,7 @@ class Relabeller:
         for chain in self.structure:
             for residue in chain:
                 resInd = []
-                for altloc in list(set(residue.altloc)):
+                for altloc in sorted(set(residue.altloc)):
                     if altloc != "":
                         self.nodes.append(residue.extract("altloc", altloc))
                         resInd.append(node)
@@ -147,6 +147,9 @@ class Relabeller:
         energyList.append(np.sum(energies))
         logger.debug(f"Starting energy: {energyList[-1]}")
 
+        # Occupancies do not change during annealing; read them once.
+        min_occupancy = [np.min(node.q) for node in self.nodes]
+
         for i in tqdm.trange(
             self.nSims,
             unit="sims",
@@ -156,8 +159,9 @@ class Relabeller:
             miniters=1,
         ):
             temperature = 273 * (1 - i / self.nSims)
-            # Perturb the current solution:
-            tmpPerm = copy.deepcopy(permutation)
+            # Perturb the current solution (a list of lists of ints, so
+            # copying the inner lists is a full copy):
+            tmpPerm = [list(elems) for elems in permutation]
             # Choose five random indices of residues to swap:
             for x in self.prng.integers(len(tmpPerm), size=5):
                 # If the residue has a single conformer:
@@ -170,8 +174,8 @@ class Relabeller:
                         break
                     if len(tmpPerm[l_index]) != len(tmpPerm[x]):
                         break
-                    occ1 = np.min(self.nodes[tmpPerm[l_index][0]].q)
-                    occ2 = np.min(self.nodes[tmpPerm[x][0]].q)
+                    occ1 = min_occupancy[tmpPerm[l_index][0]]
+                    occ2 = min_occupancy[tmpPerm[x][0]]
                     if occ1 != occ2 or occ1 > 0.95:
                         break
                     l_index -= 1
@@ -182,8 +186,8 @@ class Relabeller:
                         break
                     if len(tmpPerm[u_index]) != len(tmpPerm[x]):
                         break
-                    occ1 = np.min(self.nodes[tmpPerm[u_index][-1]].q)
-                    occ2 = np.min(self.nodes[tmpPerm[x][-1]].q)
+                    occ1 = min_occupancy[tmpPerm[u_index][-1]]
+                    occ2 = min_occupancy[tmpPerm[x][-1]]
                     if occ1 != occ2 or occ1 > 0.95:
                         break
                     u_index += 1
@@ -214,7 +218,7 @@ class Relabeller:
             ):
                 energies = tmpEnergies[:]
                 clusters = tmpCluster[:]
-                permutation = copy.deepcopy(tmpPerm)
+                permutation = [list(elems) for elems in tmpPerm]
                 energyList.append(np.sum(energies))
 
         logger.debug(f"Final locally optimal energy: {energyList[-1]}")
@@ -241,7 +245,7 @@ class Relabeller:
         for chain in self.structure:
             for residue in chain:
                 tmpAltlocs = copy.deepcopy(residue.altloc)
-                for altloc in list(set(residue.altloc)):
+                for altloc in sorted(set(residue.altloc)):
                     if altloc == "":
                         continue
                     Idx = perm[minIdx][res].index(node)
