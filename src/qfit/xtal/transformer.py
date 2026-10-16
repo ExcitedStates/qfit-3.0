@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 import logging
 
 import numpy as np
-from cctbx import maptbx, masks, miller
+from cctbx import adptbx, maptbx, masks, miller
 from cctbx.sgtbx import space_group_info
 from cctbx.uctbx import unit_cell
 from cctbx.xray import structure_factors
@@ -340,12 +340,15 @@ class Transformer(_BaseTransformer):
         if not xrs:
             xrs, _ = self._get_xray_structure_in_box()
         n_real = self.xmap.n_real()
-        u_base = xray_ext.calc_u_base(
-            d_min=self.xmap.resolution.high,
-            grid_resolution_factor=0.25)
-        # XXX this is an internal method used by the CCTBX map coefficient
-        # function, which recycles the map through an FFT (very computationally
-        # expensive).
+        # Use a negligible u_base rather than the value from calc_u_base().
+        # calc_u_base() returns ~4 A^2 extra B at 2A resolution, intended to
+        # prevent FFT aliasing in the two-FFT structure factor workflow where it
+        # is corrected by eliminate_u_extra_and_normalize() after the FFT.
+        # Since we use the density directly without that correction, calc_u_base()
+        # would artificially blur all atoms.  A near-zero value avoids this while
+        # still handling B=0 atoms (which cause divide-by-zero in the constant
+        # scattering term with u_base=0 exactly).
+        u_base = adptbx.b_as_u(0.01)  # B_extra = 0.01 A^2, negligible
         sampled_density = xray_ext.sampled_model_density(
             unit_cell=xrs.unit_cell(),
             scatterers=xrs.scatterers(),
